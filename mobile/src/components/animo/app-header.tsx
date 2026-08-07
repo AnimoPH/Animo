@@ -1,0 +1,89 @@
+import { Image } from 'expo-image';
+import { Bell } from 'lucide-react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+
+import { AnimoText } from '@/components/animo/animo-text';
+import { AnimoColors, AnimoSpacing } from '@/constants/animo';
+
+export type AppHeaderProps = {
+  /** Optional larger screen title shown under the brand row. */
+  title?: string;
+  onPressBell?: () => void;
+};
+
+/**
+ * Top app header used inside the tab modules: the "🌾 Animo" brand lockup with
+ * a notification bell, and an optional big screen title below it.
+ */
+export function AppHeader({ title, onPressBell }: AppHeaderProps) {
+  return (
+    <View style={styles.wrapper}>
+      <View style={styles.row}>
+        <View style={styles.brand}>
+          <View style={styles.badge}>
+            <Image
+              source={require('@/assets/images/animo/icon-green.png')}
+              style={styles.logo}
+              contentFit="contain"
+            />
+          </View>
+          <AnimoText variant="h1" color={AnimoColors.green}>
+            Animo
+          </AnimoText>
+        </View>
+
+        <Pressable onPress={onPressBell} hitSlop={8} style={styles.bell} accessibilityLabel="Mga abiso">
+          <Bell size={20} color={AnimoColors.black} />
+        </Pressable>
+      </View>
+
+      {title ? (
+        <AnimoText variant="display" color={AnimoColors.black} style={styles.title}>
+          {title}
+        </AnimoText>
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrapper: {
+    paddingHorizontal: AnimoSpacing.xl,
+    paddingTop: AnimoSpacing.sm,
+    gap: AnimoSpacing.md,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AnimoSpacing.sm,
+  },
+  badge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: AnimoColors.greenTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: {
+    width: 28,
+    height: 28,
+  },
+  bell: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: AnimoColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    marginTop: AnimoSpacing.xs,
+  },
+});
