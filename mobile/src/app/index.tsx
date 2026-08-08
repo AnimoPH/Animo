@@ -1,98 +1,92 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
+import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { AnimoText } from '@/components/animo/animo-text';
+import { AnimoColors, AnimoSpacing } from '@/constants/animo';
+import { useOnboarding } from '@/hooks/use-onboarding';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+/**
+ * Landing / splash screen.
+ *
+ * Full-bleed brand green with the Animo logo and tagline. Tapping continues to
+ * the right place: first-run users go to role selection + registration;
+ * returning users go to the app (login lands here once it's built).
+ */
+export default function LandingScreen() {
+  const { hasRegistered } = useOnboarding();
 
-export default function HomeScreen() {
+  const handleContinue = () => {
+    // Still loading persisted state — ignore taps until we know.
+    if (hasRegistered === null) return;
+
+    if (hasRegistered) {
+      // Returning user — sign in with phone + OTP.
+      router.replace('/login');
+    } else {
+      router.push('/onboarding/role');
+    }
+  };
+
   return (
-    <ThemedView style={styles.container}>
+    <Pressable style={styles.pressable} onPress={handleContinue}>
+      <StatusBar style="light" />
       <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
+        <View style={styles.center}>
+          <View style={styles.logoBadge}>
+            <Image
+              source={require('@/assets/images/animo/icon-green.png')}
+              style={styles.logo}
+              contentFit="contain"
+            />
+          </View>
+          <AnimoText variant="display" color={AnimoColors.white} style={styles.title}>
+            Animo
+          </AnimoText>
+          <AnimoText variant="body" color={AnimoColors.white} style={styles.tagline}>
+            Para sa Makatarungang Palengke{'\n'}at Pagbangon ng Bukid
+          </AnimoText>
+        </View>
       </SafeAreaView>
-    </ThemedView>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  pressable: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    backgroundColor: AnimoColors.green,
   },
   safeArea: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
   },
-  heroSection: {
+  center: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    paddingHorizontal: AnimoSpacing.xl,
+  },
+  logoBadge: {
+    width: 128,
+    height: 128,
+    borderRadius: 28,
+    backgroundColor: AnimoColors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: AnimoSpacing.xl,
+  },
+  logo: {
+    width: 88,
+    height: 88,
   },
   title: {
     textAlign: 'center',
+    marginBottom: AnimoSpacing.sm,
   },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  tagline: {
+    textAlign: 'center',
+    opacity: 0.92,
   },
 });
