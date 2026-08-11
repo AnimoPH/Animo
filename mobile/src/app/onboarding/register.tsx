@@ -1,7 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ChevronLeft } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -15,15 +16,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { LabeledInput } from '@/components/animo/labeled-input';
-import { OtpVerification, DEMO_OTP } from '@/components/animo/otp-verification';
+import { OtpVerification } from '@/components/animo/otp-verification';
 import { ProfileForm, type ProfileValues, isProfileComplete } from '@/components/animo/profile-form';
 import { StepIndicator, type Step } from '@/components/animo/step-indicator';
 import { AnimoColors, AnimoSpacing } from '@/constants/animo';
-import { getRole, type RoleId } from '@/constants/roles';
-import { useOnboarding } from '@/hooks/use-onboarding';
+import { getRole, homeRouteForRole, type RoleId } from '@/constants/roles';
+import { completeRegistration, sendOtp, verifyOtp } from '@/services/auth-service';
+import { useSession } from '@/hooks/use-session';
+import type { CompleteRegistrationInput } from '@/types/auth';
 
 const STEPS: Step[] = [{ label: 'Numero' }, { label: 'OTP' }, { label: 'Profile' }];
 const OTP_LENGTH = 6;
+/** Survives app restarts between OTP verification and profile submission. */
+const PENDING_ROLE_KEY = 'animo.registration.pendingRole';
 
 const emptyProfile: ProfileValues = {
   fullName: '',
@@ -35,26 +40,74 @@ const emptyProfile: ProfileValues = {
   experience: null,
   household: null,
   stormDamage: null,
+  businessName: '',
 };
 
+function buildRegistrationInput(role: RoleId, profile: ProfileValues): CompleteRegistrationInput {
+  if (role === 'magsasaka') {
+    return {
+      role,
+      fullName: profile.fullName,
+      age: profile.age,
+      gender: profile.gender!,
+      municipality: profile.municipality!,
+      barangay: profile.barangay!,
+      farmSize: profile.farmSize!,
+      experience: profile.experience!,
+      household: profile.household!,
+      stormDamage: profile.stormDamage!,
+    };
+  }
+  return {
+    role,
+    fullName: profile.fullName,
+    age: profile.age,
+    gender: profile.gender!,
+    businessName: profile.businessName,
+  };
+}
+
 /**
- * Registration wizard: Numero (phone) → OTP → Profile.
+ * Registration wizard: Numero (phone) → OTP → Profile, backed by real
+ * Supabase Auth phone OTP + the `complete-registration` Edge Function.
  *
- * Frontend only — no SMS is sent. The OTP demo code is `123456`; anything else
- * shows the error state. On completion the user is sent to the Login screen.
+ * Resumable: if the app closes between OTP verification and profile submit,
+ * `index.tsx` sends the user back here with `?resume=1` — the phone/OTP
+ * steps are skipped since the Supabase session already exists, and the
+ * chosen role is recovered from `PENDING_ROLE_KEY`.
  */
 export default function RegisterScreen() {
-  const params = useLocalSearchParams<{ role?: RoleId }>();
-  const role = getRole(params.role);
-  const isFarmer = role?.id === 'magsasaka';
-  const { completeRegistration } = useOnboarding();
+  const params = useLocalSearchParams<{ role?: RoleId; resume?: string }>();
+  const isResuming = params.resume === '1';
+  const { refresh } = useSession();
 
-  const [step, setStep] = useState(0);
+  const [roleId, setRoleId] = useState<RoleId | null>(params.role ?? null);
+  const role = getRole(roleId ?? undefined);
+  const isFarmer = role?.id === 'magsasaka';
+
+  const [step, setStep] = useState(isResuming ? 2 : 0);
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState(false);
+  const [otpErrorMessage, setOtpErrorMessage] = useState<string | undefined>();
+  const [phoneError, setPhoneError] = useState<string | undefined>();
   const [profile, setProfile] = useState<ProfileValues>(emptyProfile);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (params.role) {
+      AsyncStorage.setItem(PENDING_ROLE_KEY, params.role);
+    } else if (isResuming) {
+      AsyncStorage.getItem(PENDING_ROLE_KEY).then((stored) => {
+        if (stored) {
+          setRoleId(stored as RoleId);
+        } else {
+          // Lost track of the chosen role — restart cleanly rather than guess.
+          router.replace('/onboarding/role');
+        }
+      });
+    }
+  }, [params.role, isResuming]);
 
   const phoneValid = phone.replace(/\D/g, '').length === 10;
   const otpFilled = otp.length === OTP_LENGTH;
@@ -70,7 +123,16 @@ export default function RegisterScreen() {
 
   const handlePrimary = async () => {
     if (step === 0) {
-      setStep(1);
+      setSubmitting(true);
+      setPhoneError(undefined);
+      try {
+        await sendOtp(phone, { isRegistration: true });
+        setStep(1);
+      } catch (err) {
+        setPhoneError(err instanceof Error ? err.message : 'Hindi mapadala ang OTP.');
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
 
@@ -79,21 +141,36 @@ export default function RegisterScreen() {
       if (otpError) {
         setOtp('');
         setOtpError(false);
+        setOtpErrorMessage(undefined);
         return;
       }
-      if (otp === DEMO_OTP) {
+      setSubmitting(true);
+      try {
+        await verifyOtp(phone, otp);
         setStep(2);
-      } else {
+      } catch (err) {
         setOtpError(true);
+        setOtpErrorMessage(err instanceof Error ? err.message : undefined);
+      } finally {
+        setSubmitting(false);
       }
       return;
     }
 
-    // Final step — mark registration done (storing the chosen role), then show
-    // the login screen so the user signs in with the number they registered.
+    // Final step — create the profile + custodial wallet server-side, then
+    // go straight to Home. No second login screen; the session already
+    // exists from OTP verification.
+    if (!roleId) return;
     setSubmitting(true);
-    await completeRegistration(role?.id ?? 'mamimili');
-    router.replace('/login');
+    try {
+      await completeRegistration(buildRegistrationInput(roleId, profile));
+      await AsyncStorage.removeItem(PENDING_ROLE_KEY);
+      await refresh();
+      router.replace(homeRouteForRole(roleId));
+    } catch (err) {
+      setPhoneError(err instanceof Error ? err.message : 'Hindi na-save ang profile.');
+      setSubmitting(false);
+    }
   };
 
   const primaryLabel =
@@ -135,7 +212,9 @@ export default function RegisterScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          {step === 0 && <StepNumero phone={phone} onChangePhone={setPhone} />}
+          {step === 0 && (
+            <StepNumero phone={phone} onChangePhone={setPhone} errorMessage={phoneError} />
+          )}
 
           {step === 1 && (
             <OtpVerification
@@ -143,17 +222,24 @@ export default function RegisterScreen() {
               value={otp}
               onChange={(v) => {
                 setOtp(v);
-                if (otpError) setOtpError(false);
+                if (otpError) {
+                  setOtpError(false);
+                  setOtpErrorMessage(undefined);
+                }
               }}
               error={otpError}
+              errorMessage={otpErrorMessage}
               onChangeNumber={() => {
                 setOtp('');
                 setOtpError(false);
+                setOtpErrorMessage(undefined);
                 setStep(0);
               }}
               onResend={() => {
                 setOtp('');
                 setOtpError(false);
+                setOtpErrorMessage(undefined);
+                sendOtp(phone, { isRegistration: true }).catch(() => {});
               }}
             />
           )}
@@ -182,9 +268,14 @@ export default function RegisterScreen() {
               .
             </AnimoText>
           )}
-          {step > 0 && (
+          {step > 0 && step < 2 && (
             <AnimoText variant="caption" color={AnimoColors.muted} style={styles.terms}>
               Hindi natanggap ang SMS? Suriin ang signal o humiling ng bagong OTP.
+            </AnimoText>
+          )}
+          {step === 2 && phoneError && (
+            <AnimoText variant="caption" color={AnimoColors.danger} style={styles.terms}>
+              {phoneError}
             </AnimoText>
           )}
           <AnimoButton
@@ -204,9 +295,11 @@ export default function RegisterScreen() {
 function StepNumero({
   phone,
   onChangePhone,
+  errorMessage,
 }: {
   phone: string;
   onChangePhone: (v: string) => void;
+  errorMessage?: string;
 }) {
   return (
     <View style={styles.stepBody}>
@@ -238,6 +331,11 @@ function StepNumero({
           </View>
         }
       />
+      {errorMessage && (
+        <AnimoText variant="body" color={AnimoColors.danger}>
+          {errorMessage}
+        </AnimoText>
+      )}
     </View>
   );
 }
