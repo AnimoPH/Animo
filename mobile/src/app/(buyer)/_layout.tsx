@@ -18,6 +18,12 @@ const BUYER_TABS: TabItem[] = [
  */
 const PALENGKE_FULLSCREEN = ['[id]', 'bid'];
 
+/**
+ * Transaction sub-screens that own their own bottom action button, so the tab
+ * bar steps aside. Only the history list keeps it.
+ */
+const TRANSAKSYON_FULLSCREEN = ['[id]'];
+
 export default function BuyerLayout() {
   return (
     <Tabs
@@ -32,7 +38,18 @@ export default function BuyerLayout() {
           return { tabBarStyle: PALENGKE_FULLSCREEN.includes(focused) ? { display: 'none' } : undefined };
         }}
       />
-      <Tabs.Screen name="transaksyon" />
+      <Tabs.Screen
+        name="transaksyon"
+        options={({ route }) => {
+          // Hide the tab bar on a request's status + payment flow.
+          const focused = getFocusedRouteNameFromRoute(route) ?? 'index';
+          return {
+            tabBarStyle: TRANSAKSYON_FULLSCREEN.includes(focused)
+              ? { display: 'none' }
+              : undefined,
+          };
+        }}
+      />
       <Tabs.Screen name="profile" />
     </Tabs>
   );
