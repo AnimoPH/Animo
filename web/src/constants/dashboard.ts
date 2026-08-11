@@ -71,7 +71,8 @@ export type VolatilityTier = 'clamped' | 'fallback';
 
 export type VolatilityRow = {
   listingId: string;
-  barangay: string;
+  /** Palay variety on the listing, matching the marketplace varieties. */
+  variety: string;
   priceFrom: string;
   priceTo: string;
   tier: VolatilityTier;
@@ -82,7 +83,7 @@ export type VolatilityRow = {
 export const VOLATILITY_LOG: VolatilityRow[] = [
   {
     listingId: 'LST-2091',
-    barangay: 'Brgy. San Jose',
+    variety: 'Palay RC160',
     priceFrom: '₱17.80',
     priceTo: '₱16.90',
     tier: 'clamped',
@@ -91,7 +92,7 @@ export const VOLATILITY_LOG: VolatilityRow[] = [
   },
   {
     listingId: 'LST-2087',
-    barangay: 'Brgy. Concepcion',
+    variety: 'Palay NSIC Rc222',
     priceFrom: '₱19.20',
     priceTo: '₱17.05',
     tier: 'clamped',
@@ -100,7 +101,7 @@ export const VOLATILITY_LOG: VolatilityRow[] = [
   },
   {
     listingId: 'LST-2074',
-    barangay: 'Brgy. Tibag',
+    variety: 'Palay RC 638 SR',
     priceFrom: '₱21.50',
     priceTo: '₱16.40',
     tier: 'fallback',
@@ -109,7 +110,7 @@ export const VOLATILITY_LOG: VolatilityRow[] = [
   },
   {
     listingId: 'LST-2069',
-    barangay: 'Brgy. Pagala',
+    variety: 'Palay RC 216',
     priceFrom: '₱13.10',
     priceTo: '₱16.40',
     tier: 'fallback',
@@ -118,7 +119,7 @@ export const VOLATILITY_LOG: VolatilityRow[] = [
   },
   {
     listingId: 'LST-2063',
-    barangay: 'Brgy. Sta. Cruz',
+    variety: 'Palay RC160',
     priceFrom: '₱18.40',
     priceTo: '₱16.95',
     tier: 'clamped',

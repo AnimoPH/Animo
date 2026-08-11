@@ -1,4 +1,4 @@
-import { CalendarDays, Check, Clock, Users } from 'lucide-react';
+import { CalendarDays, Clock, Users } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
 import {
@@ -102,13 +102,6 @@ function AdvisoryRow({ item }: { item: BarangayAdvisory }) {
           />
           {item.barangay}
         </span>
-        <span
-          style={{
-            ...styles.statusBadge,
-            ...(isActive ? styles.statusActive : styles.statusDone),
-          }}>
-          {isActive ? 'Aktibo' : 'Natapos'}
-        </span>
       </div>
 
       <div style={styles.advisoryHeadline}>{item.advisory}</div>
@@ -117,10 +110,6 @@ function AdvisoryRow({ item }: { item: BarangayAdvisory }) {
         <span style={styles.metaItem}>
           <Clock size={14} color="var(--animo-muted)" />
           {item.issued}
-        </span>
-        <span style={styles.metaItem}>
-          <Check size={14} color="var(--animo-green)" />
-          {item.delivered}/{item.total} naipadala
         </span>
         <span style={styles.metaItem}>
           <Users size={14} color="var(--animo-muted)" />
@@ -219,22 +208,6 @@ const styles: Record<string, React.CSSProperties> = {
     height: 9,
     borderRadius: '50%',
     flexShrink: 0,
-  },
-  statusBadge: {
-    padding: '3px 10px',
-    borderRadius: 'var(--animo-radius-pill)',
-    fontSize: 11,
-    fontWeight: 600,
-    whiteSpace: 'nowrap',
-  },
-  statusActive: {
-    background: 'var(--animo-white)',
-    color: 'var(--animo-green)',
-    border: '1px solid var(--animo-green)',
-  },
-  statusDone: {
-    background: 'var(--animo-surface)',
-    color: 'var(--animo-black-secondary)',
   },
   advisoryHeadline: { fontSize: 13, color: 'var(--animo-black-secondary)' },
   advisoryMeta: {

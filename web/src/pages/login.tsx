@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { AnimoWordmark } from '@/components/animo-mark';
+import { FarmBackdrop } from '@/components/farm-backdrop';
 import { LabeledInput } from '@/components/labeled-input';
 
 export type LoginPageProps = {
@@ -37,6 +38,7 @@ export function LoginPage({ onSignIn }: LoginPageProps) {
   return (
     <div style={styles.page}>
       <aside style={styles.brandPanel}>
+        <FarmBackdrop />
         <div style={styles.brandInner}>
           <AnimoWordmark height={52} />
 
@@ -142,6 +144,8 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'var(--animo-white)',
   },
   brandPanel: {
+    position: 'relative',
+    overflow: 'hidden',
     background: 'var(--animo-green)',
     display: 'flex',
     alignItems: 'center',
@@ -149,6 +153,8 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 48,
   },
   brandInner: {
+    // Sits above the decorative backdrop.
+    position: 'relative',
     display: 'flex',
     flexDirection: 'column',
     gap: 24,

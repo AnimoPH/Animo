@@ -186,7 +186,7 @@ function VolatilityLogCard() {
         <table style={styles.table}>
           <thead>
             <tr>
-              {['Listing ID', 'Barangay', 'Presyo/Kilo', 'Tier', 'Katayuan', 'Petsa'].map(
+              {['Listing ID', 'Uri ng Palay', 'Presyo/Kilo', 'Tier', 'Katayuan', 'Petsa'].map(
                 (heading) => (
                   <th key={heading} style={styles.th}>
                     {heading.toUpperCase()}
@@ -199,7 +199,7 @@ function VolatilityLogCard() {
             {VOLATILITY_LOG.map((row) => (
               <tr key={row.listingId}>
                 <td style={{ ...styles.td, fontWeight: 600 }}>{row.listingId}</td>
-                <td style={styles.td}>{row.barangay}</td>
+                <td style={styles.td}>{row.variety}</td>
                 <td style={styles.td}>
                   {row.priceFrom} → {row.priceTo}
                 </td>
