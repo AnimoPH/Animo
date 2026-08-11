@@ -1,0 +1,157 @@
+/**
+ * Animo LGU Console — global styles.
+ *
+ * The custom properties here mirror `src/constants/animo.ts`. Prefer these
+ * variables over literal hex values so the console stays in step with the
+ * mobile app's design tokens.
+ */
+
+:root {
+  /* Brand */
+  --animo-green: #1a6e1e;
+  --animo-green-dark: #145717;
+  --animo-green-disabled: #8fc291;
+  --animo-green-tint: #eaf4ea;
+
+  /* Text */
+  --animo-black: #121212;
+  --animo-black-secondary: #424242;
+  --animo-muted: #8a8a8a;
+
+  /* Surfaces */
+  --animo-bg: #ffffff;
+  --animo-canvas: #fafafa;
+  --animo-surface: #f4f4f4;
+  --animo-border: #e3e3e3;
+  --animo-white: #ffffff;
+
+  /* Status */
+  --animo-danger: #d64545;
+  --animo-danger-tint: #fbecec;
+  --animo-danger-border: #e9a5a5;
+  --animo-warning: #e08a1e;
+  --animo-warning-tint: #fdf0dc;
+  --animo-warning-border: #f0c98a;
+  --animo-caution: #e5b93c;
+  --animo-caution-tint: #fcf6de;
+
+  /* Radii */
+  --animo-radius-sm: 8px;
+  --animo-radius-md: 12px;
+  --animo-radius-lg: 16px;
+  --animo-radius-pill: 999px;
+
+  --animo-shadow-card: 0 1px 2px rgba(18, 18, 18, 0.04);
+
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  color: var(--animo-black);
+  background-color: var(--animo-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+/* ---------- Shared primitives ---------- */
+
+.animo-card {
+  background: var(--animo-white);
+  border: 1px solid var(--animo-border);
+  border-radius: var(--animo-radius-lg);
+  box-shadow: var(--animo-shadow-card);
+}
+
+/**
+ * Text field. The bordered wrapper owns the focus ring so a leading icon and
+ * a trailing button sit inside the same box as the input itself.
+ */
+.animo-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--animo-border);
+  border-radius: var(--animo-radius-md);
+  background: var(--animo-surface);
+  transition: border-color 120ms ease, background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.animo-field:focus-within {
+  border-color: var(--animo-green);
+  background: var(--animo-white);
+  box-shadow: 0 0 0 3px rgba(26, 110, 30, 0.12);
+}
+
+.animo-field--error {
+  border-color: var(--animo-danger);
+  background: var(--animo-danger-tint);
+}
+
+.animo-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--animo-black);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.animo-field input::placeholder {
+  color: var(--animo-muted);
+}
+
+.animo-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 52px;
+  border: none;
+  border-radius: var(--animo-radius-md);
+  background: var(--animo-green);
+  color: var(--animo-white);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 24px;
+  transition: background-color 120ms ease;
+}
+
+.animo-button:hover {
+  background: var(--animo-green-dark);
+}
+
+.animo-button:disabled {
+  background: var(--animo-green-disabled);
+  cursor: not-allowed;
+}
