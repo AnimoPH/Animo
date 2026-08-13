@@ -27,6 +27,8 @@ export type ProfileValues = {
   experience: string | null;
   household: string | null;
   stormDamage: YesNo | null;
+  /** Mamimili-only — no location field is collected for buyers. */
+  businessName: string;
 };
 
 export type ProfileFormProps = {
@@ -41,7 +43,7 @@ export type ProfileFormProps = {
 export function isProfileComplete(v: ProfileValues, isFarmer: boolean): boolean {
   const personalDone =
     v.fullName.trim().length >= 2 && v.age.trim().length > 0 && v.gender !== null;
-  if (!isFarmer) return personalDone;
+  if (!isFarmer) return personalDone && v.businessName.trim().length >= 2;
 
   return (
     personalDone &&
@@ -105,6 +107,19 @@ export function ProfileForm({ roleTitle, showFarmerFields, values, onChange }: P
           onChange={(g) => set('gender', g)}
         />
       </FormCard>
+
+      {!showFarmerFields && (
+        <FormCard title="Negosyo">
+          <LabeledInput
+            label="Pangalan ng Negosyo o Kooperatiba"
+            placeholder="Hal. Dela Cruz Trading"
+            autoCapitalize="words"
+            value={values.businessName}
+            onChangeText={(t) => set('businessName', t)}
+            hint="Ito ang lalabas sa inyong mga transaksyon bilang mamimili."
+          />
+        </FormCard>
+      )}
 
       {showFarmerFields && (
         <>

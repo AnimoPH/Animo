@@ -6,8 +6,6 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { OtpInput } from '@/components/animo/otp-input';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 
-/** The demo code that "passes" verification (no backend yet). */
-export const DEMO_OTP = '123456';
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 45;
 
@@ -18,6 +16,8 @@ export type OtpVerificationProps = {
   onChange: (value: string) => void;
   /** True while the OTP is in the failed state (red boxes + message). */
   error: boolean;
+  /** Message to show in the error banner — the real error from Supabase. */
+  errorMessage?: string;
   /** Called when the user taps "Baguhin ang Numero". */
   onChangeNumber: () => void;
   /** Called when the user requests a new code (after the timer runs out). */
@@ -39,6 +39,7 @@ export function OtpVerification({
   value,
   onChange,
   error,
+  errorMessage,
   onChangeNumber,
   onResend,
 }: OtpVerificationProps) {
@@ -96,7 +97,7 @@ export function OtpVerification({
         <View style={styles.errorBanner}>
           <CircleAlert size={18} color={AnimoColors.danger} />
           <AnimoText variant="body" color={AnimoColors.danger} style={styles.errorText}>
-            Mali ang OTP. Pakisuring muli o humiling ng bago.
+            {errorMessage ?? 'Mali ang OTP. Pakisuring muli o humiling ng bago.'}
           </AnimoText>
         </View>
       )}
