@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import type { RoleId } from '@/constants/roles';
 import type { Account, CompleteRegistrationInput } from '@/types/auth';
 
 /**
@@ -46,88 +47,88 @@ export async function verifyOtp(phone: string, code: string) {
   return data.session;
 }
 
-type ProfileRow = {
-  id: string;
-  role: Account['role'];
-  full_name: string;
-  wallet_address: string;
-  role_locked_at: string;
-  created_at: string;
-  farmer_profiles: {
-    age: string;
-    gender: 'lalaki' | 'babae';
-    municipality: string;
-    barangay: string;
-    farm_size: string;
-    experience_years: string;
-    household_size: string;
-    storm_damage: boolean;
-  } | null;
-  buyer_profiles: {
-    age: string;
-    gender: 'lalaki' | 'babae';
-    business_name: string;
-  } | null;
+/** DB spells role per the data dictionary; the app only ever knows magsasaka/mamimili. */
+type DbRole = 'Farmer' | 'Buyer' | 'LGU_Official';
+const DB_ROLE_TO_APP: Partial<Record<DbRole, RoleId>> = {
+  Farmer: 'magsasaka',
+  Buyer: 'mamimili',
 };
 
-function mapProfileRow(row: ProfileRow, phone: string): Account {
-  const base = {
-    id: row.id,
-    fullName: row.full_name,
-    phone,
-    walletAddress: row.wallet_address,
-    roleLockedAt: row.role_locked_at,
-    createdAt: row.created_at,
-  };
+type UserRow = {
+  user_id: string;
+  role: DbRole;
+  full_name: string;
+  contact_number: string;
+  account_status: 'Active' | 'Suspended';
+  date_registered: string;
+};
 
-  if (row.role === 'magsasaka') {
-    const farmer = row.farmer_profiles;
-    return {
-      ...base,
-      role: 'magsasaka',
-      age: farmer?.age ?? '',
-      gender: farmer?.gender ?? 'lalaki',
-      municipality: farmer?.municipality ?? '',
-      barangay: farmer?.barangay ?? '',
-      farmSize: farmer?.farm_size ?? '',
-      experience: farmer?.experience_years ?? '',
-      household: farmer?.household_size ?? '',
-      stormDamage: farmer?.storm_damage ? 'oo' : 'hindi',
-    };
+/** Farmer/buyer extension row (§1a/§1b) — wallet_address is null until registration wires up Alchemy. */
+type ExtensionRow = {
+  wallet_address: string | null;
+  gcash_number: string | null;
+  barangay?: string | null;
+};
+
+function mapAccount(user: UserRow, extension: ExtensionRow | null): Account {
+  const role = DB_ROLE_TO_APP[user.role];
+  if (!role) {
+    // This mobile client never creates or expects LGU_Official rows — the
+    // web dashboard for that role is a separate, unbuilt system.
+    throw new Error(`Unsupported role for mobile client: ${user.role}`);
   }
 
-  const buyer = row.buyer_profiles;
   return {
-    ...base,
-    role: 'mamimili',
-    age: buyer?.age ?? '',
-    gender: buyer?.gender ?? 'lalaki',
-    businessName: buyer?.business_name ?? '',
+    id: user.user_id,
+    role,
+    fullName: user.full_name,
+    phone: user.contact_number,
+    barangay: extension?.barangay ?? null,
+    gcashNumber: extension?.gcash_number ?? null,
+    walletAddress: extension?.wallet_address ?? null,
+    accountStatus: user.account_status,
+    dateRegistered: user.date_registered,
   };
 }
 
-/** Returns the caller's profile, or `null` if they've verified OTP but haven't finished registration yet. */
+/** Returns the caller's account, or `null` if they've verified OTP but haven't finished registration yet. */
 export async function fetchMyProfile(): Promise<Account | null> {
   const { data: userData } = await supabase.auth.getUser();
-  const user = userData.user;
-  if (!user) return null;
+  const authUser = userData.user;
+  if (!authUser) return null;
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*, farmer_profiles(*), buyer_profiles(*)')
-    .eq('id', user.id)
+  const { data: user, error } = await supabase
+    .from('user')
+    .select('user_id, role, full_name, contact_number, account_status, date_registered')
+    .eq('user_id', authUser.id)
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) return null;
-  return mapProfileRow(data as ProfileRow, user.phone ?? '');
+  if (!user) return null;
+
+  const row = user as UserRow;
+  const extensionTable = row.role === 'Farmer' ? 'farmer' : row.role === 'Buyer' ? 'buyer' : null;
+  if (!extensionTable) return mapAccount(row, null);
+
+  const columns =
+    extensionTable === 'farmer'
+      ? 'wallet_address, gcash_number, barangay'
+      : 'wallet_address, gcash_number';
+  const { data: extension, error: extensionError } = await supabase
+    .from(extensionTable)
+    .select(columns)
+    .eq('user_id', authUser.id)
+    .maybeSingle();
+
+  if (extensionError) throw extensionError;
+  return mapAccount(row, extension as ExtensionRow | null);
 }
 
 /**
  * Calls the `complete-registration` Edge Function, which — under the service
- * role — creates the `profiles`/`farmer_profiles`|`buyer_profiles` row and
- * generates the custodial Polygon wallet server-side. Rejects if the caller
- * already has a profile (role lock).
+ * role — creates the `user` row + role extension row and generates the
+ * custodial Polygon wallet server-side. Rejects if the caller is already
+ * registered (role lock).
  */
 export async function completeRegistration(input: CompleteRegistrationInput): Promise<Account> {
   const { error } = await supabase.functions.invoke('complete-registration', {

@@ -43,28 +43,19 @@ const emptyProfile: ProfileValues = {
   businessName: '',
 };
 
+/**
+ * Trims the rich `ProfileValues` the form collects down to what `user` +
+ * the farmer/buyer extension row (ANIMO Data Dictionary §1/§1a/§1b) actually
+ * persist — just fullName + barangay (farmer-only). Age/gender/farm
+ * experience/household size/storm damage/business name are still collected
+ * by `ProfileForm` but are no longer sent; see
+ * supabase/functions/complete-registration.
+ */
 function buildRegistrationInput(role: RoleId, profile: ProfileValues): CompleteRegistrationInput {
   if (role === 'magsasaka') {
-    return {
-      role,
-      fullName: profile.fullName,
-      age: profile.age,
-      gender: profile.gender!,
-      municipality: profile.municipality!,
-      barangay: profile.barangay!,
-      farmSize: profile.farmSize!,
-      experience: profile.experience!,
-      household: profile.household!,
-      stormDamage: profile.stormDamage!,
-    };
+    return { role, fullName: profile.fullName, barangay: profile.barangay! };
   }
-  return {
-    role,
-    fullName: profile.fullName,
-    age: profile.age,
-    gender: profile.gender!,
-    businessName: profile.businessName,
-  };
+  return { role, fullName: profile.fullName };
 }
 
 /**

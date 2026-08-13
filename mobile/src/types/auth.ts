@@ -1,70 +1,50 @@
-import type { Gender, YesNo } from '@/components/animo/profile-form';
 import type { RoleId } from '@/constants/roles';
 
 /**
- * Server-side account shape, mirrored from the `profiles` / `farmer_profiles`
- * / `buyer_profiles` tables (see `supabase/migrations/0001_init_auth.sql`).
- * The client only ever reads these — all writes happen inside the
- * `complete-registration` Edge Function under the service role.
+ * Account shape, joined from `user` (ANIMO Data Dictionary §1 USER) plus the
+ * caller's role extension row (§1a FARMER or §1b BUYER) — see
+ * supabase/migrations/0003_full_data_dictionary_schema.sql. The DB stores
+ * role as 'Farmer'/'Buyer'/'LGU_Official' (the dictionary's spelling); this
+ * client only ever deals in 'magsasaka'/'mamimili' — the translation lives
+ * in `auth-service.ts`.
+ *
+ * Fields the dictionary doesn't define on USER/FARMER/BUYER (age, gender,
+ * farm experience/household/storm-damage, business name) are intentionally
+ * not modeled here — see the registration Edge Function for what's actually
+ * persisted. `lgu_verified` was dropped from the schema entirely (Aug 2026)
+ * — it isn't a dictionary field; see the Data Dictionary's Open Items re:
+ * the LGU-verified badge, which remains unsettled.
  */
-export type BaseProfile = {
-  id: string; // auth.users.id
+export type Account = {
+  id: string; // auth.users.id / user.user_id
   role: RoleId;
   fullName: string;
-  /** From auth.users.phone (Supabase Auth), not stored redundantly in `profiles`. */
+  /** From `contact_number` — the phone verified at registration. */
   phone: string;
-  walletAddress: string;
-  roleLockedAt: string; // ISO timestamp — role is immutable from this point on
-  createdAt: string;
+  /** Farmer-only per the dictionary; always null for buyers. */
+  barangay: string | null;
+  gcashNumber: string | null;
+  walletAddress: string | null;
+  accountStatus: 'Active' | 'Suspended';
+  /** ISO date (not datetime) — matches the dictionary's `date_registered`. */
+  dateRegistered: string;
 };
-
-export type FarmerProfile = BaseProfile & {
-  role: 'magsasaka';
-  age: string;
-  gender: Gender;
-  municipality: string;
-  barangay: string;
-  farmSize: string;
-  experience: string;
-  household: string;
-  stormDamage: YesNo;
-};
-
-export type BuyerProfile = BaseProfile & {
-  role: 'mamimili';
-  age: string;
-  gender: Gender;
-  businessName: string;
-};
-
-export type Account = FarmerProfile | BuyerProfile;
 
 /**
  * Registration payload sent to the `complete-registration` Edge Function.
- * Shape matches `ProfileValues` from the registration form, plus the role
- * chosen on the "Sino ka?" screen.
+ * `barangay` is required when `role` is `magsasaka`, omitted for `mamimili`.
  */
 export type CompleteRegistrationInput = {
   role: RoleId;
   fullName: string;
-  age: string;
-  gender: Gender;
-  // Farmer-only fields — omitted for buyers.
-  municipality?: string;
   barangay?: string;
-  farmSize?: string;
-  experience?: string;
-  household?: string;
-  stormDamage?: YesNo;
-  // Buyer-only field — omitted for farmers.
-  businessName?: string;
 };
 
 /**
  * `SessionProvider` status:
  * - `loading` — still hydrating the Supabase session from storage.
  * - `guest` — no active session (never registered, signed out, or expired).
- * - `needs-profile` — phone verified with Supabase Auth, but no `profiles`
+ * - `needs-profile` — phone verified with Supabase Auth, but no `user`
  *   row yet (registration was interrupted after OTP but before profile submit).
  * - `authenticated` — session valid and profile loaded.
  */
