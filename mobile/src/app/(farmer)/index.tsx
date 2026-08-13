@@ -65,7 +65,7 @@ const STATS: StatDefinition[] = [
     icon: ListChecks,
     value: 2,
     label: "Aktibong Listahan",
-    onPress: () => router.push("/(farmer)/listings"),
+    onPress: () => router.push("/(farmer)/palengke"),
   },
   {
     key: "requests",
@@ -114,7 +114,7 @@ export default function FarmerHomeScreen() {
           ))}
         </View>
 
-        <CtaBanner onPress={() => router.push("/(farmer)/listings")} />
+        <CtaBanner onPress={() => router.push("/(farmer)/palengke")} />
 
         <View style={styles.activitySection}>
           <View style={styles.activityHeader}>
