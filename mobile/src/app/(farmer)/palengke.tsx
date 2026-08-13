@@ -14,6 +14,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { ImageSourcePropType } from "react-native";
@@ -107,7 +108,7 @@ export default function FarmerPalengkeScreen() {
         />
 
         <Pressable
-          onPress={() => router.push("/(farmer)/palay-listing")}
+          onPress={() => router.push("/(farmer)/creation-listing")}
           style={[styles.fab, styles.fabShadow]}
           accessibilityLabel="Gumawa ng bagong listing"
         >
@@ -149,7 +150,16 @@ function FilterPill({
 
 function ListingCard({ listing }: { listing: Listing }) {
   return (
-    <View style={[styles.card, styles.shadow]}>
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() =>
+        router.push({
+          pathname: "/(farmer)/listing-detail",
+          params: { id: listing.id },
+        })
+      }
+      style={[styles.card, styles.shadow]}
+    >
       <View style={styles.photoArea}>
         {listing.image ? (
           <Image
@@ -253,7 +263,7 @@ function ListingCard({ listing }: { listing: Listing }) {
           </>
         ) : null}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
