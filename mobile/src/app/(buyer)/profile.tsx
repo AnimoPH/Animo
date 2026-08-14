@@ -10,7 +10,6 @@ import {
   Mail,
   MapPin,
   Phone,
-  ShieldCheck,
   User,
   X,
 } from 'lucide-react-native';
@@ -245,25 +244,6 @@ export default function BuyerProfileScreen() {
                   </AnimoText>
                 </View>
                 <StatusBadge label="Aktibo" tone="success" />
-              </View>
-            </View>
-
-            {/* Cooperative & Membership Card */}
-            <View style={styles.infoCard}>
-              <AnimoText variant="h3" color={AnimoColors.black}>
-                Katayuan sa Kooperatiba
-              </AnimoText>
-
-              <View style={styles.infoRow}>
-                <ShieldCheck size={18} color={AnimoColors.green} />
-                <View style={styles.flex}>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    Coop-Verified Buyer
-                  </AnimoText>
-                  <AnimoText variant="caption" color={AnimoColors.muted}>
-                    Miyembro mula pa noong Hunyo 2024 · LGU Antipolo Partner
-                  </AnimoText>
-                </View>
               </View>
             </View>
           </ScrollView>

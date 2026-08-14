@@ -219,7 +219,7 @@ export default function ReceiptScreen() {
 
         {/* Info Banner */}
         <NoticeBanner tone="info" icon={<FileText size={16} color="#2563A8" />}>
-          Nakaimbak ang resibong ito sa Transaksyon. Maaari mo itong i-download bilang PDF.
+          Nakaimbak ang resibong ito sa Transaksyon. Maaari mo itong i-download bilang JPEG image.
         </NoticeBanner>
       </ScrollView>
 
@@ -230,18 +230,18 @@ export default function ReceiptScreen() {
           onPress={() => router.push(`/(buyer)/transaksyon/${request.id}/review`)}
         />
         <AnimoButton
-          label="I-download ang PDF"
+          label="I-export bilang JPEG"
           variant="secondary"
           onPress={() => setShowDownloadModal(true)}
         />
       </View>
 
-      {/* Download PDF Modal */}
+      {/* Download JPEG Modal */}
       <FeedbackModal
         visible={showDownloadModal}
         tone="success"
-        title="Na-download ang Resibo!"
-        message={`Matagumpay na nai-download ang PDF copy ng resibo (${request.reference}) sa iyong device.`}
+        title="Na-export ang Resibo!"
+        message={`Matagumpay na nai-export at na-download ang JPEG image ng resibo (${request.reference}) sa iyong device.`}
         confirmLabel="OK"
         onConfirm={() => setShowDownloadModal(false)}
       />
