@@ -477,7 +477,7 @@ export default function PickupScreen() {
         tone="success"
         title="Nakumpirma ang Inspeksyon!"
         message={`Nakahanda ka na para sa pagbabayad ng ${formatPeso(total)} kay ${farmer.name}.`}
-        confirmLabel="Magpatuloy sa Bayad"
+        confirmLabel="Kumpirmahin"
         onConfirm={() => {
           setShowInspectionSuccessModal(false);
           router.push(`/(buyer)/transaksyon/${request.id}/bayad`);

@@ -1,4 +1,4 @@
-import { Droplet, MapPin, ShieldCheck } from 'lucide-react-native';
+import { MapPin, Scale, ShieldCheck } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
@@ -12,7 +12,10 @@ export type ListingCardProps = {
   onPress: () => void;
 };
 
-/** A marketplace listing card: photo, name + qty, price, and quick specs. */
+/**
+ * Marketplace listing card: photo, Uri ng Palay, Aktwal na timbang, presyo, at lokasyon.
+ * Moisture and purity are excluded.
+ */
 export function ListingCard({ listing, onPress }: ListingCardProps) {
   return (
     <Pressable
@@ -24,10 +27,7 @@ export function ListingCard({ listing, onPress }: ListingCardProps) {
       <View style={styles.body}>
         <View style={styles.titleRow}>
           <AnimoText variant="h3" color={AnimoColors.black} style={styles.title}>
-            {listing.variety}{' '}
-            <AnimoText variant="body" color={AnimoColors.muted}>
-              ({listing.availableKg} kg)
-            </AnimoText>
+            {listing.variety}
           </AnimoText>
         </View>
 
@@ -50,11 +50,8 @@ export function ListingCard({ listing, onPress }: ListingCardProps) {
         )}
 
         <View style={styles.specs}>
-          <SpecInline icon={<Droplet size={14} color={AnimoColors.blackSecondary} />}>
-            {listing.moisturePct.toFixed(1)}% moisture
-          </SpecInline>
-          <SpecInline icon={<ShieldCheck size={14} color={AnimoColors.blackSecondary} />}>
-            {listing.purityGrade.split(' (')[0]} purity
+          <SpecInline icon={<Scale size={14} color={AnimoColors.green} />}>
+            {listing.availableKg} kg na aktwal na timbang
           </SpecInline>
         </View>
 

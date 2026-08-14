@@ -5,7 +5,7 @@
  * ("Nakatakda ng sistema"), not negotiable — see `Listing.priceLocked`.
  */
 
-export type MunicipalityName = 'Baliwag' | 'Plaridel' | 'Pulilan';
+export type MunicipalityName = 'Antipolo' | 'Teresa' | 'Tanay' | 'Baras';
 
 export type Listing = {
   id: string;
@@ -14,10 +14,10 @@ export type Listing = {
   pricePerKg: number;
   /** System-estimated price flag ("Tinantyang Presyo"). */
   estimated: boolean;
-  moisturePct: number;
-  purityGrade: string; // e.g. "Grade A (95%)"
+  moisturePct?: number;
+  purityGrade?: string;
   municipality: MunicipalityName;
-  province: string; // e.g. "Bulacan"
+  province: string; // "Rizal"
   barangay: string;
   /** Prices are computed by ANIMO and cannot be negotiated. */
   priceLocked: boolean;
@@ -44,7 +44,7 @@ export type Transaction = {
 /**
  * Stages a purchase request moves through in the revised flow, in order:
  *
- * `pending`    — buyer sent bid, waiting for farmer to accept
+ * `pending`    — buyer sent bid/order, waiting for farmer to accept
  * `accepted`   — farmer accepted bid; proceeds directly to pickup & inspection
  * `scheduled`  — pickup + inspection scheduled
  * `inspected`  — palay inspected on the farm, ready for full payment
@@ -157,10 +157,8 @@ export type PurchaseRequest = {
     addressDetail: string;
   };
   inspection?: {
-    /** Summary line, e.g. "14.0% moisture, Grade A, 500 kg". */
     summary: string;
     checks: InspectionCheck[];
-    /** Weight confirmed on the farm; may differ from the listed quantity. */
     actualKg?: number;
   };
   payments: PaymentRecord[];
@@ -210,15 +208,15 @@ export function cancelPolicy(request: PurchaseRequest): CancelPolicy {
     case 'pending':
       return {
         allowed: true,
-        title: 'Kanselahin ang request?',
-        body: 'Hindi pa tinanggap ng magsasaka ang request na ito, kaya wala kang babayaran.',
+        title: 'Kanselahin ang order?',
+        body: 'Hindi pa tinanggap ng magsasaka ang order na ito, kaya wala kang babayaran.',
         consequences: [
           'Walang parusa o bayad sa pagkansela.',
           'Muling ilalista ang palay para sa ibang mamimili.',
-          'Maaari kang magpadala ng bagong request anumang oras.',
+          'Maaari kang bumili muli anumang oras.',
         ],
-        confirmLabel: 'Kanselahin ang Request',
-        triggerLabel: 'Kanselahin ang Request',
+        confirmLabel: 'Kanselahin ang Order',
+        triggerLabel: 'Kanselahin ang Order',
       };
 
     case 'accepted':
@@ -276,8 +274,8 @@ export function cancelPolicy(request: PurchaseRequest): CancelPolicy {
   }
 }
 
-/** Delivery locations a buyer may choose from. */
-export const DELIVERY_LOCATIONS: MunicipalityName[] = ['Baliwag', 'Plaridel', 'Pulilan'];
+/** Locations in Antipolo and Rizal. */
+export const DELIVERY_LOCATIONS: MunicipalityName[] = ['Antipolo', 'Teresa', 'Tanay', 'Baras'];
 
 export const LISTINGS: Listing[] = [
   {
@@ -286,11 +284,9 @@ export const LISTINGS: Listing[] = [
     availableKg: 500,
     pricePerKg: 16.0,
     estimated: true,
-    moisturePct: 14.0,
-    purityGrade: 'Grade A (95%)',
-    municipality: 'Baliwag',
-    province: 'Bulacan',
-    barangay: 'Barangay Sabang',
+    municipality: 'Antipolo',
+    province: 'Rizal',
+    barangay: 'Barangay San Jose',
     priceLocked: true,
   },
   {
@@ -299,11 +295,9 @@ export const LISTINGS: Listing[] = [
     availableKg: 200,
     pricePerKg: 15.5,
     estimated: false,
-    moisturePct: 13.5,
-    purityGrade: 'Grade A (92%)',
-    municipality: 'Plaridel',
-    province: 'Bulacan',
-    barangay: 'Barangay Bintog',
+    municipality: 'Antipolo',
+    province: 'Rizal',
+    barangay: 'Barangay Dela Paz',
     priceLocked: true,
   },
   {
@@ -312,11 +306,9 @@ export const LISTINGS: Listing[] = [
     availableKg: 350,
     pricePerKg: 15.2,
     estimated: false,
-    moisturePct: 13.8,
-    purityGrade: 'Grade A (90%)',
-    municipality: 'Pulilan',
-    province: 'Bulacan',
-    barangay: 'Barangay Dampol',
+    municipality: 'Teresa',
+    province: 'Rizal',
+    barangay: 'Barangay San Roque',
     priceLocked: true,
   },
 ];
@@ -329,8 +321,8 @@ export const TRANSACTIONS: Transaction[] = [
   {
     id: 't-1',
     variety: 'Palay RC160',
-    municipality: 'Baliwag',
-    province: 'Bulacan',
+    municipality: 'Antipolo',
+    province: 'Rizal',
     quantityKg: 500,
     total: 8000,
     date: 'Oktubre 18, 2025',
@@ -341,8 +333,8 @@ export const TRANSACTIONS: Transaction[] = [
   {
     id: 't-2',
     variety: 'Palay RC 638 SR',
-    municipality: 'Plaridel',
-    province: 'Bulacan',
+    municipality: 'Antipolo',
+    province: 'Rizal',
     quantityKg: 150,
     total: 2325,
     date: 'Hulyo 18, 2026',
@@ -353,8 +345,8 @@ export const TRANSACTIONS: Transaction[] = [
   {
     id: 't-3',
     variety: 'Palay NSIC Rc222',
-    municipality: 'Pulilan',
-    province: 'Bulacan',
+    municipality: 'Teresa',
+    province: 'Rizal',
     quantityKg: 300,
     total: 4560,
     date: 'Hulyo 10, 2026',
@@ -365,8 +357,8 @@ export const TRANSACTIONS: Transaction[] = [
   {
     id: 't-4',
     variety: 'Palay RC160',
-    municipality: 'Baliwag',
-    province: 'Bulacan',
+    municipality: 'Antipolo',
+    province: 'Rizal',
     quantityKg: 250,
     total: 3875,
     date: 'Hunyo 28, 2026',
@@ -377,8 +369,8 @@ export const TRANSACTIONS: Transaction[] = [
   {
     id: 't-5',
     variety: 'Palay RC 216',
-    municipality: 'Plaridel',
-    province: 'Bulacan',
+    municipality: 'Baras',
+    province: 'Rizal',
     quantityKg: 100,
     total: 1520,
     date: 'Hunyo 15, 2026',
@@ -401,7 +393,7 @@ const JUAN: Farmer = {
   role: 'Magsasaka · Coop-Verified',
   verified: true,
   addressLine: 'Bukid 1A, Brgy. San Jose',
-  addressDetail: 'Baliwag, Bulacan · 3.2 km mula sa iyo',
+  addressDetail: 'Antipolo, Rizal · 3.2 km mula sa iyo',
   distanceKm: 3.2,
 };
 
@@ -450,17 +442,16 @@ export const PURCHASE_REQUESTS: PurchaseRequest[] = [
     acceptedAt: 'Okt 12, 2025 · 09:00 AM',
     pickup: {
       date: 'Sabado, Okt 18, 2025',
-      timeWindow: '8:00 AM - 11:00 AM',
+      timeWindow: '8:00 AM - 10:00 AM',
       addressLine: 'Bukid 1A, Brgy. San Jose',
-      addressDetail: 'Baliwag, Bulacan · 3.2 km mula sa iyo',
+      addressDetail: 'Antipolo, Rizal · 3.2 km mula sa iyo',
     },
     inspection: {
-      summary: '14.0% moisture, Grade A, 500 kg na aktwal na timbang',
+      summary: '500 kg na aktwal na timbang',
       checks: [
-        { label: 'Moisture content', detail: '14.0% · pasado (≤14%)', passed: true },
-        { label: 'Purity / grade', detail: 'Grade A · walang halong dayami', passed: true },
+        { label: 'Uri ng palay', detail: 'Palay RC160', passed: true },
         { label: 'Bilang ng sako', detail: '10 sako × 50 kg', passed: true },
-        { label: 'Aktwal na timbang', detail: 'Hindi pa natitimbang', passed: false },
+        { label: 'Aktwal na timbang', detail: '500 kg', passed: true },
       ],
     },
     payments: [],
@@ -479,15 +470,14 @@ export const PURCHASE_REQUESTS: PurchaseRequest[] = [
     acceptedAt: 'Okt 12, 2025 · 09:00 AM',
     pickup: {
       date: 'Sabado, Okt 18, 2025',
-      timeWindow: '8:00 AM - 11:00 AM',
+      timeWindow: '8:00 AM - 10:00 AM',
       addressLine: 'Bukid 1A, Brgy. San Jose',
-      addressDetail: 'Baliwag, Bulacan · 3.2 km mula sa iyo',
+      addressDetail: 'Antipolo, Rizal · 3.2 km mula sa iyo',
     },
     inspection: {
-      summary: 'Pasado ang inspeksyon — 14.0% moisture, Grade A, 500 kg na aktwal na timbang',
+      summary: 'Pasado ang inspeksyon — 500 kg na aktwal na timbang',
       checks: [
-        { label: 'Moisture content', detail: '14.0% · pasado (≤14%)', passed: true },
-        { label: 'Purity / grade', detail: 'Grade A · walang halong dayami', passed: true },
+        { label: 'Uri ng palay', detail: 'Palay RC160', passed: true },
         { label: 'Bilang ng sako', detail: '10 sako × 50 kg', passed: true },
         { label: 'Aktwal na timbang', detail: '500 kg · tugma sa nakalista', passed: true },
       ],
@@ -509,15 +499,14 @@ export const PURCHASE_REQUESTS: PurchaseRequest[] = [
     acceptedAt: 'Okt 12, 2025 · 09:00 AM',
     pickup: {
       date: 'Sabado, Okt 18, 2025',
-      timeWindow: '8:00 AM - 11:00 AM',
+      timeWindow: '8:00 AM - 10:00 AM',
       addressLine: 'Bukid 1A, Brgy. San Jose',
-      addressDetail: 'Baliwag, Bulacan · 3.2 km mula sa iyo',
+      addressDetail: 'Antipolo, Rizal · 3.2 km mula sa iyo',
     },
     inspection: {
-      summary: 'Pasado ang inspeksyon — 14.0% moisture, Grade A, 500 kg',
+      summary: 'Pasado ang inspeksyon — 500 kg',
       checks: [
-        { label: 'Moisture content', detail: '14.0% · pasado (≤14%)', passed: true },
-        { label: 'Purity / grade', detail: 'Grade A · walang halong dayami', passed: true },
+        { label: 'Uri ng palay', detail: 'Palay RC160', passed: true },
         { label: 'Bilang ng sako', detail: '10 sako × 50 kg', passed: true },
         { label: 'Aktwal na timbang', detail: '500 kg · tugma sa nakalista', passed: true },
       ],

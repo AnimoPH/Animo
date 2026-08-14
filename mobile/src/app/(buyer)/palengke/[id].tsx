@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Droplet, MapPin, Scale, ShieldCheck, Sprout, TriangleAlert } from 'lucide-react-native';
+import { MapPin, Scale, Sprout, TriangleAlert } from 'lucide-react-native';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,7 +9,6 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { ListingImage } from '@/components/animo/listing-image';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { SpecBox } from '@/components/animo/spec-box';
-import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso, getListing } from '@/constants/marketplace';
 
@@ -82,26 +81,16 @@ export default function ListingDetailScreen() {
           )}
         </View>
 
-        {/* Quality specs */}
+        {/* Palay Information (Only Uri ng palay & Aktwal na timbang) */}
         <View style={styles.section}>
           <AnimoText variant="h2" color={AnimoColors.black}>
-            Kalidad na Napatunayan
+            Impormasyon ng Palay
           </AnimoText>
           <View style={styles.specGrid}>
             <SpecBox
               icon={<Sprout size={14} color={AnimoColors.blackSecondary} />}
               label="Uri ng palay"
               value={listing.variety.replace('Palay ', '')}
-            />
-            <SpecBox
-              icon={<Droplet size={14} color={AnimoColors.blackSecondary} />}
-              label="Moisture content"
-              value={`${listing.moisturePct.toFixed(1)}%`}
-            />
-            <SpecBox
-              icon={<ShieldCheck size={14} color={AnimoColors.blackSecondary} />}
-              label="Purity grade"
-              value={listing.purityGrade}
             />
             <SpecBox
               icon={<Scale size={14} color={AnimoColors.blackSecondary} />}
@@ -126,7 +115,7 @@ export default function ListingDetailScreen() {
 
       <View style={styles.footer}>
         <AnimoButton
-          label="Mag-bid"
+          label="Bumili"
           onPress={() => router.push({ pathname: '/(buyer)/palengke/bid', params: { id: listing.id } })}
         />
       </View>

@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Lock, ShieldCheck } from 'lucide-react-native';
+import { Lock } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -13,30 +13,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { BidConfirmationModal } from '@/components/animo/bid-confirmation-modal';
+import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { ListingImage } from '@/components/animo/listing-image';
 import { ScreenHeader } from '@/components/animo/screen-header';
-import { SelectField } from '@/components/animo/select-field';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import { DELIVERY_LOCATIONS, formatPeso, getListing } from '@/constants/marketplace';
+import { formatPeso, getListing } from '@/constants/marketplace';
 
-const DELIVERY_OPTIONS = DELIVERY_LOCATIONS.map((m) => ({ value: m, label: m }));
-
-/** Mag-bid — place a bid on a listing (quantity + delivery), then confirm. */
-export default function BidScreen() {
+/** Bumili ng Palay — purchase screen with quantity, system-locked pricing, and order confirmation modal. */
+export default function BuyScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const listing = getListing(id);
 
   const [quantity, setQuantity] = useState('200');
-  const [delivery, setDelivery] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   if (!listing) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <ScreenHeader title="Mag-bid" />
+        <ScreenHeader title="Bumili ng Palay" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
             Hindi nahanap ang listing na ito.
@@ -49,14 +45,12 @@ export default function BidScreen() {
   const qtyNum = parseInt(quantity || '0', 10) || 0;
   const overAvailable = qtyNum > listing.availableKg;
   const total = qtyNum * listing.pricePerKg;
-  const canConfirm = qtyNum > 0 && !overAvailable && delivery !== null;
-
-  const summary = `${listing.variety} · ${qtyNum} kg · ${delivery ?? listing.municipality}`;
+  const canConfirm = qtyNum > 0 && !overAvailable;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Mag-bid" />
+      <ScreenHeader title="Bumili ng Palay" />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -84,31 +78,21 @@ export default function BidScreen() {
             </View>
           </View>
 
-          {/* Bid details */}
+          {/* Quantity details (Lokasyon ng paghahatid removed) */}
           <View style={styles.card}>
             <AnimoText variant="h3" color={AnimoColors.black}>
-              Detalye ng Bid
+              Detalye ng Pagbili
             </AnimoText>
             <LabeledInput
-              label="Dami na gusto"
+              label="Dami na nais bilhin"
               keyboardType="number-pad"
               value={quantity}
               onChangeText={(t) => setQuantity(t.replace(/\D/g, ''))}
               suffixText="kilo/kg"
               error={overAvailable}
-              hint={`Hindi maaaring lumampas sa ${listing.availableKg} kg na available.`}
+              hint={`Hindi maaaring lumampas sa ${listing.availableKg} kg na aktwal na timbang.`}
               hintTone={overAvailable ? 'danger' : 'muted'}
             />
-            <SelectField
-              label="Lokasyon ng paghahatid"
-              placeholder="Pumili ng lokasyon"
-              options={DELIVERY_OPTIONS}
-              value={delivery}
-              onChange={setDelivery}
-            />
-            <AnimoText variant="caption" color={AnimoColors.muted}>
-              Baliwag, Plaridel, o Pulilan lamang.
-            </AnimoText>
           </View>
 
           {/* Locked price / total */}
@@ -132,7 +116,7 @@ export default function BidScreen() {
               </AnimoText>
             </View>
             <AnimoText variant="caption" color={AnimoColors.muted}>
-              Kinomputa ng ANIMO para sa patas na presyo — hindi ito mababago ng mamimili.
+              Kinomputa ng ANIMO para sa patas na presyo batay sa pamantayan.
             </AnimoText>
 
             <View style={styles.divider} />
@@ -149,34 +133,26 @@ export default function BidScreen() {
               Awtomatikong kinakalkula: {formatPeso(listing.pricePerKg)} × {qtyNum} kg
             </AnimoText>
           </View>
-
-          {/* Escrow note */}
-          {/* <View style={styles.escrowNote}>
-            <ShieldCheck size={18} color={AnimoColors.green} />
-            <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.flex}>
-              Kapag kinumpirma, ilalagay ang bayad sa escrow smart contract sa Polygon PoS. May 30
-              segundo kang makakansela bago ito ma-lock.
-            </AnimoText>
-          </View> */}
         </ScrollView>
 
         <View style={styles.footer}>
           <AnimoButton
-            label="Kumpirmahin ang Bid"
-            onPress={() => setConfirming(true)}
+            label="Kumpirmahin ang Pagbili"
+            onPress={() => setShowSuccessModal(true)}
             disabled={!canConfirm}
           />
         </View>
       </KeyboardAvoidingView>
 
-      <BidConfirmationModal
-        visible={confirming}
-        summary={summary}
-        total={total}
-        onCancel={() => setConfirming(false)}
-        onComplete={() => {
-          setConfirming(false);
-          // Bid committed — show it in the transaction history.
+      {/* Order Placed Success Modal */}
+      <FeedbackModal
+        visible={showSuccessModal}
+        tone="success"
+        title="Naipadala ang Order!"
+        message={`Matagumpay na naipadala ang iyong order para sa ${qtyNum} kg ng ${listing.variety} (${formatPeso(total)}). Makikita mo ang progreso nito sa pahina ng Transaksyon.`}
+        confirmLabel="Pumunta sa Transaksyon"
+        onConfirm={() => {
+          setShowSuccessModal(false);
           router.replace('/(buyer)/transaksyon');
         }}
       />
@@ -210,6 +186,7 @@ const styles = StyleSheet.create({
     borderColor: AnimoColors.border,
     borderRadius: AnimoRadius.lg,
     padding: AnimoSpacing.md,
+    backgroundColor: AnimoColors.white,
   },
   thumb: {
     width: 64,
@@ -223,6 +200,7 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.lg,
     padding: AnimoSpacing.lg,
     gap: AnimoSpacing.lg,
+    backgroundColor: AnimoColors.white,
   },
   lockedCard: {
     borderWidth: 1,
@@ -252,18 +230,10 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.border,
     marginVertical: AnimoSpacing.xs,
   },
-  escrowNote: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: AnimoSpacing.sm,
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.md,
-  },
   footer: {
     paddingHorizontal: AnimoSpacing.xl,
     paddingTop: AnimoSpacing.md,
     paddingBottom: AnimoSpacing.md,
+    backgroundColor: AnimoColors.background,
   },
 });

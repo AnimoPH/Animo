@@ -74,7 +74,7 @@ export default function BuyerProfileScreen() {
               <View style={styles.locationTag}>
                 <MapPin size={14} color={AnimoColors.muted} />
                 <AnimoText variant="caption" color={AnimoColors.muted}>
-                  Baliwag, Bulacan
+                  Antipolo, Rizal
                 </AnimoText>
               </View>
             </View>
@@ -219,7 +219,7 @@ export default function BuyerProfileScreen() {
                 <MapPin size={18} color={AnimoColors.green} />
                 <View style={styles.flex}>
                   <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    Barangay Sabang, Baliwag, Bulacan
+                    Barangay San Jose, Antipolo, Rizal
                   </AnimoText>
                   <AnimoText variant="caption" color={AnimoColors.muted}>
                     Pangunahing address para sa delivery at pickup coordination
@@ -261,7 +261,7 @@ export default function BuyerProfileScreen() {
                     Coop-Verified Buyer
                   </AnimoText>
                   <AnimoText variant="caption" color={AnimoColors.muted}>
-                    Miyembro mula pa noong Hunyo 2024 · LGU Baliwag Partner
+                    Miyembro mula pa noong Hunyo 2024 · LGU Antipolo Partner
                   </AnimoText>
                 </View>
               </View>
@@ -282,7 +282,7 @@ export default function BuyerProfileScreen() {
         visible={showHelpModal}
         tone="info"
         title="Tulong at Suporta"
-        message="Maaari kang makipag-ugnayan sa Tanggapan ng Pagsasaka (LGU) o sa ANIMO Support Hotline sa 0917 123 4567 para sa anumang katanungan."
+        message="Maaari kang makipag-ugnayan sa Tanggapan ng Pagsasaka (LGU Antipolo) o sa ANIMO Support Hotline sa 0917 123 4567 para sa anumang katanungan."
         confirmLabel="OK"
         onConfirm={() => setShowHelpModal(false)}
       />
