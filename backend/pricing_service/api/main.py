@@ -8,11 +8,11 @@ from tensorflow.keras.models import load_model
 
 app = FastAPI(title="ANIMO Pricing Service")
 
-# load once at startup, not on every request - reloading these every call would be slow
 MODELS_DIR = "../models"
+N_SEEDS = 10  # size of the LSTM/GRU committee - averaging across many training
 
-lstm_model = load_model(f"{MODELS_DIR}/lstm_model.keras")
-gru_model = load_model(f"{MODELS_DIR}/gru_model.keras")
+lstm_models = [load_model(f"{MODELS_DIR}/lstm_model_{i}.keras") for i in range(N_SEEDS)]
+gru_models = [load_model(f"{MODELS_DIR}/gru_model_{i}.keras") for i in range(N_SEEDS)]
 rf_model = joblib.load(f"{MODELS_DIR}/rf_model.pkl")
 svr_model = joblib.load(f"{MODELS_DIR}/svr_model.pkl")
 price_scaler = joblib.load(f"{MODELS_DIR}/price_scaler.pkl")
@@ -25,8 +25,12 @@ with open(f"{MODELS_DIR}/anomaly_config.json") as f:
 LOOKBACK = anomaly_config["lookback"]
 ANOMALY_THRESHOLD = anomaly_config["threshold_pct"]
 
-# NFA windows we know about right now. This needs to move to an admin-editable
-# setting later (same as the floor price update flow) - hardcoding it here is
+# validated 40/60 blend, not 50/50 - see research notes section U.3
+LSTM_WEIGHT = 0.4
+GRU_WEIGHT = 0.6
+
+# NFA windows we know about right now. Still needs to move to an admin-editable
+# setting (same as the floor price update flow) - hardcoding it here is
 # just to get things working for now, not the real long-term plan.
 NFA_WINDOWS = [
     ("2019-01-01", "2020-12-01"),
@@ -35,9 +39,13 @@ NFA_WINDOWS = [
 
 
 class PriceRequest(BaseModel):
-    last_prices: list[float] = Field(..., min_length=6, max_length=6)
+    # needs 12 months now, not 7 - mean_reversion needs a full trailing
+    # 12-month window to calculate correctly, and that same window already
+    # covers everything momentum and the LSTM/GRU lookback need too
+    last_prices: list[float] = Field(..., min_length=12, max_length=12,
+                                      description="The 12 most recent confirmed monthly prices, oldest first")
     target_month: int = Field(..., ge=1, le=12)
-    target_date: str  # e.g. "2026-07-01", used to check if NFA is active
+    target_date: str
 
 
 def is_nfa_active(date_str: str) -> int:
@@ -48,22 +56,44 @@ def is_nfa_active(date_str: str) -> int:
     return 0
 
 
-@app.post("/predict-price")
-def predict_price(req: PriceRequest):
-    # this is the only number the mobile app should show - farmers/buyers
-    # never need to see the individual LSTM/GRU numbers, just the average
-    prices = np.array(req.last_prices)
+def build_inputs(req: PriceRequest):
+    all_prices = np.array(req.last_prices)  # 12 values, oldest first
+    window_prices = all_prices[-LOOKBACK:]  # last 6, what the LSTM/GRU sees
+
+    # momentum: 3-month rate of change ending at the most recent known month
+    momentum = (all_prices[-1] - all_prices[-4]) / all_prices[-4]
+
+    # mean-reversion: how far the most recent known price sits from the
+    # trailing 12-month average - same math as the notebook's rolling(12).mean()
+    ma_12mo = np.mean(all_prices)
+    mean_reversion = (all_prices[-1] - ma_12mo) / ma_12mo
+
     month_sin = np.sin(2 * np.pi * req.target_month / 12)
     month_cos = np.cos(2 * np.pi * req.target_month / 12)
     nfa_active = is_nfa_active(req.target_date)
 
-    window_df = pd.DataFrame(prices.reshape(-1, 1), columns=["price"])
+    window_df = pd.DataFrame(window_prices.reshape(-1, 1), columns=["price"])
     window_scaled = price_scaler.transform(window_df).reshape(1, LOOKBACK, 1)
-    feat = np.array([[month_sin, month_cos, nfa_active]])
+    feat = np.array([[month_sin, month_cos, nfa_active, momentum, mean_reversion]])
+    return window_prices, window_scaled, feat
 
-    lstm_p = price_scaler.inverse_transform(lstm_model.predict([window_scaled, feat], verbose=0))[0, 0]
-    gru_p = price_scaler.inverse_transform(gru_model.predict([window_scaled, feat], verbose=0))[0, 0]
-    ensemble_p = (lstm_p + gru_p) / 2
+
+def ensemble_predict(window_scaled, feat):
+    lstm_p = np.mean([
+        price_scaler.inverse_transform(m.predict([window_scaled, feat], verbose=0))[0, 0]
+        for m in lstm_models
+    ])
+    gru_p = np.mean([
+        price_scaler.inverse_transform(m.predict([window_scaled, feat], verbose=0))[0, 0]
+        for m in gru_models
+    ])
+    return LSTM_WEIGHT * lstm_p + GRU_WEIGHT * gru_p
+
+
+@app.post("/predict-price")
+def predict_price(req: PriceRequest):
+    window_prices, window_scaled, feat = build_inputs(req)
+    ensemble_p = ensemble_predict(window_scaled, feat)
 
     return {
         "estimated_price": round(float(ensemble_p), 2),
@@ -74,24 +104,13 @@ def predict_price(req: PriceRequest):
 
 @app.post("/market-status")
 def market_status(req: PriceRequest):
-    # for the LGU dashboard only - this is a platform-wide signal, not tied
-    # to any one listing, so the mobile app has no reason to call this
-    prices = np.array(req.last_prices)
-    month_sin = np.sin(2 * np.pi * req.target_month / 12)
-    month_cos = np.cos(2 * np.pi * req.target_month / 12)
-    nfa_active = is_nfa_active(req.target_date)
+    window_prices, window_scaled, feat = build_inputs(req)
+    ensemble_p = ensemble_predict(window_scaled, feat)
 
-    window_df = pd.DataFrame(prices.reshape(-1, 1), columns=["price"])
-    window_scaled = price_scaler.transform(window_df).reshape(1, LOOKBACK, 1)
-    feat = np.array([[month_sin, month_cos, nfa_active]])
-
-    lstm_p = price_scaler.inverse_transform(lstm_model.predict([window_scaled, feat], verbose=0))[0, 0]
-    gru_p = price_scaler.inverse_transform(gru_model.predict([window_scaled, feat], verbose=0))[0, 0]
-    ensemble_p = (lstm_p + gru_p) / 2
-
-    # RF/SVR stay blind to season/NFA on purpose - raw price only - otherwise
-    # they'd just agree with Component 1 all the time and the whole check is pointless
-    tab_x = prices.reshape(1, -1)
+    # RF/SVR stay blind to season/NFA/momentum/mean_reversion on purpose -
+    # raw price only - otherwise they'd just agree with Component 1 all the
+    # time and the whole disagreement check would be pointless
+    tab_x = window_prices.reshape(1, -1)
     rf_p = rf_model.predict(tab_x)[0]
     svr_p = svr_output_scaler.inverse_transform(
         svr_model.predict(svr_input_scaler.transform(tab_x)).reshape(-1, 1)
