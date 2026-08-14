@@ -1,11 +1,14 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { TriangleAlert } from 'lucide-react-native';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
+import { CancelLink } from '@/components/animo/cancel-link';
+import { CancelRequestModal } from '@/components/animo/cancel-request-modal';
 import { CountdownCard } from '@/components/animo/countdown-card';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { PaymentMethodCard } from '@/components/animo/payment-method-card';
@@ -17,6 +20,7 @@ import { AnimoColors, AnimoSpacing } from '@/constants/animo';
 import {
   DOWNPAYMENT_PCT,
   DOWNPAYMENT_WINDOW_DAYS,
+  cancelPolicy,
   downpaymentAmount,
   formatPeso,
   getPurchaseRequest,
@@ -32,6 +36,7 @@ import {
 export default function DownpaymentScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const request = getPurchaseRequest(id);
+  const [cancelling, setCancelling] = useState(false);
 
   if (!request) {
     return (
@@ -48,6 +53,7 @@ export default function DownpaymentScreen() {
 
   const total = requestTotal(request);
   const down = downpaymentAmount(request);
+  const policy = cancelPolicy(request);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -98,7 +104,24 @@ export default function DownpaymentScreen() {
           label={`Bayaran Ngayon — ${formatPeso(down)}`}
           onPress={() => router.replace(`/(buyer)/transaksyon/pr-scheduled`)}
         />
+        <CancelLink
+          label={policy.triggerLabel}
+          onPress={() => setCancelling(true)}
+        />
       </View>
+
+      <CancelRequestModal
+        visible={cancelling}
+        title={policy.title}
+        body={policy.body}
+        consequences={policy.consequences}
+        confirmLabel={policy.confirmLabel}
+        onDismiss={() => setCancelling(false)}
+        onConfirm={() => {
+          setCancelling(false);
+          router.replace('/(buyer)/transaksyon/pr-cancelled');
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -127,5 +150,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: AnimoSpacing.xl,
     paddingTop: AnimoSpacing.md,
     paddingBottom: AnimoSpacing.md,
+    gap: AnimoSpacing.xs,
   },
 });

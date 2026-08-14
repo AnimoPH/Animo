@@ -174,6 +174,123 @@ export function balanceDue(request: PurchaseRequest): number {
 /** Whole-number percentage for labels like "Downpayment (50%)". */
 export const DOWNPAYMENT_PCT = Math.round(DOWNPAYMENT_RATE * 100);
 
+/* ---------------- Cancellation policy ---------------- */
+
+export type CancelPolicy = {
+  /** Whether the buyer can still back out at this stage. */
+  allowed: boolean;
+  /** Confirmation headline. */
+  title: string;
+  /** What cancelling does. */
+  body: string;
+  /** Consequence lines shown in the confirmation sheet. */
+  consequences: string[];
+  /** Label for the destructive button. */
+  confirmLabel: string;
+  /** Label for the footer link that opens the sheet. */
+  triggerLabel: string;
+};
+
+/**
+ * What cancelling costs the buyer at a given stage.
+ *
+ * Before the downpayment nothing is at stake. Once it is paid the money sits in
+ * escrow, so cancelling becomes a refund question — and after the palay has
+ * been inspected and collected, self-service cancellation is closed and the
+ * buyer must raise a dispute instead.
+ *
+ * These are placeholder terms for the frontend; the real refund rules need to
+ * come from the escrow contract and platform policy.
+ */
+export function cancelPolicy(request: PurchaseRequest): CancelPolicy {
+  const paid = amountPaid(request);
+
+  switch (request.stage) {
+    case 'pending':
+      return {
+        allowed: true,
+        title: 'Kanselahin ang request?',
+        body: 'Hindi pa tinanggap ng magsasaka ang request na ito, kaya wala kang babayaran.',
+        consequences: [
+          'Walang parusa o bayad sa pagkansela.',
+          'Muling ilalista ang palay para sa ibang mamimili.',
+          'Maaari kang magpadala ng bagong request anumang oras.',
+        ],
+        confirmLabel: 'Kanselahin ang Request',
+        triggerLabel: 'Kanselahin ang Request',
+      };
+
+    case 'accepted':
+      return {
+        allowed: true,
+        title: 'Kanselahin ang request?',
+        body: `Tinanggap na ito ng magsasaka, ngunit hindi pa nabayaran ang downpayment.`,
+        consequences: [
+          'Walang parusa — wala pa kang naibayad.',
+          'Aabisuhan ang magsasaka at muling ilalista ang palay.',
+          `Kung hindi mo kanselahin, awtomatiko itong makakansela pagkatapos ng ${DOWNPAYMENT_WINDOW_DAYS} araw.`,
+        ],
+        confirmLabel: 'Kanselahin ang Request',
+        triggerLabel: 'Kanselahin ang Request',
+      };
+
+    case 'downpaid':
+    case 'scheduled':
+      return {
+        allowed: true,
+        title: 'Kanselahin ang transaksyon?',
+        body: `Nabayaran na ang downpayment na ${formatPeso(paid)} at nakahanda na ang magsasaka para sa pickup.`,
+        consequences: [
+          `Ire-review ang refund ng ${formatPeso(paid)} na nasa escrow.`,
+          'Maaaring may bawas para sa naitalagang paghahanda ng magsasaka.',
+          'Makakaapekto ito sa iyong rating bilang mamimili.',
+          'Kakanselahin ang nakaiskedyul na pickup.',
+        ],
+        confirmLabel: 'Ituloy ang Pagkansela',
+        triggerLabel: 'Kanselahin ang Transaksyon',
+      };
+
+    case 'inspected':
+      // The palay has been inspected on-site; unwinding now needs a dispute.
+      return {
+        allowed: false,
+        title: 'Kailangan ng dispute',
+        body: 'Naipasa na ang inspeksyon, kaya hindi na maaaring kanselahin nang basta-basta.',
+        consequences: [
+          `Nasa escrow ang downpayment na ${formatPeso(paid)}.`,
+          'Maghain ng dispute kung may problema sa kalidad o timbang.',
+          'Rerepasuhin ng ANIMO ang dispute sa loob ng 3 araw ng trabaho.',
+        ],
+        confirmLabel: 'Maghain ng Dispute',
+        triggerLabel: 'Maghain ng Dispute',
+      };
+
+    case 'completed':
+      return {
+        allowed: false,
+        title: 'Kailangan ng dispute',
+        body: 'Bayad na nang buo ang transaksyong ito, kaya hindi na ito maaaring kanselahin.',
+        consequences: [
+          'Maghain ng dispute kung may problema sa natanggap na palay.',
+          'Ihanda ang resibo at larawan ng palay bilang ebidensya.',
+          'Rerepasuhin ng ANIMO ang dispute sa loob ng 3 araw ng trabaho.',
+        ],
+        confirmLabel: 'Maghain ng Dispute',
+        triggerLabel: 'May problema sa order na ito?',
+      };
+
+    case 'cancelled':
+      return {
+        allowed: false,
+        title: 'Nakansela na ang transaksyon',
+        body: 'Wala nang aksyon na maaaring gawin sa transaksyong ito.',
+        consequences: [],
+        confirmLabel: 'Maghain ng Dispute',
+        triggerLabel: 'Maghain ng Dispute',
+      };
+  }
+}
+
 /** Delivery locations a buyer may choose from. */
 export const DELIVERY_LOCATIONS: MunicipalityName[] = ['Baliwag', 'Plaridel', 'Pulilan'];
 

@@ -1,11 +1,14 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { CheckCircle2, Copy, Download, FileText } from 'lucide-react-native';
+import { CheckCircle2, Copy, FileText } from 'lucide-react-native';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
+import { CancelLink } from '@/components/animo/cancel-link';
+import { CancelRequestModal } from '@/components/animo/cancel-request-modal';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
 import { ScreenHeader } from '@/components/animo/screen-header';
@@ -13,6 +16,7 @@ import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import {
   amountPaid,
+  cancelPolicy,
   formatPeso,
   getPurchaseRequest,
   progressSteps,
@@ -22,6 +26,7 @@ import {
 export default function ReceiptScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const request = getPurchaseRequest(id);
+  const [disputing, setDisputing] = useState(false);
 
   if (!request) {
     return (
@@ -35,6 +40,8 @@ export default function ReceiptScreen() {
       </SafeAreaView>
     );
   }
+
+  const policy = cancelPolicy(request);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -136,7 +143,25 @@ export default function ReceiptScreen() {
           variant="secondary"
           onPress={() => router.replace('/(buyer)/palengke')}
         />
+        {/*
+          The transaction is settled, so there is nothing left to cancel —
+          raising a dispute is the only way back from here.
+        */}
+        <CancelLink
+          label={policy.triggerLabel}
+          onPress={() => setDisputing(true)}
+        />
       </View>
+
+      <CancelRequestModal
+        visible={disputing}
+        title={policy.title}
+        body={policy.body}
+        consequences={policy.consequences}
+        confirmLabel={policy.confirmLabel}
+        onDismiss={() => setDisputing(false)}
+        onConfirm={() => setDisputing(false)}
+      />
     </SafeAreaView>
   );
 }

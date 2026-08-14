@@ -151,13 +151,13 @@ export default function BidScreen() {
           </View>
 
           {/* Escrow note */}
-          <View style={styles.escrowNote}>
+          {/* <View style={styles.escrowNote}>
             <ShieldCheck size={18} color={AnimoColors.green} />
             <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.flex}>
               Kapag kinumpirma, ilalagay ang bayad sa escrow smart contract sa Polygon PoS. May 30
               segundo kang makakansela bago ito ma-lock.
             </AnimoText>
-          </View>
+          </View> */}
         </ScrollView>
 
         <View style={styles.footer}>

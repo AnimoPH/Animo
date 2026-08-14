@@ -1,11 +1,14 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { CheckCircle2, Lock } from 'lucide-react-native';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
+import { CancelLink } from '@/components/animo/cancel-link';
+import { CancelRequestModal } from '@/components/animo/cancel-request-modal';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { PaymentMethodCard } from '@/components/animo/payment-method-card';
 import { PaymentSummary } from '@/components/animo/payment-summary';
@@ -18,6 +21,7 @@ import {
   DOWNPAYMENT_PCT,
   amountPaid,
   balanceDue,
+  cancelPolicy,
   formatPeso,
   getPurchaseRequest,
   progressSteps,
@@ -33,6 +37,7 @@ import {
 export default function FinalPaymentScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const request = getPurchaseRequest(id);
+  const [disputing, setDisputing] = useState(false);
 
   if (!request) {
     return (
@@ -48,6 +53,7 @@ export default function FinalPaymentScreen() {
   }
 
   const balance = balanceDue(request);
+  const policy = cancelPolicy(request);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -106,7 +112,25 @@ export default function FinalPaymentScreen() {
           label={`Bayaran ang Balanse — ${formatPeso(balance)}`}
           onPress={() => router.replace('/(buyer)/transaksyon/pr-completed/resibo')}
         />
+        {/*
+          Past inspection the buyer can no longer cancel outright — the palay has
+          been checked on-site — so this opens the dispute path instead.
+        */}
+        <CancelLink
+          label={policy.triggerLabel}
+          onPress={() => setDisputing(true)}
+        />
       </View>
+
+      <CancelRequestModal
+        visible={disputing}
+        title={policy.title}
+        body={policy.body}
+        consequences={policy.consequences}
+        confirmLabel={policy.confirmLabel}
+        onDismiss={() => setDisputing(false)}
+        onConfirm={() => setDisputing(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -147,5 +171,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: AnimoSpacing.xl,
     paddingTop: AnimoSpacing.md,
     paddingBottom: AnimoSpacing.md,
+    gap: AnimoSpacing.xs,
   },
 });

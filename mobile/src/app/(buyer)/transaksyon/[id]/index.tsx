@@ -7,11 +7,14 @@ import {
   TriangleAlert,
   XCircle,
 } from 'lucide-react-native';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
+import { CancelLink } from '@/components/animo/cancel-link';
+import { CancelRequestModal } from '@/components/animo/cancel-request-modal';
 import { FarmerCard, LockedFarmerCard } from '@/components/animo/farmer-card';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { PaymentSummary } from '@/components/animo/payment-summary';
@@ -25,10 +28,12 @@ import {
   DOWNPAYMENT_WINDOW_DAYS,
   amountPaid,
   balanceDue,
+  cancelPolicy,
   downpaymentAmount,
   getPurchaseRequest,
   progressSteps,
   requestTotal,
+  type CancelPolicy,
   type PurchaseRequest,
 } from '@/constants/marketplace';
 
@@ -41,6 +46,7 @@ import {
 export default function TransactionStatusScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const request = getPurchaseRequest(id);
+  const [cancelling, setCancelling] = useState(false);
 
   if (!request) {
     return (
@@ -57,6 +63,7 @@ export default function TransactionStatusScreen() {
 
   const { stage } = request;
   const isCancelled = stage === 'cancelled';
+  const policy = cancelPolicy(request);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -90,7 +97,27 @@ export default function TransactionStatusScreen() {
         ) : null}
       </ScrollView>
 
-      <StageFooter request={request} />
+      <StageFooter
+        request={request}
+        policy={policy}
+        onCancel={() => setCancelling(true)}
+      />
+
+      <CancelRequestModal
+        visible={cancelling}
+        title={policy.title}
+        body={policy.body}
+        consequences={policy.consequences}
+        confirmLabel={policy.confirmLabel}
+        onDismiss={() => setCancelling(false)}
+        onConfirm={() => {
+          setCancelling(false);
+          // Only a real cancellation moves the request; disputes stay put.
+          if (policy.allowed) {
+            router.replace('/(buyer)/transaksyon/pr-cancelled');
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -271,15 +298,23 @@ function PaymentBreakdown({ request }: { request: PurchaseRequest }) {
 }
 
 /** Footer action(s), depending on where the request stands. */
-function StageFooter({ request }: { request: PurchaseRequest }) {
+function StageFooter({
+  request,
+  policy,
+  onCancel,
+}: {
+  request: PurchaseRequest;
+  policy: CancelPolicy;
+  onCancel: () => void;
+}) {
   switch (request.stage) {
     case 'pending':
       return (
         <View style={styles.footer}>
           <AnimoButton
-            label="Kanselahin ang Request"
+            label={policy.triggerLabel}
             variant="secondary"
-            onPress={() => router.back()}
+            onPress={onCancel}
           />
         </View>
       );
@@ -291,6 +326,7 @@ function StageFooter({ request }: { request: PurchaseRequest }) {
             label="Magpatuloy sa Downpayment"
             onPress={() => router.push(`/(buyer)/transaksyon/${request.id}/downpayment`)}
           />
+          <CancelLink label={policy.triggerLabel} onPress={onCancel} />
         </View>
       );
 
@@ -302,6 +338,7 @@ function StageFooter({ request }: { request: PurchaseRequest }) {
             label="Tingnan ang Pickup"
             onPress={() => router.push(`/(buyer)/transaksyon/${request.id}/pickup`)}
           />
+          <CancelLink label={policy.triggerLabel} onPress={onCancel} />
         </View>
       );
 
@@ -312,6 +349,7 @@ function StageFooter({ request }: { request: PurchaseRequest }) {
             label="Magbayad ng Balanse"
             onPress={() => router.push(`/(buyer)/transaksyon/${request.id}/huling-bayad`)}
           />
+          <CancelLink label={policy.triggerLabel} onPress={onCancel} />
         </View>
       );
 
@@ -322,6 +360,7 @@ function StageFooter({ request }: { request: PurchaseRequest }) {
             label="Tingnan ang Resibo"
             onPress={() => router.push(`/(buyer)/transaksyon/${request.id}/resibo`)}
           />
+          <CancelLink label={policy.triggerLabel} onPress={onCancel} />
         </View>
       );
 
@@ -421,6 +460,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: AnimoSpacing.xl,
     paddingTop: AnimoSpacing.md,
     paddingBottom: AnimoSpacing.md,
+    gap: AnimoSpacing.xs,
   },
   footerStack: {
     paddingHorizontal: AnimoSpacing.xl,

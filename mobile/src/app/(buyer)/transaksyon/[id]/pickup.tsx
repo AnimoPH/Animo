@@ -9,11 +9,14 @@ import {
   Phone,
   TriangleAlert,
 } from 'lucide-react-native';
+import { useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
+import { CancelLink } from '@/components/animo/cancel-link';
+import { CancelRequestModal } from '@/components/animo/cancel-request-modal';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
 import { ScreenHeader } from '@/components/animo/screen-header';
@@ -21,6 +24,7 @@ import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import {
   balanceDue,
+  cancelPolicy,
   formatPeso,
   getPurchaseRequest,
   progressSteps,
@@ -36,6 +40,7 @@ import {
 export default function PickupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const request = getPurchaseRequest(id);
+  const [cancelling, setCancelling] = useState(false);
 
   if (!request?.pickup) {
     return (
@@ -53,6 +58,7 @@ export default function PickupScreen() {
   const { pickup, inspection, farmer } = request;
   const checks = inspection?.checks ?? [];
   const passedCount = checks.filter((c) => c.passed).length;
+  const policy = cancelPolicy(request);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -197,7 +203,24 @@ export default function PickupScreen() {
           onPress={() => router.replace('/(buyer)/transaksyon/pr-inspected')}
         />
         <AnimoButton label="Baguhin ang Iskedyul" variant="secondary" />
+        <CancelLink
+          label={policy.triggerLabel}
+          onPress={() => setCancelling(true)}
+        />
       </View>
+
+      <CancelRequestModal
+        visible={cancelling}
+        title={policy.title}
+        body={policy.body}
+        consequences={policy.consequences}
+        confirmLabel={policy.confirmLabel}
+        onDismiss={() => setCancelling(false)}
+        onConfirm={() => {
+          setCancelling(false);
+          router.replace('/(buyer)/transaksyon/pr-cancelled');
+        }}
+      />
     </SafeAreaView>
   );
 }
