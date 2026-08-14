@@ -46,18 +46,3 @@ export function getRole(id: RoleId | null | undefined): Role | undefined {
 export function homeRouteForRole(id: RoleId | null | undefined): '/(buyer)' | '/(farmer)' {
   return id === 'magsasaka' ? '/(farmer)' : '/(buyer)';
 }
-
-/**
- * Fixed demo accounts (frontend only, no backend). Logging in with one of these
- * 10-digit numbers enters the matching module. Any other valid number falls
- * back to the buyer module.
- */
-export const DEMO_ACCOUNTS: Record<string, RoleId> = {
-  '9171234567': 'mamimili', // Buyer demo
-  '9179876543': 'magsasaka', // Farmer demo
-};
-
-/** Resolve a role from a login phone number (digits only). */
-export function roleForPhone(phoneDigits: string): RoleId {
-  return DEMO_ACCOUNTS[phoneDigits] ?? 'mamimili';
-}

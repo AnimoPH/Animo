@@ -16,22 +16,27 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { LabeledInput } from '@/components/animo/labeled-input';
-import { OtpVerification, DEMO_OTP } from '@/components/animo/otp-verification';
+import { OtpVerification } from '@/components/animo/otp-verification';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import { homeRouteForRole, roleForPhone } from '@/constants/roles';
+import { homeRouteForRole } from '@/constants/roles';
+import { fetchMyProfile, sendOtp, verifyOtp } from '@/services/auth-service';
+import { useSession } from '@/hooks/use-session';
 
 const OTP_LENGTH = 6;
 
 /**
- * Login flow (phone → OTP). Shown to returning users. Frontend only: the OTP
- * demo code is `123456`. The phone number decides which module you enter —
- * see DEMO_ACCOUNTS (buyer: 917 123 4567, farmer: 917 987 6543).
+ * Login flow (phone → OTP), backed by real Supabase Auth. `shouldCreateUser`
+ * is false here (see `sendOtp`) — an unregistered number surfaces a real
+ * "not registered" error instead of silently creating an account.
  */
 export default function LoginScreen() {
+  const { refresh } = useSession();
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState(false);
+  const [otpErrorMessage, setOtpErrorMessage] = useState<string | undefined>();
+  const [phoneError, setPhoneError] = useState<string | undefined>();
   const [submitting, setSubmitting] = useState(false);
 
   const phoneValid = phone.replace(/\D/g, '').length === 10;
@@ -39,21 +44,43 @@ export default function LoginScreen() {
 
   const handlePrimary = async () => {
     if (step === 'phone') {
-      setStep('otp');
+      setSubmitting(true);
+      setPhoneError(undefined);
+      try {
+        await sendOtp(phone, { isRegistration: false });
+        setStep('otp');
+      } catch (err) {
+        setPhoneError(
+          err instanceof Error ? err.message : 'Hindi mahanap ang numerong ito. Mag-register muna.',
+        );
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
+
     // OTP step.
     if (otpError) {
       setOtp('');
       setOtpError(false);
+      setOtpErrorMessage(undefined);
       return;
     }
-    if (otp === DEMO_OTP) {
-      setSubmitting(true);
-      const role = roleForPhone(phone.replace(/\D/g, ''));
-      router.replace(homeRouteForRole(role));
-    } else {
+    setSubmitting(true);
+    try {
+      await verifyOtp(phone, otp);
+      const profile = await fetchMyProfile();
+      await refresh();
+      if (profile) {
+        router.replace(homeRouteForRole(profile.role));
+      } else {
+        // Verified but registration was never finished — resume it.
+        router.replace('/onboarding/register?resume=1');
+      }
+    } catch (err) {
       setOtpError(true);
+      setOtpErrorMessage(err instanceof Error ? err.message : undefined);
+      setSubmitting(false);
     }
   };
 
@@ -74,6 +101,7 @@ export default function LoginScreen() {
               onPress={() => {
                 setOtp('');
                 setOtpError(false);
+                setOtpErrorMessage(undefined);
                 setStep('phone');
               }}
               hitSlop={12}
@@ -92,24 +120,31 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           {step === 'phone' ? (
-            <PhoneStep phone={phone} onChangePhone={setPhone} />
+            <PhoneStep phone={phone} onChangePhone={setPhone} errorMessage={phoneError} />
           ) : (
             <OtpVerification
               phone={phone}
               value={otp}
               onChange={(v) => {
                 setOtp(v);
-                if (otpError) setOtpError(false);
+                if (otpError) {
+                  setOtpError(false);
+                  setOtpErrorMessage(undefined);
+                }
               }}
               error={otpError}
+              errorMessage={otpErrorMessage}
               onChangeNumber={() => {
                 setOtp('');
                 setOtpError(false);
+                setOtpErrorMessage(undefined);
                 setStep('phone');
               }}
               onResend={() => {
                 setOtp('');
                 setOtpError(false);
+                setOtpErrorMessage(undefined);
+                sendOtp(phone, { isRegistration: false }).catch(() => {});
               }}
             />
           )}
@@ -163,9 +198,11 @@ export default function LoginScreen() {
 function PhoneStep({
   phone,
   onChangePhone,
+  errorMessage,
 }: {
   phone: string;
   onChangePhone: (v: string) => void;
+  errorMessage?: string;
 }) {
   return (
     <View style={styles.phoneBody}>
@@ -211,23 +248,11 @@ function PhoneStep({
             </View>
           }
         />
-      </View>
-
-      {/* Demo accounts (frontend only) — tap to autofill. */}
-      <View style={styles.demoCard}>
-        <AnimoText variant="caption" color={AnimoColors.muted}>
-          Demo accounts (OTP: {DEMO_OTP})
-        </AnimoText>
-        <Pressable onPress={() => onChangePhone('9171234567')} hitSlop={6}>
-          <AnimoText variant="body" color={AnimoColors.green}>
-            Mamimili · 917 123 4567
+        {errorMessage && (
+          <AnimoText variant="body" color={AnimoColors.danger}>
+            {errorMessage}
           </AnimoText>
-        </Pressable>
-        <Pressable onPress={() => onChangePhone('9179876543')} hitSlop={6}>
-          <AnimoText variant="body" color={AnimoColors.green}>
-            Magsasaka · 917 987 6543
-          </AnimoText>
-        </Pressable>
+        )}
       </View>
     </View>
   );
@@ -295,14 +320,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  demoCard: {
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.md,
-    gap: 6,
-    backgroundColor: AnimoColors.surface,
   },
   phonePrefix: {
     flexDirection: 'row',
