@@ -1,0 +1,74 @@
+import * as aesjs from 'aes-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
+import * as SecureStore from 'expo-secure-store';
+
+/**
+ * Security fix: the Supabase session (JWT + refresh token) used to be
+ * persisted in plain, unencrypted AsyncStorage — a refresh token sitting
+ * there in plaintext is a full session-takeover primitive for anything with
+ * filesystem access to the app sandbox (malware, a compromised/jailbroken
+ * device, or an unencrypted Android `adb backup`).
+ *
+ * `expo-secure-store` can't hold the session directly — refresh tokens can
+ * exceed its per-item size limit on some platforms, which is exactly why
+ * this app originally chose plain AsyncStorage. This follows Supabase's own
+ * documented workaround instead: a random AES-256 key lives in SecureStore
+ * (OS keychain/Keystore, hardware-backed where available), and it
+ * encrypts/decrypts whatever blob actually goes into AsyncStorage.
+ * AsyncStorage itself never sees plaintext, and the encryption key never
+ * touches AsyncStorage.
+ */
+
+const ENCRYPTION_KEY_ITEM = 'animo.supabase.session-key';
+
+async function getEncryptionKey(): Promise<Uint8Array> {
+  const existingHex = await SecureStore.getItemAsync(ENCRYPTION_KEY_ITEM);
+  if (existingHex) {
+    return aesjs.utils.hex.toBytes(existingHex);
+  }
+  const key = await Crypto.getRandomBytesAsync(32); // AES-256
+  await SecureStore.setItemAsync(ENCRYPTION_KEY_ITEM, aesjs.utils.hex.fromBytes(key));
+  return key;
+}
+
+/** Drop-in storage adapter for Supabase's `auth.storage` option. */
+export const secureSessionStorage = {
+  async getItem(key: string): Promise<string | null> {
+    const stored = await AsyncStorage.getItem(key);
+    if (!stored) return null;
+
+    const [ivHex, dataHex] = stored.split(':');
+    if (!ivHex || !dataHex) return null;
+
+    try {
+      const encryptionKey = await getEncryptionKey();
+      const iv = aesjs.utils.hex.toBytes(ivHex);
+      const data = aesjs.utils.hex.toBytes(dataHex);
+      const aesCbc = new aesjs.ModeOfOperation.cbc(encryptionKey, iv);
+      const decryptedBytes = aesjs.padding.pkcs7.strip(aesCbc.decrypt(data));
+      return aesjs.utils.utf8.fromBytes(decryptedBytes);
+    } catch (err) {
+      // Undecryptable (encryption key lost/rotated, corrupt data) — fail
+      // safe to "no session" rather than crash the app; worst case the user
+      // has to sign in again.
+      console.warn('[secure-session-storage] failed to decrypt stored session, clearing', err);
+      await AsyncStorage.removeItem(key);
+      return null;
+    }
+  },
+
+  async setItem(key: string, value: string): Promise<void> {
+    const encryptionKey = await getEncryptionKey();
+    const iv = await Crypto.getRandomBytesAsync(16);
+    const dataBytes = aesjs.padding.pkcs7.pad(aesjs.utils.utf8.toBytes(value));
+    const aesCbc = new aesjs.ModeOfOperation.cbc(encryptionKey, iv);
+    const encryptedBytes = aesCbc.encrypt(dataBytes);
+    const payload = `${aesjs.utils.hex.fromBytes(iv)}:${aesjs.utils.hex.fromBytes(encryptedBytes)}`;
+    await AsyncStorage.setItem(key, payload);
+  },
+
+  async removeItem(key: string): Promise<void> {
+    await AsyncStorage.removeItem(key);
+  },
+};

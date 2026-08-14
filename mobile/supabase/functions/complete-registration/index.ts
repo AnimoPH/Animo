@@ -24,9 +24,19 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { ethers } from 'https://esm.sh/ethers@6';
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
+// Security fix: this used to be '*'. The client-facing supabase-js
+// `functions.invoke()` never actually surfaces this response body's
+// `error` text to the app UI (a non-2xx response is collapsed to a fixed
+// "Edge Function returned a non-2xx status code" by @supabase/functions-js
+// — see FunctionsHttpError), so nothing in the current UI leaked raw
+// Postgres error text. It was still reachable by anyone calling this
+// endpoint directly (curl/Postman with a valid session JWT) and an
+// unnecessarily permissive CORS policy on a state-changing endpoint, so
+// both are tightened below regardless.
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN');
+const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  ...(ALLOWED_ORIGIN ? { 'Access-Control-Allow-Origin': ALLOWED_ORIGIN } : {}),
 };
 
 type AppRole = 'magsasaka' | 'mamimili';
@@ -116,7 +126,10 @@ Deno.serve(async (req) => {
     p_user_id: userId,
     p_private_key: wallet.privateKey,
   });
-  if (secretError) return jsonResponse({ error: secretError.message }, 500);
+  if (secretError) {
+    console.error('[complete-registration] create_wallet_secret failed', secretError.message);
+    return jsonResponse({ error: 'Hindi na-save ang profile. Subukan muli.' }, 500);
+  }
 
   const { error: insertError } = await adminClient.from('user').insert({
     user_id: userId,
@@ -125,8 +138,17 @@ Deno.serve(async (req) => {
     contact_number: phone,
   });
   if (insertError) {
-    await adminClient.rpc('delete_wallet_secret', { p_user_id: userId });
-    return jsonResponse({ error: insertError.message }, 500);
+    const { error: cleanupError } = await adminClient.rpc('delete_wallet_secret', { p_user_id: userId });
+    if (cleanupError) {
+      // Previously silent — a failed cleanup here left an orphaned Vault
+      // secret that blocked every future retry (unique secret name). The
+      // create_wallet_secret function is now idempotent (migration 0006)
+      // so a leaked secret no longer wedges retries, but still log this so
+      // a persistent cleanup failure doesn't go unnoticed.
+      console.error('[complete-registration] wallet secret cleanup failed', cleanupError.message);
+    }
+    console.error('[complete-registration] user insert failed', insertError.message);
+    return jsonResponse({ error: 'Hindi na-save ang profile. Subukan muli.' }, 500);
   }
 
   // Extension row (§1a FARMER / §1b BUYER) — wallet_address is the only
@@ -139,9 +161,16 @@ Deno.serve(async (req) => {
 
   const { error: extensionError } = await adminClient.from(extensionTable).insert(extensionRow);
   if (extensionError) {
-    await adminClient.from('user').delete().eq('user_id', userId);
-    await adminClient.rpc('delete_wallet_secret', { p_user_id: userId });
-    return jsonResponse({ error: extensionError.message }, 500);
+    const { error: userCleanupError } = await adminClient.from('user').delete().eq('user_id', userId);
+    if (userCleanupError) {
+      console.error('[complete-registration] user row cleanup failed', userCleanupError.message);
+    }
+    const { error: cleanupError } = await adminClient.rpc('delete_wallet_secret', { p_user_id: userId });
+    if (cleanupError) {
+      console.error('[complete-registration] wallet secret cleanup failed', cleanupError.message);
+    }
+    console.error('[complete-registration] extension row insert failed', extensionError.message);
+    return jsonResponse({ error: 'Hindi na-save ang profile. Subukan muli.' }, 500);
   }
 
   return jsonResponse({ walletAddress: wallet.address }, 200);

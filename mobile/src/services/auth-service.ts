@@ -20,6 +20,27 @@ export function normalizePhone(input: string): string {
   return `+63${local}`;
 }
 
+/**
+ * `functions.invoke()` collapses any non-2xx response to a fixed
+ * `FunctionsHttpError` with the generic message "Edge Function returned a
+ * non-2xx status code" — the actual `{ error: "..." }` body has to be read
+ * off `error.context` (a Response) explicitly, or callers lose the real
+ * message (e.g. login's "not registered" signal, or the OTP throttle's
+ * "please wait" message). See @supabase/functions-js FunctionsClient.
+ */
+async function unwrapFunctionError(error: unknown): Promise<Error> {
+  const context = (error as { context?: Response } | undefined)?.context;
+  if (context && typeof context.json === 'function') {
+    try {
+      const body = await context.json();
+      if (body?.error) return new Error(String(body.error));
+    } catch {
+      // Response body wasn't JSON — fall through to the generic error below.
+    }
+  }
+  return error instanceof Error ? error : new Error('Something went wrong.');
+}
+
 export type SendOtpOptions = {
   /**
    * Registration allows Supabase to create the `auth.users` row on first
@@ -29,22 +50,43 @@ export type SendOtpOptions = {
   isRegistration: boolean;
 };
 
+/**
+ * Sends an OTP via the `send-otp` Edge Function rather than calling
+ * `supabase.auth.signInWithOtp` directly. The previous direct call had no
+ * server-side throttle at all — the only "cooldown" was client-side React
+ * state (see `otp-verification.tsx`), which a direct API caller with the
+ * public anon key never touches. `send-otp` enforces a real per-phone
+ * resend cooldown + daily cap before it ever reaches Supabase Auth.
+ */
 export async function sendOtp(phone: string, { isRegistration }: SendOtpOptions) {
-  const { error } = await supabase.auth.signInWithOtp({
-    phone: normalizePhone(phone),
-    options: { shouldCreateUser: isRegistration },
+  const { error } = await supabase.functions.invoke('send-otp', {
+    body: { phone: normalizePhone(phone), isRegistration },
   });
-  if (error) throw error;
+  if (error) throw await unwrapFunctionError(error);
 }
 
+/**
+ * Verifies an OTP via the `verify-otp` Edge Function rather than calling
+ * `supabase.auth.verifyOtp` directly — that Edge Function enforces a
+ * server-side failed-attempt lockout (this codebase previously had none at
+ * any layer it controls). Verification happens in a server-side client, so
+ * on success we adopt the returned session locally via `setSession`.
+ */
 export async function verifyOtp(phone: string, code: string) {
-  const { data, error } = await supabase.auth.verifyOtp({
-    phone: normalizePhone(phone),
-    token: code,
-    type: 'sms',
+  const { data, error } = await supabase.functions.invoke('verify-otp', {
+    body: { phone: normalizePhone(phone), code },
   });
-  if (error) throw error;
-  return data.session;
+  if (error) throw await unwrapFunctionError(error);
+
+  const session = (data as { session?: { access_token: string; refresh_token: string } } | null)?.session;
+  if (!session) throw new Error('Verification failed.');
+
+  const { data: sessionData, error: setSessionError } = await supabase.auth.setSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  });
+  if (setSessionError) throw setSessionError;
+  return sessionData.session;
 }
 
 /** DB spells role per the data dictionary; the app only ever knows magsasaka/mamimili. */
@@ -134,7 +176,7 @@ export async function completeRegistration(input: CompleteRegistrationInput): Pr
   const { error } = await supabase.functions.invoke('complete-registration', {
     body: input,
   });
-  if (error) throw error;
+  if (error) throw await unwrapFunctionError(error);
   return await fetchMyProfileOrThrow();
 }
 

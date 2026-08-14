@@ -34,6 +34,11 @@ yarn-error.*
 .env
 .env*.local
 
+# Supabase CLI local project-link cache — leaks project ref/org id/pooler
+# host (and whatever account linked it) into source control; never useful
+# to commit.
+supabase/.temp/
+
 # typescript
 *.tsbuildinfo
 
