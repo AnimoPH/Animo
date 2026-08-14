@@ -9,7 +9,6 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
 import { FilterChips } from '@/components/animo/filter-chips';
 import { StatusBadge, type BadgeTone } from '@/components/animo/status-badge';
-import { TransactionCard } from '@/components/animo/transaction-card';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import {
   PURCHASE_REQUESTS,
@@ -18,6 +17,7 @@ import {
   requestTotal,
   type PurchaseRequest,
   type RequestStage,
+  type Transaction,
   type TransactionStatus,
 } from '@/constants/marketplace';
 
@@ -27,30 +27,35 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'lahat', label: 'Lahat' },
   { value: 'aktibo', label: 'Aktibo' },
   { value: 'tapos', label: 'Tapos' },
-  { value: 'disputed', label: 'Disputed' },
+  { value: 'cancelled', label: 'Nakansela' },
 ];
 
-/** Stage → pill shown on the ongoing-request rows. */
+/** Stage → Tagalog badge label & tone */
 const STAGE_META: Record<RequestStage, { label: string; tone: BadgeTone }> = {
-  pending: { label: 'Pending', tone: 'warning' },
-  accepted: { label: 'Awaiting Down Payment', tone: 'warning' },
-  downpaid: { label: 'Downpaid', tone: 'info' },
-  scheduled: { label: 'Scheduled', tone: 'info' },
-  inspected: { label: 'Awaiting Final Payment', tone: 'warning' },
-  completed: { label: 'Completed', tone: 'success' },
-  cancelled: { label: 'Cancelled', tone: 'neutral' },
+  pending: { label: 'Naghihintay', tone: 'warning' },
+  accepted: { label: 'Tinanggap', tone: 'info' },
+  scheduled: { label: 'Nakaiskedyul', tone: 'info' },
+  inspected: { label: 'Tapos ang Inspeksyon', tone: 'warning' },
+  completed: { label: 'Kumpleto', tone: 'success' },
+  reviewed: { label: 'Nasuri Na', tone: 'success' },
+  cancelled: { label: 'Nakansela', tone: 'neutral' },
+};
+
+const TRANSACTION_STATUS_META: Record<TransactionStatus, { label: string; tone: BadgeTone }> = {
+  aktibo: { label: 'Aktibo', tone: 'info' },
+  tapos: { label: 'Kumpleto', tone: 'success' },
+  cancelled: { label: 'Nakansela', tone: 'neutral' },
 };
 
 /** Requests still in flight, shown above the settled history. */
 const ONGOING_STAGES: RequestStage[] = [
   'pending',
   'accepted',
-  'downpaid',
   'scheduled',
   'inspected',
 ];
 
-/** Mga Transaksyon — ongoing purchase requests plus past transactions. */
+/** Mga Transaksyon — ongoing purchase requests plus past transactions in uniform card style. */
 export default function TransactionsScreen() {
   const [filter, setFilter] = useState<Filter>('lahat');
 
@@ -71,10 +76,12 @@ export default function TransactionsScreen() {
 
   const settled = useMemo(
     () =>
-      filter === 'lahat' || filter === 'tapos'
-        ? PURCHASE_REQUESTS.filter(
-            (r) => r.stage === 'completed' || r.stage === 'cancelled',
-          )
+      filter === 'lahat' || filter === 'tapos' || filter === 'cancelled'
+        ? PURCHASE_REQUESTS.filter((r) => {
+            if (filter === 'tapos') return r.stage === 'completed' || r.stage === 'reviewed';
+            if (filter === 'cancelled') return r.stage === 'cancelled';
+            return r.stage === 'completed' || r.stage === 'reviewed' || r.stage === 'cancelled';
+          })
         : [],
     [filter],
   );
@@ -111,25 +118,39 @@ export default function TransactionsScreen() {
           </>
         ) : null}
 
-        <AnimoText variant="h3" color={AnimoColors.black} style={styles.sectionGap}>
-          Kasaysayan
-        </AnimoText>
-        {items.map((t) => (
-          <TransactionCard key={t.id} transaction={t} />
-        ))}
+        {items.length > 0 ? (
+          <>
+            <AnimoText variant="h3" color={AnimoColors.black} style={styles.sectionGap}>
+              Kasaysayan
+            </AnimoText>
+            {items.map((t) => (
+              <HistoryRow key={t.id} transaction={t} />
+            ))}
+          </>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-/** A tappable purchase-request row that opens the status screen. */
+/** Purchase-request row that opens the status / pickup screen. */
 function RequestRow({ request }: { request: PurchaseRequest }) {
   const meta = STAGE_META[request.stage];
 
+  const handlePress = () => {
+    if (request.stage === 'accepted' || request.stage === 'scheduled') {
+      router.push(`/(buyer)/transaksyon/${request.id}/pickup`);
+    } else if (request.stage === 'inspected') {
+      router.push(`/(buyer)/transaksyon/${request.id}/bayad`);
+    } else if (request.stage === 'completed' || request.stage === 'reviewed') {
+      router.push(`/(buyer)/transaksyon/${request.id}/resibo`);
+    } else {
+      router.push(`/(buyer)/transaksyon/${request.id}`);
+    }
+  };
+
   return (
-    <Pressable
-      style={styles.row}
-      onPress={() => router.push(`/(buyer)/transaksyon/${request.id}`)}>
+    <Pressable style={styles.row} onPress={handlePress}>
       <View style={styles.rowText}>
         <View style={styles.rowTop}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
@@ -143,6 +164,35 @@ function RequestRow({ request }: { request: PurchaseRequest }) {
         </AnimoText>
         <AnimoText variant="caption" color={AnimoColors.muted}>
           {request.farmer.name} · {request.farmer.addressDetail}
+        </AnimoText>
+      </View>
+      <ChevronRight size={20} color={AnimoColors.muted} />
+    </Pressable>
+  );
+}
+
+/** Past history card in identical uniform layout. */
+function HistoryRow({ transaction }: { transaction: Transaction }) {
+  const meta = TRANSACTION_STATUS_META[transaction.status];
+
+  return (
+    <Pressable
+      style={styles.row}
+      onPress={() => router.push('/(buyer)/transaksyon/pr-completed/resibo')}>
+      <View style={styles.rowText}>
+        <View style={styles.rowTop}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+            {transaction.variety}
+          </AnimoText>
+          <StatusBadge label={meta.label} tone={meta.tone} />
+        </View>
+        <AnimoText variant="caption" color={AnimoColors.muted}>
+          {transaction.reference || transaction.id} · {transaction.quantityKg} kg ·{' '}
+          {formatPeso(transaction.total)}
+        </AnimoText>
+        <AnimoText variant="caption" color={AnimoColors.muted}>
+          {transaction.farmerName || 'Magsasaka'} · {transaction.municipality},{' '}
+          {transaction.province} ({transaction.date})
         </AnimoText>
       </View>
       <ChevronRight size={20} color={AnimoColors.muted} />
@@ -174,6 +224,7 @@ const styles = StyleSheet.create({
     borderColor: AnimoColors.border,
     borderRadius: AnimoRadius.lg,
     padding: AnimoSpacing.lg,
+    backgroundColor: AnimoColors.white,
   },
   rowText: {
     flex: 1,

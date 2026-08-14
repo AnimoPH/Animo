@@ -2,31 +2,51 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { CheckCircle2, Copy, FileText } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { CancelLink } from '@/components/animo/cancel-link';
-import { CancelRequestModal } from '@/components/animo/cancel-request-modal';
+import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import {
-  amountPaid,
-  cancelPolicy,
   formatPeso,
   getPurchaseRequest,
-  progressSteps,
+  requestTotal,
+  type PaymentMethod,
+  type ProgressStep,
 } from '@/constants/marketplace';
 
-/** Resibo — the receipt for a completed transaction. */
+/**
+ * Resibo — Screen 5 in the revised flow.
+ *
+ * Displays official transaction receipt details, timeline, and link to review farmer.
+ */
 export default function ReceiptScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const {
+    id,
+    method: queryMethod,
+    amount: queryAmount,
+    reason: queryReason,
+  } = useLocalSearchParams<{
+    id: string;
+    method?: string;
+    amount?: string;
+    reason?: string;
+  }>();
+
   const request = getPurchaseRequest(id);
-  const [disputing, setDisputing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
 
   if (!request) {
     return (
@@ -41,7 +61,48 @@ export default function ReceiptScreen() {
     );
   }
 
-  const policy = cancelPolicy(request);
+  const { farmer } = request;
+  const agreedTotal = requestTotal(request);
+  const paymentMethod: PaymentMethod = queryMethod === 'cash' ? 'cash' : 'gcash';
+  const totalPaid = queryAmount ? parseFloat(queryAmount) : agreedTotal;
+
+  const handleCopyId = () => {
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const receiptTimeline: ProgressStep[] = [
+    {
+      key: 'sent',
+      label: 'Request naipadala',
+      detail: request.sentAt,
+      state: 'done',
+    },
+    {
+      key: 'accepted',
+      label: 'Tinanggap ng magsasaka',
+      detail: request.acceptedAt ?? 'Okt 12, 09:00 AM',
+      state: 'done',
+    },
+    {
+      key: 'pickup',
+      label: 'Pickup at inspeksyon',
+      detail: 'Okt 18, 09:20 AM',
+      state: 'done',
+    },
+    {
+      key: 'payment',
+      label: `Bayad (${paymentMethod === 'cash' ? 'Cash' : 'GCash'})`,
+      detail: 'Okt 18, 11:42 AM',
+      state: 'done',
+    },
+    {
+      key: 'review',
+      label: 'Review sa magsasaka',
+      detail: 'Susunod na hakbang',
+      state: 'current',
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -51,6 +112,7 @@ export default function ReceiptScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
+        {/* Status Card */}
         <View style={styles.card}>
           <View style={styles.bannerRow}>
             <View style={styles.bannerIcon}>
@@ -61,19 +123,19 @@ export default function ReceiptScreen() {
                 Kumpleto ang Transaksyon
               </AnimoText>
               <AnimoText variant="caption" color={AnimoColors.muted}>
-                Nakumpleto ang buong bayad
+                Nakumpirma ang buong bayad
               </AnimoText>
             </View>
           </View>
           <View style={styles.bannerMeta}>
-            <StatusBadge label="Completed" tone="success" />
+            <StatusBadge label="Tinanggap" tone="success" />
             <AnimoText variant="caption" color={AnimoColors.muted}>
-              {request.payments[1]?.paidAt}
+              Okt 18, 2025 · 11:42 AM
             </AnimoText>
           </View>
         </View>
 
-        {/* Reference + listing details */}
+        {/* Transaction Reference Card */}
         <View style={styles.card}>
           <View style={styles.refRow}>
             <View style={styles.flex}>
@@ -84,83 +146,104 @@ export default function ReceiptScreen() {
                 {request.reference}
               </AnimoText>
             </View>
-            <Pressable hitSlop={8} style={styles.copyButton}>
-              <Copy size={16} color={AnimoColors.blackSecondary} />
+            <Pressable
+              hitSlop={8}
+              onPress={handleCopyId}
+              style={[styles.copyButton, copied && styles.copyButtonActive]}>
+              <Copy
+                size={16}
+                color={copied ? AnimoColors.green : AnimoColors.blackSecondary}
+              />
             </Pressable>
           </View>
-
-          <View style={styles.divider} />
-
-          <DetailRow label="Listing" value={request.variety} />
-          <DetailRow label="Magsasaka" value={request.farmer.name} />
-          <DetailRow label="Lokasyon" value={request.farmer.addressDetail} />
-          <DetailRow label="Dami" value={`${request.quantityKg} kg`} />
-          <DetailRow label="Presyo bawat kilo" value={formatPeso(request.pricePerKg)} />
         </View>
 
-        {/* Payment records */}
+        {/* Detalye ng Transaksyon */}
         <View style={styles.card}>
-          {request.payments.map((payment) => (
-            <View key={payment.reference} style={styles.paymentRow}>
-              <View style={styles.flex}>
-                <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                  {payment.label}
-                </AnimoText>
-                <AnimoText variant="caption" color={AnimoColors.muted}>
-                  {payment.paidAt} · GCash {payment.reference}
-                </AnimoText>
-              </View>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                {formatPeso(payment.amount)}
-              </AnimoText>
-            </View>
-          ))}
+          <AnimoText variant="h3" color={AnimoColors.black}>
+            Detalye ng Transaksyon
+          </AnimoText>
+
+          <DetailRow label="Listing" value={request.variety} />
+          <DetailRow label="Dami" value={`${request.quantityKg} kg`} />
+          <DetailRow
+            label="Presyo bawat kilo"
+            value={formatPeso(request.pricePerKg)}
+          />
+          <DetailRow label="Petsa" value="Okt 18, 2025 · 11:42 AM" />
+          <DetailRow label="Magsasaka" value={farmer.name} />
+          <DetailRow label="Lokasyon" value={farmer.addressDetail.split('·')[0].trim()} />
+          <DetailRow
+            label="Mamimili"
+            value={request.buyerName || 'Maria Santos'}
+          />
+        </View>
+
+        {/* Buod ng Bayad */}
+        <View style={styles.card}>
+          <AnimoText variant="h3" color={AnimoColors.black}>
+            Buod ng Bayad
+          </AnimoText>
+
+          <DetailRow
+            label="Paraan ng bayad"
+            value={
+              paymentMethod === 'gcash'
+                ? 'GCash · GC-8846702'
+                : 'Cash · Sa oras ng pickup'
+            }
+          />
+          <DetailRow
+            label="Halagang binayaran"
+            value={formatPeso(totalPaid)}
+          />
+
+          {queryReason ? (
+            <DetailRow label="Paliwanag sa presyo" value={queryReason} />
+          ) : null}
 
           <View style={styles.divider} />
 
-          <View style={styles.paymentRow}>
+          <View style={styles.rowBetween}>
             <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
               Kabuuang binayaran
             </AnimoText>
             <AnimoText variant="price" color={AnimoColors.green}>
-              {formatPeso(amountPaid(request))}
+              {formatPeso(totalPaid)}
             </AnimoText>
           </View>
         </View>
 
-        <ProgressTracker steps={progressSteps(request)} />
+        {/* Timeline */}
+        <ProgressTracker steps={receiptTimeline} />
 
-        <NoticeBanner tone="success" icon={<FileText size={16} color={AnimoColors.green} />}>
-          Nakaimbak ang resibong ito sa Transaksyon. Maaari mo itong i-download
-          bilang PDF.
+        {/* Info Banner */}
+        <NoticeBanner tone="info" icon={<FileText size={16} color="#2563A8" />}>
+          Nakaimbak ang resibong ito sa Transaksyon. Maaari mo itong i-download bilang PDF.
         </NoticeBanner>
       </ScrollView>
 
+      {/* Footer Buttons */}
       <View style={styles.footerStack}>
-        <AnimoButton label="I-download ang Resibo" />
         <AnimoButton
-          label="Bumalik sa Palengke"
-          variant="secondary"
-          onPress={() => router.replace('/(buyer)/palengke')}
+          label="Suriin ang Magsasaka"
+          onPress={() => router.push(`/(buyer)/transaksyon/${request.id}/review`)}
         />
-        {/*
-          The transaction is settled, so there is nothing left to cancel —
-          raising a dispute is the only way back from here.
-        */}
-        <CancelLink
-          label={policy.triggerLabel}
-          onPress={() => setDisputing(true)}
+        <AnimoButton
+          label="I-download ang PDF"
+          variant="secondary"
+          onPress={() => setShowDownloadModal(true)}
         />
       </View>
 
-      <CancelRequestModal
-        visible={disputing}
-        title={policy.title}
-        body={policy.body}
-        consequences={policy.consequences}
-        confirmLabel={policy.confirmLabel}
-        onDismiss={() => setDisputing(false)}
-        onConfirm={() => setDisputing(false)}
+      {/* Download PDF Modal */}
+      <FeedbackModal
+        visible={showDownloadModal}
+        tone="success"
+        title="Na-download ang Resibo!"
+        message={`Matagumpay na nai-download ang PDF copy ng resibo (${request.reference}) sa iyong device.`}
+        confirmLabel="OK"
+        onConfirm={() => setShowDownloadModal(false)}
       />
     </SafeAreaView>
   );
@@ -200,10 +283,12 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.lg,
     padding: AnimoSpacing.lg,
     gap: AnimoSpacing.sm,
+    backgroundColor: AnimoColors.white,
   },
   bannerRow: {
     flexDirection: 'row',
     gap: AnimoSpacing.md,
+    alignItems: 'center',
   },
   bannerIcon: {
     width: 40,
@@ -221,19 +306,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: AnimoSpacing.sm,
+    marginTop: AnimoSpacing.xs,
   },
   refRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: AnimoSpacing.md,
+    justifyContent: 'space-between',
   },
   copyButton: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     borderRadius: AnimoRadius.sm,
     backgroundColor: AnimoColors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  copyButtonActive: {
+    backgroundColor: AnimoColors.greenTint,
   },
   flex: {
     flex: 1,
@@ -248,17 +337,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: AnimoSpacing.md,
+    paddingVertical: 2,
   },
-  paymentRow: {
+  rowBetween: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: AnimoSpacing.md,
   },
   footerStack: {
     paddingHorizontal: AnimoSpacing.xl,
     paddingTop: AnimoSpacing.md,
     paddingBottom: AnimoSpacing.md,
-    gap: AnimoSpacing.md,
+    gap: AnimoSpacing.sm,
+    backgroundColor: AnimoColors.background,
   },
 });

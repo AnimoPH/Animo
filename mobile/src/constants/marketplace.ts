@@ -23,7 +23,7 @@ export type Listing = {
   priceLocked: boolean;
 };
 
-export type TransactionStatus = 'aktibo' | 'tapos' | 'disputed';
+export type TransactionStatus = 'aktibo' | 'tapos' | 'cancelled';
 
 export type Transaction = {
   id: string;
@@ -35,48 +35,39 @@ export type Transaction = {
   /** Display date string (pre-formatted for the mock). */
   date: string;
   status: TransactionStatus;
+  farmerName?: string;
+  reference?: string;
 };
 
 /* ---------------- Purchase request lifecycle ---------------- */
 
 /**
- * Share of the total the buyer pays up front to hold the request.
+ * Stages a purchase request moves through in the revised flow, in order:
  *
- * Single source of truth — the downpayment and remaining balance shown on every
- * screen derive from this, so changing the rate changes them all.
- */
-export const DOWNPAYMENT_RATE = 0.5;
-
-/** Days the buyer has to pay the downpayment before the request auto-cancels. */
-export const DOWNPAYMENT_WINDOW_DAYS = 3;
-
-/**
- * Stages a purchase request moves through, in order.
- *
- * `pending`    — sent, waiting for the farmer to accept
- * `accepted`   — farmer accepted; contact details unlocked
- * `downpaid`   — downpayment settled; pickup can be scheduled
- * `scheduled`  — pickup + inspection booked
- * `inspected`  — palay inspected on the farm, ready for final payment
- * `completed`  — paid in full; receipt available
- * `cancelled`  — buyer cancelled, or the downpayment window lapsed
+ * `pending`    — buyer sent bid, waiting for farmer to accept
+ * `accepted`   — farmer accepted bid; proceeds directly to pickup & inspection
+ * `scheduled`  — pickup + inspection scheduled
+ * `inspected`  — palay inspected on the farm, ready for full payment
+ * `completed`  — paid in full (GCash or Cash); receipt available
+ * `reviewed`   — farmer review submitted
+ * `cancelled`  — buyer or farmer cancelled
  */
 export type RequestStage =
   | 'pending'
   | 'accepted'
-  | 'downpaid'
   | 'scheduled'
   | 'inspected'
   | 'completed'
+  | 'reviewed'
   | 'cancelled';
 
 /** The five milestones shown in the "Progreso ng Transaksyon" tracker. */
 export type ProgressStepKey =
   | 'sent'
   | 'accepted'
-  | 'downpayment'
   | 'pickup'
-  | 'final';
+  | 'payment'
+  | 'review';
 
 export type ProgressStep = {
   key: ProgressStepKey;
@@ -104,13 +95,43 @@ export type InspectionCheck = {
   passed: boolean;
 };
 
+export type PaymentMethod = 'gcash' | 'cash';
+
 export type PaymentRecord = {
   label: string;
   amount: number;
-  /** Display timestamp, e.g. "Okt 13, 2025 · 02:10 PM". */
+  method: PaymentMethod;
+  /** Display timestamp, e.g. "Okt 18, 2025 · 11:42 AM". */
   paidAt: string;
-  /** GCash reference number. */
+  /** Reference number (e.g., GCash ref or cash note). */
   reference: string;
+};
+
+export type DiscrepancyReason =
+  | 'Mas mababa/mataas ang timbang'
+  | 'Magkaiba ang grade'
+  | 'Iba ang variant'
+  | 'Iba pa';
+
+export type PaymentDiscrepancy = {
+  agreedAmount: number;
+  actualAmount: number;
+  difference: number;
+  reason?: DiscrepancyReason;
+  explanation?: string;
+};
+
+export type FarmerReview = {
+  overallRating: number;
+  detailedRatings: {
+    quality: number;
+    weight: number;
+    communication: number;
+    timeliness: number;
+  };
+  comment?: string;
+  isAnonymous: boolean;
+  submittedAt?: string;
 };
 
 export type PurchaseRequest = {
@@ -123,14 +144,11 @@ export type PurchaseRequest = {
   pricePerKg: number;
   stage: RequestStage;
   farmer: Farmer;
+  buyerName?: string;
   /** Display timestamp the request was sent. */
   sentAt: string;
   /** Display timestamp the farmer accepted, once they have. */
   acceptedAt?: string;
-  /** Deadline for the downpayment, e.g. "Okt 15, 2025 · 09:00 AM". */
-  downpaymentDeadline?: string;
-  /** Countdown to that deadline, pre-formatted for the mock. */
-  downpaymentCountdown?: string;
   /** Scheduled pickup window. */
   pickup?: {
     date: string;
@@ -146,33 +164,29 @@ export type PurchaseRequest = {
     actualKg?: number;
   };
   payments: PaymentRecord[];
+  discrepancy?: PaymentDiscrepancy;
+  review?: FarmerReview;
   /** Why the request was cancelled, when it was. */
   cancelReason?: string;
   cancelledAt?: string;
 };
 
-/** Total for a request, before any payments. */
+/** Total for a request, before any adjustments. */
 export function requestTotal(request: PurchaseRequest): number {
   return request.quantityKg * request.pricePerKg;
 }
 
-/** Amount due up front, derived from `DOWNPAYMENT_RATE`. */
-export function downpaymentAmount(request: PurchaseRequest): number {
-  return requestTotal(request) * DOWNPAYMENT_RATE;
-}
-
-/** Sum of everything the buyer has paid so far. */
+/** Sum of everything the buyer has paid. */
 export function amountPaid(request: PurchaseRequest): number {
   return request.payments.reduce((sum, p) => sum + p.amount, 0);
 }
 
 /** What remains due on pickup. */
 export function balanceDue(request: PurchaseRequest): number {
-  return requestTotal(request) - amountPaid(request);
+  const total = requestTotal(request);
+  const paid = amountPaid(request);
+  return Math.max(0, total - paid);
 }
-
-/** Whole-number percentage for labels like "Downpayment (50%)". */
-export const DOWNPAYMENT_PCT = Math.round(DOWNPAYMENT_RATE * 100);
 
 /* ---------------- Cancellation policy ---------------- */
 
@@ -191,20 +205,7 @@ export type CancelPolicy = {
   triggerLabel: string;
 };
 
-/**
- * What cancelling costs the buyer at a given stage.
- *
- * Before the downpayment nothing is at stake. Once it is paid the money sits in
- * escrow, so cancelling becomes a refund question — and after the palay has
- * been inspected and collected, self-service cancellation is closed and the
- * buyer must raise a dispute instead.
- *
- * These are placeholder terms for the frontend; the real refund rules need to
- * come from the escrow contract and platform policy.
- */
 export function cancelPolicy(request: PurchaseRequest): CancelPolicy {
-  const paid = amountPaid(request);
-
   switch (request.stage) {
     case 'pending':
       return {
@@ -221,51 +222,35 @@ export function cancelPolicy(request: PurchaseRequest): CancelPolicy {
       };
 
     case 'accepted':
-      return {
-        allowed: true,
-        title: 'Kanselahin ang request?',
-        body: `Tinanggap na ito ng magsasaka, ngunit hindi pa nabayaran ang downpayment.`,
-        consequences: [
-          'Walang parusa — wala pa kang naibayad.',
-          'Aabisuhan ang magsasaka at muling ilalista ang palay.',
-          `Kung hindi mo kanselahin, awtomatiko itong makakansela pagkatapos ng ${DOWNPAYMENT_WINDOW_DAYS} araw.`,
-        ],
-        confirmLabel: 'Kanselahin ang Request',
-        triggerLabel: 'Kanselahin ang Request',
-      };
-
-    case 'downpaid':
     case 'scheduled':
       return {
         allowed: true,
         title: 'Kanselahin ang transaksyon?',
-        body: `Nabayaran na ang downpayment na ${formatPeso(paid)} at nakahanda na ang magsasaka para sa pickup.`,
+        body: 'Nakahanda ang magsasaka para sa pickup at inspeksyon.',
         consequences: [
-          `Ire-review ang refund ng ${formatPeso(paid)} na nasa escrow.`,
-          'Maaaring may bawas para sa naitalagang paghahanda ng magsasaka.',
-          'Makakaapekto ito sa iyong rating bilang mamimili.',
-          'Kakanselahin ang nakaiskedyul na pickup.',
+          'Aabisuhan ang magsasaka sa pagkansela.',
+          'Muling ilalista ang palay para sa ibang mamimili.',
+          'Kakanselahin ang nakatakdang iskedyul ng pickup.',
         ],
         confirmLabel: 'Ituloy ang Pagkansela',
         triggerLabel: 'Kanselahin ang Transaksyon',
       };
 
     case 'inspected':
-      // The palay has been inspected on-site; unwinding now needs a dispute.
       return {
-        allowed: false,
-        title: 'Kailangan ng dispute',
-        body: 'Naipasa na ang inspeksyon, kaya hindi na maaaring kanselahin nang basta-basta.',
+        allowed: true,
+        title: 'Kanselahin ang transaksyon?',
+        body: 'Na-inspeksyon na ang palay ngunit hindi pa nababayaran.',
         consequences: [
-          `Nasa escrow ang downpayment na ${formatPeso(paid)}.`,
-          'Maghain ng dispute kung may problema sa kalidad o timbang.',
-          'Rerepasuhin ng ANIMO ang dispute sa loob ng 3 araw ng trabaho.',
+          'Aabisuhan ang magsasaka na hindi itutuloy ang pagbili.',
+          'Maaaring may ulat sa dahilan ng hindi pagtuloy.',
         ],
-        confirmLabel: 'Maghain ng Dispute',
-        triggerLabel: 'Maghain ng Dispute',
+        confirmLabel: 'Kanselahin ang Transaksyon',
+        triggerLabel: 'Kanselahin ang Transaksyon',
       };
 
     case 'completed':
+    case 'reviewed':
       return {
         allowed: false,
         title: 'Kailangan ng dispute',
@@ -285,8 +270,8 @@ export function cancelPolicy(request: PurchaseRequest): CancelPolicy {
         title: 'Nakansela na ang transaksyon',
         body: 'Wala nang aksyon na maaaring gawin sa transaksyong ito.',
         consequences: [],
-        confirmLabel: 'Maghain ng Dispute',
-        triggerLabel: 'Maghain ng Dispute',
+        confirmLabel: '',
+        triggerLabel: '',
       };
   }
 }
@@ -346,10 +331,12 @@ export const TRANSACTIONS: Transaction[] = [
     variety: 'Palay RC160',
     municipality: 'Baliwag',
     province: 'Bulacan',
-    quantityKg: 200,
-    total: 3200,
-    date: 'Hulyo 25, 2026',
+    quantityKg: 500,
+    total: 8000,
+    date: 'Oktubre 18, 2025',
     status: 'aktibo',
+    farmerName: 'Juan Dela Cruz',
+    reference: 'TXN-2025-0418-0094',
   },
   {
     id: 't-2',
@@ -360,6 +347,8 @@ export const TRANSACTIONS: Transaction[] = [
     total: 2325,
     date: 'Hulyo 18, 2026',
     status: 'tapos',
+    farmerName: 'Pedro Ramos',
+    reference: 'TXN-2025-0320-0081',
   },
   {
     id: 't-3',
@@ -369,7 +358,9 @@ export const TRANSACTIONS: Transaction[] = [
     quantityKg: 300,
     total: 4560,
     date: 'Hulyo 10, 2026',
-    status: 'disputed',
+    status: 'cancelled',
+    farmerName: 'Mateo Gomez',
+    reference: 'TXN-2025-0215-0044',
   },
   {
     id: 't-4',
@@ -380,6 +371,8 @@ export const TRANSACTIONS: Transaction[] = [
     total: 3875,
     date: 'Hunyo 28, 2026',
     status: 'tapos',
+    farmerName: 'Juan Dela Cruz',
+    reference: 'TXN-2025-0112-0021',
   },
   {
     id: 't-5',
@@ -390,10 +383,12 @@ export const TRANSACTIONS: Transaction[] = [
     total: 1520,
     date: 'Hunyo 15, 2026',
     status: 'tapos',
+    farmerName: 'Jose Reyes',
+    reference: 'TXN-2024-1205-0012',
   },
 ];
 
-/** Format a peso amount like "₱3,200.00". */
+/** Format a peso amount like "₱8,000.00". */
 export function formatPeso(amount: number): string {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -406,13 +401,12 @@ const JUAN: Farmer = {
   role: 'Magsasaka · Coop-Verified',
   verified: true,
   addressLine: 'Bukid 1A, Brgy. San Jose',
-  addressDetail: 'Baliwag, Bulacan',
+  addressDetail: 'Baliwag, Bulacan · 3.2 km mula sa iyo',
   distanceKm: 3.2,
 };
 
 /**
- * Mock purchase requests — one per stage so every screen in the buyer flow can
- * be reached from the transaction list.
+ * Mock purchase requests — one per stage in the new buyer flow.
  */
 export const PURCHASE_REQUESTS: PurchaseRequest[] = [
   {
@@ -424,6 +418,7 @@ export const PURCHASE_REQUESTS: PurchaseRequest[] = [
     pricePerKg: 16.0,
     stage: 'pending',
     farmer: JUAN,
+    buyerName: 'Maria Santos',
     sentAt: 'Okt 12, 2025 · 09:00 AM',
     payments: [],
   },
@@ -436,10 +431,9 @@ export const PURCHASE_REQUESTS: PurchaseRequest[] = [
     pricePerKg: 16.0,
     stage: 'accepted',
     farmer: JUAN,
+    buyerName: 'Maria Santos',
     sentAt: 'Okt 12, 2025 · 09:00 AM',
     acceptedAt: 'Okt 12, 2025 · 09:00 AM',
-    downpaymentDeadline: 'Okt 15, 2025 · 09:00 AM',
-    downpaymentCountdown: '2 araw 23:45',
     payments: [],
   },
   {
@@ -451,11 +445,12 @@ export const PURCHASE_REQUESTS: PurchaseRequest[] = [
     pricePerKg: 16.0,
     stage: 'scheduled',
     farmer: JUAN,
+    buyerName: 'Maria Santos',
     sentAt: 'Okt 12, 2025 · 09:00 AM',
     acceptedAt: 'Okt 12, 2025 · 09:00 AM',
     pickup: {
       date: 'Sabado, Okt 18, 2025',
-      timeWindow: '8:00 AM – 11:00 AM',
+      timeWindow: '8:00 AM - 11:00 AM',
       addressLine: 'Bukid 1A, Brgy. San Jose',
       addressDetail: 'Baliwag, Bulacan · 3.2 km mula sa iyo',
     },
@@ -468,14 +463,7 @@ export const PURCHASE_REQUESTS: PurchaseRequest[] = [
         { label: 'Aktwal na timbang', detail: 'Hindi pa natitimbang', passed: false },
       ],
     },
-    payments: [
-      {
-        label: `Downpayment (${DOWNPAYMENT_PCT}%)`,
-        amount: 500 * 16.0 * DOWNPAYMENT_RATE,
-        paidAt: 'Okt 13, 2025 · 02:10 PM',
-        reference: 'GC-8842190',
-      },
-    ],
+    payments: [],
   },
   {
     id: 'pr-inspected',
@@ -486,11 +474,12 @@ export const PURCHASE_REQUESTS: PurchaseRequest[] = [
     pricePerKg: 16.0,
     stage: 'inspected',
     farmer: JUAN,
+    buyerName: 'Maria Santos',
     sentAt: 'Okt 12, 2025 · 09:00 AM',
     acceptedAt: 'Okt 12, 2025 · 09:00 AM',
     pickup: {
       date: 'Sabado, Okt 18, 2025',
-      timeWindow: '8:00 AM – 11:00 AM',
+      timeWindow: '8:00 AM - 11:00 AM',
       addressLine: 'Bukid 1A, Brgy. San Jose',
       addressDetail: 'Baliwag, Bulacan · 3.2 km mula sa iyo',
     },
@@ -504,29 +493,23 @@ export const PURCHASE_REQUESTS: PurchaseRequest[] = [
       ],
       actualKg: 500,
     },
-    payments: [
-      {
-        label: `Downpayment (${DOWNPAYMENT_PCT}%)`,
-        amount: 500 * 16.0 * DOWNPAYMENT_RATE,
-        paidAt: 'Okt 13, 2025 · 02:10 PM',
-        reference: 'GC-8842190',
-      },
-    ],
+    payments: [],
   },
   {
     id: 'pr-completed',
-    reference: 'TXN-2025-0418-0096',
+    reference: 'TXN-2025-0418-0092',
     listingId: 'l-rc160',
     variety: 'Palay RC160',
     quantityKg: 500,
     pricePerKg: 16.0,
     stage: 'completed',
     farmer: JUAN,
+    buyerName: 'Maria Santos',
     sentAt: 'Okt 12, 2025 · 09:00 AM',
     acceptedAt: 'Okt 12, 2025 · 09:00 AM',
     pickup: {
       date: 'Sabado, Okt 18, 2025',
-      timeWindow: '8:00 AM – 11:00 AM',
+      timeWindow: '8:00 AM - 11:00 AM',
       addressLine: 'Bukid 1A, Brgy. San Jose',
       addressDetail: 'Baliwag, Bulacan · 3.2 km mula sa iyo',
     },
@@ -542,14 +525,9 @@ export const PURCHASE_REQUESTS: PurchaseRequest[] = [
     },
     payments: [
       {
-        label: `Downpayment (${DOWNPAYMENT_PCT}%)`,
-        amount: 500 * 16.0 * DOWNPAYMENT_RATE,
-        paidAt: 'Okt 13, 2025 · 02:10 PM',
-        reference: 'GC-8842190',
-      },
-      {
-        label: `Huling bayad (${100 - DOWNPAYMENT_PCT}%)`,
-        amount: 500 * 16.0 * (1 - DOWNPAYMENT_RATE),
+        label: 'Buong Bayad (GCash)',
+        amount: 8000,
+        method: 'gcash',
         paidAt: 'Okt 18, 2025 · 11:42 AM',
         reference: 'GC-8846702',
       },
@@ -564,10 +542,10 @@ export const PURCHASE_REQUESTS: PurchaseRequest[] = [
     pricePerKg: 16.0,
     stage: 'cancelled',
     farmer: JUAN,
+    buyerName: 'Maria Santos',
     sentAt: 'Okt 12, 2025 · 09:00 AM',
     acceptedAt: 'Okt 12, 2025 · 09:00 AM',
-    downpaymentDeadline: 'Okt 15, 2025 · 09:00 AM',
-    cancelReason: `Lumipas ang ${DOWNPAYMENT_WINDOW_DAYS}-araw na palugit`,
+    cancelReason: 'Kinansela ng mamimili bago ang inspeksyon',
     cancelledAt: 'Okt 15, 2025 · 09:01 AM',
     payments: [],
   },
@@ -580,21 +558,21 @@ export function getPurchaseRequest(
 }
 
 /**
- * Build the five-step progress tracker for a request.
- *
- * Steps before the current stage read as done, the active one as current, and
- * the rest as upcoming — except on a cancelled request, where the step that
- * lapsed is marked failed and everything after it never happened.
+ * Build the five-step progress tracker for a request in the new flow:
+ * 1. Request naipadala
+ * 2. Tinanggap ng magsasaka
+ * 3. Pickup at inspeksyon
+ * 4. Bayad sa magsasaka
+ * 5. Review sa magsasaka
  */
 export function progressSteps(request: PurchaseRequest): ProgressStep[] {
   const { stage } = request;
-  const down = request.payments[0];
   const isCancelled = stage === 'cancelled';
 
   const accepted = stage !== 'pending';
-  const downPaid = ['downpaid', 'scheduled', 'inspected', 'completed'].includes(stage);
-  const pickedUp = ['inspected', 'completed'].includes(stage);
-  const done = stage === 'completed';
+  const inspectedOrBeyond = ['inspected', 'completed', 'reviewed'].includes(stage);
+  const paid = ['completed', 'reviewed'].includes(stage);
+  const reviewed = stage === 'reviewed';
 
   return [
     {
@@ -606,60 +584,60 @@ export function progressSteps(request: PurchaseRequest): ProgressStep[] {
     {
       key: 'accepted',
       label: accepted ? 'Tinanggap ng magsasaka' : 'Pag-accept ng magsasaka',
-      detail: accepted ? (request.acceptedAt ?? '') : 'Naghihintay…',
+      detail: accepted ? (request.acceptedAt ?? 'Okt 12, 09:00 AM') : 'Naghihintay…',
       state: accepted ? 'done' : 'current',
-    },
-    {
-      key: 'downpayment',
-      label: `Downpayment (${DOWNPAYMENT_PCT}%)`,
-      detail: isCancelled
-        ? `Hindi nabayaran · ${request.cancelledAt ?? ''}`
-        : downPaid
-          ? `Bayad · ${down?.paidAt ?? ''}`
-          : accepted
-            ? `Bayaran hanggang ${request.downpaymentDeadline ?? ''}`
-            : `${DOWNPAYMENT_WINDOW_DAYS} araw mula sa pag-accept`,
-      state: isCancelled
-        ? 'failed'
-        : downPaid
-          ? 'done'
-          : accepted
-            ? 'current'
-            : 'upcoming',
     },
     {
       key: 'pickup',
       label: 'Pickup at inspeksyon',
       detail: isCancelled
         ? 'Hindi natuloy'
-        : pickedUp
-          ? `Tapos · ${request.pickup?.date ?? ''}`
-          : stage === 'scheduled'
-            ? `${request.pickup?.date ?? ''} · ${request.pickup?.timeWindow ?? ''}`
+        : inspectedOrBeyond
+          ? 'Tapos · Okt 18, 09:20 AM'
+          : stage === 'scheduled' || stage === 'accepted'
+            ? 'Ginagawa ngayon · Okt 18'
             : 'Sa bukid',
       state: isCancelled
-        ? 'upcoming'
-        : pickedUp
+        ? 'failed'
+        : inspectedOrBeyond
           ? 'done'
-          : stage === 'scheduled'
+          : stage === 'scheduled' || stage === 'accepted'
             ? 'current'
             : 'upcoming',
     },
     {
-      key: 'final',
-      label: 'Huling bayad',
+      key: 'payment',
+      label: 'Bayad sa magsasaka',
       detail: isCancelled
         ? 'Hindi natuloy'
-        : done
-          ? `Bayad · ${request.payments[1]?.paidAt ?? ''}`
+        : paid
+          ? `Bayad (${request.payments[0]?.method === 'cash' ? 'Cash' : 'GCash'}) · ${request.payments[0]?.paidAt ?? 'Okt 18, 11:42 AM'}`
           : stage === 'inspected'
-            ? 'Bayaran ngayon'
-            : 'Parehong araw ng pickup',
+            ? 'Isinasagawa ngayon'
+            : 'Pagkatapos ng inspeksyon',
       state: isCancelled
         ? 'upcoming'
-        : done
+        : paid
           ? 'done'
           : stage === 'inspected'
+            ? 'current'
+            : 'upcoming',
+    },
+    {
+      key: 'review',
+      label: 'Review sa magsasaka',
+      detail: isCancelled
+        ? 'Hindi natuloy'
+        : reviewed
+          ? 'Tapos na ang review'
+          : paid
+            ? 'Susunod na hakbang'
+            : 'Huling hakbang',
+      state: isCancelled
+        ? 'upcoming'
+        : reviewed
+          ? 'done'
+          : paid
             ? 'current'
             : 'upcoming',
     },

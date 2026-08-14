@@ -51,6 +51,13 @@ export default function BuyerLayout() {
         }}
       />
       <Tabs.Screen name="profile" />
+      <Tabs.Screen
+        name="notipikasyon"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
     </Tabs>
   );
 }
