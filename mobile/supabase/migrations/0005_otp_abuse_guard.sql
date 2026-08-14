@@ -1,16 +1,8 @@
--- Security fix: the app's only OTP resend "cooldown" was a 45s setTimeout
--- in React component state (src/components/animo/otp-verification.tsx) —
--- not a server-side control at all. Anyone calling
--- supabase.auth.signInWithOtp / verifyOtp directly with the public anon key
--- could send/verify as fast as they liked, enabling SMS-bombing of
--- arbitrary numbers and unlimited OTP-guessing attempts. This table backs
--- real server-side throttling + lockout, enforced by the send-otp/verify-otp
--- Edge Functions (which replace the client's direct auth.signInWithOtp /
--- auth.verifyOtp calls — see src/services/auth-service.ts).
---
--- RLS is enabled with zero policies granted to anon/authenticated: only the
--- service-role client inside those two Edge Functions may ever read or
--- write this table.
+-- Security fix: the OTP resend cooldown was client-only React state, not
+-- enforced server-side — anyone with the anon key could send/verify OTPs
+-- as fast as they liked. Backs real throttling + lockout for the
+-- send-otp/verify-otp Edge Functions. Only service_role (those two
+-- functions) can read or write this table.
 
 create table public.otp_guard (
   phone text primary key,

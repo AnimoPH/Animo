@@ -1,26 +1,13 @@
--- Security fix: the original payment/transactionmatch policies let either
--- party rewrite almost any column directly, including `status` and the
--- counterparty's confirmation fields. Concretely, a buyer alone could:
---
---   1. update transactionmatch set status = 'Delivered' where transaction_id = X;   -- passed RLS
---   2. insert into payment (transaction_id, payer_id, payee_id, status, ...)
---        values (X, auth.uid(), <any farmer>, 'Pending', ...);                       -- passed RLS
---   3. update payment set status = 'Confirmed' where payment_id = <new row>;         -- passed RLS
---
--- Step 3's AFTER UPDATE trigger (payment_check_completed, see 0001) then
--- auto-marks the transaction Completed — a buyer could self-attest a GCash
--- payment was made and confirmed, without the farmer ever confirming
--- anything and without money moving. This migration does not touch the
--- existing derivation triggers (they're correct); it removes the client's
--- ability to drive the state machine directly and replaces it with
--- SECURITY DEFINER RPCs that check the caller is the actual counterparty
--- before performing the write — the same pattern already used for the
--- wallet vault functions in 0002.
+-- Security fix: RLS let either party rewrite `status` and confirmation
+-- fields directly, so a buyer alone could fake a confirmed payment and
+-- auto-complete a transaction with no money moving and no farmer
+-- confirmation. Direct client UPDATE on payment/transactionmatch is now
+-- removed; all state changes go through the RPCs below, each checking the
+-- caller is the real counterparty (same pattern as the wallet vault
+-- functions in 0002).
 
--- =============================================================================
 -- payment: bind INSERT to the real transaction parties, force Pending on
--- insert, and remove direct client UPDATE entirely.
--- =============================================================================
+-- insert, remove direct UPDATE.
 
 drop policy if exists "Buyer records a payment on their transaction" on public.payment;
 create policy "Buyer records a payment on their transaction"
@@ -41,24 +28,16 @@ create policy "Buyer records a payment on their transaction"
 drop policy if exists "Buyer marks payment sent, farmer confirms received" on public.payment;
 revoke update on public.payment from authenticated;
 
--- =============================================================================
--- transactionmatch: remove direct client UPDATE entirely — status now only
--- advances through the RPCs below.
--- =============================================================================
+-- transactionmatch: remove direct client UPDATE — status only advances
+-- through the RPCs below.
 
 drop policy if exists "Parties can update own transactions" on public.transactionmatch;
 revoke update on public.transactionmatch from authenticated;
 
--- =============================================================================
--- RPCs — each checks auth.uid() against the actual counterparty on the row
--- before writing. SECURITY DEFINER lets these bypass the revokes above the
--- same way the table owner always could; EXECUTE is granted to authenticated
--- only (not anon), matching "must be signed in" for every one of these.
--- =============================================================================
+-- RPCs — SECURITY DEFINER, granted to authenticated only.
 
--- Buyer records a payment against their own transaction. payer_id/payee_id
--- are derived from the transaction row itself, never taken from the caller,
--- so they can't be spoofed to point at an uninvolved farmer.
+-- Buyer records a payment on their own transaction; payer/payee come from
+-- the transaction row, never the caller, so they can't be spoofed.
 create or replace function public.record_payment(
   p_transaction_id uuid,
   p_payment_mode text,
@@ -102,8 +81,7 @@ $$;
 revoke all on function public.record_payment(uuid, text, numeric, text) from public, anon;
 grant execute on function public.record_payment(uuid, text, numeric, text) to authenticated;
 
--- Buyer confirms they sent the payment (their own half only — never flips
--- `status`, which stays under the farmer's confirmation below).
+-- Buyer confirms they sent payment — only their own field, never `status`.
 create or replace function public.buyer_confirm_payment_sent(p_payment_id uuid)
 returns void
 language plpgsql
@@ -128,10 +106,9 @@ $$;
 revoke all on function public.buyer_confirm_payment_sent(uuid) from public, anon;
 grant execute on function public.buyer_confirm_payment_sent(uuid) to authenticated;
 
--- Farmer confirms they actually received the payment — the only path that
--- may set payment.status = 'Confirmed', and only the payee may call it.
--- Also advances transactionmatch to Payment_Confirmed so
--- farmer_mark_delivered (below) has a real prior state to require.
+-- Farmer confirms payment received — the only path that sets
+-- status = 'Confirmed'. Also advances transactionmatch so
+-- farmer_mark_delivered has a valid prior state to require.
 create or replace function public.farmer_confirm_payment_received(p_payment_id uuid)
 returns void
 language plpgsql
@@ -164,9 +141,8 @@ $$;
 revoke all on function public.farmer_confirm_payment_received(uuid) from public, anon;
 grant execute on function public.farmer_confirm_payment_received(uuid) to authenticated;
 
--- Either party can report the payment as failed (e.g. a bounced GCash
--- transfer); the existing payment_failed_cascade trigger (0001) then fails
--- the transaction the same way it always did.
+-- Either party reports a failed payment; the existing
+-- payment_failed_cascade trigger (0001) fails the transaction as before.
 create or replace function public.report_payment_failed(p_payment_id uuid)
 returns void
 language plpgsql
@@ -193,10 +169,9 @@ $$;
 revoke all on function public.report_payment_failed(uuid) from public, anon;
 grant execute on function public.report_payment_failed(uuid) to authenticated;
 
--- Farmer marks the crop delivered — only after payment is confirmed, and
--- only the farmer on that transaction may call it. The existing
--- transactionmatch_check_completed trigger (0001) still derives Completed
--- from this the same way it always did.
+-- Farmer marks the crop delivered, only once payment is confirmed. The
+-- existing transactionmatch_check_completed trigger (0001) still derives
+-- Completed from this the same way it always did.
 create or replace function public.farmer_mark_delivered(p_transaction_id uuid)
 returns void
 language plpgsql
@@ -224,7 +199,7 @@ $$;
 revoke all on function public.farmer_mark_delivered(uuid) from public, anon;
 grant execute on function public.farmer_mark_delivered(uuid) to authenticated;
 
--- Either party can cancel, but only before any payment has been recorded.
+-- Either party cancels, only before any payment has been recorded.
 create or replace function public.cancel_transaction(p_transaction_id uuid)
 returns void
 language plpgsql

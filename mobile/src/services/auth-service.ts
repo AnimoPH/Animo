@@ -21,12 +21,8 @@ export function normalizePhone(input: string): string {
 }
 
 /**
- * `functions.invoke()` collapses any non-2xx response to a fixed
- * `FunctionsHttpError` with the generic message "Edge Function returned a
- * non-2xx status code" — the actual `{ error: "..." }` body has to be read
- * off `error.context` (a Response) explicitly, or callers lose the real
- * message (e.g. login's "not registered" signal, or the OTP throttle's
- * "please wait" message). See @supabase/functions-js FunctionsClient.
+ * `functions.invoke()` collapses any non-2xx response to a generic message —
+ * the real `{ error }` body has to be read off `error.context` instead.
  */
 async function unwrapFunctionError(error: unknown): Promise<Error> {
   const context = (error as { context?: Response } | undefined)?.context;
@@ -51,12 +47,8 @@ export type SendOtpOptions = {
 };
 
 /**
- * Sends an OTP via the `send-otp` Edge Function rather than calling
- * `supabase.auth.signInWithOtp` directly. The previous direct call had no
- * server-side throttle at all — the only "cooldown" was client-side React
- * state (see `otp-verification.tsx`), which a direct API caller with the
- * public anon key never touches. `send-otp` enforces a real per-phone
- * resend cooldown + daily cap before it ever reaches Supabase Auth.
+ * Sends an OTP via the `send-otp` Edge Function, which enforces a real
+ * server-side cooldown (the old client-side timer alone wasn't enough).
  */
 export async function sendOtp(phone: string, { isRegistration }: SendOtpOptions) {
   const { error } = await supabase.functions.invoke('send-otp', {
@@ -66,11 +58,8 @@ export async function sendOtp(phone: string, { isRegistration }: SendOtpOptions)
 }
 
 /**
- * Verifies an OTP via the `verify-otp` Edge Function rather than calling
- * `supabase.auth.verifyOtp` directly — that Edge Function enforces a
- * server-side failed-attempt lockout (this codebase previously had none at
- * any layer it controls). Verification happens in a server-side client, so
- * on success we adopt the returned session locally via `setSession`.
+ * Verifies an OTP via the `verify-otp` Edge Function (server-enforced
+ * attempt lockout), then adopts the returned session locally.
  */
 export async function verifyOtp(phone: string, code: string) {
   const { data, error } = await supabase.functions.invoke('verify-otp', {

@@ -1,21 +1,12 @@
 // Supabase Edge Function (Deno). Deploy with:
 //   supabase functions deploy send-otp
 //
-// Security fix: previously the mobile client called
-// supabase.auth.signInWithOtp() directly with the public anon key, and the
-// only "resend cooldown" was a 45s setTimeout in React component state
-// (src/components/animo/otp-verification.tsx) — never enforced server-side.
-// A direct API caller (anyone with the anon key, which ships in the app
-// bundle) could request OTP sends for arbitrary numbers as fast as they
-// liked: an SMS-bombing / cost-abuse vector. This function is now the only
-// path the client uses to send an OTP; it enforces a real per-phone resend
-// cooldown and daily cap (see supabase/migrations/0005_otp_abuse_guard.sql)
-// in front of the same signInWithOtp call.
-//
-// This does not change the app's existing, deliberate decision to let login
-// (shouldCreateUser: false) surface a real "not registered" error — that's
-// a product choice made elsewhere (src/services/auth-service.ts), not
-// something this function tries to mask.
+// Security fix: the client used to call signInWithOtp directly with only a
+// client-side cooldown timer — easy to bypass with the public anon key.
+// This function enforces a real per-phone cooldown and daily cap (see
+// migration 0005_otp_abuse_guard.sql) before reaching Supabase Auth.
+// Login's "not registered" error is forwarded as-is — that's an
+// intentional product decision, not something this function should mask.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -87,8 +78,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Umabot na sa pinakamataas na bilang ng subok ngayong araw.' }, 429);
   }
 
-  // Caller-scoped (anon) client — this is the same call the client used to
-  // make directly; the throttle above is the new gate in front of it.
+  // Same signInWithOtp call the client used to make directly.
   const callerClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -105,16 +95,12 @@ Deno.serve(async (req) => {
     window_started_at: new Date(windowExpired ? now : windowStartedAt).toISOString(),
   });
   if (guardError) {
-    // Fail open on bookkeeping errors — never let a throttle-table hiccup
-    // block a legitimate signup/login — but log it, since a persistent
-    // failure here silently disables the whole throttle.
+    // Fail open — never block a real signup/login over a throttle-table error.
     console.error('[send-otp] otp_guard upsert failed', guardError.message);
   }
 
   if (error) {
-    // Preserved verbatim — this is the intentional "not registered" signal
-    // login relies on (see auth-service.ts), not a leak this function
-    // introduces.
+    // Forwarded as-is — the intentional "not registered" signal login relies on.
     console.error('[send-otp] signInWithOtp failed', error.message);
     return jsonResponse({ error: error.message }, error.status ?? 400);
   }

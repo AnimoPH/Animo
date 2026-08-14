@@ -1,19 +1,12 @@
 // Supabase Edge Function (Deno). Deploy with:
 //   supabase functions deploy verify-otp
 //
-// Security fix: previously the mobile client called
-// supabase.auth.verifyOtp() directly with no attempt cap of any kind in
-// this codebase — brute-forcing a 6-digit code was bounded only by
-// whichever Supabase-project-level rate limits happen to be configured
-// (not visible/verifiable from this repo). This function adds a real,
-// server-enforced per-phone lockout after repeated failures, backed by
-// supabase/migrations/0005_otp_abuse_guard.sql, as defense in depth.
+// Security fix: OTP verify had no attempt cap anywhere in this codebase.
+// Adds a server-enforced lockout after repeated failures (see migration
+// 0005_otp_abuse_guard.sql).
 //
-// On success it returns the raw session tokens; the client must call
-// supabase.auth.setSession({ access_token, refresh_token }) itself to
-// actually persist the session locally (see auth-service.ts) — this
-// function only verifies the code, it doesn't run inside the client's own
-// supabase-js instance.
+// Returns raw session tokens on success — the client must call
+// supabase.auth.setSession() itself to persist them (see auth-service.ts).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 

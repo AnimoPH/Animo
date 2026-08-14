@@ -1,38 +1,21 @@
 // Supabase Edge Function (Deno). Deploy with:
 //   supabase functions deploy complete-registration
 //
-// Creates the base "user" row plus the role-specific extension row (farmer or
-// buyer) for a newly phone-verified user, and a custodial Polygon wallet.
-// Runs under the service role, which is the only way anything ever gets
-// written to these tables — the client has no direct insert access.
+// Creates the "user" row + role extension row (farmer/buyer) for a
+// phone-verified user, plus a custodial Polygon wallet. Runs under the
+// service role — the only way anything gets written to these tables.
 //
-// Table names are copied literally from the ANIMO Data Dictionary (see
-// supabase/migrations/0001_full_data_dictionary_schema.sql): "user" (§1),
-// "farmer" (§1a), "buyer" (§1b). This client only ever creates 'Farmer' or
-// 'Buyer' rows, translated from the app's 'magsasaka'/'mamimili' RoleId.
-//
-// Wallet: the private key is generated here but never stored in a farmer/
-// buyer column — the dictionary defines neither, and that's the whole reason
-// the old encrypted_private_key/chain columns got dropped. It's stored in
-// Supabase Vault instead (see migration 0002_wallet_vault_functions.sql —
-// public.create_wallet_secret, callable only by service_role) and never
-// returned to the client; only wallet_address is. Retrieval
-// (public.get_wallet_private_key) is unused today — wired in whenever this
-// app actually needs to sign a transaction, or replaced outright once
-// custody moves to Alchemy.
+// Table names match the ANIMO Data Dictionary
+// (0001_full_data_dictionary_schema.sql). The wallet private key is
+// generated here and stored in Supabase Vault
+// (0002_wallet_vault_functions.sql), never returned to the client — only
+// wallet_address is.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { ethers } from 'https://esm.sh/ethers@6';
 
-// Security fix: this used to be '*'. The client-facing supabase-js
-// `functions.invoke()` never actually surfaces this response body's
-// `error` text to the app UI (a non-2xx response is collapsed to a fixed
-// "Edge Function returned a non-2xx status code" by @supabase/functions-js
-// — see FunctionsHttpError), so nothing in the current UI leaked raw
-// Postgres error text. It was still reachable by anyone calling this
-// endpoint directly (curl/Postman with a valid session JWT) and an
-// unnecessarily permissive CORS policy on a state-changing endpoint, so
-// both are tightened below regardless.
+// Security fix: was '*'. Scoped to an explicit ALLOWED_ORIGIN — native
+// requests don't send Origin anyway, so this costs the app nothing.
 const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN');
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -140,11 +123,8 @@ Deno.serve(async (req) => {
   if (insertError) {
     const { error: cleanupError } = await adminClient.rpc('delete_wallet_secret', { p_user_id: userId });
     if (cleanupError) {
-      // Previously silent — a failed cleanup here left an orphaned Vault
-      // secret that blocked every future retry (unique secret name). The
-      // create_wallet_secret function is now idempotent (migration 0006)
-      // so a leaked secret no longer wedges retries, but still log this so
-      // a persistent cleanup failure doesn't go unnoticed.
+      // Logged so a failed cleanup doesn't go unnoticed (create_wallet_secret
+      // is idempotent regardless — see migration 0006).
       console.error('[complete-registration] wallet secret cleanup failed', cleanupError.message);
     }
     console.error('[complete-registration] user insert failed', insertError.message);

@@ -4,20 +4,10 @@ import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 
 /**
- * Security fix: the Supabase session (JWT + refresh token) used to be
- * persisted in plain, unencrypted AsyncStorage — a refresh token sitting
- * there in plaintext is a full session-takeover primitive for anything with
- * filesystem access to the app sandbox (malware, a compromised/jailbroken
- * device, or an unencrypted Android `adb backup`).
- *
- * `expo-secure-store` can't hold the session directly — refresh tokens can
- * exceed its per-item size limit on some platforms, which is exactly why
- * this app originally chose plain AsyncStorage. This follows Supabase's own
- * documented workaround instead: a random AES-256 key lives in SecureStore
- * (OS keychain/Keystore, hardware-backed where available), and it
- * encrypts/decrypts whatever blob actually goes into AsyncStorage.
- * AsyncStorage itself never sees plaintext, and the encryption key never
- * touches AsyncStorage.
+ * Encrypted replacement for plain AsyncStorage session persistence.
+ * SecureStore alone can't hold a refresh token (size limits), so a random
+ * AES-256 key lives in SecureStore instead, encrypting whatever blob goes
+ * into AsyncStorage. AsyncStorage itself never sees plaintext.
  */
 
 const ENCRYPTION_KEY_ITEM = 'animo.supabase.session-key';
@@ -49,9 +39,7 @@ export const secureSessionStorage = {
       const decryptedBytes = aesjs.padding.pkcs7.strip(aesCbc.decrypt(data));
       return aesjs.utils.utf8.fromBytes(decryptedBytes);
     } catch (err) {
-      // Undecryptable (encryption key lost/rotated, corrupt data) — fail
-      // safe to "no session" rather than crash the app; worst case the user
-      // has to sign in again.
+      // Undecryptable — fail safe to "no session" instead of crashing.
       console.warn('[secure-session-storage] failed to decrypt stored session, clearing', err);
       await AsyncStorage.removeItem(key);
       return null;
