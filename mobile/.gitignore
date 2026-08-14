@@ -39,6 +39,8 @@ yarn-error.*
 # repo and holds the linked-project reference the whole team shares)
 supabase/.branches
 supabase/.temp/start-secrets/
+# Supabase CLI local project-link cache — leaks project ref/org id.
+supabase/.temp/
 
 # typescript
 *.tsbuildinfo

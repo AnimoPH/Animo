@@ -1,32 +1,25 @@
 // Supabase Edge Function (Deno). Deploy with:
 //   supabase functions deploy complete-registration
 //
-// Creates the base "user" row plus the role-specific extension row (farmer or
-// buyer) for a newly phone-verified user, and a custodial Polygon wallet.
-// Runs under the service role, which is the only way anything ever gets
-// written to these tables — the client has no direct insert access.
+// Creates the "user" row + role extension row (farmer/buyer) for a
+// phone-verified user, plus a custodial Polygon wallet. Runs under the
+// service role — the only way anything gets written to these tables.
 //
-// Table names are copied literally from the ANIMO Data Dictionary (see
-// supabase/migrations/0001_full_data_dictionary_schema.sql): "user" (§1),
-// "farmer" (§1a), "buyer" (§1b). This client only ever creates 'Farmer' or
-// 'Buyer' rows, translated from the app's 'magsasaka'/'mamimili' RoleId.
-//
-// Wallet: the private key is generated here but never stored in a farmer/
-// buyer column — the dictionary defines neither, and that's the whole reason
-// the old encrypted_private_key/chain columns got dropped. It's stored in
-// Supabase Vault instead (see migration 0002_wallet_vault_functions.sql —
-// public.create_wallet_secret, callable only by service_role) and never
-// returned to the client; only wallet_address is. Retrieval
-// (public.get_wallet_private_key) is unused today — wired in whenever this
-// app actually needs to sign a transaction, or replaced outright once
-// custody moves to Alchemy.
+// Table names match the ANIMO Data Dictionary
+// (0001_full_data_dictionary_schema.sql). The wallet private key is
+// generated here and stored in Supabase Vault
+// (0002_wallet_vault_functions.sql), never returned to the client — only
+// wallet_address is.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { ethers } from 'https://esm.sh/ethers@6';
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
+// Security fix: was '*'. Scoped to an explicit ALLOWED_ORIGIN — native
+// requests don't send Origin anyway, so this costs the app nothing.
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN');
+const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  ...(ALLOWED_ORIGIN ? { 'Access-Control-Allow-Origin': ALLOWED_ORIGIN } : {}),
 };
 
 type AppRole = 'magsasaka' | 'mamimili';
@@ -116,7 +109,10 @@ Deno.serve(async (req) => {
     p_user_id: userId,
     p_private_key: wallet.privateKey,
   });
-  if (secretError) return jsonResponse({ error: secretError.message }, 500);
+  if (secretError) {
+    console.error('[complete-registration] create_wallet_secret failed', secretError.message);
+    return jsonResponse({ error: 'Hindi na-save ang profile. Subukan muli.' }, 500);
+  }
 
   const { error: insertError } = await adminClient.from('user').insert({
     user_id: userId,
@@ -125,8 +121,14 @@ Deno.serve(async (req) => {
     contact_number: phone,
   });
   if (insertError) {
-    await adminClient.rpc('delete_wallet_secret', { p_user_id: userId });
-    return jsonResponse({ error: insertError.message }, 500);
+    const { error: cleanupError } = await adminClient.rpc('delete_wallet_secret', { p_user_id: userId });
+    if (cleanupError) {
+      // Logged so a failed cleanup doesn't go unnoticed (create_wallet_secret
+      // is idempotent regardless — see migration 0006).
+      console.error('[complete-registration] wallet secret cleanup failed', cleanupError.message);
+    }
+    console.error('[complete-registration] user insert failed', insertError.message);
+    return jsonResponse({ error: 'Hindi na-save ang profile. Subukan muli.' }, 500);
   }
 
   // Extension row (§1a FARMER / §1b BUYER) — wallet_address is the only
@@ -139,9 +141,16 @@ Deno.serve(async (req) => {
 
   const { error: extensionError } = await adminClient.from(extensionTable).insert(extensionRow);
   if (extensionError) {
-    await adminClient.from('user').delete().eq('user_id', userId);
-    await adminClient.rpc('delete_wallet_secret', { p_user_id: userId });
-    return jsonResponse({ error: extensionError.message }, 500);
+    const { error: userCleanupError } = await adminClient.from('user').delete().eq('user_id', userId);
+    if (userCleanupError) {
+      console.error('[complete-registration] user row cleanup failed', userCleanupError.message);
+    }
+    const { error: cleanupError } = await adminClient.rpc('delete_wallet_secret', { p_user_id: userId });
+    if (cleanupError) {
+      console.error('[complete-registration] wallet secret cleanup failed', cleanupError.message);
+    }
+    console.error('[complete-registration] extension row insert failed', extensionError.message);
+    return jsonResponse({ error: 'Hindi na-save ang profile. Subukan muli.' }, 500);
   }
 
   return jsonResponse({ walletAddress: wallet.address }, 200);

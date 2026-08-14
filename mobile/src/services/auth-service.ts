@@ -20,6 +20,23 @@ export function normalizePhone(input: string): string {
   return `+63${local}`;
 }
 
+/**
+ * `functions.invoke()` collapses any non-2xx response to a generic message —
+ * the real `{ error }` body has to be read off `error.context` instead.
+ */
+async function unwrapFunctionError(error: unknown): Promise<Error> {
+  const context = (error as { context?: Response } | undefined)?.context;
+  if (context && typeof context.json === 'function') {
+    try {
+      const body = await context.json();
+      if (body?.error) return new Error(String(body.error));
+    } catch {
+      // Response body wasn't JSON — fall through to the generic error below.
+    }
+  }
+  return error instanceof Error ? error : new Error('Something went wrong.');
+}
+
 export type SendOtpOptions = {
   /**
    * Registration allows Supabase to create the `auth.users` row on first
@@ -29,22 +46,36 @@ export type SendOtpOptions = {
   isRegistration: boolean;
 };
 
+/**
+ * Sends an OTP via the `send-otp` Edge Function, which enforces a real
+ * server-side cooldown (the old client-side timer alone wasn't enough).
+ */
 export async function sendOtp(phone: string, { isRegistration }: SendOtpOptions) {
-  const { error } = await supabase.auth.signInWithOtp({
-    phone: normalizePhone(phone),
-    options: { shouldCreateUser: isRegistration },
+  const { error } = await supabase.functions.invoke('send-otp', {
+    body: { phone: normalizePhone(phone), isRegistration },
   });
-  if (error) throw error;
+  if (error) throw await unwrapFunctionError(error);
 }
 
+/**
+ * Verifies an OTP via the `verify-otp` Edge Function (server-enforced
+ * attempt lockout), then adopts the returned session locally.
+ */
 export async function verifyOtp(phone: string, code: string) {
-  const { data, error } = await supabase.auth.verifyOtp({
-    phone: normalizePhone(phone),
-    token: code,
-    type: 'sms',
+  const { data, error } = await supabase.functions.invoke('verify-otp', {
+    body: { phone: normalizePhone(phone), code },
   });
-  if (error) throw error;
-  return data.session;
+  if (error) throw await unwrapFunctionError(error);
+
+  const session = (data as { session?: { access_token: string; refresh_token: string } } | null)?.session;
+  if (!session) throw new Error('Verification failed.');
+
+  const { data: sessionData, error: setSessionError } = await supabase.auth.setSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  });
+  if (setSessionError) throw setSessionError;
+  return sessionData.session;
 }
 
 /** DB spells role per the data dictionary; the app only ever knows magsasaka/mamimili. */
@@ -134,7 +165,7 @@ export async function completeRegistration(input: CompleteRegistrationInput): Pr
   const { error } = await supabase.functions.invoke('complete-registration', {
     body: input,
   });
-  if (error) throw error;
+  if (error) throw await unwrapFunctionError(error);
   return await fetchMyProfileOrThrow();
 }
 
