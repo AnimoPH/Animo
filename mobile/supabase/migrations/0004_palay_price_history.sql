@@ -38,8 +38,12 @@ create policy "Anyone can view price history"
   on public.palay_price_history for select
   using (true);
 
-revoke insert, update, delete on public.palay_price_history from authenticated;
-grant insert, update, delete on public.palay_price_history to authenticated;
+-- service_role also needs explicit write grants (not just authenticated):
+-- sync-psa-prices runs as service_role and writes on behalf of whichever
+-- LGU official triggered it, same "edge function is the only writer"
+-- pattern as complete-registration's user/farmer/buyer inserts.
+revoke insert, update, delete on public.palay_price_history from authenticated, service_role;
+grant insert, update, delete on public.palay_price_history to authenticated, service_role;
 
 create policy "LGU officials can manage price history"
   on public.palay_price_history for all
