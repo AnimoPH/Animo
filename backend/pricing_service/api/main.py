@@ -29,14 +29,6 @@ ANOMALY_THRESHOLD = anomaly_config["threshold_pct"]
 LSTM_WEIGHT = 0.4
 GRU_WEIGHT = 0.6
 
-# NFA windows we know about right now. Still needs to move to an admin-editable
-# setting (same as the floor price update flow) - hardcoding it here is
-# just to get things working for now, not the real long-term plan.
-NFA_WINDOWS = [
-    ("2019-01-01", "2020-12-01"),
-    ("2025-01-01", "2026-06-01"),
-]
-
 
 class PriceRequest(BaseModel):
     # needs 12 months now, not 7 - mean_reversion needs a full trailing
@@ -46,14 +38,13 @@ class PriceRequest(BaseModel):
                                       description="The 12 most recent confirmed monthly prices, oldest first")
     target_month: int = Field(..., ge=1, le=12)
     target_date: str
-
-
-def is_nfa_active(date_str: str) -> int:
-    d = pd.Timestamp(date_str)
-    for start, end in NFA_WINDOWS:
-        if pd.Timestamp(start) <= d <= pd.Timestamp(end):
-            return 1
-    return 0
+    # Whether an NFA market intervention is active for target_date. Used to
+    # be computed here from a hardcoded date-range list - that list has moved
+    # to the nfa_intervention_window Supabase table, and it's now the
+    # caller's job (the get-price-prediction/get-market-status edge
+    # functions) to look it up and pass the answer in directly. This service
+    # stays Supabase-unaware on purpose.
+    nfa_active: bool
 
 
 def build_inputs(req: PriceRequest):
@@ -70,11 +61,10 @@ def build_inputs(req: PriceRequest):
 
     month_sin = np.sin(2 * np.pi * req.target_month / 12)
     month_cos = np.cos(2 * np.pi * req.target_month / 12)
-    nfa_active = is_nfa_active(req.target_date)
 
     window_df = pd.DataFrame(window_prices.reshape(-1, 1), columns=["price"])
     window_scaled = price_scaler.transform(window_df).reshape(1, LOOKBACK, 1)
-    feat = np.array([[month_sin, month_cos, nfa_active, momentum, mean_reversion]])
+    feat = np.array([[month_sin, month_cos, int(req.nfa_active), momentum, mean_reversion]])
     return window_prices, window_scaled, feat
 
 

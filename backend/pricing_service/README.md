@@ -26,12 +26,13 @@ The number the farmer/buyer app should show. This is the only endpoint the mobil
 Request:
 ```json
 {
-  "last_prices": [20.25, 21.66, 24.31, 21.88, 19.17, 18.51],
+  "last_prices": [11.18, 14.32, 16.43, 12.95, 13.28, 14.36, 20.25, 21.66, 24.31, 21.88, 19.17, 18.51],
   "target_month": 7,
-  "target_date": "2026-07-01"
+  "target_date": "2026-07-01",
+  "nfa_active": false
 }
 ```
-`last_prices` = the 6 most recent **confirmed** monthly prices, oldest first. `target_month` is 1-12. `target_date` is just used to check if an NFA intervention window is active.
+`last_prices` = the 12 most recent **confirmed** monthly prices, oldest first (mean_reversion needs the full trailing 12-month window). `target_month` is 1-12. `target_date` is the month being predicted. `nfa_active` is whether an NFA market intervention is active for `target_date` - this service no longer decides that itself (see below), the caller looks it up and passes the answer in.
 
 Response:
 ```json
@@ -64,8 +65,7 @@ Just returns `{"status": "ok"}`. Use it for whatever health check setup we end u
 
 ## Things that still need doing (not blocking, but don't forget)
 
-- `last_prices` is currently something you have to pass in yourself. It should be pulled from Postgres automatically once we have the price history table set up.
-- The NFA intervention dates are hardcoded in `main.py` right now (`NFA_WINDOWS`). This needs to become something an LGU admin can actually update, same idea as how the floor price gets updated. Don't add more dates to that list as a "fix", it's a placeholder.
+- `last_prices` and `nfa_active` are supplied by the caller, not computed in here - this service is deliberately Supabase-unaware. The `get-price-prediction`/`get-market-status` Supabase edge functions are what actually pull the last 12 months from `palay_price_history` and the active window from `nfa_intervention_window`, then call this service. Don't add a Postgres/Supabase client to this service as a "fix" - that's an intentional boundary, not something missing.
 - Model gets stale as new PSA data comes out monthly. No retraining job exists yet.
 - `requirements.txt` has scikit-learn pinned to 1.6.1 on purpose, that's what the models were actually trained with. Don't bump it without retraining and re-saving the models, or you'll get the sklearn version mismatch warning again (harmless-ish but don't tempt it).
 
