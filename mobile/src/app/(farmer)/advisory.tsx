@@ -1,8 +1,8 @@
-import { router } from "expo-router";
-import { ChevronLeft, CloudRain, Leaf } from "lucide-react-native";
-import { FlatList, Pressable, StyleSheet, View, Image } from "react-native";
+import { CloudRain, Leaf } from "lucide-react-native";
+import { FlatList, StyleSheet, View, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { BackHeader } from "@/components/animo/back-header";
 import { AnimoText } from "@/components/animo/animo-text";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
 
@@ -48,19 +48,7 @@ const PAST_ADVISORIES: PastAdvisory[] = [
 export default function AdvisoryDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={styles.backButton}
-          accessibilityLabel="Bumalik"
-        >
-          <ChevronLeft size={24} color={AnimoColors.black} />
-        </Pressable>
-        <AnimoText variant="h3" color={AnimoColors.black}>
-          Payo sa Bukid
-        </AnimoText>
-      </View>
+      <BackHeader title="Payo sa Bukid" />
 
       <FlatList
         contentContainerStyle={styles.content}
@@ -160,20 +148,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: AnimoColors.white,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: AnimoSpacing.sm,
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.sm,
-    paddingBottom: AnimoSpacing.md,
-  },
-  backButton: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
   },
   content: {
     paddingBottom: AnimoSpacing.xxl,

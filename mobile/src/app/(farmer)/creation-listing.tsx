@@ -1,11 +1,4 @@
-import { router } from "expo-router";
-import {
-  Camera,
-  Check,
-  ChevronLeft,
-  Clock,
-  ShoppingBasket,
-} from "lucide-react-native";
+import { Camera, Check, Clock, ShoppingBasket } from "lucide-react-native";
 import { useState } from "react";
 import {
   Pressable,
@@ -18,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AnimoButton } from "@/components/animo/animo-button";
 import { AnimoText } from "@/components/animo/animo-text";
+import { BackHeader } from "@/components/animo/back-header";
 import { LabeledInput } from "@/components/animo/labeled-input";
 import { SelectField } from "@/components/animo/select-field";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
@@ -59,19 +53,7 @@ export default function PalayListingScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={styles.backButton}
-          accessibilityLabel="Bumalik"
-        >
-          <ChevronLeft size={24} color={AnimoColors.textHighEmphasis} />
-        </Pressable>
-        <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-          Gumawa ng Listing
-        </AnimoText>
-      </View>
+      <BackHeader title="Gumawa ng Listing" />
 
       <ProgressSteps />
 
@@ -305,21 +287,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: AnimoColors.appBackground,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: AnimoSpacing.sm,
-    paddingHorizontal: SCREEN_PADDING,
-    paddingTop: AnimoSpacing.sm,
-    paddingBottom: AnimoSpacing.md,
-    backgroundColor: AnimoColors.surfacePrimary,
-  },
-  backButton: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
   },
   stepRow: {
     flexDirection: "row",

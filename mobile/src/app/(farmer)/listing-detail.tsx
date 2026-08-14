@@ -1,8 +1,7 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import {
   Check,
   CheckCircle,
-  ChevronLeft,
   Droplets,
   ImageIcon,
   Leaf,
@@ -17,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AnimoButton } from "@/components/animo/animo-button";
 import { AnimoText } from "@/components/animo/animo-text";
+import { BackHeader } from "@/components/animo/back-header";
 import { StatusBadge } from "@/components/animo/status-badge";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
 
@@ -61,67 +61,57 @@ export default function ListingDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={styles.backButton}
-          accessibilityLabel="Bumalik"
-        >
-          <ChevronLeft size={24} color={AnimoColors.textHighEmphasis} />
-        </Pressable>
-        <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-          Palay Listing
-        </AnimoText>
-      </View>
+      <BackHeader title="Palay Listing" />
 
-      <View style={styles.tabsContainer}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setActiveTab("detalye")}
-          style={[styles.tab, activeTab === "detalye" && styles.tabActive]}
-        >
-          <AnimoText
-            variant={activeTab === "detalye" ? "bodyEmphasis" : "body"}
-            color={
-              activeTab === "detalye"
-                ? AnimoColors.textHighEmphasisInverse
-                : AnimoColors.textMediumEmphasis
-            }
-          >
-            Detalye ng Listing
-          </AnimoText>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setActiveTab("orders")}
-          style={[styles.tab, activeTab === "orders" && styles.tabActive]}
-        >
-          <AnimoText
-            variant={activeTab === "orders" ? "bodyEmphasis" : "body"}
-            color={
-              activeTab === "orders"
-                ? AnimoColors.textHighEmphasisInverse
-                : AnimoColors.textMediumEmphasis
-            }
-          >
-            Mga Orders
-          </AnimoText>
-        </Pressable>
-      </View>
-
+      {/* Body */}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* listing-sample.png isn't in the repo yet; falls back to a placeholder until the asset lands */}
-        <View style={styles.heroImage}>
-          <ImageIcon size={40} color={AnimoColors.objectLowEmphasis} />
+        <View style={styles.tabsContainer}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setActiveTab("detalye")}
+            style={[styles.tab, activeTab === "detalye" && styles.tabActive]}
+          >
+            <AnimoText
+              variant={activeTab === "detalye" ? "bodyEmphasis" : "body"}
+              color={
+                activeTab === "detalye"
+                  ? AnimoColors.textHighEmphasisInverse
+                  : AnimoColors.textMediumEmphasis
+              }
+            >
+              Detalye ng Listing
+            </AnimoText>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setActiveTab("orders")}
+            style={[styles.tab, activeTab === "orders" && styles.tabActive]}
+          >
+            <AnimoText
+              variant={activeTab === "orders" ? "bodyEmphasis" : "body"}
+              color={
+                activeTab === "orders"
+                  ? AnimoColors.textHighEmphasisInverse
+                  : AnimoColors.textMediumEmphasis
+              }
+            >
+              Mga Orders
+            </AnimoText>
+          </Pressable>
         </View>
 
         {activeTab === "detalye" ? (
           <>
+            {/* Palay Image */}
+            <View style={styles.heroImage}>
+              <ImageIcon size={40} color={AnimoColors.objectLowEmphasis} />
+            </View>
+
             <View style={[styles.card, styles.shadow]}>
+              {/* First Card */}
               <View style={styles.summaryTopRow}>
                 <View>
                   <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
@@ -144,6 +134,7 @@ export default function ListingDetailScreen() {
                 />
               </View>
 
+              {/* Price Card */}
               <View style={styles.priceBlock}>
                 <AnimoText
                   variant="caption"
@@ -234,13 +225,13 @@ export default function ListingDetailScreen() {
         )}
       </ScrollView>
 
-      <View style={styles.bottomBar}>
+      {/* <View style={styles.bottomBar}>
         <AnimoButton
           label="Tignan lahat ng kahilingan"
           variant="primary"
           onPress={() => console.log("Tignan lahat ng kahilingan pressed")}
         />
-      </View>
+      </View> */}
     </SafeAreaView>
   );
 }
@@ -250,7 +241,7 @@ function PurchaseRequestCard({ request }: { request: PurchaseRequest }) {
     <View style={[styles.requestCard, styles.shadow]}>
       <View style={styles.requestTopRow}>
         <View style={styles.requestAvatar}>
-          <UserRound size={22} color={AnimoColors.moderate} />
+          <UserRound size={22} color={AnimoColors.accentPrimary} />
         </View>
         <View style={styles.requestInfo}>
           <View style={styles.requestInfoTop}>
@@ -280,9 +271,9 @@ function PurchaseRequestCard({ request }: { request: PurchaseRequest }) {
           onPress={() => console.log("Tanggihan pressed")}
           style={styles.rejectButton}
         >
-          <X size={14} color={AnimoColors.caution} />
+          <X size={16} color={AnimoColors.caution} />
           <AnimoText variant="bodyEmphasis" color={AnimoColors.caution}>
-            Tanggihan
+            Reject
           </AnimoText>
         </Pressable>
         <Pressable
@@ -290,12 +281,12 @@ function PurchaseRequestCard({ request }: { request: PurchaseRequest }) {
           onPress={() => console.log("Tanggapin pressed")}
           style={styles.acceptButton}
         >
-          <Check size={14} color={AnimoColors.objectHighEmphasisInverse} />
+          <Check size={16} color={AnimoColors.objectHighEmphasisInverse} />
           <AnimoText
             variant="bodyEmphasis"
             color={AnimoColors.objectHighEmphasisInverse}
           >
-            Tanggapin
+            Accept
           </AnimoText>
         </Pressable>
       </View>
@@ -307,21 +298,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: AnimoColors.appBackground,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: AnimoSpacing.sm,
-    paddingHorizontal: SCREEN_PADDING,
-    paddingTop: AnimoSpacing.sm,
-    paddingBottom: AnimoSpacing.md,
-    backgroundColor: AnimoColors.surfacePrimary,
-  },
-  backButton: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
   },
   tabsContainer: {
     flexDirection: "row",
@@ -345,6 +321,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: AnimoSpacing.xxl,
     flexGrow: 1,
+    gap: AnimoSpacing.lg,
   },
   heroImage: {
     aspectRatio: 16 / 9,
@@ -352,7 +329,6 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.lg,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: AnimoSpacing.md,
     marginHorizontal: SCREEN_PADDING,
   },
   shadow: {
@@ -365,7 +341,6 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.surfacePrimary,
     borderRadius: AnimoRadius.lg,
     marginHorizontal: SCREEN_PADDING,
-    marginTop: AnimoSpacing.md,
     padding: AnimoSpacing.lg,
   },
   summaryTopRow: {
@@ -404,7 +379,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: AnimoSpacing.sm,
+    paddingVertical: AnimoSpacing.md,
   },
   qualityLeft: {
     flexDirection: "row",
@@ -419,15 +394,12 @@ const styles = StyleSheet.create({
   },
   ordersHeader: {
     marginHorizontal: SCREEN_PADDING,
-    marginTop: AnimoSpacing.md,
-    marginBottom: AnimoSpacing.md,
   },
   requestCard: {
     backgroundColor: AnimoColors.surfacePrimary,
     borderRadius: AnimoRadius.lg,
     marginHorizontal: SCREEN_PADDING,
-    marginBottom: AnimoSpacing.sm,
-    padding: AnimoSpacing.md,
+    padding: AnimoSpacing.lg,
   },
   requestTopRow: {
     flexDirection: "row",
@@ -437,7 +409,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.roleBuyer,
+    backgroundColor: AnimoColors.accentSecondaryLight,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -454,8 +426,8 @@ const styles = StyleSheet.create({
   },
   requestActions: {
     flexDirection: "row",
-    gap: AnimoSpacing.sm,
-    marginTop: AnimoSpacing.md,
+    gap: AnimoSpacing.md,
+    marginTop: AnimoSpacing.lg,
   },
   rejectButton: {
     flex: 1,
@@ -466,7 +438,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: AnimoColors.caution,
     borderRadius: AnimoRadius.md,
-    paddingVertical: AnimoSpacing.md,
+    paddingVertical: AnimoSpacing.sm,
     backgroundColor: AnimoColors.surfacePrimary,
   },
   acceptButton: {
@@ -477,7 +449,7 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.xs,
     backgroundColor: AnimoColors.accentPrimary,
     borderRadius: AnimoRadius.md,
-    paddingVertical: AnimoSpacing.md,
+    paddingVertical: AnimoSpacing.sm,
   },
   bottomBar: {
     paddingHorizontal: SCREEN_PADDING,
