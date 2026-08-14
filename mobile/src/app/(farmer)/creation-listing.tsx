@@ -1,4 +1,4 @@
-import { Camera, Check, Clock, ShoppingBasket } from "lucide-react-native";
+import { Camera } from "lucide-react-native";
 import { useState } from "react";
 import {
   Pressable,
@@ -12,8 +12,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AnimoButton } from "@/components/animo/animo-button";
 import { AnimoText } from "@/components/animo/animo-text";
 import { BackHeader } from "@/components/animo/back-header";
+import { ProgressSteps } from "@/components/animo/farmer/progress-steps";
+
 import { LabeledInput } from "@/components/animo/labeled-input";
 import { SelectField } from "@/components/animo/select-field";
+import { SegmentedChoice } from "@/components/animo/segmented-choice";
+
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
 
 const SCREEN_PADDING = AnimoSpacing.lg;
@@ -33,9 +37,9 @@ const PURITY_OPTIONS = [
   { value: "walang-grado", label: "Walang Grado" },
 ];
 
-const MOISTURE_OPTIONS: { key: "Dry" | "Wet"; label: string }[] = [
-  { key: "Dry", label: "Tuyo (Dry)" },
-  { key: "Wet", label: "Basa (Wet)" },
+const MOISTURE_OPTIONS: { value: "Dry" | "Wet"; label: string }[] = [
+  { value: "Dry", label: "Tuyo (Dry)" },
+  { value: "Wet", label: "Basa (Wet)" },
 ];
 
 /** Gumawa ng Listing — farmer creates a new palay listing: photo, quality, weight. */
@@ -55,8 +59,10 @@ export default function PalayListingScreen() {
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
       <BackHeader title="Gumawa ng Listing" />
 
+      {/* Progress Bar */}
       <ProgressSteps />
 
+      {/* Body */}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -100,6 +106,7 @@ export default function PalayListingScreen() {
         </TouchableOpacity>
 
         <View style={[styles.card, styles.shadow]}>
+          {/* Palay Details */}
           <View>
             <SelectField
               label="Uri ng Palay"
@@ -119,7 +126,12 @@ export default function PalayListingScreen() {
             ) : null}
           </View>
 
-          <MoistureToggle value={moistureType} onChange={setMoistureType} />
+          <SegmentedChoice
+            label="Moisture %"
+            options={MOISTURE_OPTIONS}
+            value={moistureType}
+            onChange={setMoistureType}
+          />
 
           <SelectField
             label="Kalinisan (Purity Grade)"
@@ -130,6 +142,7 @@ export default function PalayListingScreen() {
           />
         </View>
 
+        {/* Weight Card */}
         <View style={[styles.card, styles.shadow]}>
           <LabeledInput
             label="Timbang ng Palay (Gross Weight)"
@@ -149,119 +162,17 @@ export default function PalayListingScreen() {
           />
           <NetWeightField value={netWeight} />
         </View>
+
+        {/* Submit Button */}
+        <View style={styles.submitBar}>
+          <AnimoButton
+            label="Ipasa na"
+            variant="primary"
+            onPress={() => console.log("Ipasa na pressed")}
+          />
+        </View>
       </ScrollView>
-
-      <View style={styles.submitBar}>
-        <AnimoButton
-          label="Ipasa na"
-          variant="primary"
-          onPress={() => console.log("Ipasa na pressed")}
-        />
-      </View>
     </SafeAreaView>
-  );
-}
-
-function ProgressSteps() {
-  return (
-    <View style={styles.stepRow}>
-      <View style={styles.stepItem}>
-        <View style={[styles.stepCircle, styles.stepCircleDone]}>
-          <Check size={14} color={AnimoColors.objectHighEmphasisInverse} />
-        </View>
-        <AnimoText
-          variant="caption"
-          color={AnimoColors.textAccentPrimary}
-          style={styles.stepLabel}
-        >
-          Gumawa
-        </AnimoText>
-      </View>
-
-      <View style={[styles.stepConnector, styles.stepConnectorDone]} />
-
-      <View style={styles.stepItem}>
-        <View style={[styles.stepCircle, styles.stepCircleUpcoming]}>
-          <Clock size={14} color={AnimoColors.objectLowEmphasis} />
-        </View>
-        <AnimoText
-          variant="caption"
-          color={AnimoColors.textLowEmphasis}
-          style={styles.stepLabel}
-        >
-          Sinusuri
-        </AnimoText>
-      </View>
-
-      <View style={[styles.stepConnector, styles.stepConnectorUpcoming]} />
-
-      <View style={styles.stepItem}>
-        <View style={[styles.stepCircle, styles.stepCircleUpcoming]}>
-          <ShoppingBasket size={14} color={AnimoColors.objectLowEmphasis} />
-        </View>
-        <AnimoText
-          variant="caption"
-          color={AnimoColors.textLowEmphasis}
-          style={styles.stepLabel}
-        >
-          Available
-        </AnimoText>
-      </View>
-    </View>
-  );
-}
-
-function MoistureToggle({
-  value,
-  onChange,
-}: {
-  value: "Dry" | "Wet";
-  onChange: (value: "Dry" | "Wet") => void;
-}) {
-  return (
-    <View>
-      <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
-        Moisture %
-      </AnimoText>
-      <View style={styles.moistureRow}>
-        {MOISTURE_OPTIONS.map((option) => {
-          const selected = option.key === value;
-          return (
-            <Pressable
-              key={option.key}
-              accessibilityRole="radio"
-              accessibilityState={{ selected }}
-              onPress={() => onChange(option.key)}
-              style={[
-                styles.moistureOption,
-                selected
-                  ? styles.moistureOptionSelected
-                  : styles.moistureOptionUnselected,
-              ]}
-            >
-              <View
-                style={[
-                  styles.moistureRadio,
-                  selected && styles.moistureRadioSelected,
-                ]}
-              >
-                {selected ? <View style={styles.moistureRadioDot} /> : null}
-              </View>
-              <AnimoText
-                variant="bodyEmphasis"
-                color={
-                  selected
-                    ? AnimoColors.accentPrimary
-                    : AnimoColors.textMediumEmphasis
-                }
-              >
-                {option.label}
-              </AnimoText>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
   );
 }
 
@@ -272,7 +183,7 @@ function NetWeightField({ value }: { value: number }) {
         Kabuuan (Net Weight)
       </AnimoText>
       <View style={styles.netWeightField}>
-        <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
+        <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
           {value}
         </AnimoText>
         <AnimoText variant="bodyEmphasis" color={AnimoColors.textLowEmphasis}>
@@ -288,48 +199,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AnimoColors.appBackground,
   },
-  stepRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    paddingHorizontal: SCREEN_PADDING,
-    paddingVertical: AnimoSpacing.md,
-  },
-  stepItem: {
-    alignItems: "center",
-    width: 72,
-  },
-  stepCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: AnimoRadius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepCircleDone: {
-    backgroundColor: AnimoColors.accentPrimary,
-  },
-  stepCircleUpcoming: {
-    borderWidth: 1.5,
-    borderColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: AnimoColors.surfacePrimary,
-  },
-  stepLabel: {
-    marginTop: AnimoSpacing.xs,
-    textAlign: "center",
-  },
-  stepConnector: {
-    flex: 1,
-    height: 2,
-    marginTop: 13,
-  },
-  stepConnectorDone: {
-    backgroundColor: AnimoColors.accentPrimary,
-  },
-  stepConnectorUpcoming: {
-    backgroundColor: AnimoColors.borderLowEmphasis,
-  },
   scrollContent: {
-    paddingBottom: AnimoSpacing.xxl,
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingTop: AnimoSpacing.lg,
+    paddingBottom: AnimoSpacing.xl,
+    gap: AnimoSpacing.xl,
   },
   shadow: {
     shadowColor: AnimoColors.darkBackground,
@@ -341,16 +215,12 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.surfacePrimary,
     borderRadius: AnimoRadius.lg,
     padding: AnimoSpacing.lg,
-    marginHorizontal: SCREEN_PADDING,
-    marginTop: AnimoSpacing.md,
-    gap: AnimoSpacing.lg,
+    gap: AnimoSpacing.xl,
   },
   introBody: {
     marginTop: AnimoSpacing.xs,
   },
   photoUpload: {
-    marginHorizontal: SCREEN_PADDING,
-    marginTop: AnimoSpacing.md,
     borderRadius: AnimoRadius.lg,
     borderWidth: 1.5,
     borderColor: AnimoColors.accentPrimary,
@@ -378,48 +248,6 @@ const styles = StyleSheet.create({
   inlineFieldSpacing: {
     marginTop: AnimoSpacing.sm,
   },
-  moistureRow: {
-    flexDirection: "row",
-    gap: AnimoSpacing.sm,
-    marginTop: AnimoSpacing.sm,
-  },
-  moistureOption: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: AnimoSpacing.sm,
-    width: "auto",
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: AnimoSpacing.sm,
-    borderRadius: AnimoRadius.pill,
-    borderWidth: 1.5,
-  },
-  moistureOptionSelected: {
-    borderColor: AnimoColors.accentPrimary,
-    // backgroundColor: AnimoColors,
-  },
-  moistureOptionUnselected: {
-    borderColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: AnimoColors.surfacePrimary,
-  },
-  moistureRadio: {
-    width: 16,
-    height: 16,
-    borderRadius: AnimoRadius.pill,
-    borderWidth: 2,
-    borderColor: AnimoColors.borderLowEmphasis,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  moistureRadioSelected: {
-    borderColor: AnimoColors.accentPrimary,
-  },
-  moistureRadioDot: {
-    width: 8,
-    height: 8,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.accentPrimary,
-  },
   netWeightField: {
     flexDirection: "row",
     alignItems: "center",
@@ -433,10 +261,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(200, 230, 201, 0.15)",
   },
   submitBar: {
-    paddingHorizontal: SCREEN_PADDING,
-    paddingVertical: AnimoSpacing.md,
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderTopWidth: 1,
+    // backgroundColor: AnimoColors.surfacePrimary,
     borderTopColor: AnimoColors.borderLowEmphasis,
   },
 });

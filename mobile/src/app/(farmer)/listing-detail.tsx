@@ -1,35 +1,15 @@
 import { useLocalSearchParams } from "expo-router";
-import {
-  Check,
-  CheckCircle,
-  Droplets,
-  ImageIcon,
-  Leaf,
-  Scale,
-  ShieldCheck,
-  UserRound,
-  X,
-} from "lucide-react-native";
+import { Check, UserRound, X } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AnimoButton } from "@/components/animo/animo-button";
 import { AnimoText } from "@/components/animo/animo-text";
 import { BackHeader } from "@/components/animo/back-header";
-import { StatusBadge } from "@/components/animo/status-badge";
+import { ListingDetailContent } from "@/components/animo/farmer/listing-detail-content";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
 
-const SCREEN_PADDING = AnimoSpacing.lg;
-
 type DetailTab = "detalye" | "orders";
-
-const QUALITY_ROWS = [
-  { Icon: Leaf, label: "Uri ng palay", value: "RC218" },
-  { Icon: Droplets, label: "Moisture content", value: "Tuyo (Dry)" },
-  { Icon: ShieldCheck, label: "Purity grade", value: "Grade A" },
-  { Icon: Scale, label: "Weight", value: "500 kg" },
-];
 
 type PurchaseRequest = {
   id: string;
@@ -52,6 +32,12 @@ const PURCHASE_REQUESTS: PurchaseRequest[] = [
     quantity: "100 kg",
     total: "₱1,000.00",
   },
+  {
+    id: "4",
+    buyer: "Aling Coring Rice Mill",
+    quantity: "100 kg",
+    total: "₱1,000.00",
+  },
 ];
 
 /** Palay Listing detail — quality/price summary plus purchase requests from buyers. */
@@ -68,6 +54,7 @@ export default function ListingDetailScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Navigation Tab */}
         <View style={styles.tabsContainer}>
           <Pressable
             accessibilityRole="button"
@@ -103,117 +90,14 @@ export default function ListingDetailScreen() {
           </Pressable>
         </View>
 
+        {/* Detail Listing Content */}
         {activeTab === "detalye" ? (
-          <>
-            {/* Palay Image */}
-            <View style={styles.heroImage}>
-              <ImageIcon size={40} color={AnimoColors.objectLowEmphasis} />
-            </View>
-
-            <View style={[styles.card, styles.shadow]}>
-              {/* First Card */}
-              <View style={styles.summaryTopRow}>
-                <View>
-                  <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
-                    Palay RC218
-                  </AnimoText>
-                  <AnimoText
-                    variant="caption"
-                    color={AnimoColors.textLowEmphasis}
-                    style={styles.summaryQuantity}
-                  >
-                    (200 kg)
-                  </AnimoText>
-                </View>
-                <StatusBadge
-                  label="Now Available"
-                  tone="success"
-                  icon={
-                    <CheckCircle size={12} color={AnimoColors.accentPrimary} />
-                  }
-                />
-              </View>
-
-              {/* Price Card */}
-              <View style={styles.priceBlock}>
-                <AnimoText
-                  variant="caption"
-                  color={AnimoColors.textHighEmphasisInverse}
-                  style={styles.priceLabel}
-                >
-                  Patas na Presyo
-                </AnimoText>
-                <View style={styles.priceRow}>
-                  <AnimoText
-                    variant="display"
-                    color={AnimoColors.textHighEmphasisInverse}
-                  >
-                    ₱25.00
-                  </AnimoText>
-                  <AnimoText
-                    variant="body"
-                    color={AnimoColors.textHighEmphasisInverse}
-                    style={styles.priceUnit}
-                  >
-                    {" "}
-                    bawat kilo
-                  </AnimoText>
-                </View>
-                <AnimoText
-                  variant="caption"
-                  color={AnimoColors.textHighEmphasisInverse}
-                  style={styles.priceTotal}
-                >
-                  Kabuuan na halaga (200kg): ₱5,000.00
-                </AnimoText>
-              </View>
-            </View>
-
-            <View style={[styles.card, styles.shadow]}>
-              <AnimoText
-                variant="h3"
-                color={AnimoColors.textHighEmphasis}
-                style={styles.qualityHeader}
-              >
-                Detalye ng Kalidad
-              </AnimoText>
-
-              {QUALITY_ROWS.map((row, index) => (
-                <View key={row.label}>
-                  <View style={styles.qualityRow}>
-                    <View style={styles.qualityLeft}>
-                      <row.Icon
-                        size={16}
-                        color={AnimoColors.objectLowEmphasis}
-                      />
-                      <AnimoText
-                        variant="body"
-                        color={AnimoColors.textMediumEmphasis}
-                        style={styles.qualityLabel}
-                      >
-                        {row.label}
-                      </AnimoText>
-                    </View>
-                    <AnimoText
-                      variant="bodyEmphasis"
-                      color={AnimoColors.accentPrimary}
-                    >
-                      {row.value}
-                    </AnimoText>
-                  </View>
-                  {index < QUALITY_ROWS.length - 1 ? (
-                    <View style={styles.qualityDivider} />
-                  ) : null}
-                </View>
-              ))}
-            </View>
-          </>
+          <ListingDetailContent />
         ) : (
           <>
             <AnimoText
               variant="h3"
               color={AnimoColors.textHighEmphasis}
-              style={styles.ordersHeader}
             >
               Mga Kahilingan mula sa Mamimili
             </AnimoText>
@@ -301,7 +185,6 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     flexDirection: "row",
-    marginHorizontal: SCREEN_PADDING,
     marginTop: AnimoSpacing.md,
     borderWidth: 1,
     borderColor: AnimoColors.borderLowEmphasis,
@@ -322,14 +205,7 @@ const styles = StyleSheet.create({
     paddingBottom: AnimoSpacing.xxl,
     flexGrow: 1,
     gap: AnimoSpacing.lg,
-  },
-  heroImage: {
-    aspectRatio: 16 / 9,
-    backgroundColor: AnimoColors.surfaceQuaternary,
-    borderRadius: AnimoRadius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: SCREEN_PADDING,
+    marginHorizontal: AnimoSpacing.lg,
   },
   shadow: {
     shadowColor: AnimoColors.darkBackground,
@@ -337,68 +213,9 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  card: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    marginHorizontal: SCREEN_PADDING,
-    padding: AnimoSpacing.lg,
-  },
-  summaryTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  summaryQuantity: {
-    marginTop: AnimoSpacing.xs,
-  },
-  priceBlock: {
-    marginTop: AnimoSpacing.md,
-    backgroundColor: AnimoColors.accentPrimary,
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.md,
-  },
-  priceLabel: {
-    opacity: 0.85,
-  },
-  priceRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-  },
-  priceUnit: {
-    opacity: 0.85,
-    marginBottom: AnimoSpacing.xs,
-  },
-  priceTotal: {
-    opacity: 0.8,
-    marginTop: AnimoSpacing.xs,
-  },
-  qualityHeader: {
-    marginBottom: AnimoSpacing.md,
-  },
-  qualityRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: AnimoSpacing.md,
-  },
-  qualityLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  qualityLabel: {
-    marginLeft: AnimoSpacing.sm,
-  },
-  qualityDivider: {
-    height: 1,
-    backgroundColor: AnimoColors.borderLowEmphasis,
-  },
-  ordersHeader: {
-    marginHorizontal: SCREEN_PADDING,
-  },
   requestCard: {
     backgroundColor: AnimoColors.surfacePrimary,
     borderRadius: AnimoRadius.lg,
-    marginHorizontal: SCREEN_PADDING,
     padding: AnimoSpacing.lg,
   },
   requestTopRow: {
@@ -452,7 +269,6 @@ const styles = StyleSheet.create({
     paddingVertical: AnimoSpacing.sm,
   },
   bottomBar: {
-    paddingHorizontal: SCREEN_PADDING,
     paddingVertical: AnimoSpacing.md,
     backgroundColor: AnimoColors.surfacePrimary,
     borderTopWidth: 1,
