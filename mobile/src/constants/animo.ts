@@ -165,7 +165,7 @@ export const AnimoType = {
   h3: { fontSize: 16, lineHeight: 22, fontFamily: 'PlusJakartaSans_600SemiBold' },
   body: { fontSize: 15, lineHeight: 22, fontFamily: 'PlusJakartaSans_400Regular' },
   bodyEmphasis: { fontSize: 15, lineHeight: 22, fontFamily: 'PlusJakartaSans_600SemiBold' },
-  button: { fontSize: 20, lineHeight: 24, fontFamily: 'PlusJakartaSans_600SemiBold' },
+  button: { fontSize: 16, lineHeight: 24, fontFamily: 'PlusJakartaSans_700Bold' },
   price: { fontSize: 20, lineHeight: 24, fontFamily: 'PlusJakartaSans_700Bold' },
   caption: { fontSize: 12, lineHeight: 16, fontFamily: 'PlusJakartaSans_400Regular' },
   tag: { fontSize: 11, lineHeight: 14, fontFamily: 'PlusJakartaSans_600SemiBold' },

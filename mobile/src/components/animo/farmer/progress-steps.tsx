@@ -1,54 +1,59 @@
+import type { LucideIcon } from "lucide-react-native";
 import { Check, Clock, Store } from "lucide-react-native";
+import { Fragment } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { AnimoText } from "@/components/animo/animo-text";
 import { AnimoColors, AnimoRadius, AnimoSpacing } from "@/constants/animo";
 
-export function ProgressSteps() {
+type Step = { label: string; icon: LucideIcon };
+
+const STEPS: Step[] = [
+  { label: "Gumawa", icon: Check },
+  { label: "Uploading", icon: Clock },
+  { label: "Available", icon: Store },
+];
+
+export type ProgressStepsProps = {
+  /** Zero-based index of the step to highlight as current/active. Defaults to 0. */
+  currentStep?: number;
+};
+
+export function ProgressSteps({ currentStep = 0 }: ProgressStepsProps) {
   return (
     <View style={styles.stepRow}>
-      <View style={styles.stepItem}>
-        <View style={[styles.stepCircle, styles.stepCircleDone]}>
-          <Check size={16} color={AnimoColors.objectHighEmphasisInverse} />
-        </View>
-        <AnimoText
-          variant="caption"
-          color={AnimoColors.textAccentPrimary}
-          style={styles.stepLabel}
-        >
-          Gumawa
-        </AnimoText>
-      </View>
+      {STEPS.map((step, index) => {
+        const isDone = index < currentStep;
+        const isActive = index === currentStep;
+        const filled = isDone || isActive;
+        const Icon = isDone ? Check : step.icon;
 
-      <View style={[styles.stepConnector, styles.stepConnectorDone]} />
+        return (
+          <Fragment key={step.label}>
+            <View style={styles.stepItem}>
+              <View style={[styles.stepCircle, filled ? styles.stepCircleDone : styles.stepCircleUpcoming]}>
+                <Icon
+                  size={16}
+                  color={filled ? AnimoColors.objectHighEmphasisInverse : AnimoColors.objectLowEmphasis}
+                />
+              </View>
+              <AnimoText
+                variant="caption"
+                color={filled ? AnimoColors.textAccentPrimary : AnimoColors.textLowEmphasis}
+                style={styles.stepLabel}
+              >
+                {step.label}
+              </AnimoText>
+            </View>
 
-      <View style={styles.stepItem}>
-        <View style={[styles.stepCircle, styles.stepCircleUpcoming]}>
-          <Clock size={16} color={AnimoColors.objectLowEmphasis} />
-        </View>
-        <AnimoText
-          variant="caption"
-          color={AnimoColors.textLowEmphasis}
-          style={styles.stepLabel}
-        >
-          Sinusuri
-        </AnimoText>
-      </View>
-
-      <View style={[styles.stepConnector, styles.stepConnectorUpcoming]} />
-
-      <View style={styles.stepItem}>
-        <View style={[styles.stepCircle, styles.stepCircleUpcoming]}>
-          <Store size={16} color={AnimoColors.objectLowEmphasis} />
-        </View>
-        <AnimoText
-          variant="caption"
-          color={AnimoColors.textLowEmphasis}
-          style={styles.stepLabel}
-        >
-          Available
-        </AnimoText>
-      </View>
+            {index < STEPS.length - 1 ? (
+              <View
+                style={[styles.stepConnector, filled ? styles.stepConnectorDone : styles.stepConnectorUpcoming]}
+              />
+            ) : null}
+          </Fragment>
+        );
+      })}
     </View>
   );
 }

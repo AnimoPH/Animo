@@ -1,3 +1,4 @@
+import { router, type Href } from "expo-router";
 import { Camera } from "lucide-react-native";
 import { useState } from "react";
 import {
@@ -168,7 +169,9 @@ export default function PalayListingScreen() {
           <AnimoButton
             label="Ipasa na"
             variant="primary"
-            onPress={() => console.log("Ipasa na pressed")}
+            onPress={() =>
+              router.push("/(farmer)/listing-uploading" as Href)
+            }
           />
         </View>
       </ScrollView>
