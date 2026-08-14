@@ -1,14 +1,12 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
+import { secureSessionStorage } from '@/lib/secure-session-storage';
+
 /**
- * Supabase client for the mobile app.
- *
- * Session (JWT + refresh token) persists via AsyncStorage — this is Supabase's
- * own documented React Native pattern, not `expo-secure-store`: refresh tokens
- * can exceed SecureStore's per-item size limit on some platforms, and
- * `autoRefreshToken` needs a storage adapter that isn't itself throwing on
- * size. Requires a real Supabase project — see `.env.example`.
+ * Supabase client for the mobile app. Session persists via
+ * `secureSessionStorage` — AES-256-encrypted AsyncStorage, replacing the
+ * plaintext AsyncStorage used previously (see `secure-session-storage.ts`).
+ * Requires a real Supabase project — see `.env.example`.
  */
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -22,7 +20,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
   auth: {
-    storage: AsyncStorage,
+    storage: secureSessionStorage,
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,
