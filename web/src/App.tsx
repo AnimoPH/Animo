@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
+import { AccountReviewPage } from '@/pages/account-review';
 import { AdvisoryPage } from '@/pages/advisory';
+import { BuyersPage } from '@/pages/buyers';
 import { DashboardPage } from '@/pages/dashboard';
 import { FarmersPage } from '@/pages/farmers';
 import { LoginPage } from '@/pages/login';
@@ -12,7 +14,7 @@ import { SettingsPage } from '@/pages/settings';
  * LGU Console shell.
  *
  * Auth is stubbed for the scaffold — signing in flips local state and routes to
- * the dashboard. Swap `signedIn` for the real session hook when the API lands.
+ * the dashboard.
  */
 export function App() {
   const [signedIn, setSignedIn] = useState(false);
@@ -39,6 +41,15 @@ export function App() {
         <Route path="/advisory" element={guard(<AdvisoryPage onSignOut={signOut} />)} />
         <Route path="/messages" element={guard(<MessagesPage onSignOut={signOut} />)} />
         <Route path="/farmers" element={guard(<FarmersPage onSignOut={signOut} />)} />
+        <Route path="/buyers" element={guard(<BuyersPage onSignOut={signOut} />)} />
+        <Route
+          path="/account-review/:type/:id"
+          element={guard(<AccountReviewPage onSignOut={signOut} />)}
+        />
+        <Route
+          path="/account-review/:id"
+          element={guard(<AccountReviewPage onSignOut={signOut} />)}
+        />
         <Route path="/settings" element={guard(<SettingsPage onSignOut={signOut} />)} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

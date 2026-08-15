@@ -14,12 +14,13 @@ type Filter = 'lahat' | MunicipalityName;
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'lahat', label: 'Lahat' },
-  { value: 'Baliwag', label: 'Baliwag' },
-  { value: 'Plaridel', label: 'Plaridel' },
-  { value: 'Pulilan', label: 'Pulilan' },
+  { value: 'Antipolo', label: 'Antipolo' },
+  { value: 'Teresa', label: 'Teresa' },
+  { value: 'Tanay', label: 'Tanay' },
+  { value: 'Baras', label: 'Baras' },
 ];
 
-/** Palengke — the buyer's marketplace list of available palay listings. */
+/** Palengke — the buyer's marketplace list of available palay listings in Antipolo and Rizal. */
 export default function MarketplaceScreen() {
   const [filter, setFilter] = useState<Filter>('lahat');
 

@@ -1,9 +1,8 @@
 /**
  * Animo LGU Console — global styles.
  *
- * The custom properties here mirror `src/constants/animo.ts`. Prefer these
- * variables over literal hex values so the console stays in step with the
- * mobile app's design tokens.
+ * Designed with accessible typography for older users and local municipal officers:
+ * larger base font size (16px), higher contrast, and generous tap/click targets.
  */
 
 :root {
@@ -15,25 +14,25 @@
 
   /* Text */
   --animo-black: #121212;
-  --animo-black-secondary: #424242;
-  --animo-muted: #8a8a8a;
+  --animo-black-secondary: #383838;
+  --animo-muted: #737373;
 
   /* Surfaces */
   --animo-bg: #ffffff;
-  --animo-canvas: #fafafa;
-  --animo-surface: #f4f4f4;
-  --animo-border: #e3e3e3;
+  --animo-canvas: #f8faf8;
+  --animo-surface: #f1f3f1;
+  --animo-border: #dcdfdc;
   --animo-white: #ffffff;
 
   /* Status */
-  --animo-danger: #d64545;
-  --animo-danger-tint: #fbecec;
-  --animo-danger-border: #e9a5a5;
-  --animo-warning: #e08a1e;
-  --animo-warning-tint: #fdf0dc;
-  --animo-warning-border: #f0c98a;
-  --animo-caution: #e5b93c;
-  --animo-caution-tint: #fcf6de;
+  --animo-danger: #cf2222;
+  --animo-danger-tint: #fde8e8;
+  --animo-danger-border: #f8b4b4;
+  --animo-warning: #c26a0a;
+  --animo-warning-tint: #fef3e2;
+  --animo-warning-border: #f9d29b;
+  --animo-caution: #b88a10;
+  --animo-caution-tint: #fef9e7;
 
   /* Radii */
   --animo-radius-sm: 8px;
@@ -41,9 +40,11 @@
   --animo-radius-lg: 16px;
   --animo-radius-pill: 999px;
 
-  --animo-shadow-card: 0 1px 2px rgba(18, 18, 18, 0.04);
+  --animo-shadow-card: 0 2px 4px rgba(18, 18, 18, 0.05);
 
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
   color: var(--animo-black);
   background-color: var(--animo-canvas);
   -webkit-font-smoothing: antialiased;
@@ -57,20 +58,23 @@
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
   margin: 0;
+  font-size: 16px;
 }
 
 button {
   font-family: inherit;
+  font-size: inherit;
   cursor: pointer;
 }
 
-input {
+input, select, textarea {
   font-family: inherit;
+  font-size: inherit;
 }
 
 a {
@@ -87,16 +91,15 @@ a {
 }
 
 /**
- * Text field. The bordered wrapper owns the focus ring so a leading icon and
- * a trailing button sit inside the same box as the input itself.
+ * Text field with comfortable touch target and clear readable text.
  */
 .animo-field {
   display: flex;
   align-items: center;
-  gap: 10px;
-  height: 48px;
-  padding: 0 14px;
-  border: 1px solid var(--animo-border);
+  gap: 12px;
+  height: 52px;
+  padding: 0 16px;
+  border: 1.5px solid var(--animo-border);
   border-radius: var(--animo-radius-md);
   background: var(--animo-surface);
   transition: border-color 120ms ease, background-color 120ms ease,
@@ -106,7 +109,7 @@ a {
 .animo-field:focus-within {
   border-color: var(--animo-green);
   background: var(--animo-white);
-  box-shadow: 0 0 0 3px rgba(26, 110, 30, 0.12);
+  box-shadow: 0 0 0 3px rgba(26, 110, 30, 0.15);
 }
 
 .animo-field--error {
@@ -122,8 +125,8 @@ a {
   outline: none;
   background: transparent;
   color: var(--animo-black);
-  font-size: 15px;
-  line-height: 22px;
+  font-size: 16px;
+  line-height: 24px;
 }
 
 .animo-field input::placeholder {
@@ -134,15 +137,15 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  height: 52px;
+  height: 54px;
   border: none;
   border-radius: var(--animo-radius-md);
   background: var(--animo-green);
   color: var(--animo-white);
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   line-height: 24px;
   transition: background-color 120ms ease;
 }

@@ -6,7 +6,7 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 
-const CANCEL_WINDOW = 30; // seconds the buyer can still cancel
+const CANCEL_WINDOW = 10; // seconds the buyer can still cancel
 const SUCCESS_HOLD_MS = 1600; // how long the success message shows before redirect
 
 type Phase = 'counting' | 'success';
@@ -77,9 +77,9 @@ export function BidConfirmationModal({
               <AnimoText variant="h2" color={AnimoColors.black} style={styles.center}>
                 Matagumpay na naisagawa ang bid!
               </AnimoText>
-              <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.center}>
+              {/* <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.center}>
                 Na-lock na ang escrow smart contract. Makikita ninyo ito sa inyong mga transaksyon.
-              </AnimoText>
+              </AnimoText> */}
 
               <View style={styles.summaryBox}>
                 <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.center}>
@@ -103,10 +103,10 @@ export function BidConfirmationModal({
               <AnimoText variant="h2" color={AnimoColors.black} style={styles.center}>
                 Naipasa ang inyong bid
               </AnimoText>
-              <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.center}>
+              {/* <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.center}>
                 Ginawa na ang escrow smart contract sa Polygon PoS. Maaari mo pang kanselahin ang
                 bid sa loob ng 30 segundo.
-              </AnimoText>
+              </AnimoText> */}
 
               <View style={styles.countdown}>
                 <AnimoText variant="display" color={AnimoColors.green}>
@@ -141,9 +141,9 @@ export function BidConfirmationModal({
                 </AnimoText>
               </Pressable>
 
-              <AnimoText variant="caption" color={AnimoColors.muted} style={styles.center}>
+              {/* <AnimoText variant="caption" color={AnimoColors.muted} style={styles.center}>
                 Pagkatapos ng 30 segundo, kailangan ng dispute para makansela ang transaksyon.
-              </AnimoText>
+              </AnimoText> */}
             </>
           )}
         </View>

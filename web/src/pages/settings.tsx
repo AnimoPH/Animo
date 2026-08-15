@@ -48,9 +48,6 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
               </div>
               <div style={styles.chipRow}>
                 <span style={styles.chipVerified}>Verified LGU Account</span>
-                <span style={styles.chipCount}>
-                  {LGU_PROFILE.barangayCount} barangay
-                </span>
               </div>
             </div>
           </div>
@@ -67,12 +64,12 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
           <h3 style={styles.sectionHeading}>Seguridad</h3>
           <div style={styles.actionList}>
             <ActionRow
-              icon={<Lock size={18} color="var(--animo-black-secondary)" />}
+              icon={<Lock size={20} color="var(--animo-black-secondary)" />}
               title="Palitan ang password"
               subtitle="Huling binago noong Ago 4, 2025"
             />
             <ActionRow
-              icon={<Phone size={18} color="var(--animo-black-secondary)" />}
+              icon={<Phone size={20} color="var(--animo-black-secondary)" />}
               title="Two-factor authentication"
               subtitle={`Naka-on sa ${LGU_PROFILE.phone}`}
             />
@@ -94,7 +91,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
                 return (
                   <ActionRow
                     key={link.key}
-                    icon={<Icon size={18} color="var(--animo-black-secondary)" />}
+                    icon={<Icon size={20} color="var(--animo-black-secondary)" />}
                     title={link.title}
                     subtitle={link.subtitle}
                     bordered
@@ -122,7 +119,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
 
             <div style={styles.warning}>
               <TriangleAlert
-                size={15}
+                size={18}
                 color="var(--animo-danger)"
                 style={{ flexShrink: 0, marginTop: 1 }}
               />
@@ -169,7 +166,7 @@ function ActionRow({
         <span style={styles.actionTitle}>{title}</span>
         <span style={styles.actionSubtitle}>{subtitle}</span>
       </span>
-      <ChevronRight size={18} color="var(--animo-muted)" />
+      <ChevronRight size={20} color="var(--animo-muted)" />
     </button>
   );
 }
@@ -177,12 +174,12 @@ function ActionRow({
 const styles: Record<string, React.CSSProperties> = {
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) 340px',
-    gap: 16,
+    gridTemplateColumns: 'minmax(0, 1fr) 360px',
+    gap: 18,
     alignItems: 'start',
   },
-  sideColumn: { display: 'flex', flexDirection: 'column', gap: 16 },
-  panel: { display: 'flex', flexDirection: 'column', gap: 16, padding: 20 },
+  sideColumn: { display: 'flex', flexDirection: 'column', gap: 18 },
+  panel: { display: 'flex', flexDirection: 'column', gap: 18, padding: 24 },
   panelHead: {
     display: 'flex',
     alignItems: 'flex-start',
@@ -190,53 +187,45 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 16,
     flexWrap: 'wrap',
   },
-  panelTitle: { margin: '0 0 4px', fontSize: 18, fontWeight: 700 },
-  panelSubtitle: { margin: 0, fontSize: 12, color: 'var(--animo-black-secondary)' },
+  panelTitle: { margin: '0 0 4px', fontSize: 20, fontWeight: 800 },
+  panelSubtitle: { margin: 0, fontSize: 14, color: 'var(--animo-black-secondary)' },
   editButton: {
-    padding: '5px 14px',
+    padding: '6px 16px',
     borderRadius: 'var(--animo-radius-pill)',
     border: 'none',
     background: 'var(--animo-green-tint)',
     color: 'var(--animo-green)',
-    fontSize: 12,
-    fontWeight: 600,
+    fontSize: 14,
+    fontWeight: 700,
   },
-  identity: { display: 'flex', alignItems: 'center', gap: 16 },
+  identity: { display: 'flex', alignItems: 'center', gap: 18 },
   avatarLarge: {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 64,
-    height: 64,
+    width: 68,
+    height: 68,
     borderRadius: 'var(--animo-radius-pill)',
     background: 'var(--animo-green-tint)',
     color: 'var(--animo-green)',
-    fontSize: 20,
-    fontWeight: 700,
+    fontSize: 22,
+    fontWeight: 800,
     flexShrink: 0,
   },
-  identityName: { fontSize: 20, fontWeight: 700 },
+  identityName: { fontSize: 22, fontWeight: 800 },
   identityRole: {
-    fontSize: 13,
+    fontSize: 14,
     color: 'var(--animo-black-secondary)',
     marginTop: 2,
   },
   chipRow: { display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' },
   chipVerified: {
-    padding: '3px 10px',
+    padding: '4px 12px',
     borderRadius: 'var(--animo-radius-pill)',
     background: 'var(--animo-green-tint)',
     color: 'var(--animo-green)',
-    fontSize: 11,
-    fontWeight: 600,
-  },
-  chipCount: {
-    padding: '3px 10px',
-    borderRadius: 'var(--animo-radius-pill)',
-    background: '#E8F0FE',
-    color: '#2563EB',
-    fontSize: 11,
-    fontWeight: 600,
+    fontSize: 12,
+    fontWeight: 700,
   },
   detailList: { margin: 0, display: 'flex', flexDirection: 'column' },
   detailRow: {
@@ -244,34 +233,34 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 24,
-    padding: '10px 0',
+    padding: '12px 0',
     borderTop: '1px solid var(--animo-border)',
   },
   detailLabel: {
     margin: 0,
-    fontSize: 13,
+    fontSize: 14,
     color: 'var(--animo-black-secondary)',
     flexShrink: 0,
   },
   detailValue: {
     margin: 0,
-    fontSize: 13,
-    fontWeight: 600,
+    fontSize: 15,
+    fontWeight: 700,
     textAlign: 'right',
   },
   sectionHeading: {
-    margin: 0,
-    fontSize: 15,
-    fontWeight: 700,
+    margin: '10px 0 0',
+    fontSize: 16,
+    fontWeight: 800,
     color: 'var(--animo-black)',
   },
-  actionList: { display: 'flex', flexDirection: 'column', gap: 10 },
+  actionList: { display: 'flex', flexDirection: 'column', gap: 12 },
   actionRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
     width: '100%',
-    padding: '12px 14px',
+    padding: '14px 16px',
     border: 'none',
     borderRadius: 'var(--animo-radius-md)',
     background: 'var(--animo-surface)',
@@ -282,31 +271,33 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--animo-border)',
   },
   actionText: { flex: 1, minWidth: 0 },
-  actionTitle: { display: 'block', fontSize: 14, fontWeight: 600 },
+  actionTitle: { display: 'block', fontSize: 15, fontWeight: 700 },
   actionSubtitle: {
     display: 'block',
-    fontSize: 12,
+    fontSize: 13,
     color: 'var(--animo-black-secondary)',
-    marginTop: 1,
+    marginTop: 2,
   },
   signOutButton: {
-    height: 48,
+    height: 52,
     borderRadius: 'var(--animo-radius-md)',
-    border: '1px solid var(--animo-danger)',
+    border: '1.5px solid var(--animo-danger)',
     background: 'var(--animo-white)',
     color: 'var(--animo-danger)',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 700,
+    cursor: 'pointer',
+    marginTop: 8,
   },
   warning: {
     display: 'flex',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: 12,
     padding: '12px 14px',
     borderRadius: 'var(--animo-radius-md)',
     background: 'var(--animo-danger-tint)',
-    fontSize: 12,
-    lineHeight: '17px',
+    fontSize: 13,
+    lineHeight: '18px',
     color: 'var(--animo-black-secondary)',
   },
 };

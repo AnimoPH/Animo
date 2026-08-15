@@ -8,66 +8,65 @@ import {
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
-import { FARMERS, type Farmer } from '@/constants/dashboard';
+import { BUYERS, type Buyer } from '@/constants/dashboard';
 
-export type FarmersPageProps = {
+export type BuyersPageProps = {
   onSignOut: () => void;
 };
 
 const BARANGAY_OPTIONS = [
   'Lahat',
   'Brgy. San Jose',
+  'Brgy. Dela Paz',
   'Brgy. Concepcion',
   'Brgy. Sta. Cruz',
   'Brgy. Tibag',
   'Brgy. Pagala',
-  'Brgy. Makinabang',
 ];
 
 const STATUS_OPTIONS = ['Lahat', 'Aktibo', 'Hindi aktibo', 'Suspendido'];
 
-/** Registry of farmers with search, filtering, registration modal, and account review links. */
-export function FarmersPage({ onSignOut }: FarmersPageProps) {
+/** Registry of buyers with search, filtering, registration modal, and account review links. */
+export function BuyersPage({ onSignOut }: BuyersPageProps) {
   const navigate = useNavigate();
-  const [farmersList, setFarmersList] = useState<Farmer[]>(FARMERS);
+  const [buyersList, setBuyersList] = useState<Buyer[]>(BUYERS);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBarangay, setSelectedBarangay] = useState('Lahat');
   const [selectedStatus, setSelectedStatus] = useState('Lahat');
 
-  // Add Farmer Modal state
+  // Add Buyer Modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [newBarangay, setNewBarangay] = useState('Brgy. San Jose');
   const [newPhone, setNewPhone] = useState('');
-  const [newFarmSize, setNewFarmSize] = useState('1.0 ha');
 
-  const filteredFarmers = useMemo(() => {
-    return farmersList.filter((f) => {
+  const filteredBuyers = useMemo(() => {
+    return buyersList.filter((b) => {
       const matchesSearch =
-        f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.phone.includes(searchQuery);
+        b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.phone.includes(searchQuery);
 
       const matchesBarangay =
-        selectedBarangay === 'Lahat' || f.barangay === selectedBarangay;
+        selectedBarangay === 'Lahat' || b.barangay === selectedBarangay;
 
       const matchesStatus =
         selectedStatus === 'Lahat' ||
-        (selectedStatus === 'Aktibo' && f.status === 'active') ||
-        (selectedStatus === 'Hindi aktibo' && f.status === 'inactive') ||
-        (selectedStatus === 'Suspendido' && f.status === 'suspended');
+        (selectedStatus === 'Aktibo' && b.status === 'active') ||
+        (selectedStatus === 'Hindi aktibo' && b.status === 'inactive') ||
+        (selectedStatus === 'Suspendido' && b.status === 'suspended');
 
       return matchesSearch && matchesBarangay && matchesStatus;
     });
-  }, [farmersList, searchQuery, selectedBarangay, selectedStatus]);
+  }, [buyersList, searchQuery, selectedBarangay, selectedStatus]);
 
-  const activeCount = farmersList.filter((f) => f.status === 'active').length;
-  const suspendedCount = farmersList.filter((f) => f.status === 'suspended').length;
-  const barangaysCount = new Set(farmersList.map((f) => f.barangay)).size;
+  const activeCount = buyersList.filter((b) => b.status === 'active').length;
+  const suspendedCount = buyersList.filter((b) => b.status === 'suspended').length;
+  const barangaysCount = new Set(buyersList.map((b) => b.barangay)).size;
 
-  const handleAddFarmer = (e: React.FormEvent) => {
+  const handleAddBuyer = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim() || !newPhone.trim()) return;
 
@@ -78,15 +77,15 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
       .toUpperCase()
       .slice(0, 2);
 
-    const newId = `FRM-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newId = `BYR-${Math.floor(2000 + Math.random() * 8000)}`;
 
-    const newFarmer: Farmer = {
+    const newBuyer: Buyer = {
       id: newId,
       name: newName,
-      initials: initials || 'JD',
+      initials: initials || 'MS',
       barangay: newBarangay,
       phone: newPhone,
-      farmSize: newFarmSize,
+      buyerType: 'Mamimili',
       registeredDate: 'Ngayong araw',
       status: 'active',
       rating: 5.0,
@@ -96,7 +95,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
       transactions: [],
     };
 
-    setFarmersList([newFarmer, ...farmersList]);
+    setBuyersList([newBuyer, ...buyersList]);
     setShowAddModal(false);
     setNewName('');
     setNewPhone('');
@@ -104,33 +103,33 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
 
   return (
     <ConsoleLayout
-      title="Mga Magsasaka"
-      subtitle="Farmers · Rehistro at pagsusuri ng mga nakarehistrong magsasaka"
+      title="Mga Mamimili"
+      subtitle="Buyers · Rehistro at pagsusuri ng mga nakarehistrong mamimili"
       onSignOut={onSignOut}>
-      {/* Metric summary row */}
+      {/* Summary Metrics */}
       <section style={styles.summaryRow}>
-        <SummaryCard label="Kabuuang Nakarehistro" value={String(farmersList.length)} unit="magsasaka" />
-        <SummaryCard label="Aktibo" value={String(activeCount)} unit="tumatanggap ng payo" />
+        <SummaryCard label="Kabuuang Nakarehistro" value={String(buyersList.length)} unit="mamimili" />
+        <SummaryCard label="Aktibo" value={String(activeCount)} unit="aktibong bumibili" />
         <SummaryCard label="Suspendido" value={String(suspendedCount)} unit="may paglabag" unitColor="var(--animo-danger)" />
         <SummaryCard label="Saklaw" value={String(barangaysCount)} unit="barangay" />
       </section>
 
-      {/* Main Table Card */}
+      {/* Main Table Panel */}
       <article className="animo-card" style={styles.panel}>
         <div style={styles.panelHead}>
           <div>
-            <h2 style={styles.panelTitle}>Listahan ng Magsasaka</h2>
+            <h2 style={styles.panelTitle}>Listahan ng mga Mamimili</h2>
             <p style={styles.panelSubtitle}>
-              Farmer registry & account verification · LGU San Mateo, Rizal
+              Buyer registry & account verification · LGU San Mateo, Rizal
             </p>
           </div>
 
           <button
             type="button"
             onClick={() => setShowAddModal(true)}
-            style={styles.addFarmerBtn}>
+            style={styles.addBuyerBtn}>
             <Plus size={18} />
-            Magrehistro ng Magsasaka
+            Magrehistro ng Mamimili
           </button>
         </div>
 
@@ -186,12 +185,12 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
           </div>
         </div>
 
-        {/* Farmers Table */}
+        {/* Buyers Table without Uri ng Mamimili */}
         <div style={styles.tableWrap}>
           <table style={styles.table}>
             <thead>
               <tr>
-                {['Farmer ID', 'Magsasaka', 'Barangay', 'Numero', 'Laki ng Sakahan', 'Katayuan', 'Aksyon'].map(
+                {['Buyer ID', 'Mamimili', 'Barangay', 'Numero', 'Katayuan', 'Aksyon'].map(
                   (heading) => (
                     <th key={heading} style={styles.th}>
                       {heading.toUpperCase()}
@@ -201,18 +200,18 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
               </tr>
             </thead>
             <tbody>
-              {filteredFarmers.length === 0 ? (
+              {filteredBuyers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ ...styles.td, textAlign: 'center', color: 'var(--animo-muted)', padding: '30px 0' }}>
-                    Walang nahanap na magsasaka sa iyong pamantayan.
+                  <td colSpan={6} style={{ ...styles.td, textAlign: 'center', color: 'var(--animo-muted)', padding: '30px 0' }}>
+                    Walang nahanap na mamimili sa iyong pamantayan.
                   </td>
                 </tr>
               ) : (
-                filteredFarmers.map((farmer) => (
-                  <FarmerRow
-                    key={farmer.id}
-                    farmer={farmer}
-                    onReview={() => navigate(`/account-review/farmer/${farmer.id}`)}
+                filteredBuyers.map((buyer) => (
+                  <BuyerRow
+                    key={buyer.id}
+                    buyer={buyer}
+                    onReview={() => navigate(`/account-review/buyer/${buyer.id}`)}
                   />
                 ))
               )}
@@ -221,18 +220,18 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
         </div>
       </article>
 
-      {/* Add Farmer Modal */}
+      {/* Add Buyer Modal */}
       {showAddModal && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
             <div style={styles.modalHead}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={styles.modalIconWrap}>
-                  <UserPlus size={22} color="var(--animo-green)" />
+                  <UserPlus size={22} color="#2563EB" />
                 </span>
                 <div>
-                  <h2 style={styles.modalTitle}>Magrehistro ng Bagong Magsasaka</h2>
-                  <p style={styles.modalSubtitle}>Magdagdag sa LGU Registry</p>
+                  <h2 style={styles.modalTitle}>Magrehistro ng Bagong Mamimili</h2>
+                  <p style={styles.modalSubtitle}>Magdagdag sa LGU Buyer Registry</p>
                 </div>
               </div>
               <button
@@ -243,13 +242,13 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
               </button>
             </div>
 
-            <form onSubmit={handleAddFarmer} style={styles.modalForm}>
+            <form onSubmit={handleAddBuyer} style={styles.modalForm}>
               <div>
-                <label style={styles.fieldLabel}>Buong Pangalan ng Magsasaka *</label>
+                <label style={styles.fieldLabel}>Buong Pangalan ng Mamimili *</label>
                 <input
                   type="text"
                   required
-                  placeholder="Hal. Juan Dela Cruz"
+                  placeholder="Hal. Maria Santos"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   style={styles.inputField}
@@ -283,17 +282,6 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
                 </div>
               </div>
 
-              <div>
-                <label style={styles.fieldLabel}>Laki ng Sakahan (Hectares)</label>
-                <input
-                  type="text"
-                  placeholder="Hal. 1.5 ha"
-                  value={newFarmSize}
-                  onChange={(e) => setNewFarmSize(e.target.value)}
-                  style={styles.inputField}
-                />
-              </div>
-
               <div style={styles.modalFooter}>
                 <button
                   type="button"
@@ -303,7 +291,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
                 </button>
                 <button type="submit" style={styles.submitBtn}>
                   <UserPlus size={18} />
-                  I-rehistro ang Magsasaka
+                  I-rehistro ang Mamimili
                 </button>
               </div>
             </form>
@@ -334,38 +322,37 @@ function SummaryCard({
   );
 }
 
-function FarmerRow({
-  farmer,
+function BuyerRow({
+  buyer,
   onReview,
 }: {
-  farmer: Farmer;
+  buyer: Buyer;
   onReview: () => void;
 }) {
-  const isActive = farmer.status === 'active';
-  const isSuspended = farmer.status === 'suspended';
+  const isActive = buyer.status === 'active';
+  const isSuspended = buyer.status === 'suspended';
 
   return (
     <tr>
-      {/* Farmer ID (First Column) */}
-      <td style={{ ...styles.td, fontWeight: 700, color: 'var(--animo-green)' }}>
-        {farmer.id}
+      {/* Buyer ID */}
+      <td style={{ ...styles.td, fontWeight: 700, color: '#2563EB' }}>
+        {buyer.id}
       </td>
       <td style={styles.td}>
         <span style={styles.identity}>
-          <span style={styles.avatar}>{farmer.initials}</span>
+          <span style={styles.avatar}>{buyer.initials}</span>
           <div>
-            <span style={styles.farmerName}>{farmer.name}</span>
-            {farmer.reports && farmer.reports.length > 0 && (
-              <span style={styles.reportCountDot} title={`${farmer.reports.length} report(s)`}>
-                ⚠ {farmer.reports.length} ulat
+            <span style={styles.buyerName}>{buyer.name}</span>
+            {buyer.reports && buyer.reports.length > 0 && (
+              <span style={styles.reportCountDot} title={`${buyer.reports.length} report(s)`}>
+                ⚠ {buyer.reports.length} ulat
               </span>
             )}
           </div>
         </span>
       </td>
-      <td style={styles.td}>{farmer.barangay}</td>
-      <td style={styles.td}>{farmer.phone}</td>
-      <td style={styles.td}>{farmer.farmSize}</td>
+      <td style={styles.td}>{buyer.barangay}</td>
+      <td style={styles.td}>{buyer.phone}</td>
       <td style={styles.td}>
         <span
           style={{
@@ -416,14 +403,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   panelTitle: { margin: '0 0 4px', fontSize: 20, fontWeight: 800 },
   panelSubtitle: { margin: 0, fontSize: 14, color: 'var(--animo-black-secondary)' },
-  addFarmerBtn: {
+  addBuyerBtn: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 8,
     padding: '12px 20px',
     borderRadius: 'var(--animo-radius-md)',
     border: 'none',
-    background: 'var(--animo-green)',
+    background: '#2563EB',
     color: '#ffffff',
     fontSize: 15,
     fontWeight: 700,
@@ -493,7 +480,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--animo-black)',
   },
   tableWrap: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', minWidth: 840 },
+  table: { width: '100%', borderCollapse: 'collapse', minWidth: 720 },
   th: {
     textAlign: 'left',
     padding: '12px 14px',
@@ -518,13 +505,13 @@ const styles: Record<string, React.CSSProperties> = {
     width: 36,
     height: 36,
     borderRadius: 'var(--animo-radius-pill)',
-    background: 'var(--animo-green-tint)',
-    color: 'var(--animo-green)',
+    background: '#EFF6FF',
+    color: '#2563EB',
     fontSize: 13,
     fontWeight: 700,
     flexShrink: 0,
   },
-  farmerName: { display: 'block', fontSize: 15, fontWeight: 700 },
+  buyerName: { display: 'block', fontSize: 15, fontWeight: 700 },
   reportCountDot: {
     display: 'inline-block',
     fontSize: 11,
@@ -553,7 +540,7 @@ const styles: Record<string, React.CSSProperties> = {
   reviewAccountBtn: {
     border: 'none',
     background: 'transparent',
-    color: 'var(--animo-green)',
+    color: '#2563EB',
     fontSize: 14,
     fontWeight: 700,
     cursor: 'pointer',
@@ -594,7 +581,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: 44,
     height: 44,
     borderRadius: 22,
-    background: 'var(--animo-green-tint)',
+    background: '#EFF6FF',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -662,7 +649,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '12px 22px',
     borderRadius: 'var(--animo-radius-md)',
     border: 'none',
-    background: 'var(--animo-green)',
+    background: '#2563EB',
     color: '#ffffff',
     fontSize: 15,
     fontWeight: 700,

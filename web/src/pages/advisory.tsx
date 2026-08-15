@@ -17,9 +17,6 @@ const SEVERITY_ORDER: Severity[] = ['severe', 'moderate', 'mild', 'clear'];
 
 /**
  * Advisory monitoring — current advisory status per barangay.
- *
- * Farmer-response panels are intentionally out of scope, so this page tracks
- * issuance and delivery only.
  */
 export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
   const activeCount = BARANGAY_ADVISORIES.filter(
@@ -33,7 +30,7 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
       onSignOut={onSignOut}>
       <div style={styles.toolbar}>
         <span style={styles.rangePill}>
-          <CalendarDays size={15} color="var(--animo-black-secondary)" />
+          <CalendarDays size={16} color="var(--animo-black-secondary)" />
           Okt 6 – Okt 12, 2025
         </span>
       </div>
@@ -108,11 +105,11 @@ function AdvisoryRow({ item }: { item: BarangayAdvisory }) {
 
       <div style={styles.advisoryMeta}>
         <span style={styles.metaItem}>
-          <Clock size={14} color="var(--animo-muted)" />
+          <Clock size={15} color="var(--animo-muted)" />
           {item.issued}
         </span>
         <span style={styles.metaItem}>
-          <Users size={14} color="var(--animo-muted)" />
+          <Users size={15} color="var(--animo-muted)" />
           {item.total} magsasaka
         </span>
       </div>
@@ -126,35 +123,37 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 8,
-    height: 36,
-    padding: '0 14px',
+    height: 40,
+    padding: '0 16px',
     borderRadius: 'var(--animo-radius-md)',
     border: '1px solid var(--animo-border)',
     background: 'var(--animo-white)',
-    fontSize: 13,
+    fontSize: 14,
     color: 'var(--animo-black-secondary)',
+    fontWeight: 600,
   },
   summaryRow: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-    gap: 16,
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: 18,
   },
   summaryCard: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 6,
-    padding: 18,
+    gap: 8,
+    padding: 20,
   },
   summaryHead: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 8,
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: 700,
     color: 'var(--animo-black-secondary)',
   },
-  summaryCount: { fontSize: 28, fontWeight: 700, lineHeight: '34px' },
-  summaryUnit: { fontSize: 11, color: 'var(--animo-muted)' },
-  panel: { display: 'flex', flexDirection: 'column', gap: 16, padding: 20 },
+  summaryCount: { fontSize: 32, fontWeight: 800, lineHeight: '38px' },
+  summaryUnit: { fontSize: 13, color: 'var(--animo-muted)' },
+  panel: { display: 'flex', flexDirection: 'column', gap: 18, padding: 24 },
   panelHead: {
     display: 'flex',
     alignItems: 'flex-start',
@@ -162,26 +161,26 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 16,
     flexWrap: 'wrap',
   },
-  panelTitle: { margin: '0 0 4px', fontSize: 18, fontWeight: 700 },
-  panelSubtitle: { margin: 0, fontSize: 12, color: 'var(--animo-black-secondary)' },
+  panelTitle: { margin: '0 0 4px', fontSize: 20, fontWeight: 800 },
+  panelSubtitle: { margin: 0, fontSize: 14, color: 'var(--animo-black-secondary)' },
   activeBadge: {
-    padding: '4px 12px',
+    padding: '5px 14px',
     borderRadius: 'var(--animo-radius-pill)',
     background: 'var(--animo-green-tint)',
     color: 'var(--animo-green)',
-    fontSize: 11,
-    fontWeight: 600,
+    fontSize: 13,
+    fontWeight: 700,
   },
   advisoryList: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-    gap: 12,
+    gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+    gap: 14,
   },
   advisoryCard: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 8,
-    padding: 16,
+    gap: 10,
+    padding: 18,
     borderRadius: 'var(--animo-radius-md)',
     border: '1px solid var(--animo-border)',
     background: 'var(--animo-white)',
@@ -200,21 +199,21 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 8,
-    fontSize: 15,
-    fontWeight: 600,
+    fontSize: 16,
+    fontWeight: 700,
   },
   severityDot: {
-    width: 9,
-    height: 9,
+    width: 10,
+    height: 10,
     borderRadius: '50%',
     flexShrink: 0,
   },
-  advisoryHeadline: { fontSize: 13, color: 'var(--animo-black-secondary)' },
+  advisoryHeadline: { fontSize: 14, color: 'var(--animo-black-secondary)' },
   advisoryMeta: {
     display: 'flex',
     flexWrap: 'wrap',
-    gap: 14,
-    fontSize: 12,
+    gap: 16,
+    fontSize: 13,
     color: 'var(--animo-black-secondary)',
   },
   metaItem: { display: 'inline-flex', alignItems: 'center', gap: 6 },
