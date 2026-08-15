@@ -1,8 +1,10 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { Home, ShoppingBag, ReceiptText, User } from 'lucide-react-native';
 
 import { AnimoTabBar, type TabItem } from '@/components/animo/animo-tab-bar';
+import { homeRouteForRole } from '@/constants/roles';
+import { useSession } from '@/hooks/use-session';
 
 /** Bottom navigation for the buyer (Mamimili) module. */
 const BUYER_TABS: TabItem[] = [
@@ -25,6 +27,18 @@ const PALENGKE_FULLSCREEN = ['[id]', 'bid'];
 const TRANSAKSYON_FULLSCREEN = ['[id]'];
 
 export default function BuyerLayout() {
+  const { status, account } = useSession();
+
+  // Guards the group against deep-links — an unauthenticated user or a
+  // signed-in farmer landing here gets bounced to the right screen instead of
+  // seeing the buyer module.
+  if (status !== 'authenticated' || !account) {
+    return <Redirect href="/login" />;
+  }
+  if (account.role !== 'mamimili') {
+    return <Redirect href={homeRouteForRole(account.role)} />;
+  }
+
   return (
     <Tabs
       screenOptions={{ headerShown: false }}

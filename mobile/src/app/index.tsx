@@ -6,24 +6,27 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoSpacing } from '@/constants/animo';
-import { useOnboarding } from '@/hooks/use-onboarding';
+import { homeRouteForRole } from '@/constants/roles';
+import { useSession } from '@/hooks/use-session';
 
 /**
  * Landing / splash screen.
  *
- * Full-bleed brand green with the Animo logo and tagline. Tapping continues to
- * the right place: first-run users go to role selection + registration;
- * returning users go to the app (login lands here once it's built).
+ * Full-bleed brand green with the Animo logo and tagline. Tapping continues
+ * to the right place: an already-authenticated session (within the 30-day
+ * window) goes straight to Home, a verified-but-incomplete registration
+ * resumes at the profile step, a device that's registered before goes to
+ * login, and a first-run device goes to role selection.
  */
 export default function LandingScreen() {
-  const { hasRegistered } = useOnboarding();
+  const { status, account, hasRegisteredOnDevice } = useSession();
 
   const handleContinue = () => {
-    // Still loading persisted state — ignore taps until we know.
-    if (hasRegistered === null) return;
-
-    if (hasRegistered) {
-      // Returning user — sign in with phone + OTP.
+    if (status === 'authenticated' && account) {
+      router.replace(homeRouteForRole(account.role));
+    } else if (status === 'needs-profile') {
+      router.replace('/onboarding/register?resume=1');
+    } else if (hasRegisteredOnDevice) {
       router.replace('/login');
     } else {
       router.push('/onboarding/role');

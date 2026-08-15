@@ -31,7 +31,11 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# Supabase CLI local project-link cache — leaks project ref/org id.
+supabase/.temp/
 
 # typescript
 *.tsbuildinfo
