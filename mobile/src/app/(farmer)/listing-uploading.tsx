@@ -1,4 +1,4 @@
-import { router, Stack, type Href } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Check, Clock, ShoppingBasket } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
@@ -26,6 +26,10 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /** Uploading — shown right after "Ipasa na"; animates 0-100% then advances to the result screen. */
 export default function ListingUploadingScreen() {
+  const { listingId, price } = useLocalSearchParams<{
+    listingId?: string;
+    price?: string;
+  }>();
   const progressAnim = useRef(new Animated.Value(0)).current;
   const [displayPercent, setDisplayPercent] = useState(0);
 
@@ -40,13 +44,16 @@ export default function ListingUploadingScreen() {
       easing: Easing.linear,
       useNativeDriver: false,
     }).start(() => {
-      router.replace("/(farmer)/listing-result" as Href);
+      router.replace({
+        pathname: "/(farmer)/listing-result",
+        params: { listingId: listingId ?? "", price: price ?? "" },
+      });
     });
 
     return () => {
       progressAnim.removeListener(listenerId);
     };
-  }, [progressAnim]);
+  }, [progressAnim, listingId, price]);
 
   const strokeDashoffset = progressAnim.interpolate({
     inputRange: [0, 1],

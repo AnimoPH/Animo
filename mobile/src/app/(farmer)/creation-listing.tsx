@@ -1,4 +1,4 @@
-import { router, type Href } from "expo-router";
+import { router } from "expo-router";
 import { Camera } from "lucide-react-native";
 import { useState } from "react";
 import {
@@ -20,41 +20,68 @@ import { SelectField } from "@/components/animo/select-field";
 import { SegmentedChoice } from "@/components/animo/segmented-choice";
 
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
+import { createCropListing } from "@/services/crop-listing-service";
+import {
+  MOISTURE_OPTIONS,
+  PURITY_OPTIONS,
+  VARIETY_OPTIONS,
+  type DeclaredVariety,
+  type MoistureType,
+  type PurityGrade,
+} from "@/types/crop-listing";
 
 const SCREEN_PADDING = AnimoSpacing.lg;
 
-const VARIETY_OPTIONS = [
-  { value: "inbred", label: "Inbred" },
-  { value: "hybrid", label: "Hybrid" },
-  { value: "tradisyonal", label: "Tradisyonal o Pamana" },
-  { value: "halo-halo", label: "Halo-halong Uri" },
-  { value: "iba-pa", label: "Iba pa" },
-];
-
-const PURITY_OPTIONS = [
-  { value: "a", label: "A" },
-  { value: "b", label: "B" },
-  { value: "c", label: "C" },
-  { value: "walang-grado", label: "Walang Grado" },
-];
-
-const MOISTURE_OPTIONS: { value: "Dry" | "Wet"; label: string }[] = [
-  { value: "Dry", label: "Tuyo (Dry)" },
-  { value: "Wet", label: "Basa (Wet)" },
-];
-
 /** Gumawa ng Listing — farmer creates a new palay listing: photo, quality, weight. */
 export default function PalayListingScreen() {
-  const [variety, setVariety] = useState("");
+  const [variety, setVariety] = useState<DeclaredVariety | "">("");
   const [customVariety, setCustomVariety] = useState("");
-  const [moistureType, setMoistureType] = useState<"Dry" | "Wet">("Dry");
-  const [purityGrade, setPurityGrade] = useState("");
+  const [moistureType, setMoistureType] = useState<MoistureType>("Dry");
+  const [purityGrade, setPurityGrade] = useState<PurityGrade | "">("");
   const [grossWeight, setGrossWeight] = useState("");
   const [tareWeight, setTareWeight] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
+
   const netWeight = Math.max(
     0,
     (parseFloat(grossWeight) || 0) - (parseFloat(tareWeight) || 0),
   );
+
+  const canSubmit =
+    variety !== "" &&
+    (variety !== "Others" || customVariety.trim().length > 0) &&
+    purityGrade !== "" &&
+    netWeight > 0;
+
+  const handleSubmit = async () => {
+    if (!canSubmit || !variety || !purityGrade) return;
+    setSubmitting(true);
+    setErrorMessage(undefined);
+    try {
+      const listing = await createCropListing({
+        declaredVariety: variety,
+        customVariety: variety === "Others" ? customVariety : undefined,
+        declaredMoisture: moistureType,
+        declaredPurityGrade: purityGrade,
+        grossWeightKg: parseFloat(grossWeight) || 0,
+        tareWeightKg: parseFloat(tareWeight) || 0,
+      });
+      router.push({
+        pathname: "/(farmer)/listing-uploading",
+        params: {
+          listingId: listing.id,
+          price: listing.pricePerKg !== null ? String(listing.pricePerKg) : "",
+        },
+      });
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Hindi na-submit ang listing.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
@@ -114,9 +141,9 @@ export default function PalayListingScreen() {
               placeholder="Pumili ng uri ng palay"
               options={VARIETY_OPTIONS}
               value={variety || null}
-              onChange={setVariety}
+              onChange={(value) => setVariety(value as DeclaredVariety)}
             />
-            {variety === "iba-pa" ? (
+            {variety === "Others" ? (
               <View style={styles.inlineFieldSpacing}>
                 <LabeledInput
                   value={customVariety}
@@ -139,7 +166,7 @@ export default function PalayListingScreen() {
             placeholder="Pumili ng kalinisan ng palay"
             options={PURITY_OPTIONS}
             value={purityGrade || null}
-            onChange={setPurityGrade}
+            onChange={(value) => setPurityGrade(value as PurityGrade)}
           />
         </View>
 
@@ -164,14 +191,20 @@ export default function PalayListingScreen() {
           <NetWeightField value={netWeight} />
         </View>
 
+        {errorMessage ? (
+          <AnimoText variant="body" color={AnimoColors.danger}>
+            {errorMessage}
+          </AnimoText>
+        ) : null}
+
         {/* Submit Button */}
         <View style={styles.submitBar}>
           <AnimoButton
             label="Ipasa na"
             variant="primary"
-            onPress={() =>
-              router.push("/(farmer)/listing-uploading" as Href)
-            }
+            disabled={!canSubmit}
+            loading={submitting}
+            onPress={handleSubmit}
           />
         </View>
       </ScrollView>
