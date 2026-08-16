@@ -1,4 +1,5 @@
 import { router, useFocusEffect } from "expo-router";
+import { Image } from "expo-image";
 import { ImageIcon, Plus, Scale } from "lucide-react-native";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -15,7 +16,7 @@ import { AnimoText } from "@/components/animo/animo-text";
 import { AppHeader } from "@/components/animo/app-header";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
 import { formatPeso } from "@/constants/marketplace";
-import { fetchMyCropListings } from "@/services/crop-listing-service";
+import { fetchCoverPhotos, fetchMyCropListings } from "@/services/crop-listing-service";
 import {
   STATUS_LABELS,
   varietyLabel,
@@ -43,6 +44,7 @@ const STATUS_BADGE_COLORS: Record<ListingStatus, string> = {
 export default function FarmerPalengkeScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterKey>("Lahat");
   const [listings, setListings] = useState<CropListing[]>([]);
+  const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
@@ -56,7 +58,18 @@ export default function FarmerPalengkeScreen() {
     setErrorMessage(undefined);
     try {
       const result = await fetchMyCropListings();
-      if (latestRequestId.current === requestId) setListings(result);
+      if (latestRequestId.current !== requestId) return;
+      setListings(result);
+
+      // Cover photos are a display nicety, not core data — a failure here
+      // (or none uploaded yet) must not blank out an otherwise-successful
+      // listings fetch, so it gets its own try/catch.
+      try {
+        const photos = await fetchCoverPhotos(result.map((l) => l.id));
+        if (latestRequestId.current === requestId) setCoverPhotos(photos);
+      } catch {
+        // Cards just fall back to the placeholder icon.
+      }
     } catch (err) {
       if (latestRequestId.current === requestId) {
         setErrorMessage(
@@ -138,7 +151,9 @@ export default function FarmerPalengkeScreen() {
             data={filtered}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
-            renderItem={({ item }) => <ListingCard listing={item} />}
+            renderItem={({ item }) => (
+              <ListingCard listing={item} coverPhotoUrl={coverPhotos.get(item.id)} />
+            )}
           />
         )}
 
@@ -183,7 +198,13 @@ function FilterPill({
   );
 }
 
-function ListingCard({ listing }: { listing: CropListing }) {
+function ListingCard({
+  listing,
+  coverPhotoUrl,
+}: {
+  listing: CropListing;
+  coverPhotoUrl: string | undefined;
+}) {
   return (
     <TouchableOpacity
       activeOpacity={0.85}
@@ -196,7 +217,11 @@ function ListingCard({ listing }: { listing: CropListing }) {
       style={[styles.card, styles.shadow]}
     >
       <View style={styles.photoArea}>
-        <ImageIcon size={32} color={AnimoColors.objectLowEmphasis} />
+        {coverPhotoUrl ? (
+          <Image source={{ uri: coverPhotoUrl }} style={styles.photoImage} contentFit="cover" />
+        ) : (
+          <ImageIcon size={32} color={AnimoColors.objectLowEmphasis} />
+        )}
         <View
           style={[
             styles.badge,
@@ -314,6 +339,9 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.surfaceTertiary,
     alignItems: "center",
     justifyContent: "center",
+  },
+  photoImage: {
+    ...StyleSheet.absoluteFillObject,
   },
   badge: {
     position: "absolute",

@@ -1,11 +1,14 @@
 import { supabase } from '@/lib/supabase';
-import type {
-  CreateCropListingInput,
-  CropListing,
-  DeclaredVariety,
-  ListingStatus,
-  MoistureType,
-  PurityGrade,
+import {
+  COVER_PHOTO_PREFERENCE,
+  type CreateCropListingInput,
+  type CropListing,
+  type DeclaredVariety,
+  type ListingPhoto,
+  type ListingStatus,
+  type MoistureType,
+  type PhotoType,
+  type PurityGrade,
 } from '@/types/crop-listing';
 
 /**
@@ -124,4 +127,113 @@ export async function createCropListing(input: CreateCropListingInput): Promise<
 
   if (error) throw error;
   return mapListing(data as CropListingRow);
+}
+
+/**
+ * §6 LISTINGPHOTO storage (migration 0008). The bucket is PRIVATE — reads go
+ * through short-lived signed URLs so listingphoto's own Draft/non-Draft RLS
+ * split (0001) is actually honored, unlike a public bucket which would bypass
+ * RLS entirely.
+ */
+const PHOTO_BUCKET = 'listing-photos';
+const SIGNED_URL_TTL_SECONDS = 3600;
+
+function photoStoragePath(listingId: string, photoType: PhotoType): string {
+  return `${listingId}/${photoType}.jpg`;
+}
+
+type ListingPhotoRow = { listing_id: string; photo_type: PhotoType; storage_uri: string };
+
+/**
+ * Uploads a (already resized/JPEG-encoded — see creation-listing.tsx) local
+ * photo for one of a listing's 3 slots. Both the storage object and the
+ * `listingphoto` row are upserted: `listingphoto.(listing_id, photo_type)` is
+ * unique, so retaking a slot must replace, not insert-and-conflict.
+ */
+export async function uploadListingPhoto(
+  listingId: string,
+  photoType: PhotoType,
+  localUri: string,
+): Promise<void> {
+  const response = await fetch(localUri);
+  const arrayBuffer = await response.arrayBuffer();
+  const path = photoStoragePath(listingId, photoType);
+
+  const { error: uploadError } = await supabase.storage
+    .from(PHOTO_BUCKET)
+    .upload(path, arrayBuffer, { contentType: 'image/jpeg', upsert: true });
+  if (uploadError) throw uploadError;
+
+  const { error: rowError } = await supabase
+    .from('listingphoto')
+    .upsert(
+      { listing_id: listingId, photo_type: photoType, storage_uri: path },
+      { onConflict: 'listing_id,photo_type' },
+    );
+  if (rowError) throw rowError;
+}
+
+async function signPaths(paths: string[]): Promise<Map<string, string>> {
+  const urlByPath = new Map<string, string>();
+  if (paths.length === 0) return urlByPath;
+
+  const { data, error } = await supabase.storage
+    .from(PHOTO_BUCKET)
+    .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
+  if (error) throw error;
+
+  data.forEach((signed) => {
+    if (signed.signedUrl && signed.path) urlByPath.set(signed.path, signed.signedUrl);
+  });
+  return urlByPath;
+}
+
+/** All photos attached to one listing (for the detail screen), as signed URLs. */
+export async function fetchListingPhotos(listingId: string): Promise<ListingPhoto[]> {
+  const { data, error } = await supabase
+    .from('listingphoto')
+    .select('listing_id, photo_type, storage_uri')
+    .eq('listing_id', listingId);
+  if (error) throw error;
+
+  const rows = (data ?? []) as ListingPhotoRow[];
+  const urlByPath = await signPaths(rows.map((row) => row.storage_uri));
+
+  return rows
+    .map((row) => ({ photoType: row.photo_type, url: urlByPath.get(row.storage_uri) ?? '' }))
+    .filter((photo) => photo.url.length > 0);
+}
+
+/**
+ * One cover photo per listing (for the Palengke card list), preferring
+ * Overview > BeforeHarvest > AfterHarvestUnsacked. Batches a single query +
+ * a single signed-URL request instead of one per listing (N+1), since
+ * palengke.tsx already refetches on every tab focus.
+ */
+export async function fetchCoverPhotos(listingIds: string[]): Promise<Map<string, string>> {
+  if (listingIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from('listingphoto')
+    .select('listing_id, photo_type, storage_uri')
+    .in('listing_id', listingIds);
+  if (error) throw error;
+
+  const rows = (data ?? []) as ListingPhotoRow[];
+  const bestPathByListing = new Map<string, string>();
+  for (const preferredType of COVER_PHOTO_PREFERENCE) {
+    for (const row of rows) {
+      if (row.photo_type === preferredType && !bestPathByListing.has(row.listing_id)) {
+        bestPathByListing.set(row.listing_id, row.storage_uri);
+      }
+    }
+  }
+
+  const urlByPath = await signPaths([...bestPathByListing.values()]);
+  const urlByListing = new Map<string, string>();
+  bestPathByListing.forEach((path, listingId) => {
+    const url = urlByPath.get(path);
+    if (url) urlByListing.set(listingId, url);
+  });
+  return urlByListing;
 }

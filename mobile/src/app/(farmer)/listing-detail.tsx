@@ -14,8 +14,8 @@ import { AnimoText } from "@/components/animo/animo-text";
 import { BackHeader } from "@/components/animo/back-header";
 import { ListingDetailContent } from "@/components/animo/farmer/listing-detail-content";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
-import { fetchCropListing } from "@/services/crop-listing-service";
-import type { CropListing } from "@/types/crop-listing";
+import { fetchCropListing, fetchListingPhotos } from "@/services/crop-listing-service";
+import type { CropListing, ListingPhoto } from "@/types/crop-listing";
 
 type DetailTab = "detalye" | "orders";
 
@@ -53,6 +53,7 @@ export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<DetailTab>("detalye");
   const [listing, setListing] = useState<CropListing | null>(null);
+  const [photos, setPhotos] = useState<ListingPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
@@ -61,8 +62,18 @@ export default function ListingDetailScreen() {
     setLoading(true);
     setErrorMessage(undefined);
     fetchCropListing(id)
-      .then((result) => {
-        if (!cancelled) setListing(result);
+      .then(async (result) => {
+        if (cancelled) return;
+        setListing(result);
+        if (!result) return;
+        // Photos are a display nicety — a failure here shouldn't blank out
+        // an otherwise-successful listing fetch.
+        try {
+          const listingPhotos = await fetchListingPhotos(result.id);
+          if (!cancelled) setPhotos(listingPhotos);
+        } catch {
+          // Falls back to the placeholder icon in ListingDetailContent.
+        }
       })
       .catch((err) => {
         if (!cancelled) {
@@ -150,7 +161,7 @@ export default function ListingDetailScreen() {
 
         {/* Detail Listing Content */}
         {activeTab === "detalye" ? (
-          <ListingDetailContent listing={listing} />
+          <ListingDetailContent listing={listing} photos={photos} />
         ) : (
           <>
             <AnimoText

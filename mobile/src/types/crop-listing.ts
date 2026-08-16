@@ -99,3 +99,26 @@ export const STATUS_LABELS: Record<ListingStatus, string> = {
   Sold_Out: 'Naubos',
   Cancelled: 'Tinanggal',
 };
+
+/**
+ * §6 LISTINGPHOTO's `photo_type` — one of 3 slots per listing (unique per
+ * listing_id + photo_type; see migration 0001 and the storage bucket added in
+ * 0008). `Overview` is preferred as the cover photo shown in list cards.
+ */
+export type PhotoType = 'BeforeHarvest' | 'AfterHarvestUnsacked' | 'Overview';
+
+/** Capture slots for the "Gumawa ng Listing" form, in the order shown. */
+export const PHOTO_SLOTS: { value: PhotoType; label: string }[] = [
+  { value: 'BeforeHarvest', label: 'Bago Anihin' },
+  { value: 'AfterHarvestUnsacked', label: 'Pagkatapos Anihin (Hindi pa Nakasako)' },
+  { value: 'Overview', label: 'Pangkalahatang Larawan' },
+];
+
+/** Preference order for picking a single cover photo out of whichever slots are filled. */
+export const COVER_PHOTO_PREFERENCE: PhotoType[] = ['Overview', 'BeforeHarvest', 'AfterHarvestUnsacked'];
+
+/** A listing's photo, resolved to a short-lived signed URL (the storage bucket is private). */
+export type ListingPhoto = {
+  photoType: PhotoType;
+  url: string;
+};
