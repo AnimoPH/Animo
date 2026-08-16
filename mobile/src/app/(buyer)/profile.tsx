@@ -23,7 +23,7 @@ import { AppHeader } from '@/components/animo/app-header';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import { useOnboarding } from '@/hooks/use-onboarding';
+import { useSession } from '@/hooks/use-session';
 
 /**
  * Profile Screen for Buyer (Mamimili).
@@ -32,14 +32,14 @@ import { useOnboarding } from '@/hooks/use-onboarding';
  * Personal Information opens a full detailed page modal containing buyer details, delivery address, and payment method.
  */
 export default function BuyerProfileScreen() {
-  const { reset } = useOnboarding();
+  const { signOut } = useSession();
   const [showPersonalInfoModal, setShowPersonalInfoModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleLogout = async () => {
-    await reset();
+    await signOut();
     setShowLogoutModal(false);
     router.replace('/login');
   };

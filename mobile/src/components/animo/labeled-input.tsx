@@ -1,8 +1,13 @@
-import { type ReactNode, useState } from 'react';
-import { StyleSheet, TextInput, type TextInputProps, View } from 'react-native';
+import { type ReactNode, useState } from "react";
+import { StyleSheet, TextInput, type TextInputProps, View } from "react-native";
 
-import { AnimoText } from '@/components/animo/animo-text';
-import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
+import { AnimoText } from "@/components/animo/animo-text";
+import {
+  AnimoColors,
+  AnimoRadius,
+  AnimoSpacing,
+  AnimoType,
+} from "@/constants/animo";
 
 export type LabeledInputProps = TextInputProps & {
   /** Label above the field. Omit to render just the field. */
@@ -25,7 +30,7 @@ export type LabeledInputProps = TextInputProps & {
 export function LabeledInput({
   label,
   hint,
-  hintTone = 'muted',
+  hintTone = "muted",
   prefix,
   prefixText,
   suffixText,
@@ -53,7 +58,8 @@ export function LabeledInput({
           styles.field,
           focused && styles.fieldFocused,
           error && styles.fieldError,
-        ]}>
+        ]}
+      >
         {prefix}
         {prefixText ? (
           <AnimoText variant="bodyEmphasis" color={AnimoColors.blackSecondary} style={styles.prefix}>
@@ -68,7 +74,11 @@ export function LabeledInput({
           {...rest}
         />
         {suffixText ? (
-          <AnimoText variant="body" color={AnimoColors.muted} style={styles.suffix}>
+          <AnimoText
+            variant="body"
+            color={AnimoColors.muted}
+            style={styles.suffix}
+          >
             {suffixText}
           </AnimoText>
         ) : null}
@@ -76,8 +86,9 @@ export function LabeledInput({
       {hint ? (
         <AnimoText
           variant="caption"
-          color={getHintColor()}
-          style={styles.hint}>
+          color={hintTone === "danger" ? AnimoColors.danger : AnimoColors.muted}
+          style={styles.hint}
+        >
           {hint}
         </AnimoText>
       ) : null}
@@ -90,18 +101,17 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.sm,
   },
   field: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: AnimoRadius.md,
     borderWidth: 1,
     borderColor: AnimoColors.border,
-    backgroundColor: AnimoColors.surface,
-    overflow: 'hidden',
+    backgroundColor: AnimoColors.white,
+    overflow: "hidden",
   },
   fieldFocused: {
     borderColor: AnimoColors.green,
-    backgroundColor: AnimoColors.white,
+    backgroundColor: AnimoColors.surfaceSecondary,
   },
   fieldError: {
     borderColor: AnimoColors.danger,
@@ -111,7 +121,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: '100%',
+    height: "100%",
     paddingHorizontal: AnimoSpacing.lg,
     color: AnimoColors.black,
     fontSize: AnimoType.body.fontSize,
@@ -121,6 +131,6 @@ const styles = StyleSheet.create({
     paddingRight: AnimoSpacing.lg,
   },
   hint: {
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
 });

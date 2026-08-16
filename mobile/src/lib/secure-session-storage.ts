@@ -22,9 +22,20 @@ async function getEncryptionKey(): Promise<Uint8Array> {
   return key;
 }
 
+/**
+ * True only in a bare Node.js process (e.g. Expo Router's static/server
+ * web export pre-rendering a route). React Native polyfills `window` on
+ * native, and real browsers obviously have it, so this only trips during
+ * server-side rendering — where AsyncStorage's web backend would otherwise
+ * throw trying to touch `window.localStorage`.
+ */
+const isServerRenderContext = typeof window === 'undefined';
+
 /** Drop-in storage adapter for Supabase's `auth.storage` option. */
 export const secureSessionStorage = {
   async getItem(key: string): Promise<string | null> {
+    if (isServerRenderContext) return null;
+
     const stored = await AsyncStorage.getItem(key);
     if (!stored) return null;
 
@@ -47,6 +58,8 @@ export const secureSessionStorage = {
   },
 
   async setItem(key: string, value: string): Promise<void> {
+    if (isServerRenderContext) return;
+
     const encryptionKey = await getEncryptionKey();
     const iv = await Crypto.getRandomBytesAsync(16);
     const dataBytes = aesjs.padding.pkcs7.pad(aesjs.utils.utf8.toBytes(value));
@@ -57,6 +70,8 @@ export const secureSessionStorage = {
   },
 
   async removeItem(key: string): Promise<void> {
+    if (isServerRenderContext) return;
+
     await AsyncStorage.removeItem(key);
   },
 };
