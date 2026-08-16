@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import {
   CheckCircle,
   Droplets,
@@ -6,44 +7,106 @@ import {
   Scale,
   ShieldCheck,
 } from "lucide-react-native";
-import { StyleSheet, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Pressable, StyleSheet, View } from "react-native";
 
 import { AnimoText } from "@/components/animo/animo-text";
 import { StatusBadge } from "@/components/animo/status-badge";
 import { AnimoColors, AnimoRadius, AnimoSpacing } from "@/constants/animo";
+import { formatPeso } from "@/constants/marketplace";
+import {
+  COVER_PHOTO_PREFERENCE,
+  STATUS_LABELS,
+  moistureLabel,
+  purityLabel,
+  varietyLabel,
+  type CropListing,
+  type ListingPhoto,
+} from "@/types/crop-listing";
 
-const QUALITY_ROWS = [
-  { Icon: Leaf, label: "Uri ng palay", value: "RC218" },
-  { Icon: Droplets, label: "Moisture content", value: "Tuyo (Dry)" },
-  { Icon: ShieldCheck, label: "Purity grade", value: "Grade A" },
-  { Icon: Scale, label: "Weight", value: "500 kg" },
-];
+const STATUS_TONE: Record<CropListing["status"], "success" | "neutral" | "warning"> = {
+  Draft: "neutral",
+  Available: "success",
+  Sold_Out: "neutral",
+  Cancelled: "warning",
+};
+
+export type ListingDetailContentProps = {
+  listing: CropListing;
+  /** Whichever of the 3 photo_type slots have been uploaded, already signed. */
+  photos: ListingPhoto[];
+};
 
 /** "Detalye ng Listing" tab content: hero image, price summary card, quality details card. */
-export function ListingDetailContent() {
+export function ListingDetailContent({ listing, photos }: ListingDetailContentProps) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const orderedPhotos = useMemo(
+    () =>
+      [...photos].sort(
+        (a, b) => COVER_PHOTO_PREFERENCE.indexOf(a.photoType) - COVER_PHOTO_PREFERENCE.indexOf(b.photoType),
+      ),
+    [photos],
+  );
+  const heroPhoto = orderedPhotos[selectedIndex] ?? orderedPhotos[0];
+
+  const qualityRows = [
+    { Icon: Leaf, label: "Uri ng palay", value: varietyLabel(listing) },
+    { Icon: Droplets, label: "Moisture content", value: moistureLabel(listing.declaredMoisture) },
+    { Icon: ShieldCheck, label: "Purity grade", value: purityLabel(listing.declaredPurityGrade) },
+    { Icon: Scale, label: "Weight", value: `${listing.netWeightKg} kg` },
+  ];
+
   return (
     <>
       <View style={styles.heroImage}>
-        <ImageIcon size={40} color={AnimoColors.objectLowEmphasis} />
+        {heroPhoto ? (
+          <Image
+            source={{ uri: heroPhoto.url }}
+            style={StyleSheet.absoluteFillObject}
+            contentFit="cover"
+          />
+        ) : (
+          <ImageIcon size={40} color={AnimoColors.objectLowEmphasis} />
+        )}
       </View>
+
+      {orderedPhotos.length > 1 ? (
+        <View style={styles.thumbRow}>
+          {orderedPhotos.map((photo, index) => (
+            <Pressable
+              key={photo.photoType}
+              accessibilityRole="button"
+              onPress={() => setSelectedIndex(index)}
+              style={[styles.thumb, index === selectedIndex && styles.thumbActive]}
+            >
+              <Image
+                source={{ uri: photo.url }}
+                style={StyleSheet.absoluteFillObject}
+                contentFit="cover"
+              />
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
       <View style={[styles.card, styles.shadow]}>
         <View style={styles.summaryTopRow}>
           <View>
             <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
-              Palay RC218
+              {varietyLabel(listing)}
             </AnimoText>
             <AnimoText
               variant="caption"
               color={AnimoColors.textLowEmphasis}
               style={styles.summaryQuantity}
             >
-              (200 kg)
+              ({listing.remainingQuantityKg} kg)
             </AnimoText>
           </View>
           <StatusBadge
-            label="Now Available"
-            tone="success"
+            label={STATUS_LABELS[listing.status]}
+            tone={STATUS_TONE[listing.status]}
             icon={<CheckCircle size={12} color={AnimoColors.accentPrimary} />}
           />
         </View>
@@ -61,7 +124,7 @@ export function ListingDetailContent() {
               variant="display"
               color={AnimoColors.textHighEmphasisInverse}
             >
-              ₱25.00
+              {listing.pricePerKg !== null ? formatPeso(listing.pricePerKg) : "—"}
             </AnimoText>
             <AnimoText
               variant="body"
@@ -77,7 +140,10 @@ export function ListingDetailContent() {
             color={AnimoColors.textHighEmphasisInverse}
             style={styles.priceTotal}
           >
-            Kabuuan na halaga (200kg): ₱5,000.00
+            Kabuuan na halaga ({listing.remainingQuantityKg}kg):{" "}
+            {listing.pricePerKg !== null
+              ? formatPeso(listing.pricePerKg * listing.remainingQuantityKg)
+              : "—"}
           </AnimoText>
         </View>
       </View>
@@ -91,7 +157,7 @@ export function ListingDetailContent() {
           Detalye ng Kalidad
         </AnimoText>
 
-        {QUALITY_ROWS.map((row, index) => (
+        {qualityRows.map((row, index) => (
           <View key={row.label}>
             <View style={styles.qualityRow}>
               <View style={styles.qualityLeft}>
@@ -108,7 +174,7 @@ export function ListingDetailContent() {
                 {row.value}
               </AnimoText>
             </View>
-            {index < QUALITY_ROWS.length - 1 ? (
+            {index < qualityRows.length - 1 ? (
               <View style={styles.qualityDivider} />
             ) : null}
           </View>
@@ -125,6 +191,22 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.lg,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+  },
+  thumbRow: {
+    flexDirection: "row",
+    gap: AnimoSpacing.sm,
+  },
+  thumb: {
+    width: 56,
+    height: 56,
+    borderRadius: AnimoRadius.md,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  thumbActive: {
+    borderColor: AnimoColors.accentPrimary,
   },
   shadow: {
     shadowColor: AnimoColors.darkBackground,

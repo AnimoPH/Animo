@@ -41,6 +41,18 @@ export type CompleteRegistrationInput = {
 };
 
 /**
+ * Payload for `updateMyFarmerProfile` — the only farmer-profile fields the
+ * schema actually grants `authenticated` write access to (see migration
+ * 0001's column grants on `user`/`farmer`). `gcashNumber: null` clears the
+ * column.
+ */
+export type UpdateFarmerProfileInput = {
+  fullName: string;
+  barangay: string;
+  gcashNumber: string | null;
+};
+
+/**
  * `SessionProvider` status:
  * - `loading` — still hydrating the Supabase session from storage.
  * - `guest` — no active session (never registered, signed out, or expired).

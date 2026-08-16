@@ -1,13 +1,21 @@
 import { useLocalSearchParams } from "expo-router";
 import { Check, UserRound, X } from "lucide-react-native";
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AnimoText } from "@/components/animo/animo-text";
 import { BackHeader } from "@/components/animo/back-header";
 import { ListingDetailContent } from "@/components/animo/farmer/listing-detail-content";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
+import { fetchCropListing, fetchListingPhotos } from "@/services/crop-listing-service";
+import type { CropListing, ListingPhoto } from "@/types/crop-listing";
 
 type DetailTab = "detalye" | "orders";
 
@@ -42,8 +50,69 @@ const PURCHASE_REQUESTS: PurchaseRequest[] = [
 
 /** Palay Listing detail — quality/price summary plus purchase requests from buyers. */
 export default function ListingDetailScreen() {
-  useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<DetailTab>("detalye");
+  const [listing, setListing] = useState<CropListing | null>(null);
+  const [photos, setPhotos] = useState<ListingPhoto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setErrorMessage(undefined);
+    fetchCropListing(id)
+      .then(async (result) => {
+        if (cancelled) return;
+        setListing(result);
+        if (!result) return;
+        // Photos are a display nicety — a failure here shouldn't blank out
+        // an otherwise-successful listing fetch.
+        try {
+          const listingPhotos = await fetchListingPhotos(result.id);
+          if (!cancelled) setPhotos(listingPhotos);
+        } catch {
+          // Falls back to the placeholder icon in ListingDetailContent.
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setErrorMessage(
+            err instanceof Error ? err.message : "Hindi ma-load ang listing.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+        <BackHeader title="Palay Listing" />
+        <View style={styles.centerState}>
+          <ActivityIndicator color={AnimoColors.accentPrimary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (errorMessage || !listing) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+        <BackHeader title="Palay Listing" />
+        <View style={styles.centerState}>
+          <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+            {errorMessage ?? "Hindi nahanap ang listing na ito."}
+          </AnimoText>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
@@ -92,7 +161,7 @@ export default function ListingDetailScreen() {
 
         {/* Detail Listing Content */}
         {activeTab === "detalye" ? (
-          <ListingDetailContent />
+          <ListingDetailContent listing={listing} photos={photos} />
         ) : (
           <>
             <AnimoText
@@ -179,6 +248,12 @@ function PurchaseRequestCard({ request }: { request: PurchaseRequest }) {
 }
 
 const styles = StyleSheet.create({
+  centerState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: AnimoSpacing.xl,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: AnimoColors.appBackground,

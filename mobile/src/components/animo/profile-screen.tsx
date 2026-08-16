@@ -20,23 +20,25 @@ import { useSession } from '@/hooks/use-session';
 export type ProfileScreenProps = {
   /** Role to display; defaults to the signed-in account's role. */
   role?: RoleId | null;
+  /** Wires the "Personal na Impormasyon" row; row stays inert if omitted. */
+  onPersonalInfoPress?: () => void;
 };
-
-const MENU = [
-  { icon: User, label: 'Personal na Impormasyon' },
-  { icon: Bell, label: 'Mga Abiso' },
-  { icon: Settings, label: 'Mga Setting' },
-  { icon: FileText, label: 'Terms & Privacy' },
-  { icon: CircleHelp, label: 'Tulong at Suporta' },
-];
 
 /**
  * Shared Profile tab used by both modules. Shows the account role and a menu;
  * logging out ends the Supabase session immediately and returns to login.
  */
-export function ProfileScreen({ role }: ProfileScreenProps) {
+export function ProfileScreen({ role, onPersonalInfoPress }: ProfileScreenProps) {
   const { account, signOut } = useSession();
   const activeRole = getRole(role ?? account?.role);
+
+  const menu = [
+    { icon: User, label: 'Personal na Impormasyon', onPress: onPersonalInfoPress },
+    { icon: Bell, label: 'Mga Abiso', onPress: undefined },
+    { icon: Settings, label: 'Mga Setting', onPress: undefined },
+    { icon: FileText, label: 'Terms & Privacy', onPress: undefined },
+    { icon: CircleHelp, label: 'Tulong at Suporta', onPress: undefined },
+  ];
 
   const handleLogout = async () => {
     await signOut();
@@ -67,10 +69,11 @@ export function ProfileScreen({ role }: ProfileScreenProps) {
         </View>
 
         <View style={styles.menu}>
-          {MENU.map(({ icon: Icon, label }) => (
+          {menu.map(({ icon: Icon, label, onPress }) => (
             <Pressable
               key={label}
               accessibilityRole="button"
+              onPress={onPress}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
               <Icon size={20} color={AnimoColors.blackSecondary} />
               <AnimoText variant="body" color={AnimoColors.black} style={styles.flex}>

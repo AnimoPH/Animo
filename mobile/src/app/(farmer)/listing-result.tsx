@@ -1,4 +1,4 @@
-import { router, Stack, type Href } from "expo-router";
+import { router, Stack, useLocalSearchParams, type Href } from "expo-router";
 import { StyleSheet, View, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Info } from "lucide-react-native";
@@ -12,9 +12,13 @@ import {
   AnimoRadius,
 } from "@/constants/animo";
 import { AnimoButton } from "@/components/animo/animo-button";
+import { formatPeso } from "@/constants/marketplace";
 
-/** Resulta ng Listing — shown after the upload finishes. Scaffolded; built out separately. */
+/** Resulta ng Listing — shown after "Ipasa na" creates the listing; price comes from the server-locked `computed_price_per_kg`. */
 export default function ListingResultScreen() {
+  const { price } = useLocalSearchParams<{ listingId?: string; price?: string }>();
+  const pricePerKg = price ? parseFloat(price) : null;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <Stack.Screen
@@ -67,7 +71,7 @@ export default function ListingResultScreen() {
           </AnimoText>
 
           <AnimoText variant="display" color={AnimoColors.accentPrimary}>
-            ₱28.00/kg
+            {pricePerKg !== null ? `${formatPeso(pricePerKg)}/kg` : "Kinakalkula..."}
           </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
             LOCKED AT BEST MARKETPLACE
