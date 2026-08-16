@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { RoleId } from '@/constants/roles';
-import type { Account, CompleteRegistrationInput } from '@/types/auth';
+import type { Account, CompleteRegistrationInput, UpdateFarmerProfileInput } from '@/types/auth';
 
 /**
  * Auth + registration service — thin wrapper over Supabase Auth (phone OTP)
@@ -173,6 +173,33 @@ async function fetchMyProfileOrThrow(): Promise<Account> {
   const profile = await fetchMyProfile();
   if (!profile) throw new Error('Registration completed but profile could not be loaded.');
   return profile;
+}
+
+/**
+ * Updates the caller's own `user.full_name` + `farmer.barangay`/`gcash_number` —
+ * the only columns migration 0001 grants `authenticated` write access to.
+ * RLS's `auth.uid() = user_id` is what actually enforces ownership; the
+ * explicit `.eq('user_id', authUser.id)` below is defense-in-depth /
+ * consistency with `fetchMyProfile`, not the real guard.
+ */
+export async function updateMyFarmerProfile(input: UpdateFarmerProfileInput): Promise<Account> {
+  const { data: userData } = await supabase.auth.getUser();
+  const authUser = userData.user;
+  if (!authUser) throw new Error('Kailangan mag-login muli.');
+
+  const { error: userError } = await supabase
+    .from('user')
+    .update({ full_name: input.fullName })
+    .eq('user_id', authUser.id);
+  if (userError) throw userError;
+
+  const { error: farmerError } = await supabase
+    .from('farmer')
+    .update({ barangay: input.barangay, gcash_number: input.gcashNumber })
+    .eq('user_id', authUser.id);
+  if (farmerError) throw farmerError;
+
+  return await fetchMyProfileOrThrow();
 }
 
 export async function signOut() {
