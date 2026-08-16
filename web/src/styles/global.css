@@ -1,0 +1,160 @@
+/**
+ * Animo LGU Console — global styles.
+ *
+ * Designed with accessible typography for older users and local municipal officers:
+ * larger base font size (16px), higher contrast, and generous tap/click targets.
+ */
+
+:root {
+  /* Brand */
+  --animo-green: #1a6e1e;
+  --animo-green-dark: #145717;
+  --animo-green-disabled: #8fc291;
+  --animo-green-tint: #eaf4ea;
+
+  /* Text */
+  --animo-black: #121212;
+  --animo-black-secondary: #383838;
+  --animo-muted: #737373;
+
+  /* Surfaces */
+  --animo-bg: #ffffff;
+  --animo-canvas: #f8faf8;
+  --animo-surface: #f1f3f1;
+  --animo-border: #dcdfdc;
+  --animo-white: #ffffff;
+
+  /* Status */
+  --animo-danger: #cf2222;
+  --animo-danger-tint: #fde8e8;
+  --animo-danger-border: #f8b4b4;
+  --animo-warning: #c26a0a;
+  --animo-warning-tint: #fef3e2;
+  --animo-warning-border: #f9d29b;
+  --animo-caution: #b88a10;
+  --animo-caution-tint: #fef9e7;
+
+  /* Radii */
+  --animo-radius-sm: 8px;
+  --animo-radius-md: 12px;
+  --animo-radius-lg: 16px;
+  --animo-radius-pill: 999px;
+
+  --animo-shadow-card: 0 2px 4px rgba(18, 18, 18, 0.05);
+
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--animo-black);
+  background-color: var(--animo-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-size: 16px;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+/* ---------- Shared primitives ---------- */
+
+.animo-card {
+  background: var(--animo-white);
+  border: 1px solid var(--animo-border);
+  border-radius: var(--animo-radius-lg);
+  box-shadow: var(--animo-shadow-card);
+}
+
+/**
+ * Text field with comfortable touch target and clear readable text.
+ */
+.animo-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 0 16px;
+  border: 1.5px solid var(--animo-border);
+  border-radius: var(--animo-radius-md);
+  background: var(--animo-surface);
+  transition: border-color 120ms ease, background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.animo-field:focus-within {
+  border-color: var(--animo-green);
+  background: var(--animo-white);
+  box-shadow: 0 0 0 3px rgba(26, 110, 30, 0.15);
+}
+
+.animo-field--error {
+  border-color: var(--animo-danger);
+  background: var(--animo-danger-tint);
+}
+
+.animo-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--animo-black);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.animo-field input::placeholder {
+  color: var(--animo-muted);
+}
+
+.animo-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 54px;
+  border: none;
+  border-radius: var(--animo-radius-md);
+  background: var(--animo-green);
+  color: var(--animo-white);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+  transition: background-color 120ms ease;
+}
+
+.animo-button:hover {
+  background: var(--animo-green-dark);
+}
+
+.animo-button:disabled {
+  background: var(--animo-green-disabled);
+  cursor: not-allowed;
+}

@@ -13,8 +13,8 @@ export type TransactionCardProps = {
 
 const STATUS_META: Record<TransactionStatus, { label: string; tone: BadgeTone }> = {
   aktibo: { label: 'Aktibo', tone: 'info' },
-  tapos: { label: 'Tapos', tone: 'success' },
-  disputed: { label: 'Disputed', tone: 'danger' },
+  tapos: { label: 'Kumpleto', tone: 'success' },
+  cancelled: { label: 'Nakansela', tone: 'neutral' },
 };
 
 /** A transaction summary row for the Transaksyon list. */

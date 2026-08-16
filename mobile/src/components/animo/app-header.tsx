@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { Bell } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -9,13 +10,16 @@ export type AppHeaderProps = {
   /** Optional larger screen title shown under the brand row. */
   title?: string;
   onPressBell?: () => void;
+  unreadCount?: number;
 };
 
 /**
  * Top app header used inside the tab modules: the "🌾 Animo" brand lockup with
  * a notification bell, and an optional big screen title below it.
  */
-export function AppHeader({ title, onPressBell }: AppHeaderProps) {
+export function AppHeader({ title, onPressBell, unreadCount = 3 }: AppHeaderProps) {
+  const handleBellPress = onPressBell || (() => router.push('/(buyer)/notipikasyon'));
+
   return (
     <View style={styles.wrapper}>
       <View style={styles.row}>
@@ -32,8 +36,15 @@ export function AppHeader({ title, onPressBell }: AppHeaderProps) {
           </AnimoText>
         </View>
 
-        <Pressable onPress={onPressBell} hitSlop={8} style={styles.bell} accessibilityLabel="Mga abiso">
+        <Pressable
+          onPress={handleBellPress}
+          hitSlop={8}
+          style={styles.bell}
+          accessibilityLabel="Mga abiso">
           <Bell size={20} color={AnimoColors.black} />
+          {unreadCount > 0 && (
+            <View style={styles.unreadDot} />
+          )}
         </Pressable>
       </View>
 
@@ -82,6 +93,19 @@ const styles = StyleSheet.create({
     borderColor: AnimoColors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+    backgroundColor: AnimoColors.white,
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: 9,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: AnimoColors.danger,
+    borderWidth: 1.5,
+    borderColor: AnimoColors.white,
   },
   title: {
     marginTop: AnimoSpacing.xs,

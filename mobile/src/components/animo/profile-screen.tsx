@@ -15,10 +15,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { getRole, type RoleId } from '@/constants/roles';
-import { useOnboarding } from '@/hooks/use-onboarding';
+import { useSession } from '@/hooks/use-session';
 
 export type ProfileScreenProps = {
-  /** Role to display; defaults to the stored role. */
+  /** Role to display; defaults to the signed-in account's role. */
   role?: RoleId | null;
 };
 
@@ -32,14 +32,14 @@ const MENU = [
 
 /**
  * Shared Profile tab used by both modules. Shows the account role and a menu;
- * logging out clears onboarding state and returns to the landing screen.
+ * logging out ends the Supabase session immediately and returns to login.
  */
 export function ProfileScreen({ role }: ProfileScreenProps) {
-  const { role: storedRole, reset } = useOnboarding();
-  const activeRole = getRole(role ?? storedRole);
+  const { account, signOut } = useSession();
+  const activeRole = getRole(role ?? account?.role);
 
   const handleLogout = async () => {
-    await reset();
+    await signOut();
     router.replace('/login');
   };
 
@@ -57,10 +57,11 @@ export function ProfileScreen({ role }: ProfileScreenProps) {
           </View>
           <View style={styles.flex}>
             <AnimoText variant="h2" color={AnimoColors.black}>
-              Juan Dela Cruz
+              {account?.fullName ?? 'Account'}
             </AnimoText>
             <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-              {activeRole ? activeRole.title : 'Account'} · +63 912 XXX 6789
+              {activeRole ? activeRole.title : 'Account'}
+              {account?.phone ? ` · ${account.phone}` : ''}
             </AnimoText>
           </View>
         </View>

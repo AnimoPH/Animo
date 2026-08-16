@@ -1,3 +1,4 @@
+import type { Href } from 'expo-router';
 import type { ImageSourcePropType } from 'react-native';
 
 import { AnimoColors } from '@/constants/animo';
@@ -42,22 +43,14 @@ export function getRole(id: RoleId | null | undefined): Role | undefined {
   return ROLES.find((role) => role.id === id);
 }
 
-/** Landing route for a role's module after login/registration. */
-export function homeRouteForRole(id: RoleId | null | undefined): '/(buyer)' | '/(farmer)' {
-  return id === 'magsasaka' ? '/(farmer)' : '/(buyer)';
-}
-
 /**
- * Fixed demo accounts (frontend only, no backend). Logging in with one of these
- * 10-digit numbers enters the matching module. Any other valid number falls
- * back to the buyer module.
+ * Landing route for a role's module after login/registration.
+ *
+ * Cast to `Href`: the farmer module's home screen lives a level deeper, at
+ * `(farmer)/(tabs)/index`, so the bare group path isn't part of the
+ * generated route-string union the way `/(buyer)` is. It still resolves
+ * correctly at runtime — Expo Router follows the nested default route.
  */
-export const DEMO_ACCOUNTS: Record<string, RoleId> = {
-  '9171234567': 'mamimili', // Buyer demo
-  '9179876543': 'magsasaka', // Farmer demo
-};
-
-/** Resolve a role from a login phone number (digits only). */
-export function roleForPhone(phoneDigits: string): RoleId {
-  return DEMO_ACCOUNTS[phoneDigits] ?? 'mamimili';
+export function homeRouteForRole(id: RoleId | null | undefined): Href {
+  return (id === 'magsasaka' ? '/(farmer)' : '/(buyer)') as Href;
 }

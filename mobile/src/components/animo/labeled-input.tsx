@@ -15,9 +15,11 @@ export type LabeledInputProps = TextInputProps & {
   /** Small helper text shown below the field. */
   hint?: string;
   /** Color tone for the hint text. */
-  hintTone?: "muted" | "danger";
+  hintTone?: 'muted' | 'danger' | 'warning';
   /** Optional element rendered inside the field on the left (e.g. "+63"). */
   prefix?: ReactNode;
+  /** Optional prefix text inside the field on the left (e.g. "₱"). */
+  prefixText?: string;
   /** Optional trailing text inside the field on the right (e.g. "kilo/kg"). */
   suffixText?: string;
   /** Render the field in the error (red border) state. */
@@ -30,12 +32,19 @@ export function LabeledInput({
   hint,
   hintTone = "muted",
   prefix,
+  prefixText,
   suffixText,
   error = false,
   style,
   ...rest
 }: LabeledInputProps) {
   const [focused, setFocused] = useState(false);
+
+  const getHintColor = () => {
+    if (hintTone === 'danger') return AnimoColors.danger;
+    if (hintTone === 'warning') return '#B4791A';
+    return AnimoColors.muted;
+  };
 
   return (
     <View style={styles.wrapper}>
@@ -52,6 +61,11 @@ export function LabeledInput({
         ]}
       >
         {prefix}
+        {prefixText ? (
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.blackSecondary} style={styles.prefix}>
+            {prefixText}
+          </AnimoText>
+        ) : null}
         <TextInput
           placeholderTextColor={AnimoColors.muted}
           onFocus={() => setFocused(true)}
@@ -101,6 +115,9 @@ const styles = StyleSheet.create({
   },
   fieldError: {
     borderColor: AnimoColors.danger,
+  },
+  prefix: {
+    paddingLeft: AnimoSpacing.lg,
   },
   input: {
     flex: 1,
