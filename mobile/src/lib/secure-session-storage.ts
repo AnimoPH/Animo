@@ -2,23 +2,62 @@ import * as aesjs from 'aes-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 /**
  * Encrypted replacement for plain AsyncStorage session persistence.
  * SecureStore alone can't hold a refresh token (size limits), so a random
  * AES-256 key lives in SecureStore instead, encrypting whatever blob goes
  * into AsyncStorage. AsyncStorage itself never sees plaintext.
+ *
+ * SecureStore is Android/iOS only (Expo SDK 54). On web — and if the native
+ * module is missing — the wrapping key falls back to AsyncStorage so auth
+ * still works in `expo start --web`.
  */
 
 const ENCRYPTION_KEY_ITEM = 'animo.supabase.session-key';
+const WEB_KEY_ITEM = 'animo.supabase.session-key.web';
+
+async function canUseSecureStore(): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
+  try {
+    return await SecureStore.isAvailableAsync();
+  } catch {
+    return false;
+  }
+}
+
+async function readStoredKey(): Promise<string | null> {
+  if (await canUseSecureStore()) {
+    try {
+      return await SecureStore.getItemAsync(ENCRYPTION_KEY_ITEM);
+    } catch {
+      return AsyncStorage.getItem(WEB_KEY_ITEM);
+    }
+  }
+  return AsyncStorage.getItem(WEB_KEY_ITEM);
+}
+
+async function writeStoredKey(hex: string): Promise<void> {
+  if (await canUseSecureStore()) {
+    try {
+      await SecureStore.setItemAsync(ENCRYPTION_KEY_ITEM, hex);
+      return;
+    } catch {
+      // Fall through to AsyncStorage if the native module is present but broken.
+    }
+  }
+  await AsyncStorage.setItem(WEB_KEY_ITEM, hex);
+}
 
 async function getEncryptionKey(): Promise<Uint8Array> {
-  const existingHex = await SecureStore.getItemAsync(ENCRYPTION_KEY_ITEM);
+  const existingHex = await readStoredKey();
   if (existingHex) {
     return aesjs.utils.hex.toBytes(existingHex);
   }
   const key = await Crypto.getRandomBytesAsync(32); // AES-256
-  await SecureStore.setItemAsync(ENCRYPTION_KEY_ITEM, aesjs.utils.hex.fromBytes(key));
+  const hex = aesjs.utils.hex.fromBytes(key);
+  await writeStoredKey(hex);
   return key;
 }
 

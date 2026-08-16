@@ -15,11 +15,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
+import { DevLoginBar } from '@/components/animo/dev-login-bar';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { OtpVerification } from '@/components/animo/otp-verification';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import { homeRouteForRole } from '@/constants/roles';
-import { fetchMyProfile, sendOtp, verifyOtp } from '@/services/auth-service';
+import { homeRouteForRole, type RoleId } from '@/constants/roles';
+import { fetchMyProfile, sendOtp, signInDevAccount, verifyOtp } from '@/services/auth-service';
 import { useSession } from '@/hooks/use-session';
 
 const OTP_LENGTH = 6;
@@ -38,6 +39,8 @@ export default function LoginScreen() {
   const [otpErrorMessage, setOtpErrorMessage] = useState<string | undefined>();
   const [phoneError, setPhoneError] = useState<string | undefined>();
   const [submitting, setSubmitting] = useState(false);
+  const [devRole, setDevRole] = useState<RoleId | null>(null);
+  const [devError, setDevError] = useState<string | undefined>();
 
   const phoneValid = phone.replace(/\D/g, '').length === 10;
   const otpFilled = otp.length === OTP_LENGTH;
@@ -81,6 +84,27 @@ export default function LoginScreen() {
       setOtpError(true);
       setOtpErrorMessage(err instanceof Error ? err.message : undefined);
       setSubmitting(false);
+    }
+  };
+
+  const handleDevLogin = async (role: RoleId) => {
+    setSubmitting(true);
+    setDevRole(role);
+    setDevError(undefined);
+    try {
+      const profile = await signInDevAccount(role);
+      await refresh();
+      router.replace(homeRouteForRole(profile.role));
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err && 'message' in err
+            ? String((err as { message: unknown }).message)
+            : 'Dev login failed.';
+      setDevError(message);
+      setSubmitting(false);
+      setDevRole(null);
     }
   };
 
@@ -159,8 +183,8 @@ export default function LoginScreen() {
           <AnimoButton
             label={primaryLabel}
             onPress={handlePrimary}
-            disabled={primaryDisabled}
-            loading={submitting}
+            disabled={primaryDisabled || submitting}
+            loading={submitting && devRole === null}
             variant={primaryVariant}
           />
           {step === 'phone' && (
@@ -174,6 +198,14 @@ export default function LoginScreen() {
                 </AnimoText>
               </Pressable>
             </View>
+          )}
+          {step === 'phone' && (
+            <DevLoginBar
+              onSelect={handleDevLogin}
+              submitting={submitting}
+              activeRole={devRole}
+              error={devError}
+            />
           )}
           {step === 'phone' && (
             <AnimoText variant="caption" color={AnimoColors.muted} style={styles.centerText}>

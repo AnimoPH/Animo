@@ -7,20 +7,48 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { BrandHeader } from '@/components/animo/brand-header';
+import { DevLoginBar } from '@/components/animo/dev-login-bar';
 import { RoleCard } from '@/components/animo/role-card';
 import { AnimoColors, AnimoSpacing } from '@/constants/animo';
-import { ROLES, type RoleId } from '@/constants/roles';
+import { homeRouteForRole, ROLES, type RoleId } from '@/constants/roles';
+import { useSession } from '@/hooks/use-session';
+import { signInDevAccount } from '@/services/auth-service';
 
 /**
  * "Sino ka?" — role selection. The user picks exactly one role, which is fixed
  * after verification. The selected role is passed on to the registration wizard.
  */
 export default function RoleScreen() {
+  const { refresh } = useSession();
   const [selected, setSelected] = useState<RoleId | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [devRole, setDevRole] = useState<RoleId | null>(null);
+  const [devError, setDevError] = useState<string | undefined>();
 
   const handleContinue = () => {
     if (!selected) return;
     router.push({ pathname: '/onboarding/register', params: { role: selected } });
+  };
+
+  const handleDevLogin = async (role: RoleId) => {
+    setSubmitting(true);
+    setDevRole(role);
+    setDevError(undefined);
+    try {
+      const profile = await signInDevAccount(role);
+      await refresh();
+      router.replace(homeRouteForRole(profile.role));
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err && 'message' in err
+            ? String((err as { message: unknown }).message)
+            : 'Dev login failed.';
+      setDevError(message);
+      setSubmitting(false);
+      setDevRole(null);
+    }
   };
 
   return (
@@ -54,7 +82,17 @@ export default function RoleScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <AnimoButton label="Magpatuloy" onPress={handleContinue} disabled={!selected} />
+        <AnimoButton
+          label="Magpatuloy"
+          onPress={handleContinue}
+          disabled={!selected || submitting}
+        />
+        <DevLoginBar
+          onSelect={handleDevLogin}
+          submitting={submitting}
+          activeRole={devRole}
+          error={devError}
+        />
       </View>
     </SafeAreaView>
   );
@@ -88,5 +126,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: AnimoSpacing.xl,
     paddingTop: AnimoSpacing.md,
     paddingBottom: AnimoSpacing.md,
+    gap: AnimoSpacing.md,
   },
 });
