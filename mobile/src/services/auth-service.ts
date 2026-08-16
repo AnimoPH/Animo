@@ -179,3 +179,39 @@ export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }
+
+/**
+ * Dev-only shortcut onto an existing farmer/buyer account via email + password.
+ * Does not send OTP and is a no-op outside `__DEV__` (release APKs).
+ */
+export async function signInDevAccount(role: RoleId): Promise<Account> {
+  if (!__DEV__) throw new Error('Dev login is not available.');
+
+  const email =
+    role === 'magsasaka'
+      ? process.env.EXPO_PUBLIC_DEV_FARMER_EMAIL
+      : process.env.EXPO_PUBLIC_DEV_BUYER_EMAIL;
+  const password =
+    role === 'magsasaka'
+      ? process.env.EXPO_PUBLIC_DEV_FARMER_PASSWORD
+      : process.env.EXPO_PUBLIC_DEV_BUYER_PASSWORD;
+
+  if (!email || !password) {
+    throw new Error(
+      'Dev credentials missing. Stop Expo, then from mobile/ run: npx expo start -c',
+    );
+  }
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(error.message);
+  if (!data.session) throw new Error('Dev login did not create a session.');
+
+  const profile = await fetchMyProfile();
+  if (!profile) {
+    throw new Error('Dev account has no profile. Finish registration first.');
+  }
+  if (profile.role !== role) {
+    throw new Error(`That account is ${profile.role}, not ${role}.`);
+  }
+  return profile;
+}
