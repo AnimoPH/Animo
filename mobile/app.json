@@ -35,7 +35,14 @@
       ],
       "expo-sqlite",
       "@react-native-community/datetimepicker",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Kailangan ng ANIMO ang access sa iyong mga larawan para mag-attach ng litrato ng iyong palay sa listing.",
+          "cameraPermission": "Kailangan ng ANIMO ang access sa camera para kumuha ng litrato ng iyong palay para sa listing."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

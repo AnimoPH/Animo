@@ -1,18 +1,16 @@
-import { router, type Href } from "expo-router";
-import { Camera } from "lucide-react-native";
+import { router } from "expo-router";
+import { Image } from "expo-image";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+import * as ImagePicker from "expo-image-picker";
+import { Camera, X } from "lucide-react-native";
 import { useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AnimoButton } from "@/components/animo/animo-button";
 import { AnimoText } from "@/components/animo/animo-text";
 import { BackHeader } from "@/components/animo/back-header";
+import { PhotoSourceSheet } from "@/components/animo/photo-source-sheet";
 import { ProgressSteps } from "@/components/animo/farmer/progress-steps";
 
 import { LabeledInput } from "@/components/animo/labeled-input";
@@ -20,41 +18,163 @@ import { SelectField } from "@/components/animo/select-field";
 import { SegmentedChoice } from "@/components/animo/segmented-choice";
 
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
+import { createCropListing, uploadListingPhoto } from "@/services/crop-listing-service";
+import {
+  MOISTURE_OPTIONS,
+  PHOTO_SLOTS,
+  PURITY_OPTIONS,
+  VARIETY_OPTIONS,
+  type DeclaredVariety,
+  type MoistureType,
+  type PhotoType,
+  type PurityGrade,
+} from "@/types/crop-listing";
 
-const SCREEN_PADDING = AnimoSpacing.lg;
-
-const VARIETY_OPTIONS = [
-  { value: "inbred", label: "Inbred" },
-  { value: "hybrid", label: "Hybrid" },
-  { value: "tradisyonal", label: "Tradisyonal o Pamana" },
-  { value: "halo-halo", label: "Halo-halong Uri" },
-  { value: "iba-pa", label: "Iba pa" },
-];
-
-const PURITY_OPTIONS = [
-  { value: "a", label: "A" },
-  { value: "b", label: "B" },
-  { value: "c", label: "C" },
-  { value: "walang-grado", label: "Walang Grado" },
-];
-
-const MOISTURE_OPTIONS: { value: "Dry" | "Wet"; label: string }[] = [
-  { value: "Dry", label: "Tuyo (Dry)" },
-  { value: "Wet", label: "Basa (Wet)" },
-];
+/** Re-encodes a picked photo to a size-capped JPEG before it's held in state / uploaded. */
+async function toUploadableJpeg(uri: string): Promise<string> {
+  const context = ImageManipulator.manipulate(uri).resize({ width: 1440 });
+  const rendered = await context.renderAsync();
+  const saved = await rendered.saveAsync({ compress: 0.7, format: SaveFormat.JPEG });
+  return saved.uri;
+}
 
 /** Gumawa ng Listing — farmer creates a new palay listing: photo, quality, weight. */
 export default function PalayListingScreen() {
-  const [variety, setVariety] = useState("");
+  const [variety, setVariety] = useState<DeclaredVariety | "">("");
   const [customVariety, setCustomVariety] = useState("");
-  const [moistureType, setMoistureType] = useState<"Dry" | "Wet">("Dry");
-  const [purityGrade, setPurityGrade] = useState("");
+  const [moistureType, setMoistureType] = useState<MoistureType>("Dry");
+  const [purityGrade, setPurityGrade] = useState<PurityGrade | "">("");
   const [grossWeight, setGrossWeight] = useState("");
   const [tareWeight, setTareWeight] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
+
+  // Photo slots — local uri per slot until uploaded. `createdListingId` is set
+  // once the listing row itself exists, so a retry after a partial photo
+  // upload failure never re-creates it (see handleSubmit).
+  const [photos, setPhotos] = useState<Partial<Record<PhotoType, string>>>({});
+  const [activeSlot, setActiveSlot] = useState<PhotoType | null>(null);
+  const [failedSlots, setFailedSlots] = useState<PhotoType[]>([]);
+  const [createdListingId, setCreatedListingId] = useState<string | null>(null);
+  const [createdPrice, setCreatedPrice] = useState<number | null>(null);
+
   const netWeight = Math.max(
     0,
     (parseFloat(grossWeight) || 0) - (parseFloat(tareWeight) || 0),
   );
+
+  const hasAnyPhoto = Object.keys(photos).length > 0;
+  const canSubmit =
+    variety !== "" &&
+    (variety !== "Others" || customVariety.trim().length > 0) &&
+    purityGrade !== "" &&
+    netWeight > 0 &&
+    hasAnyPhoto;
+
+  const handleClearPhoto = (slot: PhotoType) => {
+    setPhotos((prev) => {
+      const next = { ...prev };
+      delete next[slot];
+      return next;
+    });
+  };
+
+  const handlePickSource = async (source: "camera" | "gallery") => {
+    const slot = activeSlot;
+    setActiveSlot(null);
+    if (!slot) return;
+
+    const permission =
+      source === "camera"
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      setErrorMessage(
+        permission.canAskAgain
+          ? "Kailangan ng pahintulot para makakuha ng larawan."
+          : "Kailangan ng pahintulot. Buksan ang Settings ng telepono para payagan ang ANIMO.",
+      );
+      return;
+    }
+
+    const pickerOptions: ImagePicker.ImagePickerOptions = { mediaTypes: "images", quality: 0.7 };
+    const result =
+      source === "camera"
+        ? await ImagePicker.launchCameraAsync(pickerOptions)
+        : await ImagePicker.launchImageLibraryAsync(pickerOptions);
+
+    if (result.canceled || !result.assets?.[0]) return;
+
+    try {
+      const uploadableUri = await toUploadableJpeg(result.assets[0].uri);
+      setPhotos((prev) => ({ ...prev, [slot]: uploadableUri }));
+      setFailedSlots((prev) => prev.filter((s) => s !== slot));
+      setErrorMessage(undefined);
+    } catch {
+      setErrorMessage("Hindi maproseso ang larawan. Subukan muli.");
+    }
+  };
+
+  const navigateToUploading = (listingId: string, price: number | null) => {
+    router.push({
+      pathname: "/(farmer)/listing-uploading",
+      params: { listingId, price: price !== null ? String(price) : "" },
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setErrorMessage(undefined);
+    try {
+      let listingId = createdListingId;
+      let price = createdPrice;
+
+      if (!listingId) {
+        if (!canSubmit || !variety || !purityGrade) return;
+        const listing = await createCropListing({
+          declaredVariety: variety,
+          customVariety: variety === "Others" ? customVariety : undefined,
+          declaredMoisture: moistureType,
+          declaredPurityGrade: purityGrade,
+          grossWeightKg: parseFloat(grossWeight) || 0,
+          tareWeightKg: parseFloat(tareWeight) || 0,
+        });
+        listingId = listing.id;
+        price = listing.pricePerKg;
+        setCreatedListingId(listing.id);
+        setCreatedPrice(listing.pricePerKg);
+      }
+
+      const slotsToUpload = Object.keys(photos) as PhotoType[];
+      const results = await Promise.allSettled(
+        slotsToUpload.map((slot) => uploadListingPhoto(listingId!, slot, photos[slot]!)),
+      );
+      const newlyFailed = slotsToUpload.filter((_, i) => results[i].status === "rejected");
+
+      if (newlyFailed.length > 0) {
+        setFailedSlots(newlyFailed);
+        setErrorMessage(
+          `Hindi na-upload ang ${newlyFailed.length} larawan. Subukan muli o magpatuloy nang wala.`,
+        );
+        return;
+      }
+
+      navigateToUploading(listingId, price);
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Hindi na-submit ang listing.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleProceedWithoutPhotos = () => {
+    if (!createdListingId) return;
+    navigateToUploading(createdListingId, createdPrice);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
@@ -82,29 +202,64 @@ export default function PalayListingScreen() {
           </AnimoText>
         </View>
 
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => console.log("Kumuha ng litrato ng palay pressed")}
-          style={styles.photoUpload}
-        >
-          <View style={styles.photoUploadIconWrap}>
-            <Camera size={36} color={AnimoColors.accentPrimary} />
-          </View>
-          <AnimoText
-            variant="bodyEmphasis"
-            color={AnimoColors.accentPrimary}
-            style={styles.photoUploadTitle}
-          >
-            Kumuha ng litrato ng palay
+        {/* Photo Slots */}
+        <View style={[styles.card, styles.shadow]}>
+          <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
+            Mga Larawan ng Palay
           </AnimoText>
           <AnimoText
             variant="caption"
             color={AnimoColors.textLowEmphasis}
-            style={styles.photoUploadSubtext}
+            style={styles.introBody}
           >
-            Siguraduhing maliwanag ang kuha para sa mabilis na pagsusuri.
+            Kailangan ng hindi bababa sa isang larawan. Kumuha gamit ang camera
+            o pumili mula sa gallery.
           </AnimoText>
-        </TouchableOpacity>
+
+          <View style={styles.photoRow}>
+            {PHOTO_SLOTS.map((slot) => {
+              const localUri = photos[slot.value];
+              const failed = failedSlots.includes(slot.value);
+              return (
+                <Pressable
+                  key={slot.value}
+                  accessibilityRole="button"
+                  onPress={() => setActiveSlot(slot.value)}
+                  style={[styles.photoTile, failed && styles.photoTileFailed]}
+                >
+                  {localUri ? (
+                    <>
+                      <Image
+                        source={{ uri: localUri }}
+                        style={styles.photoTileImage}
+                        contentFit="cover"
+                      />
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => handleClearPhoto(slot.value)}
+                        style={styles.photoTileClear}
+                        hitSlop={8}
+                      >
+                        <X size={12} color={AnimoColors.textHighEmphasisInverse} />
+                      </Pressable>
+                    </>
+                  ) : (
+                    <View style={styles.photoTileIconWrap}>
+                      <Camera size={20} color={AnimoColors.accentPrimary} />
+                    </View>
+                  )}
+                  <AnimoText
+                    variant="tag"
+                    color={AnimoColors.textMediumEmphasis}
+                    style={styles.photoTileLabel}
+                  >
+                    {slot.label}
+                  </AnimoText>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
 
         <View style={[styles.card, styles.shadow]}>
           {/* Palay Details */}
@@ -114,9 +269,9 @@ export default function PalayListingScreen() {
               placeholder="Pumili ng uri ng palay"
               options={VARIETY_OPTIONS}
               value={variety || null}
-              onChange={setVariety}
+              onChange={(value) => setVariety(value as DeclaredVariety)}
             />
-            {variety === "iba-pa" ? (
+            {variety === "Others" ? (
               <View style={styles.inlineFieldSpacing}>
                 <LabeledInput
                   value={customVariety}
@@ -139,7 +294,7 @@ export default function PalayListingScreen() {
             placeholder="Pumili ng kalinisan ng palay"
             options={PURITY_OPTIONS}
             value={purityGrade || null}
-            onChange={setPurityGrade}
+            onChange={(value) => setPurityGrade(value as PurityGrade)}
           />
         </View>
 
@@ -164,17 +319,47 @@ export default function PalayListingScreen() {
           <NetWeightField value={netWeight} />
         </View>
 
-        {/* Submit Button */}
+        {errorMessage ? (
+          <AnimoText variant="body" color={AnimoColors.danger}>
+            {errorMessage}
+          </AnimoText>
+        ) : null}
+
+        {/* Submit Bar */}
         <View style={styles.submitBar}>
-          <AnimoButton
-            label="Ipasa na"
-            variant="primary"
-            onPress={() =>
-              router.push("/(farmer)/listing-uploading" as Href)
-            }
-          />
+          {failedSlots.length > 0 ? (
+            <View style={styles.retryBar}>
+              <AnimoButton
+                label="Subukan Muli"
+                variant="secondary"
+                loading={submitting}
+                onPress={handleSubmit}
+              />
+              <AnimoButton
+                label="Magpatuloy nang Wala Munang Larawan"
+                variant="primary"
+                disabled={submitting}
+                onPress={handleProceedWithoutPhotos}
+              />
+            </View>
+          ) : (
+            <AnimoButton
+              label="Ipasa na"
+              variant="primary"
+              disabled={!canSubmit}
+              loading={submitting}
+              onPress={handleSubmit}
+            />
+          )}
         </View>
       </ScrollView>
+
+      <PhotoSourceSheet
+        visible={activeSlot !== null}
+        onPickCamera={() => handlePickSource("camera")}
+        onPickGallery={() => handlePickSource("gallery")}
+        onClose={() => setActiveSlot(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -223,30 +408,52 @@ const styles = StyleSheet.create({
   introBody: {
     marginTop: AnimoSpacing.xs,
   },
-  photoUpload: {
+  photoRow: {
+    flexDirection: "row",
+    gap: AnimoSpacing.md,
+  },
+  photoTile: {
+    flex: 1,
+    aspectRatio: 1,
     borderRadius: AnimoRadius.lg,
     borderWidth: 1.5,
     borderColor: AnimoColors.accentPrimary,
     borderStyle: "dashed",
     backgroundColor: "rgba(200, 230, 201, 0.3)",
-    paddingVertical: AnimoSpacing.xxl,
     alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    padding: AnimoSpacing.xs,
   },
-  photoUploadIconWrap: {
-    width: 60,
-    height: 60,
+  photoTileFailed: {
+    borderColor: AnimoColors.danger,
+    borderStyle: "solid",
+  },
+  photoTileIconWrap: {
+    width: 36,
+    height: 36,
     borderRadius: AnimoRadius.pill,
     backgroundColor: AnimoColors.accentPrimaryLight,
     alignItems: "center",
     justifyContent: "center",
   },
-  photoUploadTitle: {
-    marginTop: AnimoSpacing.md,
+  photoTileImage: {
+    ...StyleSheet.absoluteFillObject,
   },
-  photoUploadSubtext: {
-    textAlign: "center",
+  photoTileClear: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: AnimoRadius.pill,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoTileLabel: {
     marginTop: AnimoSpacing.xs,
-    paddingHorizontal: AnimoSpacing.lg,
+    textAlign: "center",
   },
   inlineFieldSpacing: {
     marginTop: AnimoSpacing.sm,
@@ -264,7 +471,9 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(200, 230, 201, 0.15)",
   },
   submitBar: {
-    // backgroundColor: AnimoColors.surfacePrimary,
     borderTopColor: AnimoColors.borderLowEmphasis,
+  },
+  retryBar: {
+    gap: AnimoSpacing.md,
   },
 });
