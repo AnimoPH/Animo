@@ -11,17 +11,27 @@ export type AppHeaderProps = {
   title?: string;
   onPressBell?: () => void;
   unreadCount?: number;
+  /**
+   * When true (default), the header adds its own horizontal padding.
+   * Pass false when the parent screen already applies `AnimoLayout.screenGutter`.
+   */
+  inset?: boolean;
 };
 
 /**
  * Top app header used inside the tab modules: the "🌾 Animo" brand lockup with
  * a notification bell, and an optional big screen title below it.
  */
-export function AppHeader({ title, onPressBell, unreadCount = 3 }: AppHeaderProps) {
+export function AppHeader({
+  title,
+  onPressBell,
+  unreadCount = 3,
+  inset = true,
+}: AppHeaderProps) {
   const handleBellPress = onPressBell || (() => router.push('/(buyer)/notipikasyon'));
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, !inset && styles.wrapperFlush]}>
       <View style={styles.row}>
         <View style={styles.brand}>
           <View style={styles.badge}>
@@ -59,9 +69,12 @@ export function AppHeader({ title, onPressBell, unreadCount = 3 }: AppHeaderProp
 
 const styles = StyleSheet.create({
   wrapper: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingTop: AnimoSpacing.sm,
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingVertical: AnimoSpacing.md,
     gap: AnimoSpacing.md,
+  },
+  wrapperFlush: {
+    paddingHorizontal: 0,
   },
   row: {
     flexDirection: 'row',

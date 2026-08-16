@@ -67,13 +67,18 @@ export type ProgressStepKey =
   | 'accepted'
   | 'pickup'
   | 'payment'
-  | 'review';
+  | 'review'
+  | 'kahilingan'
+  | 'tinanggap'
+  | 'bayad';
 
 export type ProgressStep = {
   key: ProgressStepKey;
   label: string;
   /** Timestamp or hint shown under the label. */
   detail: string;
+  /** Optional extra line above `detail` (e.g. "Jul 30, 2026 9:15 AM"). */
+  timestamp?: string;
   state: 'done' | 'current' | 'upcoming' | 'failed';
 };
 
@@ -544,6 +549,241 @@ export function getPurchaseRequest(
   id: string | undefined,
 ): PurchaseRequest | undefined {
   return PURCHASE_REQUESTS.find((r) => r.id === id);
+}
+
+/* ---------------- Farmer transaksyon (direct pay, in-person pickup) ---------------- */
+
+export type MoistureLevel = 'Tuyo' | 'Basa';
+
+export type FarmerTransactionStage =
+  | 'pending'
+  | 'accepted'
+  | 'awaiting_payment'
+  | 'awaiting_pickup'
+  | 'completed'
+  | 'cancelled'
+  | 'failed';
+
+export type BuyerParty = {
+  name: string;
+  phone: string;
+};
+
+export type FarmerTransaction = {
+  id: string;
+  reference: string;
+  buyer: BuyerParty;
+  variety: string;
+  moisture: MoistureLevel;
+  quantityKg: number;
+  total: number;
+  paymentMethod: PaymentMethod;
+  stage: FarmerTransactionStage;
+  sentAt: string;
+};
+
+export const ONGOING_FARMER_STAGES: FarmerTransactionStage[] = [
+  'pending',
+  'accepted',
+  'awaiting_payment',
+  'awaiting_pickup',
+];
+
+export function farmerListingLine(tx: FarmerTransaction): string {
+  return `${tx.variety} · ${tx.moisture} · ${tx.quantityKg} kg`;
+}
+
+export function paymentMethodLabel(method: PaymentMethod): string {
+  return method === 'cash' ? 'Cash' : 'GCash';
+}
+
+export function farmerStageBadge(stage: FarmerTransactionStage): {
+  label: string;
+  tone: 'info' | 'success' | 'warning' | 'mild' | 'danger' | 'neutral';
+} {
+  switch (stage) {
+    case 'pending':
+      return { label: 'Naghihintay ng sagot', tone: 'warning' };
+    case 'accepted':
+    case 'awaiting_payment':
+      return { label: 'Naghihintay ng bayad', tone: 'info' };
+    case 'awaiting_pickup':
+      return { label: 'Naghihintay ng pickup', tone: 'mild' };
+    case 'completed':
+      return { label: 'Tapos na', tone: 'success' };
+    case 'cancelled':
+      return { label: 'Nakansela', tone: 'neutral' };
+    case 'failed':
+      return { label: 'Hindi natuloy', tone: 'danger' };
+  }
+}
+
+const MATEO: BuyerParty = { name: 'Mateo Santos', phone: '0921 345 6789' };
+const ALING: BuyerParty = { name: 'Aling Coring Rice Mill', phone: '0917 890 1234' };
+const TRES: BuyerParty = { name: 'Tres Rice Mill Corp', phone: '0918 555 2211'};
+const RIRI: BuyerParty = { name: 'Riri Circulado Rice Corp', phone: '0918 114 2211'};
+const NENA: BuyerParty = { name: 'Aling Nena Rice Mill', phone: '0917 890 1234'};
+
+export const FARMER_TRANSACTIONS: FarmerTransaction[] = [
+  {
+    id: 'ft-pending',
+    reference: 'TXN-2026-0071',
+    buyer: MATEO,
+    variety: 'Rc218',
+    moisture: 'Tuyo',
+    quantityKg: 300,
+    total: 6300,
+    paymentMethod: 'gcash',
+    stage: 'pending',
+    sentAt: 'Jul 30, 2026 9:15 AM',
+  },
+  {
+    id: 'ft-payment',
+    reference: 'TXN-2026-0072',
+    buyer: ALING,
+    variety: 'Rc218',
+    moisture: 'Tuyo',
+    quantityKg: 200,
+    total: 3000,
+    paymentMethod: 'gcash',
+    stage: 'awaiting_payment',
+    sentAt: 'Jul 30, 2026 9:15 AM',
+  },
+  {
+    id: 'ft-pickup',
+    reference: 'TXN-2026-0073',
+    buyer: TRES,
+    variety: 'Rc 638 SR',
+    moisture: 'Basa',
+    quantityKg: 250,
+    total: 3875,
+    paymentMethod: 'cash',
+    stage: 'awaiting_pickup',
+    sentAt: 'Jul 28, 2026 2:40 PM',
+  },
+  {
+    id: 'ft-completed',
+    reference: 'TXN-2026-0074',
+    buyer: MATEO,
+    variety: 'Rc218',
+    moisture: 'Tuyo',
+    quantityKg: 300,
+    total: 3000,
+    paymentMethod: 'gcash',
+    stage: 'completed',
+    sentAt: 'Jul 30, 2026 9:15 AM',
+  },
+  {
+    id: 'ft-pending-riri',
+    reference: 'TXN-2026-0075',
+    buyer: RIRI,
+    variety: 'Rc218',
+    moisture: 'Tuyo',
+    quantityKg: 300,
+    total: 3000,
+    paymentMethod: 'gcash',
+    stage: 'pending',
+    sentAt: 'Jul 30, 2026 9:15 AM',
+  },
+  {
+    id: 'ft-pending-nena',
+    reference: 'TXN-2026-0076',
+    buyer: NENA,
+    variety: 'Rc218',
+    moisture: 'Tuyo',
+    quantityKg: 300,
+    total: 3000,
+    paymentMethod: 'gcash',
+    stage: 'pending',
+    sentAt: 'Jul 30, 2026 9:15 AM',
+  },
+];
+
+export function getFarmerTransaction(
+  id: string | undefined,
+): FarmerTransaction | undefined {
+  return FARMER_TRANSACTIONS.find((t) => t.id === id);
+}
+
+export function updateFarmerTransactionStage(
+  id: string,
+  stage: FarmerTransactionStage,
+): FarmerTransaction | undefined {
+  const tx = FARMER_TRANSACTIONS.find((t) => t.id === id);
+  if (!tx) return undefined;
+  tx.stage = stage;
+  return { ...tx, buyer: { ...tx.buyer } };
+}
+
+/**
+ * Four-step farmer tracker: Kahilingan → Tinanggap → Bayad → Pickup.
+ * Direct pay, in-person pickup — no courier or escrow copy.
+ */
+export function farmerProgressSteps(tx: FarmerTransaction): ProgressStep[] {
+  const awaitingPay = tx.stage === 'accepted' || tx.stage === 'awaiting_payment';
+  const pickupReached = tx.stage === 'awaiting_pickup';
+  const done = tx.stage === 'completed';
+  const failed = tx.stage === 'cancelled' || tx.stage === 'failed';
+
+  const tinanggapDone = awaitingPay || pickupReached || done;
+  const bayadDone = pickupReached || done;
+  const pickupDone = done;
+
+  return [
+    {
+      key: 'kahilingan',
+      label: 'Kahilingan',
+      timestamp: tx.sentAt,
+      detail: 'Naipadala ang kahilingan sa pagbili',
+      state: failed && tx.stage === 'failed' ? 'failed' : 'done',
+    },
+    {
+      key: 'tinanggap',
+      label: 'Tinanggap',
+      detail: tinanggapDone
+        ? 'Tinanggap ang kahilingan. Makikita na ang numero ng mamimili.'
+        : 'Tanggapin ang transaksyon upang maipakita ang contact details ng mamimili at simulan ang proseso.',
+      state: failed
+        ? 'failed'
+        : tinanggapDone
+          ? 'done'
+          : tx.stage === 'pending'
+            ? 'current'
+            : 'upcoming',
+    },
+    {
+      key: 'bayad',
+      label: 'Bayad',
+      detail: bayadDone
+        ? 'Nakumpirma na ang bayad na natanggap.'
+        : awaitingPay
+          ? 'Kumpirmahin kapag natanggap mo na ang bayad mula sa mamimili.'
+          : 'Hintayin na magbayad ang mamimili.',
+      state: failed
+        ? 'upcoming'
+        : bayadDone
+          ? 'done'
+          : awaitingPay
+            ? 'current'
+            : 'upcoming',
+    },
+    {
+      key: 'pickup',
+      label: 'Pickup',
+      detail: pickupDone
+        ? 'Nakuha na ng mamimili ang palay.'
+        : pickupReached
+          ? 'Kumpirmahin kapag nakuha na ng mamimili ang palay.'
+          : 'Ihanda ang palay para sa pagkuha ng mamimili.',
+      state: failed
+        ? 'upcoming'
+        : pickupDone
+          ? 'done'
+          : pickupReached
+            ? 'current'
+            : 'upcoming',
+    },
+  ];
 }
 
 /**
