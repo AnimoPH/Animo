@@ -177,11 +177,37 @@ Deno.serve(async (req) => {
   if (upsertError) return jsonResponse({ error: upsertError.message }, 500);
 
   const months = rows.map((r) => r.price_month).sort();
+
+  // History is already saved. A dry_base miss must not fail the sync or
+  // blank the 0007 seed — refresh-dry-base itself leaves the previous value.
+  let dryBaseRefreshed = false;
+  try {
+    const refreshResponse = await fetch(
+      `${Deno.env.get('SUPABASE_URL')}/functions/v1/refresh-dry-base`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          'Content-Type': 'application/json',
+        },
+        body: '{}',
+      },
+    );
+    dryBaseRefreshed = refreshResponse.ok;
+    if (!refreshResponse.ok) {
+      const detail = await refreshResponse.text();
+      console.error('sync-psa-prices: refresh-dry-base failed; keeping previous dry_base', detail);
+    }
+  } catch (err) {
+    console.error('sync-psa-prices: refresh-dry-base unreachable; keeping previous dry_base', err);
+  }
+
   return jsonResponse(
     {
       synced_months: rows.length,
       earliest: months[0],
       latest: months[months.length - 1],
+      dry_base_refreshed: dryBaseRefreshed,
     },
     200,
   );
