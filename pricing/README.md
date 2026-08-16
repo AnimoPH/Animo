@@ -1,4 +1,4 @@
-# pricing_service
+# pricing
 
 LSTM/GRU price model + RF/SVR anomaly check for palay prices, wrapped as a FastAPI service. Trained on PSA Rizal farmgate data (Jan 2016 - Jun 2026), see `training/` for the notebook and the full writeup of what was tried and why.
 
@@ -20,7 +20,7 @@ Wait until it prints URLs. This is a local copy of the backend, not the hosted p
 **2. This pricing container**, on the same Docker network as Supabase so edge functions can reach it by name (`animo-pricing-service`). Rebuild the image first only if `main.py` or the models changed:
 
 ```
-cd ~/Desktop/Animo/backend/pricing_service
+cd ~/Desktop/Animo/pricing
 docker build -t animo-pricing-service .
 ```
 

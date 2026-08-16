@@ -3,7 +3,7 @@
 //
 // Thin glue between palay_price_history and the pricing_service FastAPI
 // container: fetches the last 12 confirmed months of Rizal palay prices,
-// assembles the request body pricing_service/api/main.py already expects
+// assembles the request body pricing/api/main.py already expects
 // (last_prices, target_month, target_date), calls POST /predict-price, and
 // returns its response as-is.
 //

@@ -1,5 +1,5 @@
 -- NFA intervention windows, replacing the hardcoded NFA_WINDOWS list that
--- used to live in backend/pricing_service/api/main.py. Modeled as date
+-- used to live in pricing/api/main.py. Modeled as date
 -- ranges (not a single boolean) because NFA intervention has happened more
 -- than once historically with different start/end dates - a single toggle
 -- can't represent that, only "is it active right now".
@@ -16,7 +16,7 @@ create table public.nfa_intervention_window (
   constraint nfa_intervention_window_valid_range check (end_date is null or end_date >= start_date)
 );
 
-comment on table public.nfa_intervention_window is 'Date ranges when NFA market intervention was active - feeds the nfa_active feature that used to be a hardcoded list in pricing_service/api/main.py.';
+comment on table public.nfa_intervention_window is 'Date ranges when NFA market intervention was active - feeds the nfa_active feature that used to be a hardcoded list in pricing/api/main.py.';
 
 alter table public.nfa_intervention_window enable row level security;
 
