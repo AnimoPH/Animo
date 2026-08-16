@@ -32,58 +32,64 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<SessionStatus>('loading');
   const [account, setAccount] = useState<Account | null>(null);
   const [hasRegisteredOnDevice, setHasRegisteredOnDevice] = useState(false);
-  // Avoids two overlapping hydrate() runs (mount + immediate AppState event).
-  const hydrating = useRef(false);
+  // Join overlapping hydrate() calls (sign-in fires onAuthStateChange while
+  // the login screen also calls refresh()) instead of dropping the second one.
+  const hydrateInFlight = useRef<Promise<void> | null>(null);
 
-  const hydrate = useCallback(async () => {
-    if (hydrating.current) return;
-    hydrating.current = true;
-    try {
-      const [registeredFlag, lastActiveRaw, { data: sessionData }] = await Promise.all([
-        AsyncStorage.getItem(HAS_REGISTERED_KEY),
-        AsyncStorage.getItem(LAST_ACTIVE_KEY),
-        supabase.auth.getSession(),
-      ]);
-      setHasRegisteredOnDevice(registeredFlag === 'true');
+  const hydrate = useCallback(() => {
+    if (hydrateInFlight.current) return hydrateInFlight.current;
 
-      if (!sessionData.session) {
+    const run = (async () => {
+      try {
+        const [registeredFlag, lastActiveRaw, { data: sessionData }] = await Promise.all([
+          AsyncStorage.getItem(HAS_REGISTERED_KEY),
+          AsyncStorage.getItem(LAST_ACTIVE_KEY),
+          supabase.auth.getSession(),
+        ]);
+        setHasRegisteredOnDevice(registeredFlag === 'true');
+
+        if (!sessionData.session) {
+          setStatus('guest');
+          setAccount(null);
+          return;
+        }
+
+        const lastActiveAt = lastActiveRaw ? Number(lastActiveRaw) : null;
+        if (lastActiveAt !== null && Date.now() - lastActiveAt > SESSION_IDLE_LIMIT_MS) {
+          // Idle past the 30-day window — force a fresh login even though the
+          // refresh token might still technically be valid.
+          await signOutRequest().catch(() => {});
+          await AsyncStorage.removeItem(LAST_ACTIVE_KEY);
+          setStatus('guest');
+          setAccount(null);
+          return;
+        }
+
+        await AsyncStorage.setItem(LAST_ACTIVE_KEY, String(Date.now()));
+
+        const profile = await fetchMyProfile();
+        if (!profile) {
+          setStatus('needs-profile');
+          setAccount(null);
+          return;
+        }
+
+        await AsyncStorage.setItem(HAS_REGISTERED_KEY, 'true');
+        setHasRegisteredOnDevice(true);
+        setAccount(profile);
+        setStatus('authenticated');
+      } catch {
+        // Network hiccup or malformed session — fail safe to guest rather than
+        // getting stuck on the splash screen.
         setStatus('guest');
         setAccount(null);
-        return;
+      } finally {
+        hydrateInFlight.current = null;
       }
+    })();
 
-      const lastActiveAt = lastActiveRaw ? Number(lastActiveRaw) : null;
-      if (lastActiveAt !== null && Date.now() - lastActiveAt > SESSION_IDLE_LIMIT_MS) {
-        // Idle past the 30-day window — force a fresh login even though the
-        // refresh token might still technically be valid.
-        await signOutRequest().catch(() => {});
-        await AsyncStorage.removeItem(LAST_ACTIVE_KEY);
-        setStatus('guest');
-        setAccount(null);
-        return;
-      }
-
-      await AsyncStorage.setItem(LAST_ACTIVE_KEY, String(Date.now()));
-
-      const profile = await fetchMyProfile();
-      if (!profile) {
-        setStatus('needs-profile');
-        setAccount(null);
-        return;
-      }
-
-      await AsyncStorage.setItem(HAS_REGISTERED_KEY, 'true');
-      setHasRegisteredOnDevice(true);
-      setAccount(profile);
-      setStatus('authenticated');
-    } catch {
-      // Network hiccup or malformed session — fail safe to guest rather than
-      // getting stuck on the splash screen.
-      setStatus('guest');
-      setAccount(null);
-    } finally {
-      hydrating.current = false;
-    }
+    hydrateInFlight.current = run;
+    return run;
   }, []);
 
   useEffect(() => {
