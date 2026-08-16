@@ -2,6 +2,16 @@
 
 LSTM/GRU price model + RF/SVR anomaly check for palay prices, wrapped as a FastAPI service. Trained on PSA Rizal farmgate data (Jan 2016 - Jun 2026), see `training/` for the notebook and the full writeup of what was tried and why.
 
+## Contract for mobile / listings
+
+This container is **not** the listing backend. Listings, auth, and schema live in `mobile/supabase`. FastAPI stays Supabase-unaware.
+
+- **Tinantyang Presyo** on a listing is `marketpricefeed.dry_base_price_per_kg` (plus variety premium), locked at insert by `croplisting_lock_price`. Until the first successful `refresh-dry-base`, that column is the 0007 seed (₱18.83). Wet listings still use `wet_base_price_per_kg` (default ₱15.50).
+- **Do not** call `get-price-prediction` at listing create. **Do not** send `estimated_price` or `computed_price_per_kg` from the client (the lock trigger skips if that column is already set).
+- `refresh-dry-base` (service_role) writes `dry_base` after `sync-psa-prices` and when `nfa_intervention_window` changes. `nfa_intervention_window` is the model's 0/1 input only — v1 has no NFA buying-price labels on the feed.
+- `get-market-status` is for the LGU dashboard, not the farmer/buyer app.
+- `sync-psa-prices` is ops/cron (or an LGU "sync now" that pulls **PSA**, not NFA floors).
+
 ## Running it
 
 Needs Docker. The model container is only one piece — locally it talks to Supabase edge functions, which talk to local Postgres. Start in this order. Stop in reverse. Paths assume the repo lives at `~/Desktop/Animo`; adjust if yours is elsewhere.
@@ -42,7 +52,7 @@ Check it's alive:
 curl http://localhost:8000/health
 ```
 
-**3. Edge functions** — leave this terminal open (it is the stand-in for Ctrl+C later). `--env-file` tells the functions where FastAPI lives. `--no-verify-jwt` skips Kong's JWT check so you can curl them locally; `sync-psa-prices` still checks the caller inside the function.
+**3. Edge functions** — leave this terminal open (it is the stand-in for Ctrl+C later). `--env-file` tells the functions where FastAPI lives. `--no-verify-jwt` skips Kong's JWT check so you can curl them locally; `sync-psa-prices` and `refresh-dry-base` still check the caller inside the function.
 
 ```
 echo 'PRICING_SERVICE_URL=http://animo-pricing-service:8000' > /tmp/edge_env.local
@@ -52,6 +62,7 @@ npx supabase functions serve --env-file /tmp/edge_env.local --no-verify-jwt
 
 `docker ps` should then show the `supabase_*` containers, `animo-pricing-service`, and `supabase_edge_runtime_mobile`. The functions are:
 
+- http://127.0.0.1:54321/functions/v1/refresh-dry-base
 - http://127.0.0.1:54321/functions/v1/get-price-prediction
 - http://127.0.0.1:54321/functions/v1/get-market-status
 - http://127.0.0.1:54321/functions/v1/sync-psa-prices
@@ -104,7 +115,7 @@ docker run -p 8000:8000 animo-pricing-service
 
 ### POST /predict-price
 
-The number the farmer/buyer app should show. This is the only endpoint the mobile app needs.
+Called by `refresh-dry-base` (and `get-price-prediction` if you curl it). The cached nowcast on `marketpricefeed` is what listings show — not a live call from the app.
 
 Request:
 ```json
@@ -148,9 +159,9 @@ Just returns `{"status": "ok"}`. Use it for whatever health check setup we end u
 
 ## Things that still need doing (not blocking, but don't forget)
 
-- `last_prices` and `nfa_active` are supplied by the caller, not computed in here - this service is deliberately Supabase-unaware. The `get-price-prediction`/`get-market-status` Supabase edge functions are what actually pull the last 12 months from `palay_price_history` and the active window from `nfa_intervention_window`, then call this service. Don't add a Postgres/Supabase client to this service as a "fix" - that's an intentional boundary, not something missing.
-- Model gets stale as new PSA data comes out monthly. No retraining job exists yet.
-- `requirements.txt` has scikit-learn pinned to 1.6.1 on purpose, that's what the models were actually trained with. Don't bump it without retraining and re-saving the models, or you'll get the sklearn version mismatch warning again (harmless-ish but don't tempt it).
+- `last_prices` and `nfa_active` are supplied by the caller, not computed in here - this service is deliberately Supabase-unaware. `refresh-dry-base` / `get-price-prediction` / `get-market-status` pull the last 12 months from `palay_price_history` and the active window from `nfa_intervention_window`, then call this service. Don't add a Postgres/Supabase client to this service as a "fix" - that's an intentional boundary, not something missing.
+- Model gets stale as new PSA data comes out monthly. No retraining job exists yet. `palay_price_history` through July 2026 is a live `sync-psa-prices` job once the stack is up — not a committed seed.
+- `requirements.txt` pins `keras==3.13.2` (from the saved `.keras` metadata), `tensorflow>=2.16.1`, and `scikit-learn==1.6.1`. Don't bump sklearn without retraining and re-saving the models, or you'll get the sklearn version mismatch warning again (harmless-ish but don't tempt it).
 
 ## Heads up on accuracy
 
