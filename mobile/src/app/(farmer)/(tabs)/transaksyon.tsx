@@ -15,7 +15,7 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'lahat', label: 'Lahat' },
   { value: 'aktibo', label: 'Aktibo' },
   { value: 'tapos', label: 'Tapos' },
-  { value: 'disputed', label: 'Disputed' },
+  { value: 'cancelled', label: 'Nakansela' },
 ];
 
 /** Mga Transaksyon — farmer's sales history (shares the marketplace model). */

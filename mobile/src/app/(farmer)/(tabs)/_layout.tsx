@@ -8,7 +8,7 @@ import { useSession } from '@/hooks/use-session';
 /** Bottom navigation for the farmer (Magsasaka) module. */
 const FARMER_TABS: TabItem[] = [
   { name: 'index', label: 'Tahanan', icon: Home },
-  { name: 'listings', label: 'Aking Ani', icon: Sprout },
+  { name: 'palengke', label: 'Aking Ani', icon: Sprout },
   { name: 'transaksyon', label: 'Transaksyon', icon: ReceiptText },
   { name: 'profile', label: 'Profile', icon: User },
 ];
@@ -31,7 +31,7 @@ export default function FarmerLayout() {
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <AnimoTabBar {...props} items={FARMER_TABS} />}>
       <Tabs.Screen name="index" />
-      <Tabs.Screen name="listings" />
+      <Tabs.Screen name="palengke" />
       <Tabs.Screen name="transaksyon" />
       <Tabs.Screen name="profile" />
     </Tabs>

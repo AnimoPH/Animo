@@ -8,14 +8,14 @@ export type AnimoButtonProps = {
   onPress?: () => void;
   disabled?: boolean;
   loading?: boolean;
-  /** Visual style. Primary = filled green pill; secondary = outlined. */
-  variant?: 'primary' | 'secondary';
+  /** Visual style. Primary = filled green; secondary = green outline; danger = red fill; dangerOutline = red outline. */
+  variant?: 'primary' | 'secondary' | 'danger' | 'dangerOutline';
   style?: ViewStyle;
 };
 
 /**
  * The main call-to-action button (e.g. "Magpatuloy", "Ipadala ang OTP").
- * A full-width green pill; disabled state fades to a lighter green.
+ * A full-width pill; disabled state fades.
  */
 export function AnimoButton({
   label,
@@ -25,16 +25,38 @@ export function AnimoButton({
   variant = 'primary',
   style,
 }: AnimoButtonProps) {
-  const isPrimary = variant === 'primary';
   const isInactive = disabled || loading;
 
-  const backgroundColor = isPrimary
-    ? isInactive
-      ? AnimoColors.greenDisabled
-      : AnimoColors.green
-    : 'transparent';
+  const getColors = () => {
+    switch (variant) {
+      case 'primary':
+        return {
+          bg: isInactive ? AnimoColors.greenDisabled : AnimoColors.green,
+          text: AnimoColors.white,
+          border: undefined,
+        };
+      case 'secondary':
+        return {
+          bg: 'transparent',
+          text: AnimoColors.green,
+          border: AnimoColors.green,
+        };
+      case 'danger':
+        return {
+          bg: isInactive ? '#F3B4B4' : AnimoColors.danger,
+          text: AnimoColors.white,
+          border: undefined,
+        };
+      case 'dangerOutline':
+        return {
+          bg: 'transparent',
+          text: AnimoColors.danger,
+          border: AnimoColors.danger,
+        };
+    }
+  };
 
-  const textColor = isPrimary ? AnimoColors.white : AnimoColors.green;
+  const { bg, text, border } = getColors();
 
   return (
     <Pressable
@@ -44,15 +66,15 @@ export function AnimoButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
-        { backgroundColor },
-        !isPrimary && styles.secondaryBorder,
+        { backgroundColor: bg },
+        border ? { borderWidth: 1.5, borderColor: border } : undefined,
         pressed && !isInactive && styles.pressed,
         style,
       ]}>
       {loading ? (
-        <ActivityIndicator color={textColor} />
+        <ActivityIndicator color={text} />
       ) : (
-        <AnimoText variant="button" color={textColor}>
+        <AnimoText variant="button" color={text}>
           {label}
         </AnimoText>
       )}
@@ -68,10 +90,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: AnimoSpacing.xl,
     width: '100%',
-  },
-  secondaryBorder: {
-    borderWidth: 1.5,
-    borderColor: AnimoColors.green,
   },
   pressed: {
     opacity: 0.85,
