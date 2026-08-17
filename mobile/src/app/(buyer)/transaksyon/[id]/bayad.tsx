@@ -1,6 +1,8 @@
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Banknote } from 'lucide-react-native';
+import { Banknote, CheckCircle2, Trash2, Upload } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -18,6 +20,7 @@ import { CancelRequestModal } from '@/components/animo/cancel-request-modal';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { ListingImage } from '@/components/animo/listing-image';
+import { PhotoSourceSheet } from '@/components/animo/photo-source-sheet';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
@@ -33,8 +36,8 @@ import {
 /**
  * Paraan ng Pagbabayad — Screen 2 in the revised flow.
  *
- * Buyer enters the actual amount paid, selects GCash or Cash, and proceeds to payment confirmation.
- * The progress tracker shows step 4 (Bayad sa magsasaka) as the active current step.
+ * Buyer enters the actual amount paid, selects GCash (with reference number & receipt upload)
+ * or Cash, and proceeds to payment confirmation.
  */
 export default function PaymentScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -45,6 +48,13 @@ export default function PaymentScreen() {
   // Actual amount paid input (default agreed total)
   const [actualAmountText, setActualAmountText] = useState(String(agreedTotal));
   const [method, setMethod] = useState<PaymentMethod>('gcash');
+
+  // GCash specific fields
+  const [gcashReference, setGcashReference] = useState('');
+  const [receiptUri, setReceiptUri] = useState<string | null>(null);
+  const [photoSheetVisible, setPhotoSheetVisible] = useState(false);
+  const [uploadError, setUploadError] = useState<string | undefined>();
+
   const [cancelling, setCancelling] = useState(false);
   const [showCancelledSuccessModal, setShowCancelledSuccessModal] = useState(false);
 
@@ -64,6 +74,34 @@ export default function PaymentScreen() {
   const { farmer } = request;
   const policy = cancelPolicy(request);
   const actualAmountNum = parseFloat(actualAmountText.replace(/,/g, '')) || 0;
+
+  const handlePickSource = async (source: 'camera' | 'gallery') => {
+    setPhotoSheetVisible(false);
+    setUploadError(undefined);
+
+    const permission =
+      source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      setUploadError('Kailangan ng pahintulot para mag-upload ng resibo.');
+      return;
+    }
+
+    const pickerOptions: ImagePicker.ImagePickerOptions = {
+      mediaTypes: ['images'],
+      quality: 0.8,
+    };
+
+    const result =
+      source === 'camera'
+        ? await ImagePicker.launchCameraAsync(pickerOptions)
+        : await ImagePicker.launchImageLibraryAsync(pickerOptions);
+
+    if (result.canceled || !result.assets?.[0]) return;
+    setReceiptUri(result.assets[0].uri);
+  };
 
   const paymentSteps: ProgressStep[] = [
     {
@@ -98,12 +136,19 @@ export default function PaymentScreen() {
     },
   ];
 
+  const isGcashValid =
+    method !== 'gcash' || (gcashReference.trim().length >= 6 && receiptUri !== null);
+
+  const canContinue = actualAmountNum > 0 && isGcashValid;
+
   const handleContinue = () => {
     router.push({
       pathname: `/(buyer)/transaksyon/${request.id}/kumpirmasyon` as any,
       params: {
         method,
         actualAmount: actualAmountNum.toString(),
+        gcashReference: method === 'gcash' ? gcashReference.trim() : undefined,
+        receiptUri: method === 'gcash' && receiptUri ? receiptUri : undefined,
       },
     });
   };
@@ -185,10 +230,10 @@ export default function PaymentScreen() {
             <View style={styles.divider} />
 
             <View style={styles.rowBetween}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+              <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.rowLabel}>
                 Kabuuang babayaran (Sistema)
               </AnimoText>
-              <AnimoText variant="price" color={AnimoColors.black}>
+              <AnimoText variant="price" color={AnimoColors.black} style={styles.rowValue}>
                 {formatPeso(agreedTotal)}
               </AnimoText>
             </View>
@@ -236,7 +281,7 @@ export default function PaymentScreen() {
                     GCash
                   </AnimoText>
                   <AnimoText variant="caption" color={AnimoColors.muted}>
-                    Bayad gamit ang GCash wallet
+                    Bayad gamit ang GCash transfer
                   </AnimoText>
                 </View>
               </View>
@@ -281,6 +326,84 @@ export default function PaymentScreen() {
             </Pressable>
           </View>
 
+          {/* GCash Details Card (Reference No. & Receipt Upload) */}
+          {method === 'gcash' ? (
+            <View style={styles.card}>
+              <AnimoText variant="h3" color={AnimoColors.black}>
+                Impormasyon ng GCash Transfer
+              </AnimoText>
+
+              {/* Reference Number Input */}
+              <LabeledInput
+                label="GCash Reference Number"
+                placeholder="Hal. 1002 9384 7182 9"
+                keyboardType="numeric"
+                value={gcashReference}
+                onChangeText={setGcashReference}
+                hint="Ilagay ang reference number mula sa natanggap na resibo ng GCash."
+              />
+
+              {/* Receipt Upload Box */}
+              <View style={styles.uploadSection}>
+                <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+                  Resibo ng GCash (Screenshot / Litrato)
+                </AnimoText>
+
+                {receiptUri ? (
+                  <View style={styles.receiptPreviewCard}>
+                    <Image source={{ uri: receiptUri }} style={styles.receiptImage} contentFit="cover" />
+                    <View style={styles.receiptInfo}>
+                      <View style={styles.receiptAttachedRow}>
+                        <CheckCircle2 size={16} color={AnimoColors.accentPrimary} />
+                        <AnimoText variant="bodyEmphasis" color={AnimoColors.accentPrimary}>
+                          Naka-attach ang resibo
+                        </AnimoText>
+                      </View>
+                      <View style={styles.receiptActions}>
+                        <Pressable
+                          onPress={() => setPhotoSheetVisible(true)}
+                          style={styles.changeReceiptBtn}>
+                          <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
+                            Palitan
+                          </AnimoText>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setReceiptUri(null)}
+                          style={styles.removeReceiptBtn}>
+                          <Trash2 size={14} color={AnimoColors.danger} />
+                          <AnimoText variant="caption" color={AnimoColors.danger}>
+                            Alisin
+                          </AnimoText>
+                        </Pressable>
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setPhotoSheetVisible(true)}
+                    style={styles.uploadBox}>
+                    <View style={styles.uploadIconCircle}>
+                      <Upload size={22} color={AnimoColors.accentPrimary} />
+                    </View>
+                    <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+                      Pindutin para mag-upload ng resibo
+                    </AnimoText>
+                    <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+                      Kunan ng litrato o pumili mula sa Gallery
+                    </AnimoText>
+                  </Pressable>
+                )}
+
+                {uploadError ? (
+                  <AnimoText variant="caption" color={AnimoColors.danger}>
+                    {uploadError}
+                  </AnimoText>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
           {/* 5-Step Progress Tracker with Payment as Current Step */}
           <ProgressTracker steps={paymentSteps} />
         </ScrollView>
@@ -290,7 +413,7 @@ export default function PaymentScreen() {
           <AnimoButton
             label="Magpatuloy sa Bayad"
             onPress={handleContinue}
-            disabled={actualAmountNum <= 0}
+            disabled={!canContinue}
           />
           {/* Red Cancel Button */}
           <AnimoButton
@@ -300,6 +423,14 @@ export default function PaymentScreen() {
           />
         </View>
       </KeyboardAvoidingView>
+
+      {/* Photo Picker Bottom Sheet */}
+      <PhotoSourceSheet
+        visible={photoSheetVisible}
+        onPickCamera={() => handlePickSource('camera')}
+        onPickGallery={() => handlePickSource('gallery')}
+        onClose={() => setPhotoSheetVisible(false)}
+      />
 
       {/* Confirmation Modal before cancellation */}
       <CancelRequestModal
@@ -377,8 +508,17 @@ const styles = StyleSheet.create({
   },
   rowBetween: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
+    gap: AnimoSpacing.sm,
+  },
+  rowLabel: {
+    flex: 1,
+    flexShrink: 1,
+  },
+  rowValue: {
+    textAlign: 'right',
+    flexShrink: 0,
   },
   inputSection: {
     marginTop: AnimoSpacing.xs,
@@ -445,5 +585,68 @@ const styles = StyleSheet.create({
     paddingBottom: AnimoSpacing.md,
     gap: AnimoSpacing.sm,
     backgroundColor: AnimoColors.background,
+  },
+  uploadSection: {
+    gap: AnimoSpacing.xs,
+    marginTop: AnimoSpacing.xs,
+  },
+  uploadBox: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: AnimoColors.accentPrimary,
+    borderRadius: AnimoRadius.md,
+    backgroundColor: AnimoColors.surfaceSecondary,
+    padding: AnimoSpacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: AnimoSpacing.xs,
+  },
+  uploadIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: AnimoColors.accentPrimaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  receiptPreviewCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    borderRadius: AnimoRadius.md,
+    backgroundColor: AnimoColors.surfaceSecondary,
+    padding: AnimoSpacing.sm,
+    gap: AnimoSpacing.md,
+  },
+  receiptImage: {
+    width: 60,
+    height: 60,
+    borderRadius: AnimoRadius.sm,
+    backgroundColor: AnimoColors.surfaceTertiary,
+  },
+  receiptInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  receiptAttachedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  receiptActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AnimoSpacing.md,
+  },
+  changeReceiptBtn: {
+    paddingVertical: 2,
+  },
+  removeReceiptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 2,
   },
 });

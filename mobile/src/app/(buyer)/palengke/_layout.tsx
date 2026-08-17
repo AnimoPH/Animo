@@ -7,6 +7,7 @@ export default function PalengkeLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="[id]" />
       <Stack.Screen name="bid" />
+      <Stack.Screen name="magsasaka/[id]" />
     </Stack>
   );
 }

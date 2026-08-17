@@ -8,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   TextInput,
   View,
 } from 'react-native';
@@ -50,7 +49,6 @@ export default function ReviewFarmerScreen() {
   const [timelinessRating, setTimelinessRating] = useState(5);
 
   const [comment, setComment] = useState('');
-  const [isAnonymous, setIsAnonymous] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   if (!request) {
@@ -109,32 +107,32 @@ export default function ReviewFarmerScreen() {
 
           {/* Overall Rating Card (Centered) */}
           <View style={[styles.card, styles.centerCard]}>
-            <AnimoText variant="h3" color={AnimoColors.black} style={styles.textCenter}>
-              Ano ang iyong marka?
+            <AnimoText variant="caption" color={AnimoColors.muted} style={styles.textCenter}>
+              Pangkalahatang Marka
+            </AnimoText>
+            <AnimoText variant="h1" color={AnimoColors.black} style={styles.textCenter}>
+              {RATING_MOODS[overallRating]}
             </AnimoText>
 
+            {/* Big Star Selector */}
             <View style={styles.starRowBig}>
               {[1, 2, 3, 4, 5].map((star) => (
                 <Pressable
                   key={star}
-                  onPress={() => setOverallRating(star)}
                   hitSlop={8}
+                  onPress={() => setOverallRating(star)}
                   style={styles.starTouch}>
                   <Star
-                    size={38}
+                    size={36}
                     color={star <= overallRating ? STAR_GOLD : AnimoColors.border}
                     fill={star <= overallRating ? STAR_GOLD : 'transparent'}
                   />
                 </Pressable>
               ))}
             </View>
-
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.textCenter}>
-              {RATING_MOODS[overallRating]}
-            </AnimoText>
           </View>
 
-          {/* Detailed Criteria Card (Large Stars) */}
+          {/* Detailed Criteria Card */}
           <View style={styles.card}>
             <AnimoText variant="h3" color={AnimoColors.black}>
               Detalyadong Marka
@@ -146,7 +144,7 @@ export default function ReviewFarmerScreen() {
               onChange={setQualityRating}
             />
             <StarCriterionRow
-              label="Tamang timbang"
+              label="Tugma ang timbang"
               value={weightRating}
               onChange={setWeightRating}
             />
@@ -183,26 +181,6 @@ export default function ReviewFarmerScreen() {
               <AnimoText variant="tag" color={AnimoColors.muted} style={styles.counter}>
                 {comment.length}/500
               </AnimoText>
-            </View>
-          </View>
-
-          {/* Anonymous Toggle Card */}
-          <View style={styles.card}>
-            <View style={styles.toggleRow}>
-              <View style={styles.toggleText}>
-                <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                  Itago ang aking pangalan
-                </AnimoText>
-                <AnimoText variant="caption" color={AnimoColors.muted}>
-                  Ipakikita bilang "Mamimili" sa review
-                </AnimoText>
-              </View>
-              <Switch
-                value={isAnonymous}
-                onValueChange={setIsAnonymous}
-                trackColor={{ false: AnimoColors.border, true: AnimoColors.green }}
-                thumbColor={AnimoColors.white}
-              />
             </View>
           </View>
 
@@ -362,21 +340,12 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.xs,
   },
   textarea: {
-    fontSize: 14,
+    fontSize: 16,
     color: AnimoColors.black,
     minHeight: 90,
   },
   counter: {
     alignSelf: 'flex-end',
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  toggleText: {
-    flex: 1,
-    gap: 2,
   },
   footerStack: {
     paddingHorizontal: AnimoSpacing.xl,
