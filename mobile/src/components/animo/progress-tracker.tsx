@@ -7,26 +7,37 @@ import type { ProgressStep } from '@/constants/marketplace';
 
 export type ProgressTrackerProps = {
   steps: ProgressStep[];
+  /** Defaults to the buyer tracker title so existing screens stay unchanged. */
+  title?: string;
 };
 
 const DOT = 22;
 
 /**
- * "Progreso ng Transaksyon" — the vertical milestone tracker.
+ * Vertical milestone tracker used by buyer and farmer transaction details.
  *
- * Done steps get a green check, the current step a hollow amber ring, failed
+ * Done steps get a green check, the current step a numbered ring, failed
  * steps a red cross, and upcoming steps a muted numbered circle.
  */
-export function ProgressTracker({ steps }: ProgressTrackerProps) {
+export function ProgressTracker({
+  steps,
+  title = 'Progreso ng Transaksyon',
+}: ProgressTrackerProps) {
   return (
     <View style={styles.card}>
-      <AnimoText variant="h3" color={AnimoColors.black}>
-        Progreso ng Transaksyon
+      <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
+        {title}
       </AnimoText>
 
       <View style={styles.steps}>
         {steps.map((step, index) => {
           const isLast = index === steps.length - 1;
+          const labelColor = LABEL_COLOR[step.state];
+          const detailColor =
+            step.state === 'upcoming' || step.state === 'current'
+              ? DETAIL_COLOR[step.state]
+              : AnimoColors.textMediumEmphasis;
+
           return (
             <View key={step.key} style={styles.row}>
               <View style={styles.rail}>
@@ -42,14 +53,18 @@ export function ProgressTracker({ steps }: ProgressTrackerProps) {
               </View>
 
               <View style={[styles.body, isLast && styles.bodyLast]}>
-                <AnimoText
-                  variant="bodyEmphasis"
-                  color={LABEL_COLOR[step.state]}
-                  numberOfLines={2}>
+                <AnimoText variant="bodyEmphasis" color={labelColor} numberOfLines={2}>
                   {step.label}
                 </AnimoText>
+                {step.timestamp ? (
+                  <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                    {step.timestamp}
+                  </AnimoText>
+                ) : null}
                 {step.detail ? (
-                  <AnimoText variant="caption" color={AnimoColors.muted}>
+                  <AnimoText
+                    variant={step.state === 'current' ? 'body' : 'caption'}
+                    color={detailColor}>
                     {step.detail}
                   </AnimoText>
                 ) : null}
@@ -63,10 +78,17 @@ export function ProgressTracker({ steps }: ProgressTrackerProps) {
 }
 
 const LABEL_COLOR: Record<ProgressStep['state'], string> = {
-  done: AnimoColors.black,
-  current: AnimoColors.black,
+  done: AnimoColors.textAccentPrimary,
+  current: AnimoColors.textAccentPrimary,
   failed: AnimoColors.danger,
-  upcoming: AnimoColors.muted,
+  upcoming: AnimoColors.textLowEmphasis,
+};
+
+const DETAIL_COLOR: Record<ProgressStep['state'], string> = {
+  done: AnimoColors.textMediumEmphasis,
+  current: AnimoColors.textHighEmphasis,
+  failed: AnimoColors.danger,
+  upcoming: AnimoColors.textLowEmphasis,
 };
 
 function StepDot({ step, index }: { step: ProgressStep; index: number }) {
@@ -89,14 +111,16 @@ function StepDot({ step, index }: { step: ProgressStep; index: number }) {
   if (step.state === 'current') {
     return (
       <View style={[styles.dot, styles.dotCurrent]}>
-        <View style={styles.dotCurrentCore} />
+        <AnimoText variant="tag" color={AnimoColors.textAccentPrimary}>
+          {index + 1}
+        </AnimoText>
       </View>
     );
   }
 
   return (
     <View style={[styles.dot, styles.dotUpcoming]}>
-      <AnimoText variant="tag" color={AnimoColors.muted}>
+      <AnimoText variant="tag" color={AnimoColors.textLowEmphasis}>
         {index + 1}
       </AnimoText>
     </View>
@@ -110,6 +134,7 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.lg,
     padding: AnimoSpacing.lg,
     gap: AnimoSpacing.md,
+    backgroundColor: AnimoColors.surfacePrimary,
   },
   steps: {
     gap: 0,
@@ -137,25 +162,19 @@ const styles = StyleSheet.create({
   },
   dotCurrent: {
     borderWidth: 2,
-    borderColor: '#E0A02A',
+    borderColor: AnimoColors.borderAccentPrimary,
     backgroundColor: AnimoColors.white,
-  },
-  dotCurrentCore: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E0A02A',
   },
   dotUpcoming: {
     borderWidth: 1,
-    borderColor: AnimoColors.border,
-    backgroundColor: AnimoColors.surface,
+    borderColor: AnimoColors.borderLowEmphasis,
+    backgroundColor: AnimoColors.white,
   },
   connector: {
     flex: 1,
     width: 2,
     minHeight: 18,
-    backgroundColor: AnimoColors.border,
+    backgroundColor: AnimoColors.borderLowEmphasis,
     marginVertical: 2,
   },
   connectorDone: {

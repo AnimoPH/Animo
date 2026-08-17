@@ -182,6 +182,13 @@ export const AnimoSpacing = {
   xxl: 32,
 } as const;
 
+/** Page-level layout — apply once on the screen, not on every child. */
+export const AnimoLayout = {
+  screenGutter: AnimoSpacing.lg,
+  cardGap: AnimoSpacing.md,
+  sectionGap: AnimoSpacing.lg,
+} as const;
+
 export const AnimoRadius = {
   sm: 8,
   md: 12,

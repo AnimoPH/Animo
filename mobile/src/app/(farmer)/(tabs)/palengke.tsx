@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -14,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AnimoText } from "@/components/animo/animo-text";
 import { AppHeader } from "@/components/animo/app-header";
+import { FilterChips } from "@/components/animo/filter-chips";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
 import { formatPeso } from "@/constants/marketplace";
 import { fetchCoverPhotos, fetchMyCropListings } from "@/services/crop-listing-service";
@@ -26,11 +26,11 @@ import {
 
 type FilterKey = "Lahat" | Extract<ListingStatus, "Available" | "Sold_Out" | "Cancelled">;
 
-const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: "Lahat", label: "Lahat" },
-  { key: "Available", label: STATUS_LABELS.Available },
-  { key: "Sold_Out", label: STATUS_LABELS.Sold_Out },
-  { key: "Cancelled", label: STATUS_LABELS.Cancelled },
+const FILTERS: { value: FilterKey; label: string }[] = [
+  { value: "Lahat", label: "Lahat" },
+  { value: "Available", label: STATUS_LABELS.Available },
+  { value: "Sold_Out", label: STATUS_LABELS.Sold_Out },
+  { value: "Cancelled", label: STATUS_LABELS.Cancelled },
 ];
 
 const STATUS_BADGE_COLORS: Record<ListingStatus, string> = {
@@ -98,21 +98,13 @@ export default function FarmerPalengkeScreen() {
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <AppHeader onPressBell={() => console.log("Bell pressed")} />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterScroll}
-        contentContainerStyle={styles.filterRow}
-      >
-        {FILTERS.map((filter) => (
-          <FilterPill
-            key={filter.key}
-            label={filter.label}
-            active={activeFilter === filter.key}
-            onPress={() => setActiveFilter(filter.key)}
-          />
-        ))}
-      </ScrollView>
+      <View style={styles.filters}>
+        <FilterChips
+          options={FILTERS}
+          value={activeFilter}
+          onChange={setActiveFilter}
+        />
+      </View>
 
       <View style={styles.listContainer}>
         {loading ? (
@@ -166,35 +158,6 @@ export default function FarmerPalengkeScreen() {
         </Pressable>
       </View>
     </SafeAreaView>
-  );
-}
-
-function FilterPill({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}
-    >
-      <AnimoText
-        variant="caption"
-        color={
-          active
-            ? AnimoColors.textHighEmphasisInverse
-            : AnimoColors.textMediumEmphasis
-        }
-      >
-        {label}
-      </AnimoText>
-    </Pressable>
   );
 }
 
@@ -281,26 +244,8 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.pill,
     backgroundColor: AnimoColors.accentPrimaryLight,
   },
-  filterScroll: {
-    flexGrow: 0,
-    marginTop: AnimoSpacing.md,
-  },
-  filterRow: {
-    paddingHorizontal: AnimoSpacing.lg,
-  },
-  pill: {
-    borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.sm,
-    marginRight: AnimoSpacing.sm,
-  },
-  pillActive: {
-    backgroundColor: AnimoColors.accentPrimary,
-  },
-  pillInactive: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
+  filters: {
+    paddingBottom: AnimoSpacing.md,
   },
   listContainer: {
     flex: 1,
