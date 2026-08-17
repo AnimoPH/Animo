@@ -12,7 +12,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 
 import { AnimoButton } from '@/components/animo/animo-button';
@@ -53,6 +53,7 @@ export default function ReceiptScreen() {
     receiptUri?: string;
   }>();
 
+  const insets = useSafeAreaInsets();
   const request = getPurchaseRequest(id);
   const receiptCardRef = useRef<View>(null);
 
@@ -351,16 +352,23 @@ export default function ReceiptScreen() {
           animationType="fade"
           onRequestClose={() => setPreviewImageVisible(false)}>
           <View style={styles.imageModalBackdrop}>
-            <SafeAreaView style={styles.imageModalHeader} edges={['top']}>
+            <View
+              style={[
+                styles.imageModalHeader,
+                { paddingTop: Math.max(insets.top, 24) + AnimoSpacing.md },
+              ]}>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
                 Resibo ng GCash
               </AnimoText>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Isara ang resibo"
+                hitSlop={16}
                 onPress={() => setPreviewImageVisible(false)}
                 style={styles.closeModalBtn}>
-                <X size={24} color={AnimoColors.white} />
+                <X size={22} color={AnimoColors.white} />
               </Pressable>
-            </SafeAreaView>
+            </View>
             <View style={styles.fullImageContainer}>
               <Image
                 source={{ uri: receiptUri }}
@@ -557,11 +565,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.md,
+    paddingHorizontal: AnimoSpacing.xl,
+    paddingBottom: AnimoSpacing.md,
   },
   closeModalBtn: {
-    padding: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fullImageContainer: {
     flex: 1,
