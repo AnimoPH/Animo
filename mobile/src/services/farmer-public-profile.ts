@@ -154,3 +154,129 @@ function getFallbackFarmerProfile(listing?: CropListing | null): FarmerPublicPro
     totalReviews: 12,
   };
 }
+
+export type RankedFarmer = FarmerPublicProfile & {
+  rank: number;
+  rankBadge: string;
+  badgeLabel: string;
+};
+
+export const DEMO_RANKED_FARMERS: RankedFarmer[] = [
+  {
+    farmerId: 'farmer-1',
+    name: 'Mang Jose Santos',
+    location: 'San Isidro, Nueva Ecija',
+    memberSince: 'Oktubre 2025',
+    verified: true,
+    totalSoldKg: 24500,
+    completedTransactionsCount: 18,
+    commonlySoldVarieties: ['Inbred (RC 160)', 'Hybrid (SL-8H)', 'Dinorado'],
+    credibilityScorePct: 100,
+    averageRating: 4.9,
+    totalReviews: 24,
+    rank: 1,
+    rankBadge: '🥇 #1 Nangunguna',
+    badgeLabel: 'Top Producer',
+  },
+  {
+    farmerId: 'farmer-2',
+    name: 'Tatay Ramon Rivera',
+    location: 'Talavera, Nueva Ecija',
+    memberSince: 'Nobyembre 2025',
+    verified: true,
+    totalSoldKg: 19800,
+    completedTransactionsCount: 15,
+    commonlySoldVarieties: ['Hybrid (SL-8H)', 'Inbred (RC 222)', 'Tradisyonal'],
+    credibilityScorePct: 99,
+    averageRating: 4.9,
+    totalReviews: 19,
+    rank: 2,
+    rankBadge: '🥈 #2 Top Rated',
+    badgeLabel: 'Mataas ang Marka',
+  },
+  {
+    farmerId: 'farmer-3',
+    name: 'Aling Maria Dela Cruz',
+    location: 'Gapan City, Nueva Ecija',
+    memberSince: 'Disyembre 2025',
+    verified: true,
+    totalSoldKg: 16200,
+    completedTransactionsCount: 12,
+    commonlySoldVarieties: ['Inbred (RC 160)', 'Tradisyonal', 'Sinandomeng'],
+    credibilityScorePct: 98,
+    averageRating: 4.8,
+    totalReviews: 16,
+    rank: 3,
+    rankBadge: '🥉 #3 Mabilis Magtransaksyon',
+    badgeLabel: 'Mabilis ang Pickup',
+  },
+  {
+    farmerId: 'farmer-4',
+    name: 'Mang Danilo Bautista',
+    location: 'Cabanatuan, Nueva Ecija',
+    memberSince: 'Enero 2026',
+    verified: true,
+    totalSoldKg: 14100,
+    completedTransactionsCount: 11,
+    commonlySoldVarieties: ['Hybrid (SL-8H)', 'Inbred (RC 160)'],
+    credibilityScorePct: 97,
+    averageRating: 4.8,
+    totalReviews: 14,
+    rank: 4,
+    rankBadge: '#4 Maaasahan',
+    badgeLabel: 'Suki ng Bayan',
+  },
+  {
+    farmerId: 'farmer-5',
+    name: 'Kiko Manalo',
+    location: 'San Jose City, Nueva Ecija',
+    memberSince: 'Pebrero 2026',
+    verified: true,
+    totalSoldKg: 12300,
+    completedTransactionsCount: 9,
+    commonlySoldVarieties: ['Tradisyonal (Dinorado)', 'Inbred (RC 222)'],
+    credibilityScorePct: 98,
+    averageRating: 4.7,
+    totalReviews: 11,
+    rank: 5,
+    rankBadge: '#5 Dekalidad',
+    badgeLabel: 'Dekalidad na Ani',
+  },
+];
+
+/** Fetches top ranked farmers for leaderboards and buyer home recommendation */
+export async function fetchTopRankedFarmers(): Promise<RankedFarmer[]> {
+  return DEMO_RANKED_FARMERS;
+}
+
+/** Searches farmer profiles by name, location, or rice variety */
+export async function searchFarmerProfiles(query: string): Promise<RankedFarmer[]> {
+  const q = query.trim().toLowerCase();
+  if (!q) return DEMO_RANKED_FARMERS;
+
+  return DEMO_RANKED_FARMERS.filter(
+    (f) =>
+      f.name.toLowerCase().includes(q) ||
+      f.location.toLowerCase().includes(q) ||
+      f.commonlySoldVarieties.some((v) => v.toLowerCase().includes(q)),
+  );
+}
+
+export type MarketPopularityInsight = {
+  topVariety: string;
+  topVarietyShare: string;
+  averagePricePerKg: number;
+  activeFarmersCount: number;
+  totalVolumeMonthKg: number;
+};
+
+/** Returns high-level market analytics & popular demand trends */
+export async function fetchMarketPopularityInsights(): Promise<MarketPopularityInsight> {
+  return {
+    topVariety: 'Inbred (RC 160)',
+    topVarietyShare: '48% ng mga transaksyon',
+    averagePricePerKg: 22.5,
+    activeFarmersCount: 24,
+    totalVolumeMonthKg: 86900,
+  };
+}
