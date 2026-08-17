@@ -74,11 +74,6 @@ export default function BuyScreen() {
                 {formatPeso(listing.pricePerKg)} bawat kilo · {listing.municipality},{' '}
                 {listing.province}
               </AnimoText>
-              {listing.estimated && (
-                <View style={styles.badgeWrap}>
-                  <StatusBadge label="Tinantyang Presyo" tone="warning" />
-                </View>
-              )}
             </View>
           </View>
 

@@ -1,4 +1,4 @@
-import { MapPin, Scale, ShieldCheck } from 'lucide-react-native';
+import { MapPin, Scale } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
@@ -10,13 +10,14 @@ import { formatPeso, type Listing } from '@/constants/marketplace';
 export type ListingCardProps = {
   listing: Listing;
   onPress: () => void;
+  badge?: string;
 };
 
 /**
  * Marketplace listing card: photo, Uri ng Palay, Aktwal na timbang, presyo, at lokasyon.
  * Moisture and purity are excluded.
  */
-export function ListingCard({ listing, onPress }: ListingCardProps) {
+export function ListingCard({ listing, onPress, badge }: ListingCardProps) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -29,6 +30,9 @@ export function ListingCard({ listing, onPress }: ListingCardProps) {
           <AnimoText variant="h3" color={AnimoColors.black} style={styles.title}>
             {listing.variety}
           </AnimoText>
+          {badge ? (
+            <StatusBadge label={badge} tone="success" />
+          ) : null}
         </View>
 
         <View style={styles.priceRow}>
@@ -40,14 +44,6 @@ export function ListingCard({ listing, onPress }: ListingCardProps) {
             bawat kilo
           </AnimoText>
         </View>
-
-        {listing.estimated && (
-          <StatusBadge
-            label="Tinantyang Presyo"
-            tone="warning"
-            icon={<ShieldCheck size={12} color="#B4791A" />}
-          />
-        )}
 
         <View style={styles.specs}>
           <SpecInline icon={<Scale size={14} color={AnimoColors.green} />}>
