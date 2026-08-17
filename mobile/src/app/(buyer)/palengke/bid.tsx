@@ -29,13 +29,17 @@ export default function BuyScreen() {
   const [quantity, setQuantity] = useState('200');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  // This screen still reads the frontend mock (`getListing`), so a real
+  // croplisting id coming from the live Palengke list lands here. Purchase
+  // request submission is a separate task — until then this degrades to a
+  // notice instead of a misleading "not found".
   if (!listing) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <ScreenHeader title="Bumili ng Palay" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            Hindi nahanap ang listing na ito.
+            Hindi pa available ang pagbili para sa listing na ito.
           </AnimoText>
         </View>
       </SafeAreaView>

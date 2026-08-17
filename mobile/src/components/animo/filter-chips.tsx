@@ -7,18 +7,29 @@ export type FilterChipsProps<T extends string> = {
   options: { value: T; label: string }[];
   value: T;
   onChange: (value: T) => void;
+  /**
+   * When true (default), chips add their own horizontal inset for older
+   * screens that do not pad the page. Pass false when the parent already
+   * applies `AnimoLayout.screenGutter`.
+   */
+  inset?: boolean;
 };
 
 /**
  * Horizontal scrollable filter pills (e.g. Lahat / Baliwag / Plaridel).
  * The active pill is filled green; the rest are outlined.
  */
-export function FilterChips<T extends string>({ options, value, onChange }: FilterChipsProps<T>) {
+export function FilterChips<T extends string>({
+  options,
+  value,
+  onChange,
+  inset = true,
+}: FilterChipsProps<T>) {
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.row}>
+      contentContainerStyle={[styles.row, !inset && styles.rowFlush]}>
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -29,7 +40,7 @@ export function FilterChips<T extends string>({ options, value, onChange }: Filt
             onPress={() => onChange(option.value)}
             style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}>
             <AnimoText
-              variant="bodyEmphasis"
+              variant="body"
               color={active ? AnimoColors.white : AnimoColors.blackSecondary}>
               {option.label}
             </AnimoText>
@@ -43,7 +54,10 @@ export function FilterChips<T extends string>({ options, value, onChange }: Filt
 const styles = StyleSheet.create({
   row: {
     gap: AnimoSpacing.sm,
-    paddingHorizontal: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
+  },
+  rowFlush: {
+    paddingHorizontal: 0,
   },
   chip: {
     paddingHorizontal: AnimoSpacing.lg,

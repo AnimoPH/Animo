@@ -1,34 +1,96 @@
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { MapPin, Scale, Sprout, TriangleAlert } from 'lucide-react-native';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Droplets, ImageIcon, Scale, ShieldCheck, Sprout } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { ListingImage } from '@/components/animo/listing-image';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { SpecBox } from '@/components/animo/spec-box';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import { formatPeso, getListing } from '@/constants/marketplace';
+import { formatPeso } from '@/constants/marketplace';
+import { fetchListingPhotos } from '@/services/crop-listing-service';
+import { fetchMarketplaceListing } from '@/services/marketplace-service';
+import {
+  moistureLabel,
+  purityLabel,
+  varietyLabel,
+  type CropListing,
+  type ListingPhoto,
+} from '@/types/crop-listing';
 
-/** Detalye ng Listing — full detail for one palay listing. */
+/**
+ * Detalye ng Listing — one real `croplisting` row for a buyer.
+ *
+ * There is no location section: `farmer.barangay` / `farm.location` are behind
+ * owner-only RLS, so a buyer has no readable source for it.
+ */
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const listing = getListing(id);
+  const [listing, setListing] = useState<CropListing | null>(null);
+  const [photos, setPhotos] = useState<ListingPhoto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
-  if (!listing) {
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setErrorMessage(undefined);
+    fetchMarketplaceListing(id)
+      .then(async (result) => {
+        if (cancelled) return;
+        setListing(result);
+        if (!result) return;
+        // Photos are a display nicety — a failure here shouldn't blank out an
+        // otherwise-successful listing fetch.
+        try {
+          const listingPhotos = await fetchListingPhotos(result.id);
+          if (!cancelled) setPhotos(listingPhotos);
+        } catch {
+          // Falls back to the placeholder icon.
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setErrorMessage(err instanceof Error ? err.message : 'Hindi ma-load ang listing.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <ScreenHeader title="Detalye ng Listing" />
-        <View style={styles.missing}>
-          <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            Hindi nahanap ang listing na ito.
+        <View style={styles.centerState}>
+          <ActivityIndicator color={AnimoColors.accentPrimary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (errorMessage || !listing) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <ScreenHeader title="Detalye ng Listing" />
+        <View style={styles.centerState}>
+          <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.centerText}>
+            {errorMessage ?? 'Hindi nahanap ang listing na ito.'}
           </AnimoText>
         </View>
       </SafeAreaView>
     );
   }
+
+  const coverPhoto = photos[0];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -36,79 +98,68 @@ export default function ListingDetailScreen() {
       <ScreenHeader title="Detalye ng Listing" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <ListingImage height={200} borderRadius={AnimoRadius.lg} />
+        <View style={styles.photoArea}>
+          {coverPhoto ? (
+            <Image source={{ uri: coverPhoto.url }} style={styles.photoImage} contentFit="cover" />
+          ) : (
+            <ImageIcon size={40} color={AnimoColors.objectLowEmphasis} />
+          )}
+        </View>
 
         {/* Summary card */}
         <View style={styles.card}>
-          <View style={styles.titleRow}>
-            <AnimoText variant="h2" color={AnimoColors.green} style={styles.flex}>
-              {listing.variety}
-            </AnimoText>
-          </View>
-          <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            {listing.availableKg} kg na available
+          <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
+            {varietyLabel(listing)}
+          </AnimoText>
+          <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+            {listing.remainingQuantityKg} kg na available
           </AnimoText>
 
-          {/* Price sub-card */}
           <View style={styles.priceCard}>
             <View style={styles.priceRow}>
-              <AnimoText variant="price" color={AnimoColors.green}>
-                {formatPeso(listing.pricePerKg)}
+              <AnimoText variant="price" color={AnimoColors.accentPrimary}>
+                {formatPeso(listing.pricePerKg ?? 0)}
               </AnimoText>
-              <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+              <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
                 {' '}
                 bawat kilo
               </AnimoText>
             </View>
-            <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+            <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
               Nakatakda ang presyo ng sistema — hindi na ito maaaring tawaran.
             </AnimoText>
           </View>
 
-          {listing.estimated && (
-            <View style={styles.estimateCard}>
-              <View style={styles.estimateHeader}>
-                <TriangleAlert size={18} color="#B4791A" />
-                <AnimoText variant="bodyEmphasis" color="#B4791A">
-                  Tinantyang Presyo
-                </AnimoText>
-              </View>
-              <AnimoText variant="body" color="#8A6A1E">
-                Pansamantalang hindi maabot ang live na datos ng presyo. Tinantya ang halaga batay
-                sa huling naitalang presyo ng palay.
-              </AnimoText>
-            </View>
-          )}
+          <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+            Pinakamaliit na order: {listing.minimumRequestKg} kg
+          </AnimoText>
         </View>
 
-        {/* Palay Information (Only Uri ng palay & Aktwal na timbang) */}
         <View style={styles.section}>
-          <AnimoText variant="h2" color={AnimoColors.black}>
+          <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
             Impormasyon ng Palay
           </AnimoText>
           <View style={styles.specGrid}>
             <SpecBox
-              icon={<Sprout size={14} color={AnimoColors.blackSecondary} />}
+              icon={<Sprout size={14} color={AnimoColors.textMediumEmphasis} />}
               label="Uri ng palay"
-              value={listing.variety.replace('Palay ', '')}
+              value={varietyLabel(listing)}
             />
             <SpecBox
-              icon={<Scale size={14} color={AnimoColors.blackSecondary} />}
+              icon={<Scale size={14} color={AnimoColors.textMediumEmphasis} />}
               label="Aktwal na timbang"
-              value={`${listing.availableKg} kg`}
+              value={`${listing.netWeightKg} kg`}
             />
-          </View>
-
-          <View style={styles.locationRow}>
-            <MapPin size={20} color={AnimoColors.green} />
-            <View style={styles.flex}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                Bukid sa {listing.municipality}, {listing.province}
-              </AnimoText>
-              <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                {listing.barangay}, {listing.municipality}
-              </AnimoText>
-            </View>
+            <SpecBox
+              icon={<Droplets size={14} color={AnimoColors.textMediumEmphasis} />}
+              label="Moisture"
+              value={moistureLabel(listing.declaredMoisture)}
+            />
+            <SpecBox
+              icon={<ShieldCheck size={14} color={AnimoColors.textMediumEmphasis} />}
+              label="Kalidad"
+              value={purityLabel(listing.declaredPurityGrade)}
+            />
           </View>
         </View>
       </ScrollView>
@@ -116,7 +167,9 @@ export default function ListingDetailScreen() {
       <View style={styles.footer}>
         <AnimoButton
           label="Bumili"
-          onPress={() => router.push({ pathname: '/(buyer)/palengke/bid', params: { id: listing.id } })}
+          onPress={() =>
+            router.push({ pathname: '/(buyer)/palengke/bid', params: { id: listing.id } })
+          }
         />
       </View>
     </SafeAreaView>
@@ -126,31 +179,41 @@ export default function ListingDetailScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: AnimoColors.background,
+    backgroundColor: AnimoColors.appBackground,
   },
-  flex: {
-    flex: 1,
-  },
-  missing: {
+  centerState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: AnimoSpacing.xl,
+  },
+  centerText: {
+    textAlign: 'center',
   },
   content: {
     paddingHorizontal: AnimoSpacing.xl,
     paddingBottom: AnimoSpacing.xl,
     gap: AnimoSpacing.lg,
   },
+  photoArea: {
+    width: '100%',
+    height: 200,
+    borderRadius: AnimoRadius.lg,
+    backgroundColor: AnimoColors.surfaceTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  photoImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
   card: {
     borderWidth: 1,
     borderColor: AnimoColors.border,
     borderRadius: AnimoRadius.lg,
+    backgroundColor: AnimoColors.surfacePrimary,
     padding: AnimoSpacing.lg,
     gap: AnimoSpacing.md,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   priceCard: {
     borderWidth: 1,
@@ -163,17 +226,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
   },
-  estimateCard: {
-    backgroundColor: '#FBF0D9',
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.md,
-    gap: 6,
-  },
-  estimateHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.sm,
-  },
   section: {
     gap: AnimoSpacing.md,
   },
@@ -181,12 +233,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: AnimoSpacing.md,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: AnimoSpacing.sm,
-    marginTop: AnimoSpacing.xs,
   },
   footer: {
     paddingHorizontal: AnimoSpacing.xl,
