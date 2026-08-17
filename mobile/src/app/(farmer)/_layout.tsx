@@ -11,6 +11,7 @@ export default function FarmerStackLayout() {
         contentStyle: { backgroundColor: AnimoColors.appBackground },
       }}>
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="account-information" options={{ headerShown: true }} />
       <Stack.Screen name="advisory" />
       <Stack.Screen name="creation-listing" />
       <Stack.Screen name="listing-detail" />
