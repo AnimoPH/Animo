@@ -1,6 +1,17 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronRight, ReceiptText, ShoppingBag } from 'lucide-react-native';
+import {
+  Award,
+  ChevronRight,
+  Flame,
+  MapPin,
+  ReceiptText,
+  ShoppingBag,
+  Star,
+  Store,
+  TrendingUp,
+} from 'lucide-react-native';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,10 +20,23 @@ import { AppHeader } from '@/components/animo/app-header';
 import { ListingCard } from '@/components/animo/listing-card';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { LISTINGS } from '@/constants/marketplace';
+import {
+  fetchMarketPopularityInsights,
+  fetchTopRankedFarmers,
+  type MarketPopularityInsight,
+  type RankedFarmer,
+} from '@/services/farmer-public-profile';
 
-/** Tahanan — buyer home: welcome, quick actions, and featured listings. */
+/** Tahanan — buyer home: welcome, market analytics, top ranked farmers, and recommendations. */
 export default function BuyerHomeScreen() {
   const featured = LISTINGS.slice(0, 2);
+  const [topFarmers, setTopFarmers] = useState<RankedFarmer[]>([]);
+  const [insights, setInsights] = useState<MarketPopularityInsight | null>(null);
+
+  useEffect(() => {
+    fetchTopRankedFarmers().then(setTopFarmers).catch(() => {});
+    fetchMarketPopularityInsights().then(setInsights).catch(() => {});
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -20,20 +44,65 @@ export default function BuyerHomeScreen() {
       <AppHeader />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Welcome Greeting */}
         <View style={styles.hero}>
           <AnimoText variant="display" color={AnimoColors.black}>
             Kumusta, Mamimili!
           </AnimoText>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            Maghanap ng de-kalidad na palay mula sa mga lokal na magsasaka sa patas na presyo.
+            Maghanap ng de-kalidad na palay mula sa mga nangungunang lokal na magsasaka sa patas na presyo.
           </AnimoText>
         </View>
 
+        {/* Market Insights & Popularity Card */}
+        {insights ? (
+          <View style={styles.insightCard}>
+            <View style={styles.insightHeaderRow}>
+              <View style={styles.insightTitleLeft}>
+                <Flame size={18} color="#D97706" />
+                <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+                  Patok sa Merkado Ngayong Buwan
+                </AnimoText>
+              </View>
+            </View>
+
+            <View style={styles.insightGrid}>
+              <View style={styles.insightBox}>
+                <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                  Pinakasikat na Uri
+                </AnimoText>
+                <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.insightValue}>
+                  {insights.topVariety}
+                </AnimoText>
+                <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
+                  {insights.topVarietyShare}
+                </AnimoText>
+              </View>
+
+              <View style={styles.insightBox}>
+                <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                  Average na Presyo
+                </AnimoText>
+                <AnimoText variant="h3" color={AnimoColors.accentPrimary} style={styles.insightValue}>
+                  ₱{insights.averagePricePerKg.toFixed(2)} / kg
+                </AnimoText>
+                <View style={styles.trendRow}>
+                  <TrendingUp size={12} color={AnimoColors.accentPrimary} />
+                  <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
+                    Matatag na presyo
+                  </AnimoText>
+                </View>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Quick Actions */}
         <View style={styles.actions}>
           <QuickAction
             icon={<ShoppingBag size={22} color={AnimoColors.green} />}
-            label="Palengke"
-            hint="Tingnan ang mga listing"
+            label="Palengke at Direktoryo"
+            hint="Mag-browse ng palay at magsasaka"
             onPress={() => router.push('/(buyer)/palengke')}
           />
           <QuickAction
@@ -44,6 +113,76 @@ export default function BuyerHomeScreen() {
           />
         </View>
 
+        {/* Top Ranked Farmers Section */}
+        {topFarmers.length > 0 ? (
+          <View style={styles.farmersSection}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Award size={20} color={AnimoColors.accentPrimary} />
+                <AnimoText variant="h2" color={AnimoColors.black}>
+                  Nangungunang Magsasaka
+                </AnimoText>
+              </View>
+              <Pressable
+                onPress={() => router.push('/(buyer)/palengke')}
+                hitSlop={8}>
+                <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
+                  Lahat
+                </AnimoText>
+              </Pressable>
+            </View>
+
+            {/* Horizontal Farmer Cards Carousel */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.farmersCarousel}>
+              {topFarmers.map((farmer) => (
+                <Pressable
+                  key={farmer.farmerId}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Tingnan ang profile ni ${farmer.name}`}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(buyer)/palengke/magsasaka/[id]',
+                      params: { id: featured[0]?.id || '1' },
+                    })
+                  }
+                  style={styles.farmerCardItem}>
+                  <View style={styles.farmerCardAvatar}>
+                    <Store size={26} color={AnimoColors.accentPrimary} />
+                  </View>
+
+                  <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.farmerCardName} numberOfLines={1}>
+                    {farmer.name}
+                  </AnimoText>
+
+                  <View style={styles.farmerCardLoc}>
+                    <MapPin size={12} color={AnimoColors.textMediumEmphasis} />
+                    <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} numberOfLines={1}>
+                      {farmer.location}
+                    </AnimoText>
+                  </View>
+
+                  {/* Volume and Rating numbers row */}
+                  <View style={styles.farmerCardStats}>
+                    <View style={styles.farmerRatingPill}>
+                      <Star size={12} color="#F59E0B" fill="#F59E0B" />
+                      <AnimoText variant="caption" color={AnimoColors.textHighEmphasis} style={styles.farmerRatingBold}>
+                        {farmer.averageRating}
+                      </AnimoText>
+                    </View>
+                    <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                      {(farmer.totalSoldKg / 1000).toFixed(1)}k kg
+                    </AnimoText>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+
+        {/* Featured Listings Section */}
         <View style={styles.sectionHeader}>
           <AnimoText variant="h2" color={AnimoColors.black}>
             Mga Rekomendasyon
@@ -116,6 +255,55 @@ const styles = StyleSheet.create({
   hero: {
     gap: AnimoSpacing.sm,
   },
+  insightCard: {
+    backgroundColor: AnimoColors.white,
+    borderRadius: AnimoRadius.lg,
+    padding: AnimoSpacing.lg,
+    borderWidth: 1,
+    borderColor: AnimoColors.border,
+    gap: AnimoSpacing.md,
+  },
+  insightHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  insightTitleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  livePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: AnimoColors.accentPrimaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: AnimoRadius.pill,
+  },
+  insightGrid: {
+    flexDirection: 'row',
+    gap: AnimoSpacing.md,
+  },
+  insightBox: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+    borderRadius: AnimoRadius.md,
+    padding: AnimoSpacing.md,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 2,
+  },
+  insightValue: {
+    fontSize: 17,
+    fontFamily: 'PlusJakartaSans_700Bold',
+  },
+  trendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
   actions: {
     gap: AnimoSpacing.md,
   },
@@ -127,6 +315,7 @@ const styles = StyleSheet.create({
     borderColor: AnimoColors.border,
     borderRadius: AnimoRadius.lg,
     padding: AnimoSpacing.lg,
+    backgroundColor: AnimoColors.white,
   },
   pressed: {
     opacity: 0.95,
@@ -139,10 +328,74 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  farmersSection: {
+    gap: AnimoSpacing.md,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  farmersCarousel: {
+    gap: AnimoSpacing.md,
+    paddingRight: AnimoSpacing.md,
+  },
+  farmerCardItem: {
+    width: 170,
+    backgroundColor: AnimoColors.white,
+    borderRadius: AnimoRadius.lg,
+    borderWidth: 1,
+    borderColor: AnimoColors.border,
+    padding: AnimoSpacing.md,
+    alignItems: 'center',
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  farmerCardAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: AnimoColors.accentPrimaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 2,
+  },
+  farmerCardName: {
+    fontSize: 15.5,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    textAlign: 'center',
+  },
+  farmerCardLoc: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  farmerCardStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 4,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  farmerRatingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  farmerRatingBold: {
+    fontFamily: 'PlusJakartaSans_700Bold',
   },
   featured: {
     gap: AnimoSpacing.lg,

@@ -9,7 +9,6 @@ import {
   AnimoColors,
   AnimoType,
   AnimoSpacing,
-  AnimoRadius,
 } from "@/constants/animo";
 import { AnimoButton } from "@/components/animo/animo-button";
 import { formatPeso } from "@/constants/marketplace";

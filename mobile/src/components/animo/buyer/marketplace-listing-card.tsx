@@ -89,6 +89,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: AnimoColors.surfacePrimary,
     borderRadius: AnimoRadius.lg,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
     marginBottom: AnimoSpacing.md,
     overflow: 'hidden',
   },
