@@ -22,7 +22,12 @@ import {
  * regardless of what the client sends.
  */
 
-type CropListingRow = {
+/**
+ * Exported (along with LISTING_COLUMNS/mapListing/requireAuthUserId) so the
+ * buyer read path in `marketplace-service.ts` reads the same columns through
+ * the same mapper — two mappers over one table drift apart.
+ */
+export type CropListingRow = {
   listing_id: string;
   date_listed: string;
   declared_variety: DeclaredVariety;
@@ -33,14 +38,15 @@ type CropListingRow = {
   tare_weight_kg: number;
   net_weight_kg: number;
   remaining_quantity_kg: number;
+  minimum_request_kg: number;
   computed_price_per_kg: number | null;
   status: ListingStatus;
 };
 
-const LISTING_COLUMNS =
-  'listing_id, date_listed, declared_variety, declared_variety_custom, declared_moisture, declared_purity_grade, gross_weight_kg, tare_weight_kg, net_weight_kg, remaining_quantity_kg, computed_price_per_kg, status' as const;
+export const LISTING_COLUMNS =
+  'listing_id, date_listed, declared_variety, declared_variety_custom, declared_moisture, declared_purity_grade, gross_weight_kg, tare_weight_kg, net_weight_kg, remaining_quantity_kg, minimum_request_kg, computed_price_per_kg, status' as const;
 
-function mapListing(row: CropListingRow): CropListing {
+export function mapListing(row: CropListingRow): CropListing {
   return {
     id: row.listing_id,
     dateListed: row.date_listed,
@@ -52,12 +58,13 @@ function mapListing(row: CropListingRow): CropListing {
     tareWeightKg: Number(row.tare_weight_kg),
     netWeightKg: Number(row.net_weight_kg),
     remainingQuantityKg: Number(row.remaining_quantity_kg),
+    minimumRequestKg: Number(row.minimum_request_kg),
     pricePerKg: row.computed_price_per_kg === null ? null : Number(row.computed_price_per_kg),
     status: row.status,
   };
 }
 
-async function requireAuthUserId(): Promise<string> {
+export async function requireAuthUserId(): Promise<string> {
   const { data } = await supabase.auth.getUser();
   const authUser = data.user;
   if (!authUser) throw new Error('Kailangan mag-login muli.');

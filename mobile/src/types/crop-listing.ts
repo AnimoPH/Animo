@@ -69,6 +69,8 @@ export type CropListing = {
   tareWeightKg: number;
   netWeightKg: number;
   remainingQuantityKg: number;
+  /** Smallest quantity a buyer may request off this listing (DB default 50 kg). */
+  minimumRequestKg: number;
   /** Null only if the pricing trigger had no MARKETPRICEFEED row to read (see migration 0007). */
   pricePerKg: number | null;
   status: ListingStatus;

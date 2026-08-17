@@ -65,21 +65,21 @@ const STATS: StatDefinition[] = [
     icon: ListChecks,
     value: 2,
     label: "Aktibong Listahan",
-    onPress: () => router.push("/(farmer)/palengke"),
+    onPress: () => router.push("/(farmer)/(tabs)/palengke"),
   },
   {
     key: "requests",
     icon: ShoppingCart,
     value: 5,
     label: "Bagong Kahilingan",
-    onPress: () => router.push("/(farmer)/transaksyon"),
+    onPress: () => router.push("/(farmer)/(tabs)/transaksyon"),
   },
   {
     key: "transactions",
     icon: Clock,
     value: 3,
     label: "Nakabinbing Transaksyon",
-    onPress: () => router.push("/(farmer)/transaksyon"),
+    onPress: () => router.push("/(farmer)/(tabs)/transaksyon"),
   },
 ];
 
@@ -114,7 +114,7 @@ export default function FarmerHomeScreen() {
           ))}
         </View>
 
-        <CtaBanner onPress={() => router.push("/(farmer)/palengke")} />
+        <CtaBanner onPress={() => router.push("/(farmer)/(tabs)/palengke")} />
 
         <View style={styles.activitySection}>
           <View style={styles.activityHeader}>
