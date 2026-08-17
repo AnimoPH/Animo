@@ -86,7 +86,7 @@ export function LabeledInput({
       {hint ? (
         <AnimoText
           variant="caption"
-          color={hintTone === "danger" ? AnimoColors.danger : AnimoColors.muted}
+          color={getHintColor()}
           style={styles.hint}
         >
           {hint}
@@ -103,10 +103,12 @@ const styles = StyleSheet.create({
   field: {
     flexDirection: "row",
     alignItems: "center",
+    minHeight: 52,
     borderRadius: AnimoRadius.md,
     borderWidth: 1,
     borderColor: AnimoColors.border,
     backgroundColor: AnimoColors.white,
+    paddingHorizontal: AnimoSpacing.md,
     overflow: "hidden",
   },
   fieldFocused: {
@@ -117,20 +119,22 @@ const styles = StyleSheet.create({
     borderColor: AnimoColors.danger,
   },
   prefix: {
-    paddingLeft: AnimoSpacing.lg,
+    paddingRight: AnimoSpacing.xs,
   },
   input: {
     flex: 1,
-    height: "100%",
-    paddingHorizontal: AnimoSpacing.lg,
+    minHeight: 50,
+    paddingVertical: AnimoSpacing.sm,
+    paddingHorizontal: AnimoSpacing.xs,
     color: AnimoColors.black,
     fontSize: AnimoType.body.fontSize,
     fontFamily: AnimoType.body.fontFamily,
   },
   suffix: {
-    paddingRight: AnimoSpacing.lg,
+    paddingLeft: AnimoSpacing.xs,
   },
   hint: {
     fontStyle: "italic",
+    marginTop: 2,
   },
 });

@@ -1,7 +1,6 @@
 import { Check, User, X } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';

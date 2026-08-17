@@ -1,15 +1,22 @@
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { SlidersHorizontal } from 'lucide-react-native';
+import { Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
 import { MarketplaceListingCard } from '@/components/animo/buyer/marketplace-listing-card';
-import { FilterChips } from '@/components/animo/filter-chips';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { fetchCoverPhotos } from '@/services/crop-listing-service';
@@ -17,6 +24,7 @@ import { fetchMarketplaceListings } from '@/services/marketplace-service';
 import {
   MOISTURE_OPTIONS,
   VARIETY_OPTIONS,
+  varietyLabel,
   type DeclaredVariety,
   type MoistureType,
 } from '@/types/crop-listing';
@@ -46,15 +54,13 @@ function parseNumber(text: string): number | undefined {
 /**
  * Palengke — the buyer's marketplace, fetched live from `croplisting`.
  *
- * Quantity and price are hard filters applied in the query; variety and
- * moisture are WPM ranking preferences, so choosing one re-orders the list
- * rather than shrinking it (see `marketplace-service.ts`). There is no location
- * filter: no listing/farmer location column is readable by a buyer under RLS.
+ * Includes search bar and filter icon side-by-side, plus a floating filter modal.
  */
 export default function MarketplaceScreen() {
-  // Draft controls, committed to `filters` by "Ilapat" so the list doesn't
-  // refetch on every keystroke.
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Draft filter state (committed when user taps "Ilapat" in modal)
   const [quantityText, setQuantityText] = useState('');
   const [minPriceText, setMinPriceText] = useState('');
   const [maxPriceText, setMaxPriceText] = useState('');
@@ -68,8 +74,6 @@ export default function MarketplaceScreen() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
-  // Guards against overlapping fetches (a focus event racing an "Ilapat")
-  // applying out of order — only the newest request may update state.
   const latestRequestId = useRef(0);
 
   const load = useCallback(async () => {
@@ -80,8 +84,6 @@ export default function MarketplaceScreen() {
       if (latestRequestId.current !== requestId) return;
       setRanked(result);
 
-      // Cover photos are a display nicety — a failure here must not blank an
-      // otherwise-successful fetch, so it gets its own try/catch.
       try {
         const photos = await fetchCoverPhotos(result.map((item) => item.listing.id));
         if (latestRequestId.current === requestId) setCoverPhotos(photos);
@@ -99,8 +101,6 @@ export default function MarketplaceScreen() {
     }
   }, [filters]);
 
-  // Refetch on focus so a listing that sold out while the buyer was elsewhere
-  // drops off the list.
   useFocusEffect(
     useCallback(() => {
       load();
@@ -116,6 +116,18 @@ export default function MarketplaceScreen() {
       variety: variety === 'Lahat' ? undefined : variety,
       moisture: moisture === 'Lahat' ? undefined : moisture,
     });
+    setModalOpen(false);
+  };
+
+  const resetFilters = () => {
+    setQuantityText('');
+    setMinPriceText('');
+    setMaxPriceText('');
+    setVariety('Lahat');
+    setMoisture('Lahat');
+    setLoading(true);
+    setFilters({});
+    setModalOpen(false);
   };
 
   const activeFilterCount = useMemo(
@@ -130,91 +142,225 @@ export default function MarketplaceScreen() {
     [filters],
   );
 
+  // Filter listings by search query (variety label, custom variety, etc.)
+  const displayedListings = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return ranked;
+
+    return ranked.filter((item) => {
+      const vLabel = varietyLabel(item.listing).toLowerCase();
+      const rawVariety = item.listing.declaredVariety.toLowerCase();
+      const custom = item.listing.declaredVarietyCustom?.toLowerCase() || '';
+      return (
+        vLabel.includes(query) ||
+        rawVariety.includes(query) ||
+        custom.includes(query)
+      );
+    });
+  }, [ranked, searchQuery]);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
       <AppHeader />
 
-      <View style={styles.filterBar}>
+      {/* Top Search Bar & Filter Icon Side-by-Side */}
+      <View style={styles.searchFilterRow}>
+        <View style={styles.searchBar}>
+          <Search size={18} color={AnimoColors.objectMediumEmphasis} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Maghanap ng palay, uri..."
+            placeholderTextColor={AnimoColors.textLowEmphasis}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 ? (
+            <Pressable
+              onPress={() => setSearchQuery('')}
+              hitSlop={8}
+              style={styles.clearSearchBtn}>
+              <X size={16} color={AnimoColors.objectLowEmphasis} />
+            </Pressable>
+          ) : null}
+        </View>
+
         <Pressable
           accessibilityRole="button"
-          onPress={() => setPanelOpen((open) => !open)}
-          style={styles.filterToggle}>
-          <SlidersHorizontal size={16} color={AnimoColors.accentPrimary} />
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.accentPrimary}>
-            {activeFilterCount > 0 ? `Mga Filter (${activeFilterCount})` : 'Mga Filter'}
-          </AnimoText>
+          onPress={() => setModalOpen(true)}
+          style={[
+            styles.filterIconButton,
+            activeFilterCount > 0 && styles.filterIconButtonActive,
+          ]}>
+          <SlidersHorizontal
+            size={18}
+            color={activeFilterCount > 0 ? AnimoColors.white : AnimoColors.accentPrimary}
+          />
+          {activeFilterCount > 0 ? (
+            <View style={styles.filterBadge}>
+              <AnimoText variant="tag" color={AnimoColors.white} style={styles.filterBadgeText}>
+                {activeFilterCount}
+              </AnimoText>
+            </View>
+          ) : null}
         </Pressable>
       </View>
 
-      {panelOpen ? (
-        <View style={styles.panel}>
-          <LabeledInput
-            label="Gustong dami"
-            hint="Itatago ang mga listing na hindi kayang punan ang dami na ito."
-            keyboardType="numeric"
-            suffixText="kg"
-            placeholder="Halimbawa: 100"
-            value={quantityText}
-            onChangeText={setQuantityText}
-          />
+      {/* Floating Filter Window / Modal */}
+      <Modal
+        visible={modalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setModalOpen(false)}>
+          <Pressable style={styles.floatingWindow} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderTitleRow}>
+                <SlidersHorizontal size={20} color={AnimoColors.accentPrimary} />
+                <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
+                  Mga Filter
+                </AnimoText>
+                {activeFilterCount > 0 ? (
+                  <View style={styles.modalActiveBadge}>
+                    <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
+                      {activeFilterCount} aktibo
+                    </AnimoText>
+                  </View>
+                ) : null}
+              </View>
 
-          <View style={styles.priceRow}>
-            <View style={styles.priceField}>
-              <LabeledInput
-                label="Pinakamurang presyo"
-                keyboardType="numeric"
-                prefixText="₱"
-                placeholder="0"
-                value={minPriceText}
-                onChangeText={setMinPriceText}
-              />
+              <Pressable
+                onPress={() => setModalOpen(false)}
+                hitSlop={10}
+                style={styles.closeBtn}>
+                <X size={20} color={AnimoColors.objectMediumEmphasis} />
+              </Pressable>
             </View>
-            <View style={styles.priceField}>
-              <LabeledInput
-                label="Pinakamahal na presyo"
-                keyboardType="numeric"
-                prefixText="₱"
-                placeholder="0"
-                value={maxPriceText}
-                onChangeText={setMaxPriceText}
-              />
+
+            <ScrollView
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}>
+              {/* Desired quantity */}
+              <View style={styles.inputCard}>
+                <LabeledInput
+                  label="Gustong Dami"
+                  hint="Itatago ang mga listing na hindi kayang punan ang dami na ito."
+                  keyboardType="numeric"
+                  suffixText="kg"
+                  placeholder="Halimbawa: 100"
+                  value={quantityText}
+                  onChangeText={setQuantityText}
+                />
+              </View>
+
+              {/* Price range */}
+              <View style={styles.inputCard}>
+                <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+                  Presyo bawat Kilo (₱)
+                </AnimoText>
+                <View style={styles.priceRow}>
+                  <View style={styles.priceField}>
+                    <LabeledInput
+                      label="Pinakamurang presyo"
+                      keyboardType="numeric"
+                      prefixText="₱"
+                      placeholder="0"
+                      value={minPriceText}
+                      onChangeText={setMinPriceText}
+                    />
+                  </View>
+                  <View style={styles.priceField}>
+                    <LabeledInput
+                      label="Pinakamahal na presyo"
+                      keyboardType="numeric"
+                      prefixText="₱"
+                      placeholder="0"
+                      value={maxPriceText}
+                      onChangeText={setMaxPriceText}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Variety selection (all displayed, no slider) */}
+              <View style={styles.inputCard}>
+                <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+                  Uri ng Palay
+                </AnimoText>
+                <View style={styles.chipsWrapContainer}>
+                  {VARIETY_CHOICES.map((choice) => {
+                    const active = variety === choice.value;
+                    return (
+                      <Pressable
+                        key={choice.value}
+                        onPress={() => setVariety(choice.value)}
+                        style={[styles.chipItem, active && styles.chipItemActive]}>
+                        <AnimoText
+                          variant="body"
+                          color={active ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
+                          style={active && styles.chipTextActive}>
+                          {choice.label}
+                        </AnimoText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Moisture selection (all displayed, no slider) */}
+              <View style={styles.inputCard}>
+                <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+                  Moisture
+                </AnimoText>
+                <View style={styles.chipsWrapContainer}>
+                  {MOISTURE_CHOICES.map((choice) => {
+                    const active = moisture === choice.value;
+                    return (
+                      <Pressable
+                        key={choice.value}
+                        onPress={() => setMoisture(choice.value)}
+                        style={[styles.chipItem, active && styles.chipItemActive]}>
+                        <AnimoText
+                          variant="body"
+                          color={active ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
+                          style={active && styles.chipTextActive}>
+                          {choice.label}
+                        </AnimoText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+                Ang uri at moisture ay pang-ranggo lang — mas mataas ang tugma, ngunit
+                hindi nawawala ang iba pang resulta.
+              </AnimoText>
+            </ScrollView>
+
+            {/* Modal actions: Equal width Reset (with grey outline) & Apply */}
+            <View style={styles.modalFooter}>
+              <Pressable
+                onPress={resetFilters}
+                style={styles.resetButton}>
+                <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
+                  I-reset
+                </AnimoText>
+              </Pressable>
+              <Pressable
+                onPress={applyFilters}
+                style={styles.applyButton}>
+                <AnimoText variant="button" color={AnimoColors.white}>
+                  Ilapat ang Filter
+                </AnimoText>
+              </Pressable>
             </View>
-          </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
-          <View style={styles.chipGroup}>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-              Uri ng palay
-            </AnimoText>
-            <FilterChips
-              options={VARIETY_CHOICES}
-              value={variety}
-              onChange={setVariety}
-              inset={false}
-            />
-          </View>
-
-          <View style={styles.chipGroup}>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-              Moisture
-            </AnimoText>
-            <FilterChips
-              options={MOISTURE_CHOICES}
-              value={moisture}
-              onChange={setMoisture}
-              inset={false}
-            />
-          </View>
-
-          <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-            Ang uri at moisture ay pang-ranggo lang — mas mataas ang tugma, pero hindi
-            nawawala ang iba.
-          </AnimoText>
-
-          <AnimoButton label="Ilapat" onPress={applyFilters} />
-        </View>
-      ) : null}
-
+      {/* Listings List */}
       <View style={styles.listContainer}>
         {loading ? (
           <View style={styles.centerState}>
@@ -231,20 +377,22 @@ export default function MarketplaceScreen() {
               </AnimoText>
             </Pressable>
           </View>
-        ) : ranked.length === 0 ? (
+        ) : displayedListings.length === 0 ? (
           <View style={styles.centerState}>
             <AnimoText
               variant="body"
               color={AnimoColors.textMediumEmphasis}
               style={styles.centerText}>
-              {activeFilterCount > 0
-                ? 'Walang listing na tumutugma sa hinahanap mo.'
-                : 'Wala pang available na listing ng palay.'}
+              {searchQuery.trim().length > 0
+                ? `Walang nakitang listing para sa "${searchQuery}".`
+                : activeFilterCount > 0
+                  ? 'Walang listing na tumutugma sa mga napiling filter.'
+                  : 'Wala pang available na listing ng palay.'}
             </AnimoText>
           </View>
         ) : (
           <FlatList
-            data={ranked}
+            data={displayedListings}
             keyExtractor={(item) => item.listing.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
@@ -267,31 +415,141 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AnimoColors.appBackground,
   },
-  filterBar: {
-    flexDirection: 'row',
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.md,
-  },
-  filterToggle: {
+  searchFilterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: AnimoSpacing.sm,
     paddingHorizontal: AnimoSpacing.lg,
     paddingVertical: AnimoSpacing.sm,
-    borderRadius: AnimoRadius.pill,
+    gap: AnimoSpacing.sm,
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    borderRadius: AnimoRadius.md,
+    paddingHorizontal: AnimoSpacing.md,
+    height: 50,
+  },
+  searchIcon: {
+    marginRight: AnimoSpacing.xs,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 15,
+    fontFamily: 'PlusJakartaSans_400Regular',
+    color: AnimoColors.textHighEmphasis,
+    paddingVertical: 0,
+  },
+  clearSearchBtn: {
+    padding: 4,
+  },
+  filterIconButton: {
+    width: 50,
+    height: 50,
+    borderRadius: AnimoRadius.md,
     borderWidth: 1,
     borderColor: AnimoColors.accentPrimary,
     backgroundColor: AnimoColors.surfacePrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
-  panel: {
-    marginHorizontal: AnimoSpacing.lg,
-    marginBottom: AnimoSpacing.md,
+  filterIconButtonActive: {
+    backgroundColor: AnimoColors.accentPrimary,
+    borderColor: AnimoColors.accentPrimary,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: AnimoColors.caution,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  filterBadgeText: {
+    fontSize: 10,
+    lineHeight: 12,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: AnimoSpacing.lg,
-    borderRadius: AnimoRadius.lg,
+  },
+  floatingWindow: {
+    width: '100%',
+    maxHeight: '85%',
     backgroundColor: AnimoColors.surfacePrimary,
+    borderRadius: AnimoRadius.lg,
+    overflow: 'hidden',
+    shadowColor: AnimoColors.darkBackground,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingTop: AnimoSpacing.lg,
+    paddingBottom: AnimoSpacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: AnimoColors.borderLowEmphasis,
+  },
+  modalHeaderTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AnimoSpacing.xs,
+  },
+  modalActiveBadge: {
+    backgroundColor: AnimoColors.accentPrimaryLight,
+    paddingHorizontal: AnimoSpacing.sm,
+    paddingVertical: 2,
+    borderRadius: AnimoRadius.pill,
+    marginLeft: AnimoSpacing.xs,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  modalScrollContent: {
+    padding: AnimoSpacing.lg,
+    gap: AnimoSpacing.lg,
+  },
+  inputCard: {
+    gap: AnimoSpacing.sm,
+  },
+  chipsWrapContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: AnimoSpacing.sm,
+    marginTop: 2,
+  },
+  chipItem: {
+    paddingHorizontal: AnimoSpacing.md,
+    paddingVertical: 10,
+    borderRadius: AnimoRadius.pill,
     borderWidth: 1,
-    borderColor: AnimoColors.border,
-    gap: AnimoSpacing.md,
+    borderColor: AnimoColors.borderLowEmphasis,
+    backgroundColor: AnimoColors.surfacePrimary,
+  },
+  chipItemActive: {
+    borderColor: AnimoColors.accentPrimary,
+    backgroundColor: AnimoColors.accentPrimaryLight,
+  },
+  chipTextActive: {
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    color: AnimoColors.accentPrimary,
   },
   priceRow: {
     flexDirection: 'row',
@@ -300,15 +558,41 @@ const styles = StyleSheet.create({
   priceField: {
     flex: 1,
   },
-  chipGroup: {
-    gap: AnimoSpacing.sm,
+  modalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingVertical: AnimoSpacing.md,
+    borderTopWidth: 1,
+    borderTopColor: AnimoColors.borderLowEmphasis,
+    gap: AnimoSpacing.md,
+    backgroundColor: AnimoColors.surfaceSecondary,
+  },
+  resetButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: AnimoRadius.md,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    backgroundColor: AnimoColors.surfacePrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: AnimoRadius.md,
+    backgroundColor: AnimoColors.accentPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   listContainer: {
     flex: 1,
   },
   listContent: {
     paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.xs,
+    paddingTop: AnimoSpacing.sm,
     paddingBottom: AnimoSpacing.xxl,
   },
   centerState: {
@@ -322,3 +606,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+

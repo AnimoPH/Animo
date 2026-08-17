@@ -126,10 +126,10 @@ export default function BuyScreen() {
             <View style={styles.divider} />
 
             <View style={styles.rowBetween}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+              <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.rowLabel}>
                 Kabuuang halaga
               </AnimoText>
-              <AnimoText variant="price" color={AnimoColors.green}>
+              <AnimoText variant="price" color={AnimoColors.green} style={styles.rowValue}>
                 {formatPeso(total)}
               </AnimoText>
             </View>
@@ -226,8 +226,17 @@ const styles = StyleSheet.create({
   },
   rowBetween: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
+    gap: AnimoSpacing.sm,
+  },
+  rowLabel: {
+    flex: 1,
+    flexShrink: 1,
+  },
+  rowValue: {
+    textAlign: 'right',
+    flexShrink: 0,
   },
   divider: {
     height: 1,

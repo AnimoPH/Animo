@@ -194,7 +194,7 @@ export default function ReviewFarmerScreen() {
                   Itago ang aking pangalan
                 </AnimoText>
                 <AnimoText variant="caption" color={AnimoColors.muted}>
-                  Ipakikita bilang "Mamimili" sa review
+                  {'Ipakikita bilang "Mamimili" sa review'}
                 </AnimoText>
               </View>
               <Switch

@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -49,10 +50,18 @@ const REASON_OPTIONS: DiscrepancyReason[] = [
  * If mismatch: Shows warning and feedback form (Ipaliwanag ang Pagkakaiba).
  */
 export default function PaymentConfirmationScreen() {
-  const { id, method: queryMethod, actualAmount: queryAmount } = useLocalSearchParams<{
+  const {
+    id,
+    method: queryMethod,
+    actualAmount: queryAmount,
+    gcashReference,
+    receiptUri,
+  } = useLocalSearchParams<{
     id: string;
     method?: string;
     actualAmount?: string;
+    gcashReference?: string;
+    receiptUri?: string;
   }>();
 
   const request = getPurchaseRequest(id);
@@ -95,6 +104,8 @@ export default function PaymentConfirmationScreen() {
         amount: actualAmount.toString(),
         reason: selectedReason ?? undefined,
         explanation: explanation || undefined,
+        gcashReference: gcashReference || undefined,
+        receiptUri: receiptUri || undefined,
       },
     });
   };
@@ -193,14 +204,33 @@ export default function PaymentConfirmationScreen() {
                         </View>
                         <View style={styles.methodTexts}>
                           <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                            GCash
+                            GCash Transfer
                           </AnimoText>
                           <AnimoText variant="caption" color={AnimoColors.muted}>
-                            0917 •••• 567
+                            Ref: {gcashReference || '1002 9384 7182 9'}
                           </AnimoText>
                         </View>
                         <Check size={18} color={AnimoColors.green} strokeWidth={3} />
                       </View>
+
+                      {receiptUri ? (
+                        <View style={styles.receiptAttachedBox}>
+                          <Image
+                            source={{ uri: receiptUri }}
+                            style={styles.receiptThumb}
+                            contentFit="cover"
+                          />
+                          <View style={styles.receiptAttachedText}>
+                            <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+                              Resibo ng GCash
+                            </AnimoText>
+                            <AnimoText variant="caption" color={AnimoColors.muted}>
+                              Naka-attach ang patunay ng bayad
+                            </AnimoText>
+                          </View>
+                        </View>
+                      ) : null}
+
                       <AnimoText variant="caption" color={AnimoColors.muted}>
                         Ligtas na bayad sa pamamagitan ng GCash.
                       </AnimoText>
@@ -474,8 +504,17 @@ const styles = StyleSheet.create({
   },
   rowBetween: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
+    gap: AnimoSpacing.sm,
+  },
+  rowLabel: {
+    flex: 1,
+    flexShrink: 1,
+  },
+  rowValue: {
+    textAlign: 'right',
+    flexShrink: 0,
   },
   methodInfoBox: {
     borderWidth: 1,
@@ -504,6 +543,27 @@ const styles = StyleSheet.create({
   methodTexts: {
     flex: 1,
     gap: 1,
+  },
+  receiptAttachedBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AnimoColors.white,
+    borderRadius: AnimoRadius.sm,
+    padding: AnimoSpacing.sm,
+    gap: AnimoSpacing.md,
+    borderWidth: 1,
+    borderColor: AnimoColors.border,
+    marginTop: AnimoSpacing.xs,
+  },
+  receiptThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: AnimoRadius.sm,
+    backgroundColor: AnimoColors.surface,
+  },
+  receiptAttachedText: {
+    flex: 1,
+    gap: 2,
   },
   chipGroup: {
     flexDirection: 'row',

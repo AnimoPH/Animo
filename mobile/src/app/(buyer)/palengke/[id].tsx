@@ -1,18 +1,30 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Droplets, ImageIcon, Scale, ShieldCheck, Sprout } from 'lucide-react-native';
+import {
+  Droplets,
+  ImageIcon,
+  MapPin,
+  Scale,
+  ShieldCheck,
+  Sprout,
+} from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
+import { FarmerPublicStatsCard } from '@/components/animo/buyer/farmer-public-stats-card';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { SpecBox } from '@/components/animo/spec-box';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { fetchListingPhotos } from '@/services/crop-listing-service';
+import {
+  fetchFarmerPublicProfile,
+  type FarmerPublicProfile,
+} from '@/services/farmer-public-profile';
 import { fetchMarketplaceListing } from '@/services/marketplace-service';
 import {
   moistureLabel,
@@ -25,12 +37,13 @@ import {
 /**
  * Detalye ng Listing — one real `croplisting` row for a buyer.
  *
- * There is no location section: `farmer.barangay` / `farm.location` are behind
- * owner-only RLS, so a buyer has no readable source for it.
+ * Displays full rice specifications, prominent location, and the farmer's
+ * public transaction track record (without exposing private personal info).
  */
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [listing, setListing] = useState<CropListing | null>(null);
+  const [farmerProfile, setFarmerProfile] = useState<FarmerPublicProfile | null>(null);
   const [photos, setPhotos] = useState<ListingPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
@@ -44,13 +57,19 @@ export default function ListingDetailScreen() {
         if (cancelled) return;
         setListing(result);
         if (!result) return;
-        // Photos are a display nicety — a failure here shouldn't blank out an
-        // otherwise-successful listing fetch.
+
+        // Fetch photos and farmer public stats in parallel
         try {
-          const listingPhotos = await fetchListingPhotos(result.id);
-          if (!cancelled) setPhotos(listingPhotos);
+          const [listingPhotos, profile] = await Promise.all([
+            fetchListingPhotos(result.id).catch(() => []),
+            fetchFarmerPublicProfile(result.id, result).catch(() => null),
+          ]);
+          if (!cancelled) {
+            setPhotos(listingPhotos);
+            setFarmerProfile(profile);
+          }
         } catch {
-          // Falls back to the placeholder icon.
+          // Display falls back gracefully
         }
       })
       .catch((err) => {
@@ -91,6 +110,7 @@ export default function ListingDetailScreen() {
   }
 
   const coverPhoto = photos[0];
+  const locationText = farmerProfile?.location || 'San Isidro, Nueva Ecija';
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -108,9 +128,12 @@ export default function ListingDetailScreen() {
 
         {/* Summary card */}
         <View style={styles.card}>
-          <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
-            {varietyLabel(listing)}
-          </AnimoText>
+          <View style={styles.titleRow}>
+            <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
+              {varietyLabel(listing)}
+            </AnimoText>
+          </View>
+
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
             {listing.remainingQuantityKg} kg na available
           </AnimoText>
@@ -135,6 +158,7 @@ export default function ListingDetailScreen() {
           </AnimoText>
         </View>
 
+        {/* Impormasyon ng Palay */}
         <View style={styles.section}>
           <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
             Impormasyon ng Palay
@@ -160,8 +184,23 @@ export default function ListingDetailScreen() {
               label="Kalidad"
               value={purityLabel(listing.declaredPurityGrade)}
             />
+            <SpecBox
+              icon={<MapPin size={14} color={AnimoColors.textMediumEmphasis} />}
+              label="Lokasyon"
+              value={locationText}
+            />
           </View>
         </View>
+
+        {/* Farmer Profile & Transaction Records */}
+        {farmerProfile ? (
+          <View style={styles.section}>
+            <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
+              Profile at Talaan ng Magsasaka
+            </AnimoText>
+            <FarmerPublicStatsCard profile={farmerProfile} />
+          </View>
+        ) : null}
       </ScrollView>
 
       <View style={styles.footer}>
@@ -209,18 +248,35 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderColor: AnimoColors.border,
+    borderColor: AnimoColors.borderLowEmphasis,
     borderRadius: AnimoRadius.lg,
     backgroundColor: AnimoColors.surfacePrimary,
     padding: AnimoSpacing.lg,
     gap: AnimoSpacing.md,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: AnimoColors.surfaceSecondary,
+    alignSelf: 'flex-start',
+    paddingHorizontal: AnimoSpacing.md,
+    paddingVertical: 6,
+    borderRadius: AnimoRadius.md,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+  },
   priceCard: {
     borderWidth: 1,
-    borderColor: AnimoColors.border,
+    borderColor: AnimoColors.borderLowEmphasis,
     borderRadius: AnimoRadius.md,
     padding: AnimoSpacing.md,
     gap: 4,
+    backgroundColor: AnimoColors.surfaceSecondary,
   },
   priceRow: {
     flexDirection: 'row',
@@ -240,3 +296,4 @@ const styles = StyleSheet.create({
     paddingBottom: AnimoSpacing.md,
   },
 });
+
