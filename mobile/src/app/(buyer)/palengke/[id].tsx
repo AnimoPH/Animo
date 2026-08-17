@@ -10,6 +10,7 @@ import {
   Scale,
   ShieldCheck,
   Sprout,
+  Star,
   X,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
@@ -25,7 +26,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { FarmerPublicStatsCard } from '@/components/animo/buyer/farmer-public-stats-card';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { SpecBox } from '@/components/animo/spec-box';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
@@ -326,13 +326,60 @@ export default function ListingDetailScreen() {
           </View>
         </View>
 
-        {/* Farmer Profile & Transaction Records (with Large Reviews) */}
+        {/* Farmer Profile Summary Card (Clickable to view full details) */}
         {farmerProfile ? (
           <View style={styles.section}>
             <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-              Profile at Talaan ng Magsasaka
+              Profile ng Magsasaka
             </AnimoText>
-            <FarmerPublicStatsCard profile={farmerProfile} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tingnan ang buong profile ng magsasaka"
+              onPress={() =>
+                router.push({
+                  pathname: '/(buyer)/palengke/magsasaka/[id]',
+                  params: { id: listing.id },
+                })
+              }
+              style={styles.farmerCard}>
+              <View style={styles.farmerCardLeft}>
+                <View style={styles.farmerAvatar}>
+                  <AnimoText variant="bodyEmphasis" color={AnimoColors.accentPrimary}>
+                    {farmerProfile.name[0] || 'M'}
+                  </AnimoText>
+                </View>
+
+                <View style={styles.farmerDetails}>
+                  <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} numberOfLines={1}>
+                    {farmerProfile.name}
+                  </AnimoText>
+
+                  <View style={styles.farmerLocationRow}>
+                    <MapPin size={13} color={AnimoColors.accentPrimary} />
+                    <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                      {farmerProfile.location}
+                    </AnimoText>
+                  </View>
+
+                  <View style={styles.farmerRatingRow}>
+                    <Star size={13} color="#F59E0B" fill="#F59E0B" />
+                    <AnimoText variant="caption" color={AnimoColors.textHighEmphasis} style={styles.farmerRatingText}>
+                      {farmerProfile.averageRating}
+                    </AnimoText>
+                    <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+                      ({farmerProfile.totalReviews} review)
+                    </AnimoText>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.viewProfilePill}>
+                <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.viewProfilePillText}>
+                  Tingnan ang Profile
+                </AnimoText>
+                <ChevronRight size={16} color={AnimoColors.accentPrimary} />
+              </View>
+            </Pressable>
           </View>
         ) : null}
       </ScrollView>
@@ -644,6 +691,63 @@ const styles = StyleSheet.create({
   modalThumbImg: {
     width: '100%',
     height: '100%',
+  },
+  farmerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    borderRadius: AnimoRadius.lg,
+    padding: AnimoSpacing.lg,
+    gap: AnimoSpacing.md,
+  },
+  farmerCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AnimoSpacing.md,
+    flex: 1,
+  },
+  farmerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: AnimoColors.accentPrimaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: AnimoColors.accentPrimary,
+  },
+  farmerDetails: {
+    flex: 1,
+    gap: 3,
+  },
+  farmerLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  farmerRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 1,
+  },
+  farmerRatingText: {
+    fontFamily: 'PlusJakartaSans_700Bold',
+  },
+  viewProfilePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: AnimoColors.accentPrimaryLight,
+    paddingHorizontal: AnimoSpacing.md,
+    paddingVertical: 6,
+    borderRadius: AnimoRadius.pill,
+  },
+  viewProfilePillText: {
+    fontFamily: 'PlusJakartaSans_600SemiBold',
   },
 });
 
