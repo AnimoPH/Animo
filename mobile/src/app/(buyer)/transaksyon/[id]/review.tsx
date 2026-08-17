@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.xs,
   },
   textarea: {
-    fontSize: 14,
+    fontSize: 16,
     color: AnimoColors.black,
     minHeight: 90,
   },

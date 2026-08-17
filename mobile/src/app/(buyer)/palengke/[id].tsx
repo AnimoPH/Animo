@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.pill,
   },
   photoTagText: {
-    fontSize: 12,
+    fontSize: 13.5,
     fontFamily: 'PlusJakartaSans_600SemiBold',
   },
   expandButton: {

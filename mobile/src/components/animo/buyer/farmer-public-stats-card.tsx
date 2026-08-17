@@ -340,8 +340,8 @@ const styles = StyleSheet.create({
   },
   testimonialQuote: {
     fontStyle: 'italic',
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14.5,
+    lineHeight: 20,
   },
   privacyNote: {
     backgroundColor: AnimoColors.surfacePrimary,

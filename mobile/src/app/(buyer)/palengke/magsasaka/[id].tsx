@@ -749,11 +749,11 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.pill,
   },
   locationPillText: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'PlusJakartaSans_600SemiBold',
   },
   memberSubtitle: {
-    fontSize: 13,
+    fontSize: 14.5,
     marginTop: 2,
   },
   floatingStatsRow: {
@@ -780,9 +780,9 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: 26,
     fontFamily: 'PlusJakartaSans_700Bold',
-    lineHeight: 28,
+    lineHeight: 30,
   },
   ratingNumberRow: {
     flexDirection: 'row',
@@ -793,7 +793,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: 14,
     textAlign: 'center',
     color: AnimoColors.textMediumEmphasis,
   },
@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cardHeaderTitle: {
-    fontSize: 17,
+    fontSize: 18.5,
     fontFamily: 'PlusJakartaSans_700Bold',
   },
   cardBody: {
@@ -841,12 +841,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   rowLabel: {
-    fontSize: 15,
+    fontSize: 16,
     color: AnimoColors.blackSecondary,
     flex: 1,
   },
   rowValue: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans_600SemiBold',
     textAlign: 'right',
   },
@@ -866,7 +866,7 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.pill,
   },
   greenBadgeText: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'PlusJakartaSans_700Bold',
   },
   varietyChipsWrap: {
@@ -886,7 +886,7 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.pill,
   },
   varietyPillText: {
-    fontSize: 13,
+    fontSize: 14.5,
     fontFamily: 'PlusJakartaSans_600SemiBold',
   },
   ratingStarsRight: {
@@ -932,7 +932,7 @@ const styles = StyleSheet.create({
   },
   viewListingText: {
     fontFamily: 'PlusJakartaSans_600SemiBold',
-    fontSize: 13,
+    fontSize: 14.5,
   },
   innerListingBoxOutline: {
     backgroundColor: AnimoColors.white,
@@ -956,11 +956,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   listingVarietyName: {
-    fontSize: 18,
+    fontSize: 19.5,
     fontFamily: 'PlusJakartaSans_700Bold',
   },
   listingQuantity: {
-    fontSize: 18,
+    fontSize: 19.5,
     fontFamily: 'PlusJakartaSans_700Bold',
   },
   innerListingDivider: {
@@ -976,7 +976,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   listingPriceText: {
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: 'PlusJakartaSans_700Bold',
   },
   listingTimeRight: {
@@ -997,8 +997,8 @@ const styles = StyleSheet.create({
   },
   privacyNoteText: {
     flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14.5,
+    lineHeight: 20,
   },
   bottomFooter: {
     paddingHorizontal: AnimoSpacing.xl,
@@ -1058,7 +1058,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   modalSubheading: {
-    fontSize: 16,
+    fontSize: 17.5,
     fontFamily: 'PlusJakartaSans_700Bold',
     marginTop: 4,
   },
@@ -1130,7 +1130,7 @@ const styles = StyleSheet.create({
   },
   reviewQuoteText: {
     fontStyle: 'italic',
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15.5,
+    lineHeight: 22,
   },
 });

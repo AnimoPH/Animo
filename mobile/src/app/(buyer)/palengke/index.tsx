@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: '100%',
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans_400Regular',
     color: AnimoColors.textHighEmphasis,
     paddingVertical: 0,
@@ -643,7 +643,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   filterBadgeText: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans_700Bold',
     lineHeight: 12,
   },
@@ -670,7 +670,7 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.accentPrimaryLight,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 14.5,
   },
   modalBackdrop: {
     flex: 1,
@@ -828,7 +828,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   farmerNameText: {
-    fontSize: 16,
+    fontSize: 17.5,
     fontFamily: 'PlusJakartaSans_700Bold',
   },
   farmerLocRow: {
@@ -846,7 +846,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   ratingNumberBold: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans_700Bold',
   },
   farmerCardFooter: {

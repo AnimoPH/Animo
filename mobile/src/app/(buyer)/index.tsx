@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   insightValue: {
-    fontSize: 16,
+    fontSize: 17,
     fontFamily: 'PlusJakartaSans_700Bold',
   },
   trendRow: {
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   farmerCardName: {
-    fontSize: 14,
+    fontSize: 15.5,
     fontFamily: 'PlusJakartaSans_700Bold',
     textAlign: 'center',
   },
