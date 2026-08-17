@@ -1,4 +1,5 @@
 import { router, type Href } from 'expo-router';
+import { useSession } from '@/hooks/use-session';
 import { StatusBar } from 'expo-status-bar';
 import {
   Banknote,
@@ -12,9 +13,11 @@ import {
   ShieldCheck,
   UserRound,
 } from 'lucide-react-native';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import SignOutModal from '@/components/signout-modal';
 import {
   AnimoColors,
   AnimoType,
@@ -40,31 +43,20 @@ const SETTINGS_ROWS = [
   { icon: ShieldCheck, label: 'Patakaran sa Privacy' },
 ] as const;
 
+
 /**
  * Farmer Profile — identity hero, stats, account, payment methods, and settings.
  * Bottom tabs are provided by `(tabs)/_layout.tsx`.
  */
 export default function FarmerProfileScreen() {
-  const handleSignOut = () => {
-    Alert.alert(
-      'Mag-sign Out',
-      'Sigurado ka bang gusto mong lumabas sa iyong account?',
-      [
-        {
-          text: 'Huwag na',
-          style: 'cancel',
-        },
-        {
-          text: 'Oo, Mag-sign Out',
-          style: 'destructive',
-          onPress: () => {
-            console.log('Sign out confirmed — wire auth logout here');
-          },
-        },
-      ],
-      { cancelable: true },
-    );
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const { signOut } = useSession();
+  const handleLogout = async () => {
+    await signOut();
+    setShowSignOutModal(false);
+    router.replace('/login');
   };
+
 
   return (
     <View style={styles.screen}>
@@ -177,12 +169,17 @@ export default function FarmerProfileScreen() {
           <View style={styles.divider} />
           <Pressable
             accessibilityRole="button"
-            onPress={handleSignOut}
+            onPress={() => setShowSignOutModal(true)}
             style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
             <LogOut size={20} color={AnimoColors.caution} />
             <Text style={styles.signOutLabel}>Mag-sign Out</Text>
           </Pressable>
         </View>
+        <SignOutModal
+          visible={showSignOutModal}
+          onCancel={() => setShowSignOutModal(false)}
+          onConfirm={handleLogout}
+        />
       </ScrollView>
     </View>
   );

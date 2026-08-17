@@ -1,4 +1,3 @@
-import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   Bell,
@@ -7,13 +6,18 @@ import {
   FileText,
   HelpCircle,
   Home,
+  LandPlot,
   LogOut,
   Phone,
   ShieldCheck,
   UserRound,
 } from 'lucide-react-native';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BackHeader } from '@/components/animo/back-header';
+import SignOutModal from '@/components/signout-modal';
 import {
   AnimoColors,
   AnimoType,
@@ -34,42 +38,16 @@ const SETTINGS_ROWS = [
  * Account Information — farmer personal fields and settings, opened from Profile.
  */
 export default function AccountInformationScreen() {
-  const handleSignOut = () => {
-    Alert.alert(
-      'Mag-sign Out',
-      'Sigurado ka bang gusto mong lumabas sa iyong account?',
-      [
-        {
-          text: 'Huwag na',
-          style: 'cancel',
-        },
-        {
-          text: 'Oo, Mag-sign Out',
-          style: 'destructive',
-          onPress: () => {
-            console.log('Sign out confirmed — wire auth logout here');
-          },
-        },
-      ],
-      { cancelable: true },
-    );
-  };
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
 
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Account Information',
-          headerTitleStyle: styles.headerTitle,
-          headerStyle: styles.header,
-          headerTintColor: AnimoColors.textHighEmphasis,
-        }}
-      />
+      <BackHeader title="Account Information" />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
 
       {/* SECTION 1 — Personal Fields Card */}
       <View style={styles.fieldsCard}>
@@ -104,7 +82,6 @@ export default function AccountInformationScreen() {
             <Edit2 size={16} color={AnimoColors.objectLowEmphasis} />
           </Pressable>
         </View>
-
         <View style={styles.divider} />
 
         <View style={styles.addressRow}>
@@ -129,10 +106,27 @@ export default function AccountInformationScreen() {
             <Edit2 size={16} color={AnimoColors.objectLowEmphasis} />
           </Pressable>
         </View>
+        <View style={styles.divider} />
+
+
+        <View style={styles.fieldRow}>
+          <LandPlot size={20} color={AnimoColors.objectLowEmphasis} />
+          <View style={styles.fieldCopy}>
+            <Text style={styles.fieldLabel}>Sukat ng Bukid</Text>
+            <Text style={styles.fieldValue}>1.5 Ektarya</Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => console.log('Edit Numero ng Telepono')}
+            style={({ pressed }) => [pressed && styles.pressed]}>
+            <Edit2 size={16} color={AnimoColors.objectLowEmphasis} />
+          </Pressable>
+        </View>
       </View>
 
       {/* SECTION 2 — Mga Setting */}
-      <Text style={styles.sectionLabel}>Mga Setting</Text>
+      {/* <Text style={styles.sectionLabel}>Mga Setting</Text>
       <View style={styles.settingsCard}>
         {SETTINGS_ROWS.map(({ icon: Icon, label }, index) => (
           <View key={label}>
@@ -149,30 +143,36 @@ export default function AccountInformationScreen() {
         <View style={styles.divider} />
         <Pressable
           accessibilityRole="button"
-          onPress={handleSignOut}
+          onPress={() => setShowSignOutModal(true)}
           style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
           <LogOut size={20} color={AnimoColors.caution} />
           <Text style={styles.signOutLabel}>Mag-sign Out</Text>
         </Pressable>
       </View>
+      <SignOutModal
+        visible={showSignOutModal}
+        onCancel={() => setShowSignOutModal(false)}
+        onConfirm={() => {
+          setShowSignOutModal(false);
+          console.log('Sign out confirmed — wire auth logout here');
+        }}
+      /> */}
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: AnimoColors.appBackground,
+  },
   scroll: {
     flex: 1,
     backgroundColor: AnimoColors.appBackground,
   },
   scrollContent: {
     paddingBottom: AnimoSpacing.xxl,
-  },
-  headerTitle: {
-    ...AnimoType.h3,
-    color: AnimoColors.textHighEmphasis,
-  },
-  header: {
-    backgroundColor: AnimoColors.surfacePrimary,
   },
   fieldsCard: {
     backgroundColor: AnimoColors.surfacePrimary,
