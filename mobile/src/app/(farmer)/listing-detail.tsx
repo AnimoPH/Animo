@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Check, UserRound, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -200,20 +200,40 @@ export default function ListingDetailScreen() {
 }
 
 function PurchaseRequestCard({ request }: { request: PurchaseRequest }) {
+  const openBuyerProfile = () => {
+    router.push({
+      pathname: "/(farmer)/mamimili/[id]",
+      params: { id: request.id },
+    });
+  };
+
   return (
     <View style={[styles.requestCard, styles.shadow]}>
       <View style={styles.requestTopRow}>
-        <View style={styles.requestAvatar}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Tingnan ang profile ni ${request.buyer}`}
+          hitSlop={8}
+          onPress={openBuyerProfile}
+          style={styles.requestAvatar}
+        >
           <UserRound size={22} color={AnimoColors.accentPrimary} />
-        </View>
+        </Pressable>
         <View style={styles.requestInfo}>
           <View style={styles.requestInfoTop}>
-            <AnimoText
-              variant="bodyEmphasis"
-              color={AnimoColors.textHighEmphasis}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Tingnan ang profile ni ${request.buyer}`}
+              hitSlop={8}
+              onPress={openBuyerProfile}
             >
-              {request.buyer}
-            </AnimoText>
+              <AnimoText
+                variant="bodyEmphasis"
+                color={AnimoColors.textHighEmphasis}
+              >
+                {request.buyer}
+              </AnimoText>
+            </Pressable>
             <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
               {request.quantity}
             </AnimoText>

@@ -17,6 +17,7 @@ export default function FarmerStackLayout() {
       <Stack.Screen name="listing-detail" />
       <Stack.Screen name="listing-result" />
       <Stack.Screen name="listing-uploading" />
+      <Stack.Screen name="mamimili/[id]" />
       <Stack.Screen name="resibo" />
       <Stack.Screen name="transaksyon/[id]" />
     </Stack>
