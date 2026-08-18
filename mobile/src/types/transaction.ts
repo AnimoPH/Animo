@@ -220,6 +220,11 @@ export function formatReferenceId(id: string | null | undefined, prefix: 'PR' | 
   return `${prefix}-${clean}`;
 }
 
+/** "0x1234abcd…ef01" — compact display for a tx hash next to a Polygonscan link. */
+export function shortenTxHash(hash: string): string {
+  return hash.length <= 14 ? hash : `${hash.slice(0, 8)}…${hash.slice(-6)}`;
+}
+
 /**
  * Four real milestones: Request -> Tinanggap -> Bayad -> Kumpleto. There is
  * no pickup/inspection milestone — nothing in the schema backs one.

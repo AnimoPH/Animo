@@ -24,7 +24,7 @@ export function normalizePhone(input: string): string {
  * `functions.invoke()` collapses any non-2xx response to a generic message —
  * the real `{ error }` body has to be read off `error.context` instead.
  */
-async function unwrapFunctionError(error: unknown): Promise<Error> {
+export async function unwrapFunctionError(error: unknown): Promise<Error> {
   const context = (error as { context?: Response } | undefined)?.context;
   if (context && typeof context.json === 'function') {
     try {
