@@ -1,0 +1,23 @@
+-- Preparing for real on-chain writes (record-blockchain-receipt Edge
+-- Function): the plain index on receipt.transaction_id (0001 §10) only
+-- speeds up lookups, it doesn't stop two near-simultaneous calls for the
+-- same transaction (e.g. markDelivered's fire-and-forget call landing at
+-- the same moment either resibo screen retries on load) from both passing
+-- the Edge Function's "does a receipt already exist" pre-check and both
+-- inserting. A unique index — same pattern as
+-- purchaserequest_one_active_per_buyer_listing in 0010 — makes the *data
+-- layer* race-safe: at most one receipt row (and one tx_hash) can ever
+-- exist per transaction; whichever insert lands first wins, and the Edge
+-- Function treats the loser's unique-violation as success (re-reads the
+-- winner's tx_hash rather than erroring).
+--
+-- This does NOT prevent the relayer wallet from broadcasting two on-chain
+-- sends in that same rare race — Postgres can't roll back an
+-- already-broadcast blockchain transaction the way it rolls back a second
+-- INSERT. That residual double-gas-spend risk is accepted and documented,
+-- not solved: Amoy is a free-faucet testnet, so an occasional orphaned
+-- extra send is cosmetic. Closing it fully would mean relaxing
+-- tx_hash's `not null` (0001 §10 dictionary field) to reserve a placeholder
+-- row before sending — not worth it for this feature's expected volume.
+drop index if exists public.receipt_transaction_id_idx;
+create unique index receipt_transaction_id_idx on public.receipt (transaction_id);
