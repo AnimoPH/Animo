@@ -1,7 +1,7 @@
-import { router, useFocusEffect } from "expo-router";
-import { Image } from "expo-image";
-import { ImageIcon, Plus, Scale } from "lucide-react-native";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { router, useFocusEffect } from 'expo-router';
+import { Image } from 'expo-image';
+import { Droplets, ImageIcon, Plus, Scale, ShieldCheck } from 'lucide-react-native';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -9,33 +9,37 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { AnimoText } from "@/components/animo/animo-text";
-import { AppHeader } from "@/components/animo/app-header";
-import { FilterModal } from "@/components/animo/filter-modal";
-import { LabeledInput } from "@/components/animo/labeled-input";
-import { SearchFilterBar } from "@/components/animo/search-filter-bar";
-import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
-import { formatPeso } from "@/constants/marketplace";
-import { fetchCoverPhotos, fetchMyCropListings } from "@/services/crop-listing-service";
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { AnimoText } from '@/components/animo/animo-text';
+import { AppHeader } from '@/components/animo/app-header';
+import { FilterModal } from '@/components/animo/filter-modal';
+import { LabeledInput } from '@/components/animo/labeled-input';
+import { SearchFilterBar } from '@/components/animo/search-filter-bar';
+import { StatusBadge, type BadgeTone } from '@/components/animo/status-badge';
+import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { formatPeso } from '@/constants/marketplace';
+import { fetchCoverPhotos, fetchMyCropListings } from '@/services/crop-listing-service';
 import {
   MOISTURE_OPTIONS,
   STATUS_LABELS,
   VARIETY_OPTIONS,
+  moistureLabel,
+  purityLabel,
   varietyLabel,
   type CropListing,
   type DeclaredVariety,
   type ListingStatus,
   type MoistureType,
-} from "@/types/crop-listing";
+} from '@/types/crop-listing';
 
-type FilterKey = "Lahat" | Extract<ListingStatus, "Available" | "Sold_Out" | "Cancelled">;
-type VarietyChoice = "Lahat" | DeclaredVariety;
-type MoistureChoice = "Lahat" | MoistureType;
+type StatusFilterKey = 'Lahat' | Extract<ListingStatus, 'Available' | 'Sold_Out' | 'Cancelled'>;
+type VarietyChoice = 'Lahat' | DeclaredVariety;
+type MoistureChoice = 'Lahat' | MoistureType;
 
 type PalengkeFilterDraft = {
-  status: FilterKey;
+  status: StatusFilterKey;
   quantityText: string;
   minPriceText: string;
   maxPriceText: string;
@@ -44,30 +48,37 @@ type PalengkeFilterDraft = {
 };
 
 const EMPTY_FILTERS: PalengkeFilterDraft = {
-  status: "Lahat",
-  quantityText: "",
-  minPriceText: "",
-  maxPriceText: "",
-  variety: "Lahat",
-  moisture: "Lahat",
+  status: 'Lahat',
+  quantityText: '',
+  minPriceText: '',
+  maxPriceText: '',
+  variety: 'Lahat',
+  moisture: 'Lahat',
 };
 
-const FILTERS: { value: FilterKey; label: string }[] = [
-  { value: "Lahat", label: "Lahat" },
-  { value: "Available", label: STATUS_LABELS.Available },
-  { value: "Sold_Out", label: STATUS_LABELS.Sold_Out },
-  { value: "Cancelled", label: STATUS_LABELS.Cancelled },
+const STATUS_FILTER_OPTIONS: { value: StatusFilterKey; label: string }[] = [
+  { value: 'Lahat', label: 'Lahat' },
+  { value: 'Available', label: 'Available' },
+  { value: 'Sold_Out', label: 'Naubos' },
+  { value: 'Cancelled', label: 'Tinanggal' },
 ];
 
 const VARIETY_CHOICES: { value: VarietyChoice; label: string }[] = [
-  { value: "Lahat", label: "Lahat" },
+  { value: 'Lahat', label: 'Lahat' },
   ...VARIETY_OPTIONS,
 ];
 
 const MOISTURE_CHOICES: { value: MoistureChoice; label: string }[] = [
-  { value: "Lahat", label: "Lahat" },
+  { value: 'Lahat', label: 'Lahat' },
   ...MOISTURE_OPTIONS,
 ];
+
+const STATUS_TONES: Record<ListingStatus, BadgeTone> = {
+  Draft: 'neutral',
+  Available: 'success',
+  Sold_Out: 'neutral',
+  Cancelled: 'danger',
+};
 
 /** Parses a filter text field, treating blank/garbage as "not set" rather than 0. */
 function parseNumber(text: string): number | undefined {
@@ -79,31 +90,23 @@ function parseNumber(text: string): number | undefined {
 
 function countActiveFilters(filters: PalengkeFilterDraft): number {
   return [
-    filters.status !== "Lahat" ? true : undefined,
+    filters.status !== 'Lahat' ? true : undefined,
     parseNumber(filters.quantityText),
     parseNumber(filters.minPriceText),
     parseNumber(filters.maxPriceText),
-    filters.variety !== "Lahat" ? true : undefined,
-    filters.moisture !== "Lahat" ? true : undefined,
+    filters.variety !== 'Lahat' ? true : undefined,
+    filters.moisture !== 'Lahat' ? true : undefined,
   ].filter((value) => value !== undefined).length;
 }
 
-function listingMatchesFilters(
-  listing: CropListing,
-  filters: PalengkeFilterDraft,
-): boolean {
-  if (filters.status !== "Lahat" && listing.status !== filters.status) {
+function listingMatchesFilters(listing: CropListing, filters: PalengkeFilterDraft): boolean {
+  if (filters.status !== 'Lahat' && listing.status !== filters.status) {
     return false;
   }
 
-  const desiredQuantityKg = parseNumber(filters.quantityText);
-  if (desiredQuantityKg !== undefined && desiredQuantityKg > 0) {
-    if (
-      listing.remainingQuantityKg < desiredQuantityKg ||
-      listing.minimumRequestKg > desiredQuantityKg
-    ) {
-      return false;
-    }
+  const minQty = parseNumber(filters.quantityText);
+  if (minQty !== undefined && listing.remainingQuantityKg < minQty) {
+    return false;
   }
 
   const minPricePerKg = parseNumber(filters.minPriceText);
@@ -119,39 +122,66 @@ function listingMatchesFilters(
     }
   }
 
-  if (filters.variety !== "Lahat" && listing.declaredVariety !== filters.variety) {
+  if (filters.variety !== 'Lahat' && listing.declaredVariety !== filters.variety) {
     return false;
   }
-  if (filters.moisture !== "Lahat" && listing.declaredMoisture !== filters.moisture) {
+  if (filters.moisture !== 'Lahat' && listing.declaredMoisture !== filters.moisture) {
     return false;
   }
 
   return true;
 }
 
-const STATUS_BADGE_COLORS: Record<ListingStatus, string> = {
-  Draft: AnimoColors.objectLowEmphasis,
-  Available: AnimoColors.accentPrimary,
-  Sold_Out: AnimoColors.objectLowEmphasis,
-  Cancelled: AnimoColors.caution,
-};
+function listingMatchesSearch(listing: CropListing, searchQuery: string): boolean {
+  const query = searchQuery.trim().toLowerCase();
+  if (!query) return true;
 
-/** Palengke — farmer's own listings, fetched live from `croplisting` (own rows only, per RLS). */
+  const terms = query
+    .split(/\s+/)
+    .filter((t) => t.length > 0 && !['ng', 'ang', 'mga', 'sa'].includes(t));
+  if (terms.length === 0) return true;
+
+  const vLabel = varietyLabel(listing).toLowerCase();
+  const rawVariety = listing.declaredVariety.toLowerCase();
+  const custom = listing.declaredVarietyCustom?.toLowerCase() || '';
+  const moisture = listing.declaredMoisture.toLowerCase();
+  const mLabel = moistureLabel(listing.declaredMoisture).toLowerCase();
+  const purity = purityLabel(listing.declaredPurityGrade).toLowerCase();
+
+  return terms.every((term) => {
+    if (term === 'palay') return true;
+    if (term === 'dry' || term === 'tuyo' || term === 'tuyong') {
+      return listing.declaredMoisture === 'Dry';
+    }
+    if (term === 'wet' || term === 'basa' || term === 'basang') {
+      return listing.declaredMoisture === 'Wet';
+    }
+    return (
+      vLabel.includes(term) ||
+      rawVariety.includes(term) ||
+      custom.includes(term) ||
+      moisture.includes(term) ||
+      mLabel.includes(term) ||
+      purity.includes(term)
+    );
+  });
+}
+
+/**
+ * Aking Ani (Farmer Palengke) — own listings with reusable search/filter chrome
+ * and marketplace-style cards.
+ */
 export default function FarmerPalengkeScreen() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [appliedFilters, setAppliedFilters] =
-    useState<PalengkeFilterDraft>(EMPTY_FILTERS);
-  const [draftFilters, setDraftFilters] =
-    useState<PalengkeFilterDraft>(EMPTY_FILTERS);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
+  const [draftFilters, setDraftFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
   const [modalOpen, setModalOpen] = useState(false);
+
   const [listings, setListings] = useState<CropListing[]>([]);
   const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
-  // Guards against overlapping fetches (e.g. two focus events in quick
-  // succession) applying their result out of order — only the response for
-  // the most recently started load() is allowed to update state.
   const latestRequestId = useRef(0);
 
   const load = useCallback(async () => {
@@ -162,19 +192,16 @@ export default function FarmerPalengkeScreen() {
       if (latestRequestId.current !== requestId) return;
       setListings(result);
 
-      // Cover photos are a display nicety, not core data — a failure here
-      // (or none uploaded yet) must not blank out an otherwise-successful
-      // listings fetch, so it gets its own try/catch.
       try {
         const photos = await fetchCoverPhotos(result.map((l) => l.id));
         if (latestRequestId.current === requestId) setCoverPhotos(photos);
       } catch {
-        // Cards just fall back to the placeholder icon.
+        // Cards fall back to the placeholder icon.
       }
     } catch (err) {
       if (latestRequestId.current === requestId) {
         setErrorMessage(
-          err instanceof Error ? err.message : "Hindi ma-load ang mga listing.",
+          err instanceof Error ? err.message : 'Hindi ma-load ang mga listing.',
         );
       }
     } finally {
@@ -182,8 +209,6 @@ export default function FarmerPalengkeScreen() {
     }
   }, []);
 
-  // Re-fetch every time this tab gains focus so a listing just created
-  // ("Tignan ang Palengke" from the result screen) shows up immediately.
   useFocusEffect(
     useCallback(() => {
       load();
@@ -193,30 +218,19 @@ export default function FarmerPalengkeScreen() {
   const activeFilterCount = countActiveFilters(appliedFilters);
 
   const displayedListings = useMemo(() => {
-    const filtered = listings.filter((listing) =>
-      listingMatchesFilters(listing, appliedFilters),
+    return listings.filter(
+      (listing) =>
+        listingMatchesFilters(listing, appliedFilters) &&
+        listingMatchesSearch(listing, searchQuery),
     );
-
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return filtered;
-
-    return filtered.filter((listing) => {
-      const vLabel = varietyLabel(listing).toLowerCase();
-      const rawVariety = listing.declaredVariety.toLowerCase();
-      const custom = listing.declaredVarietyCustom?.toLowerCase() || "";
-      return (
-        vLabel.includes(query) ||
-        rawVariety.includes(query) ||
-        custom.includes(query)
-      );
-    });
   }, [listings, appliedFilters, searchQuery]);
 
-  const emptyMessage = searchQuery.trim().length > 0
-    ? `Walang nakitang listing para sa "${searchQuery}".`
-    : activeFilterCount > 0
-      ? "Walang listing sa filter na ito."
-      : "Wala ka pang listing. Gumawa ng una mong listing ng palay.";
+  const emptyMessage =
+    searchQuery.trim().length > 0
+      ? `Walang nakitang listing para sa "${searchQuery}".`
+      : activeFilterCount > 0
+        ? 'Walang listing sa filter na ito.'
+        : 'Wala ka pang listing. Gumawa ng una mong listing ng palay.';
 
   const openModal = () => {
     setDraftFilters(appliedFilters);
@@ -235,13 +249,13 @@ export default function FarmerPalengkeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <AppHeader onPressBell={() => console.log("Bell pressed")} />
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <AppHeader onPressBell={() => router.push('/(farmer)/notipikasyon')} />
 
       <SearchFilterBar
         value={searchQuery}
         onChangeText={setSearchQuery}
-        placeholder="Maghanap ng palay, uri..."
+        placeholder="Maghanap ng sariling ani, uri..."
         activeFilterCount={activeFilterCount}
         onFilterPress={openModal}
       />
@@ -252,13 +266,14 @@ export default function FarmerPalengkeScreen() {
         onReset={resetFilters}
         onApply={applyFilters}
         activeCount={activeFilterCount}
+        title="Mga Filter ng Ani"
       >
         <View style={styles.filterSection}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
             Katayuan
           </AnimoText>
           <View style={styles.chipsWrap}>
-            {FILTERS.map((choice) => (
+            {STATUS_FILTER_OPTIONS.map((choice) => (
               <FilterChoiceChip
                 key={choice.value}
                 label={choice.label}
@@ -273,8 +288,8 @@ export default function FarmerPalengkeScreen() {
 
         <View style={styles.filterSection}>
           <LabeledInput
-            label="Gustong Dami"
-            hint="Itatago ang mga listing na hindi kayang punan ang dami na ito."
+            label="Pinakamababang Dami (kg)"
+            hint="Ipakita lamang ang mga listing na may natitirang timbang na ito."
             keyboardType="numeric"
             suffixText="kg"
             placeholder="Halimbawa: 100"
@@ -361,11 +376,7 @@ export default function FarmerPalengkeScreen() {
           </View>
         ) : errorMessage ? (
           <View style={styles.centerState}>
-            <AnimoText
-              variant="body"
-              color={AnimoColors.danger}
-              style={styles.centerText}
-            >
+            <AnimoText variant="body" color={AnimoColors.danger} style={styles.centerText}>
               {errorMessage}
             </AnimoText>
             <Pressable onPress={load}>
@@ -379,8 +390,7 @@ export default function FarmerPalengkeScreen() {
             <AnimoText
               variant="body"
               color={AnimoColors.textMediumEmphasis}
-              style={styles.centerText}
-            >
+              style={styles.centerText}>
               {emptyMessage}
             </AnimoText>
           </View>
@@ -389,18 +399,27 @@ export default function FarmerPalengkeScreen() {
             data={displayedListings}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
             renderItem={({ item }) => (
-              <ListingCard listing={item} coverPhotoUrl={coverPhotos.get(item.id)} />
+              <FarmerMarketplaceCard
+                listing={item}
+                coverPhotoUrl={coverPhotos.get(item.id)}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(farmer)/listing-detail',
+                    params: { id: item.id },
+                  })
+                }
+              />
             )}
           />
         )}
 
         <Pressable
-          onPress={() => router.push("/(farmer)/creation-listing")}
+          onPress={() => router.push('/(farmer)/creation-listing')}
           style={[styles.fab, styles.fabShadow]}
-          accessibilityLabel="Gumawa ng bagong listing"
-        >
-          <Plus size={28} color={AnimoColors.objectHighEmphasisInverse} />
+          accessibilityLabel="Gumawa ng bagong listing">
+          <Plus size={28} color={AnimoColors.white} />
         </Pressable>
       </View>
     </SafeAreaView>
@@ -421,76 +440,92 @@ function FilterChoiceChip({
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      style={[styles.chipItem, active && styles.chipItemActive]}
-    >
+      style={[styles.chipItem, active && styles.chipItemActive]}>
       <AnimoText
         variant="body"
         color={active ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
-        style={active ? styles.chipTextActive : undefined}
-      >
+        style={active ? styles.chipTextActive : undefined}>
         {label}
       </AnimoText>
     </Pressable>
   );
 }
 
-function ListingCard({
+/**
+ * Rich listing card formatted to match the Buyer Marketplace card style.
+ */
+function FarmerMarketplaceCard({
   listing,
   coverPhotoUrl,
+  onPress,
 }: {
   listing: CropListing;
   coverPhotoUrl: string | undefined;
+  onPress: () => void;
 }) {
   return (
     <TouchableOpacity
+      accessibilityRole="button"
       activeOpacity={0.85}
-      onPress={() =>
-        router.push({
-          pathname: "/(farmer)/listing-detail",
-          params: { id: listing.id },
-        })
-      }
-      style={[styles.card, styles.shadow]}
-    >
+      onPress={onPress}
+      style={[styles.card, styles.shadow]}>
       <View style={styles.photoArea}>
         {coverPhotoUrl ? (
           <Image source={{ uri: coverPhotoUrl }} style={styles.photoImage} contentFit="cover" />
         ) : (
           <ImageIcon size={32} color={AnimoColors.objectLowEmphasis} />
         )}
-        <View
-          style={[
-            styles.badge,
-            { backgroundColor: STATUS_BADGE_COLORS[listing.status] },
-          ]}
-        >
-          <AnimoText variant="tag" color={AnimoColors.textHighEmphasisInverse}>
-            {STATUS_LABELS[listing.status]}
-          </AnimoText>
+        <View style={styles.statusBadgeWrap}>
+          <StatusBadge
+            label={STATUS_LABELS[listing.status]}
+            tone={STATUS_TONES[listing.status]}
+          />
         </View>
       </View>
 
-      <View style={styles.cardBody}>
-        <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+      <View style={styles.body}>
+        <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
           {varietyLabel(listing)}
         </AnimoText>
 
         <View style={styles.priceRow}>
           <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
-            {listing.pricePerKg !== null
-              ? `${formatPeso(listing.pricePerKg)} bawat kilo`
-              : "Kinakalkula ang presyo"}
+            {listing.pricePerKg !== null ? formatPeso(listing.pricePerKg) : '—'}
           </AnimoText>
-          <View style={styles.remaining}>
-            <Scale size={12} color={AnimoColors.textLowEmphasis} />
-            <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-              {" "}
-              Remaining: {listing.remainingQuantityKg} kg
-            </AnimoText>
-          </View>
+          <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+            {' '}
+            bawat kilo
+          </AnimoText>
         </View>
+
+        <View style={styles.specs}>
+          <Spec icon={<Scale size={14} color={AnimoColors.accentPrimary} />}>
+            {listing.remainingQuantityKg} kg natitira
+          </Spec>
+          <Spec icon={<Droplets size={14} color={AnimoColors.textMediumEmphasis} />}>
+            {moistureLabel(listing.declaredMoisture)}
+          </Spec>
+          <Spec icon={<ShieldCheck size={14} color={AnimoColors.textMediumEmphasis} />}>
+            {purityLabel(listing.declaredPurityGrade)}
+          </Spec>
+        </View>
+
+        <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+          Pinakamaliit na order: {listing.minimumRequestKg} kg · Kabuuang ani: {listing.netWeightKg} kg
+        </AnimoText>
       </View>
     </TouchableOpacity>
+  );
+}
+
+function Spec({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <View style={styles.spec}>
+      {icon}
+      <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+        {children}
+      </AnimoText>
+    </View>
   );
 }
 
@@ -499,37 +534,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AnimoColors.appBackground,
   },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.sm,
-  },
-  topBarLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: AnimoSpacing.sm,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-  },
   filterSection: {
     gap: AnimoSpacing.sm,
   },
   filterPriceRow: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: AnimoSpacing.md,
   },
   filterPriceField: {
     flex: 1,
   },
   chipsWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: AnimoSpacing.sm,
     marginTop: 2,
   },
@@ -546,7 +563,7 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.accentPrimaryLight,
   },
   chipTextActive: {
-    fontFamily: "PlusJakartaSans_600SemiBold",
+    fontFamily: 'PlusJakartaSans_600SemiBold',
     color: AnimoColors.accentPrimary,
   },
   listContainer: {
@@ -555,18 +572,26 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.lg,
+    paddingTop: AnimoSpacing.sm,
     paddingBottom: AnimoSpacing.xxl,
   },
   centerState: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: AnimoSpacing.xl,
     gap: AnimoSpacing.sm,
   },
   centerText: {
-    textAlign: "center",
+    textAlign: 'center',
+  },
+  card: {
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderRadius: AnimoRadius.lg,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    marginBottom: AnimoSpacing.md,
+    overflow: 'hidden',
   },
   shadow: {
     shadowColor: AnimoColors.darkBackground,
@@ -574,57 +599,55 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  card: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    marginBottom: AnimoSpacing.md,
-    overflow: "hidden",
-  },
   photoArea: {
-    width: "100%",
+    width: '100%',
     aspectRatio: 2.5,
     backgroundColor: AnimoColors.surfaceTertiary,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
   photoImage: {
     ...StyleSheet.absoluteFillObject,
   },
-  badge: {
-    position: "absolute",
+  statusBadgeWrap: {
+    position: 'absolute',
     top: AnimoSpacing.sm,
     right: AnimoSpacing.sm,
-    borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.sm,
-    paddingVertical: AnimoSpacing.xs,
   },
-  cardBody: {
+  body: {
     padding: AnimoSpacing.lg,
+    gap: AnimoSpacing.xs,
   },
   priceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  specs: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: AnimoSpacing.md,
     marginTop: AnimoSpacing.xs,
   },
-  remaining: {
-    flexDirection: "row",
-    alignItems: "center",
+  spec: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   fab: {
-    position: "absolute",
+    position: 'absolute',
     bottom: AnimoSpacing.xl,
     right: AnimoSpacing.xl,
     width: 56,
     height: 56,
     borderRadius: AnimoRadius.pill,
     backgroundColor: AnimoColors.accentPrimary,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fabShadow: {
     shadowColor: AnimoColors.darkBackground,
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.22,
     shadowRadius: 8,
     elevation: 6,
   },

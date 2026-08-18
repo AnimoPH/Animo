@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Banknote, CheckCircle2, Trash2, Upload } from 'lucide-react-native';
+import { Banknote, Check, CheckCircle2, Trash2, Upload, X } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -412,6 +412,7 @@ export default function PaymentScreen() {
         <View style={styles.footerStack}>
           <AnimoButton
             label="Magpatuloy sa Bayad"
+            icon={Check}
             onPress={handleContinue}
             disabled={!canContinue}
           />
@@ -419,6 +420,7 @@ export default function PaymentScreen() {
           <AnimoButton
             label="Kanselahin ang Transaksyon"
             variant="dangerOutline"
+            icon={X}
             onPress={() => setCancelling(true)}
           />
         </View>

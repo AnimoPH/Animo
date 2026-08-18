@@ -16,7 +16,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackHeader } from '@/components/animo/back-header';
+import { ScreenHeader } from '@/components/animo/screen-header';
 import SignOutModal from '@/components/signout-modal';
 import {
   AnimoColors,
@@ -43,7 +43,7 @@ export default function AccountInformationScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <BackHeader title="Account Information" />
+      <ScreenHeader title="Account Information" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
