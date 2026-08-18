@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   CloudDrizzle,
   Eye,
@@ -12,27 +13,46 @@ import {
 import { AnimoWordmark } from '@/components/animo-mark';
 import { FarmBackdrop } from '@/components/farm-backdrop';
 import { LabeledInput } from '@/components/labeled-input';
+import { useAuth } from '@/lib/auth-context';
+import {
+  getDefaultLguCredentials,
+  LguAuthError,
+  signInLgu,
+} from '@/services/lgu-auth-service';
 
-export type LoginPageProps = {
-  onSignIn: () => void;
-};
+const defaults = getDefaultLguCredentials();
 
 const HIGHLIGHTS = [
   { icon: CloudDrizzle, label: 'Real-time na advisory kada barangay' },
   { icon: Users, label: 'Tugon ng magsasaka sa bawat payo' },
-  { icon: TrendingUp, label: 'Benchmark ng volatility ng presyo' },
+  { icon: TrendingUp, label: 'Benchmark ng presyo ng palay' },
 ];
 
-/** LGU Console sign-in — brand panel on the left, credentials on the right. */
-export function LoginPage({ onSignIn }: LoginPageProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+/** LGU Console sign-in — Supabase email/password for LGU_Official accounts. */
+export function LoginPage() {
+  const navigate = useNavigate();
+  const { refresh } = useAuth();
+  const [email, setEmail] = useState(defaults.email);
+  const [password, setPassword] = useState(defaults.password);
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    onSignIn();
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      await signInLgu(email.trim(), password);
+      await refresh();
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
+      setError(err instanceof LguAuthError ? err.message : 'Hindi makapag-login.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -120,14 +140,16 @@ export function LoginPage({ onSignIn }: LoginPageProps) {
             </a>
           </div>
 
-          <button type="submit" className="animo-button">
-            Mag-login
+          <button type="submit" className="animo-button" disabled={submitting}>
+            {submitting ? 'Naglo-login…' : 'Mag-login'}
           </button>
+
+          {error ? <p style={styles.errorNotice}>{error}</p> : null}
 
           <div style={styles.notice}>
             <Lock size={14} color="var(--animo-muted)" style={{ flexShrink: 0, marginTop: 2 }} />
             <span>
-              Mapupunta ka sa LGU monitoring dashboard kapag tama ang detalye.
+              Dev default: {defaults.email} · parehong password sa mobile dev accounts.
             </span>
           </div>
         </form>
@@ -254,5 +276,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     lineHeight: '17px',
     color: 'var(--animo-black-secondary)',
+  },
+  errorNotice: {
+    margin: 0,
+    color: 'var(--animo-danger)',
+    fontSize: 13,
+    fontWeight: 600,
   },
 };

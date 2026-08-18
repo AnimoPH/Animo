@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   AlertOctagon,
@@ -18,9 +18,17 @@ import {
 
 import { ConsoleLayout } from '@/components/console-layout';
 import {
-  BUYERS,
-  FARMERS,
-} from '@/constants/dashboard';
+  fetchLguUserProfile,
+  fetchLguUserReviews,
+  fetchLguUserTransactions,
+  formatRegisteredDate,
+  formatReviewDate,
+  mapAccountStatus,
+  mapRoleLabel,
+  type LguUserProfile,
+  type LguUserReview,
+  type LguUserTransaction,
+} from '@/services/lgu-console-service';
 
 export type AccountReviewPageProps = {
   onSignOut: () => void;
@@ -28,53 +36,106 @@ export type AccountReviewPageProps = {
 
 type TabType = 'reviews' | 'reports' | 'transactions';
 
+type DisplayReport = {
+  id: string;
+  reason: string;
+  details: string;
+  reportedBy: string;
+  role: string;
+  date: string;
+  status: 'pending' | 'investigating' | 'resolved';
+};
+
 const STAR_GOLD = '#F59E0B';
 
 /**
- * Account Review Page — Shows full details of a farmer or buyer,
- * their received reviews with detailed ratings, reports/disputes filed by users,
- * transaction history, and account suspension / un-suspension controls.
+ * Account Review Page — live profile, reviews, reported ratings, and transactions from Supabase.
+ * Suspend/unsuspend stays local until LGU auth lands.
  */
 export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
   const { type = 'farmer', id } = useParams<{ type?: string; id?: string }>();
   const navigate = useNavigate();
-
-  // Find user data from FARMERS or BUYERS
   const isFarmer = type === 'farmer';
-  const initialFarmer = FARMERS.find((f) => f.id === id);
-  const initialBuyer = BUYERS.find((b) => b.id === id);
+  const userId = id ?? '';
 
+  const [profile, setProfile] = useState<LguUserProfile | null>(null);
+  const [reviews, setReviews] = useState<LguUserReview[]>([]);
+  const [transactions, setTransactions] = useState<LguUserTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('reviews');
-
-  // Account state (supports live status toggling)
-  const [accountStatus, setAccountStatus] = useState<'active' | 'inactive' | 'suspended'>(
-    initialFarmer?.status || initialBuyer?.status || 'active'
-  );
-  const [suspensionReason, setSuspensionReason] = useState<string>(
-    initialFarmer?.suspensionReason || initialBuyer?.suspensionReason || 'Paglabag sa mga alituntunin ng transaksyon.'
-  );
-
-  // Modals
+  const [accountStatus, setAccountStatus] = useState<'active' | 'inactive' | 'suspended'>('active');
+  const [suspensionReason, setSuspensionReason] = useState('Paglabag sa mga alituntunin ng transaksyon.');
+  const [resolvedReportIds, setResolvedReportIds] = useState<string[]>([]);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [showUnsuspendModal, setShowUnsuspendModal] = useState(false);
   const [inputReason, setInputReason] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Reports state (to allow resolving reports)
-  const [reports, setReports] = useState(
-    initialFarmer?.reports || initialBuyer?.reports || []
-  );
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
 
-  const name = initialFarmer?.name || initialBuyer?.name || 'Juan Dela Cruz';
-  const initials = initialFarmer?.initials || initialBuyer?.initials || 'JD';
-  const userId = initialFarmer?.id || initialBuyer?.id || id || 'FRM-1042';
-  const barangay = initialFarmer?.barangay || initialBuyer?.barangay || 'Brgy. San Jose';
-  const phone = initialFarmer?.phone || initialBuyer?.phone || '0917 555 0142';
-  const registeredDate = initialFarmer?.registeredDate || initialBuyer?.registeredDate || 'Enero 15, 2024';
-  const rating = initialFarmer?.rating || initialBuyer?.rating || 4.9;
-  const totalTransactions = initialFarmer?.totalTransactions || initialBuyer?.totalTransactions || 28;
-  const reviews = initialFarmer?.reviews || initialBuyer?.reviews || [];
-  const transactions = initialFarmer?.transactions || initialBuyer?.transactions || [];
+    Promise.all([
+      fetchLguUserProfile(userId),
+      fetchLguUserReviews(userId),
+      fetchLguUserTransactions(userId, isFarmer ? 'farmer' : 'buyer'),
+    ])
+      .then(([loadedProfile, loadedReviews, loadedTransactions]) => {
+        if (cancelled) return;
+        if (!loadedProfile) {
+          setLoadError('Hindi mahanap ang account sa registry.');
+          setProfile(null);
+          return;
+        }
+        setProfile(loadedProfile);
+        setReviews(loadedReviews);
+        setTransactions(loadedTransactions);
+        setAccountStatus(mapAccountStatus(loadedProfile.accountStatus));
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : 'Hindi ma-load ang account.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, isFarmer]);
+
+  const reports = useMemo<DisplayReport[]>(() => {
+    return reviews
+      .filter((review) => review.reported)
+      .map((review) => ({
+        id: review.ratingId,
+        reason: review.reportReason?.trim() || 'Inulat na review',
+        details: review.comment?.trim() || 'Walang komento sa ulat.',
+        reportedBy: review.raterName,
+        role: mapRoleLabel(review.raterRole),
+        date: formatReviewDate(review.createdAt),
+        status: resolvedReportIds.includes(review.ratingId) ? 'resolved' : 'pending',
+      }));
+  }, [reviews, resolvedReportIds]);
+
+  const name = profile?.fullName ?? '—';
+  const initials =
+    profile?.fullName
+      .split(' ')
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) ?? '—';
+  const barangay = profile?.barangay ?? (isFarmer ? 'Hindi nakasaad' : '—');
+  const phone = profile?.contactNumber?.trim() || '—';
+  const registeredDate = profile ? formatRegisteredDate(profile.dateRegistered) : '—';
+  const rating = profile?.averageRating ?? 0;
+  const totalTransactions = profile?.completedTransactions ?? 0;
 
   const handleConfirmSuspend = () => {
     setAccountStatus('suspended');
@@ -93,9 +154,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
   };
 
   const handleResolveReport = (reportId: string) => {
-    setReports((prev) =>
-      prev.map((r) => (r.id === reportId ? { ...r, status: 'resolved' } : r))
-    );
+    setResolvedReportIds((prev) => [...prev, reportId]);
     setToastMessage('Matagumpay na minarkahan ang ulat bilang Nalutas (Resolved).');
     setTimeout(() => setToastMessage(null), 3000);
   };
@@ -105,6 +164,9 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
       title={`Pagsusuri ng Account: ${name}`}
       subtitle={`Account Review · ${isFarmer ? 'Magsasaka' : 'Mamimili'} (${userId})`}
       onSignOut={onSignOut}>
+      {loading ? <p style={styles.loadNotice}>Naglo-load ng account mula sa Supabase…</p> : null}
+      {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
+
       {/* Back Button */}
       <div style={styles.topBackRow}>
         <button
@@ -180,7 +242,8 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                 </span>
               </div>
               <p style={styles.profileSub}>
-                ID: <strong>{userId}</strong> · {barangay}, San Mateo, Rizal
+                ID: <strong>{userId.slice(0, 8).toUpperCase()}</strong>
+                {isFarmer ? ` · ${barangay}, San Mateo, Rizal` : ' · Mamimili · Rizal'}
               </p>
             </div>
           </div>
@@ -214,10 +277,15 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
           <MetaItem icon={Phone} label="Numero ng Telepono" value={phone} />
           <MetaItem icon={MapPin} label="Barangay / Lokasyon" value={barangay} />
           <MetaItem icon={Calendar} label="Petsa ng Rehistro" value={registeredDate} />
-          {isFarmer && initialFarmer?.farmSize && (
-            <MetaItem icon={FileSpreadsheet} label="Laki ng Sakahan" value={initialFarmer.farmSize} />
-          )}
-          <MetaItem icon={Star} label="Rating Score" value={`${rating} / 5.0 ⭐ (${reviews.length} reviews)`} />
+          <MetaItem
+            icon={Star}
+            label="Rating Score"
+            value={
+              profile?.reviewCount
+                ? `${rating.toFixed(1)} / 5.0 ⭐ (${profile.reviewCount} review${profile.reviewCount === 1 ? '' : 's'})`
+                : 'Walang review pa'
+            }
+          />
         </div>
       </article>
 
@@ -262,30 +330,24 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
         <article className="animo-card" style={styles.panel}>
           <div style={styles.reviewsHead}>
             <div style={styles.ratingScoreBox}>
-              <span style={styles.bigRatingNum}>{rating}</span>
+              <span style={styles.bigRatingNum}>{profile?.reviewCount ? rating.toFixed(1) : '—'}</span>
               <div>
                 <div style={styles.starsRow}>
                   {[1, 2, 3, 4, 5].map((s) => (
                     <Star
                       key={s}
                       size={20}
-                      color={s <= Math.round(rating) ? STAR_GOLD : '#E5E7EB'}
-                      fill={s <= Math.round(rating) ? STAR_GOLD : '#E5E7EB'}
+                      color={profile?.reviewCount && s <= Math.round(rating) ? STAR_GOLD : '#E5E7EB'}
+                      fill={profile?.reviewCount && s <= Math.round(rating) ? STAR_GOLD : '#E5E7EB'}
                     />
                   ))}
                 </div>
                 <span style={styles.ratingScoreSub}>
-                  Batay sa {reviews.length} kumpirmadong review
+                  {profile?.reviewCount
+                    ? `Batay sa ${profile.reviewCount} kumpirmadong review`
+                    : 'Walang natatanggap na review pa'}
                 </span>
               </div>
-            </div>
-
-            {/* Criteria Breakdown */}
-            <div style={styles.criteriaGrid}>
-              <CriteriaBar label="Kalidad ng palay" score={4.9} />
-              <CriteriaBar label="Tamang timbang" score={5.0} />
-              <CriteriaBar label="Komunikasyon" score={4.8} />
-              <CriteriaBar label="Pagiging maagap" score={4.7} />
             </div>
           </div>
 
@@ -296,14 +358,14 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
               <p style={styles.emptyNotice}>Wala pang natatanggap na review ang account na ito.</p>
             ) : (
               reviews.map((rev) => (
-                <div key={rev.id} style={styles.reviewCard}>
+                <div key={rev.ratingId} style={styles.reviewCard}>
                   <div style={styles.reviewCardHead}>
                     <div>
                       <div style={styles.reviewerRow}>
-                        <span style={styles.reviewerName}>{rev.reviewerName}</span>
-                        <span style={styles.reviewerRolePill}>{rev.reviewerRole}</span>
+                        <span style={styles.reviewerName}>{rev.raterName}</span>
+                        <span style={styles.reviewerRolePill}>{mapRoleLabel(rev.raterRole)}</span>
                       </div>
-                      <span style={styles.reviewDate}>{rev.date}</span>
+                      <span style={styles.reviewDate}>{formatReviewDate(rev.createdAt)}</span>
                     </div>
 
                     <div style={styles.starsRow}>
@@ -311,20 +373,18 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                         <Star
                           key={s}
                           size={16}
-                          color={s <= rev.rating ? STAR_GOLD : '#E5E7EB'}
-                          fill={s <= rev.rating ? STAR_GOLD : '#E5E7EB'}
+                          color={s <= rev.score ? STAR_GOLD : '#E5E7EB'}
+                          fill={s <= rev.score ? STAR_GOLD : '#E5E7EB'}
                         />
                       ))}
                     </div>
                   </div>
 
-                  <p style={styles.reviewComment}>"{rev.comment}"</p>
+                  {rev.comment ? <p style={styles.reviewComment}>"{rev.comment}"</p> : null}
 
-                  {rev.transactionRef && (
-                    <span style={styles.reviewTxnRef}>
-                      Transaction Reference: <strong>{rev.transactionRef}</strong>
-                    </span>
-                  )}
+                  <span style={styles.reviewTxnRef}>
+                    Transaction: <strong>{rev.transactionId.slice(0, 8).toUpperCase()}</strong>
+                  </span>
                 </div>
               ))
             )}
@@ -433,15 +493,19 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                   </tr>
                 ) : (
                   transactions.map((txn) => (
-                    <tr key={txn.id}>
+                    <tr key={txn.transactionId}>
                       <td style={{ ...styles.td, fontWeight: 700, color: 'var(--animo-green)' }}>
-                        {txn.reference}
+                        {txn.transactionId.slice(0, 8).toUpperCase()}
                       </td>
                       <td style={styles.td}>{txn.variety}</td>
                       <td style={styles.td}>{txn.quantityKg} kg</td>
-                      <td style={{ ...styles.td, fontWeight: 700 }}>₱{txn.total.toLocaleString()}</td>
+                      <td style={{ ...styles.td, fontWeight: 700 }}>
+                        ₱{txn.totalAmount.toLocaleString()}
+                      </td>
                       <td style={styles.td}>{txn.partnerName}</td>
-                      <td style={styles.td}>{txn.date}</td>
+                      <td style={styles.td}>
+                        {txn.dateCompleted ? formatRegisteredDate(txn.dateCompleted) : '—'}
+                      </td>
                       <td style={styles.td}>
                         <span style={styles.statusPillActive}>Kumpleto</span>
                       </td>
@@ -586,24 +650,19 @@ function MetaItem({
   );
 }
 
-function CriteriaBar({ label, score }: { label: string; score: number }) {
-  const pct = (score / 5) * 100;
-  return (
-    <div style={styles.criteriaItem}>
-      <div style={styles.criteriaLabelRow}>
-        <span style={styles.criteriaLabel}>{label}</span>
-        <span style={styles.criteriaScore}>{score.toFixed(1)}</span>
-      </div>
-      <div style={styles.criteriaTrack}>
-        <div style={{ ...styles.criteriaFill, width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
-
 const styles: Record<string, React.CSSProperties> = {
   topBackRow: {
     marginBottom: -8,
+  },
+  loadNotice: {
+    margin: '0 0 12px',
+    color: 'var(--animo-black-secondary)',
+    fontSize: 14,
+  },
+  errorNotice: {
+    margin: '0 0 12px',
+    color: 'var(--animo-danger)',
+    fontSize: 14,
   },
   backButton: {
     display: 'inline-flex',

@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
+import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { AccountReviewPage } from '@/pages/account-review';
 import { AdvisoryPage } from '@/pages/advisory';
 import { BuyersPage } from '@/pages/buyers';
@@ -10,49 +10,52 @@ import { LoginPage } from '@/pages/login';
 import { MessagesPage } from '@/pages/messages';
 import { SettingsPage } from '@/pages/settings';
 
-/**
- * LGU Console shell.
- *
- * Auth is stubbed for the scaffold — signing in flips local state and routes to
- * the dashboard.
- */
-export function App() {
-  const [signedIn, setSignedIn] = useState(false);
-  const signOut = () => setSignedIn(false);
+function ConsoleRoutes() {
+  const { session, loading, signOut } = useAuth();
+  const handleSignOut = () => {
+    void signOut();
+  };
 
-  /** Console routes render only when signed in; otherwise bounce to login. */
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: 'var(--animo-muted)' }}>
+        Naglo-load…
+      </div>
+    );
+  }
+
   const guard = (element: React.ReactNode) =>
-    signedIn ? element : <Navigate to="/login" replace />;
+    session ? element : <Navigate to="/login" replace />;
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route
-          path="/login"
-          element={
-            signedIn ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <LoginPage onSignIn={() => setSignedIn(true)} />
-            )
-          }
-        />
-        <Route path="/dashboard" element={guard(<DashboardPage onSignOut={signOut} />)} />
-        <Route path="/advisory" element={guard(<AdvisoryPage onSignOut={signOut} />)} />
-        <Route path="/messages" element={guard(<MessagesPage onSignOut={signOut} />)} />
-        <Route path="/farmers" element={guard(<FarmersPage onSignOut={signOut} />)} />
-        <Route path="/buyers" element={guard(<BuyersPage onSignOut={signOut} />)} />
-        <Route
-          path="/account-review/:type/:id"
-          element={guard(<AccountReviewPage onSignOut={signOut} />)}
-        />
-        <Route
-          path="/account-review/:id"
-          element={guard(<AccountReviewPage onSignOut={signOut} />)}
-        />
-        <Route path="/settings" element={guard(<SettingsPage onSignOut={signOut} />)} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <Routes>
+      <Route
+        path="/login"
+        element={session ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+      />
+      <Route path="/dashboard" element={guard(<DashboardPage onSignOut={handleSignOut} />)} />
+      <Route path="/advisory" element={guard(<AdvisoryPage onSignOut={handleSignOut} />)} />
+      <Route path="/messages" element={guard(<MessagesPage onSignOut={handleSignOut} />)} />
+      <Route path="/farmers" element={guard(<FarmersPage onSignOut={handleSignOut} />)} />
+      <Route path="/buyers" element={guard(<BuyersPage onSignOut={handleSignOut} />)} />
+      <Route
+        path="/account-review/:type/:id"
+        element={guard(<AccountReviewPage onSignOut={handleSignOut} />)}
+      />
+      <Route path="/account-review/:id" element={guard(<AccountReviewPage onSignOut={handleSignOut} />)} />
+      <Route path="/settings" element={guard(<SettingsPage onSignOut={handleSignOut} />)} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
+}
+
+/** LGU Console shell with Supabase email/password auth. */
+export function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <ConsoleRoutes />
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

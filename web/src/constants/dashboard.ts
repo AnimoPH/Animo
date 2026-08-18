@@ -57,66 +57,6 @@ export const PRICE_WEEK: PriceBar[] = [
   { day: 'Lin', level: 1, active: true },
 ];
 
-export type VolatilityTier = 'clamped' | 'fallback';
-
-export type VolatilityRow = {
-  listingId: string;
-  variety: string;
-  priceFrom: string;
-  priceTo: string;
-  tier: VolatilityTier;
-  status: string;
-  date: string;
-};
-
-export const VOLATILITY_LOG: VolatilityRow[] = [
-  {
-    listingId: 'LST-2091',
-    variety: 'Palay RC160',
-    priceFrom: '₱17.80',
-    priceTo: '₱16.90',
-    tier: 'clamped',
-    status: 'Awtomatikong na-clamp',
-    date: 'Okt 12 · 08:14 AM',
-  },
-  {
-    listingId: 'LST-2087',
-    variety: 'Palay NSIC Rc222',
-    priceFrom: '₱19.20',
-    priceTo: '₱17.05',
-    tier: 'clamped',
-    status: 'Awtomatikong na-clamp',
-    date: 'Okt 12 · 07:52 AM',
-  },
-  {
-    listingId: 'LST-2074',
-    variety: 'Palay RC 638 SR',
-    priceFrom: '₱21.50',
-    priceTo: '₱16.40',
-    tier: 'fallback',
-    status: 'Kinumpirma ng magsasaka',
-    date: 'Okt 11 · 04:30 PM',
-  },
-  {
-    listingId: 'LST-2069',
-    variety: 'Palay RC 216',
-    priceFrom: '₱13.10',
-    priceTo: '₱16.40',
-    tier: 'fallback',
-    status: 'Kinumpirma ng magsasaka',
-    date: 'Okt 11 · 02:07 PM',
-  },
-  {
-    listingId: 'LST-2063',
-    variety: 'Palay RC160',
-    priceFrom: '₱18.40',
-    priceTo: '₱16.95',
-    tier: 'clamped',
-    status: 'Awtomatikong na-clamp',
-    date: 'Okt 10 · 11:20 AM',
-  },
-];
-
 /* ---------------- Advisory monitoring ---------------- */
 
 export type Severity = 'severe' | 'moderate' | 'mild' | 'clear';

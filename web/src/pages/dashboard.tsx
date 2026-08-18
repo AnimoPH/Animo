@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
-import { VOLATILITY_LOG } from '@/constants/dashboard';
 import {
   fetchMarketPriceFeed,
   fetchNfaInterventionWindows,
@@ -63,6 +62,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
   const weeklyBars = useMemo(() => toWeeklyBars(priceHistory, 7), [priceHistory]);
   const latestHistory = priceHistory.at(-1);
   const previousHistory = priceHistory.at(-2);
+  const psaFarmgate = latestHistory?.pricePerKg ?? null;
   const dryBase = priceFeed?.dryBasePerKg ?? latestHistory?.pricePerKg ?? null;
   const benchmarkDelta = dryBase != null ? priceDelta(dryBase, previousHistory?.pricePerKg) : null;
   const lastSyncTime = latestHistory ? formatSyncTimestamp(latestHistory.month) : 'Walang talaan pa';
@@ -105,9 +105,9 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
               </span>
             </div>
             <div style={styles.metricValue}>
-              {latestHistory ? formatPeso(latestHistory.pricePerKg) : '—'}
+              {psaFarmgate != null ? formatPeso(psaFarmgate) : '—'}
             </div>
-            {benchmarkDelta ? (
+            {psaFarmgate != null && benchmarkDelta ? (
               <div style={styles.comparisonRow}>
                 <span style={styles.trendPillGreen}>
                   <TrendingUp size={14} /> {benchmarkDelta}
@@ -118,7 +118,13 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           </div>
           <div style={styles.metricBottom}>
             <div style={styles.metricDelta}>
-              <span>kada kilo · PSA OpenSTAT · Rizal province</span>
+              {psaFarmgate != null ? (
+                <span>kada kilo · PSA OpenSTAT · Rizal province</span>
+              ) : (
+                <span>
+                  Walang talaan sa palay_price_history — kailangan ng PSA sync (LGU auth) o manual insert ng Rizal row.
+                </span>
+              )}
             </div>
           </div>
         </article>
@@ -207,8 +213,6 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
         />
         <PricingConfidenceCard nfaActive={nfaActive} />
       </section>
-
-      <VolatilityLogCard />
     </ConsoleLayout>
   );
 }
@@ -300,72 +304,6 @@ function StatRow({ label, value }: { label: string; value: string }) {
       <dt style={styles.statLabel}>{label}</dt>
       <dd style={styles.statValue}>{value}</dd>
     </div>
-  );
-}
-
-function VolatilityLogCard() {
-  return (
-    <article className="animo-card" style={styles.panel}>
-      <div style={styles.panelHead}>
-        <div>
-          <h2 style={styles.panelTitle}>Price Volatility Log</h2>
-          <p style={styles.panelSubtitle}>
-            Tier 2 (clamped) at Tier 3 (fallback · kinumpirma ng magsasaka) na
-            listing lamang
-          </p>
-        </div>
-        <div style={styles.tierLegend}>
-          <span style={{ ...styles.tierBadge, ...styles.tierClamped }}>
-            Tier 2 · Clamped
-          </span>
-          <span style={{ ...styles.tierBadge, ...styles.tierFallback }}>
-            Tier 3 · Fallback
-          </span>
-        </div>
-      </div>
-
-      <div style={styles.tableWrap}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              {['Listing ID', 'Uri ng Palay', 'Presyo/Kilo', 'Tier', 'Katayuan', 'Petsa'].map(
-                (heading) => (
-                  <th key={heading} style={styles.th}>
-                    {heading.toUpperCase()}
-                  </th>
-                ),
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {VOLATILITY_LOG.map((row) => (
-              <tr key={row.listingId}>
-                <td style={{ ...styles.td, fontWeight: 700 }}>{row.listingId}</td>
-                <td style={styles.td}>{row.variety}</td>
-                <td style={styles.td}>
-                  {row.priceFrom} → {row.priceTo}
-                </td>
-                <td style={styles.td}>
-                  <span
-                    style={{
-                      ...styles.tierBadge,
-                      ...(row.tier === 'clamped'
-                        ? styles.tierClamped
-                        : styles.tierFallback),
-                    }}>
-                    {row.tier === 'clamped' ? 'Tier 2 · Clamped' : 'Tier 3 · Fallback'}
-                  </span>
-                </td>
-                <td style={styles.td}>{row.status}</td>
-                <td style={{ ...styles.td, color: 'var(--animo-black-secondary)' }}>
-                  {row.date}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </article>
   );
 }
 
@@ -736,38 +674,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     lineHeight: '20px',
     color: '#1E40AF',
-  },
-  tierLegend: { display: 'flex', gap: 10, flexWrap: 'wrap' },
-  tierBadge: {
-    display: 'inline-block',
-    padding: '5px 12px',
-    borderRadius: 'var(--animo-radius-pill)',
-    fontSize: 13,
-    fontWeight: 700,
-    whiteSpace: 'nowrap',
-  },
-  tierClamped: { background: 'var(--animo-caution-tint)', color: '#8A6D12' },
-  tierFallback: {
-    background: 'var(--animo-danger-tint)',
-    color: 'var(--animo-danger)',
-  },
-  tableWrap: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', minWidth: 780 },
-  th: {
-    textAlign: 'left',
-    padding: '12px 14px',
-    background: 'var(--animo-surface)',
-    fontSize: 13,
-    fontWeight: 700,
-    letterSpacing: 0.4,
-    color: 'var(--animo-black-secondary)',
-    whiteSpace: 'nowrap',
-  },
-  td: {
-    padding: '14px',
-    borderTop: '1px solid var(--animo-border)',
-    fontSize: 15,
-    whiteSpace: 'nowrap',
   },
   modalOverlay: {
     position: 'fixed',

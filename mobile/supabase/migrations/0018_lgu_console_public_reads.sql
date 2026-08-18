@@ -1,8 +1,7 @@
 -- LGU web console (pre-auth prototype): read-only farmer directory for the
 -- monitoring dashboard. Exposes only farmers who have at least one non-Draft
 -- listing — same privacy bar as listing_farmer_public (name + barangay, no
--- contact_number). Real LGU auth will gate writes later; anon SELECT is
--- enough for the demo console wired to VITE_SUPABASE_ANON_KEY.
+-- contact_number). Superseded by 0020_lgu_official_auth_access.sql (auth + RLS).
 
 create or replace view public.lgu_farmer_registry as
 select
