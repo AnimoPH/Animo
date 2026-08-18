@@ -85,6 +85,26 @@ export async function fetchMyCropListings(): Promise<CropListing[]> {
   return (data as CropListingRow[]).map(mapListing);
 }
 
+/**
+ * Batched lookup of several listings by id, keyed by listing_id. Used to
+ * enrich purchase-request/transaction rows (which only store `listing_id`)
+ * with display fields like variety and price without one query per row.
+ */
+export async function fetchCropListingsByIds(ids: string[]): Promise<Map<string, CropListing>> {
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from('croplisting')
+    .select(LISTING_COLUMNS)
+    .in('listing_id', uniqueIds);
+
+  if (error) throw error;
+  const listingById = new Map<string, CropListing>();
+  (data as CropListingRow[]).forEach((row) => listingById.set(row.listing_id, mapListing(row)));
+  return listingById;
+}
+
 /** Fetch one listing by id — RLS lets the owning farmer read it regardless of status (Draft included). */
 export async function fetchCropListing(id: string): Promise<CropListing | null> {
   const { data, error } = await supabase

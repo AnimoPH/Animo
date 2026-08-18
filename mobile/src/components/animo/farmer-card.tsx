@@ -1,20 +1,28 @@
-import { ChevronRight, Lock, Map, MapPin, Phone } from 'lucide-react-native';
+import { Lock, Phone } from 'lucide-react-native';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import type { Farmer } from '@/constants/marketplace';
+import type { TransactionCounterpart } from '@/types/transaction';
 
 export type FarmerCardProps = {
-  farmer: Farmer;
+  farmer: TransactionCounterpart;
 };
 
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return parts
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
 /**
- * Farmer contact details, shown once the request is accepted.
- *
- * The phone row dials via the system handler; the map row is a placeholder
- * until the map screen exists.
+ * Farmer contact details, shown once a transaction match exists — per the
+ * "Counterpart contact revealed after a transaction match" RLS policy on
+ * "user" (migration 0001), only name/phone are ever available here, no
+ * address (this schema has no farm-address column to reveal).
  */
 export function FarmerCard({ farmer }: FarmerCardProps) {
   return (
@@ -22,7 +30,7 @@ export function FarmerCard({ farmer }: FarmerCardProps) {
       <View style={styles.header}>
         <View style={styles.avatar}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
-            {farmer.initials}
+            {initialsOf(farmer.name)}
           </AnimoText>
         </View>
         <View style={styles.headerText}>
@@ -30,10 +38,9 @@ export function FarmerCard({ farmer }: FarmerCardProps) {
             {farmer.name}
           </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.muted}>
-            {farmer.role}
+            Magsasaka
           </AnimoText>
         </View>
-        {farmer.verified ? <StatusBadge label="Verified" tone="success" /> : null}
       </View>
 
       <View style={styles.divider} />
@@ -44,38 +51,13 @@ export function FarmerCard({ farmer }: FarmerCardProps) {
           <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
             {farmer.phone}
           </AnimoText>
-          <AnimoText variant="caption" color={AnimoColors.muted}>
-            Mobile · GCash registered
-          </AnimoText>
         </View>
-        <Pressable
-          onPress={() => Linking.openURL(`tel:${farmer.phone.replace(/\s/g, '')}`)}
-          hitSlop={8}>
+        <Pressable onPress={() => Linking.openURL(`tel:${farmer.phone.replace(/\s/g, '')}`)} hitSlop={8}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
             Tumawag
           </AnimoText>
         </Pressable>
       </View>
-
-      <View style={styles.detailRow}>
-        <MapPin size={18} color={AnimoColors.blackSecondary} />
-        <View style={styles.detailText}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-            {farmer.addressLine}
-          </AnimoText>
-          <AnimoText variant="caption" color={AnimoColors.muted}>
-            {farmer.addressDetail} · {farmer.distanceKm} km mula sa iyo
-          </AnimoText>
-        </View>
-      </View>
-
-      <Pressable style={styles.mapRow}>
-        <Map size={18} color={AnimoColors.blackSecondary} />
-        <AnimoText variant="body" color={AnimoColors.black} style={styles.flex}>
-          Tingnan sa Mapa
-        </AnimoText>
-        <ChevronRight size={18} color={AnimoColors.muted} />
-      </Pressable>
     </View>
   );
 }
@@ -94,7 +76,7 @@ export function LockedFarmerCard() {
         <StatusBadge label="Naka-lock" tone="neutral" />
       </View>
 
-      {['Pangalan', 'Contact', 'Lokasyon'].map((label) => (
+      {['Pangalan', 'Contact'].map((label) => (
         <View key={label} style={styles.detailRow}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.flex}>
             {label}
@@ -163,15 +145,5 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: AnimoColors.border,
-  },
-  mapRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.md,
-    backgroundColor: AnimoColors.surface,
-    borderRadius: AnimoRadius.md,
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: AnimoSpacing.md,
-    marginTop: AnimoSpacing.xs,
   },
 });

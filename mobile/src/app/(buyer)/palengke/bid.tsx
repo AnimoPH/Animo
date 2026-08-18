@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Lock } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -13,43 +14,98 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { FeedbackModal } from '@/components/animo/feedback-modal';
+import { BidConfirmationModal } from '@/components/animo/bid-confirmation-modal';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { ListingImage } from '@/components/animo/listing-image';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import { formatPeso, getListing } from '@/constants/marketplace';
+import { formatPeso } from '@/constants/marketplace';
+import { cancelPurchaseRequest, submitPurchaseRequest } from '@/services/purchase-request-service';
+import { fetchMarketplaceListing } from '@/services/marketplace-service';
+import { varietyLabel, type CropListing } from '@/types/crop-listing';
+import type { PurchaseRequest } from '@/types/purchase-request';
 
-/** Bumili ng Palay — purchase screen with quantity, system-locked pricing, and order confirmation modal. */
+/** Bumili ng Palay — purchase request screen with quantity, system-locked pricing, and a real cancel-window confirmation modal. */
 export default function BuyScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const listing = getListing(id);
+
+  const [listing, setListing] = useState<CropListing | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [quantity, setQuantity] = useState('200');
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submittedRequest, setSubmittedRequest] = useState<PurchaseRequest | null>(null);
 
-  // This screen still reads the frontend mock (`getListing`), so a real
-  // croplisting id coming from the live Palengke list lands here. Purchase
-  // request submission is a separate task — until then this degrades to a
-  // notice instead of a misleading "not found".
-  if (!listing) {
+  useEffect(() => {
+    let cancelled = false;
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+    (async () => {
+      try {
+        const result = await fetchMarketplaceListing(id);
+        if (!cancelled) setListing(result);
+      } catch (error) {
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : 'Hindi ma-load ang listing.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenHeader title="Bumili ng Palay" />
+        <View style={styles.missing}>
+          <ActivityIndicator color={AnimoColors.green} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!listing || loadError) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <ScreenHeader title="Bumili ng Palay" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            Hindi pa available ang pagbili para sa listing na ito.
+            {loadError ?? 'Hindi na available ang pagbili para sa listing na ito.'}
           </AnimoText>
         </View>
       </SafeAreaView>
     );
   }
 
+  const pricePerKg = listing.pricePerKg ?? 0;
   const qtyNum = parseInt(quantity || '0', 10) || 0;
-  const overAvailable = qtyNum > listing.availableKg;
-  const total = qtyNum * listing.pricePerKg;
-  const canConfirm = qtyNum > 0 && !overAvailable;
+  const overRemaining = qtyNum > listing.remainingQuantityKg;
+  const underMinimum = qtyNum > 0 && qtyNum < listing.minimumRequestKg;
+  const total = qtyNum * pricePerKg;
+  const canConfirm = qtyNum > 0 && !overRemaining && !underMinimum && !submitting;
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const request = await submitPurchaseRequest({
+        listingId: listing.id,
+        requestedQuantityKg: qtyNum,
+      });
+      setSubmittedRequest(request);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Hindi maipadala ang request.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -68,21 +124,15 @@ export default function BuyScreen() {
             <ListingImage height={64} borderRadius={AnimoRadius.md} style={styles.thumb} />
             <View style={styles.flex}>
               <AnimoText variant="h3" color={AnimoColors.black}>
-                {listing.variety}
+                {varietyLabel(listing)}
               </AnimoText>
               <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                {formatPeso(listing.pricePerKg)} bawat kilo · {listing.municipality},{' '}
-                {listing.province}
+                {formatPeso(pricePerKg)} bawat kilo
               </AnimoText>
-              {listing.estimated && (
-                <View style={styles.badgeWrap}>
-                  <StatusBadge label="Tinantyang Presyo" tone="warning" />
-                </View>
-              )}
             </View>
           </View>
 
-          {/* Quantity details (Lokasyon ng paghahatid removed) */}
+          {/* Quantity details */}
           <View style={styles.card}>
             <AnimoText variant="h3" color={AnimoColors.black}>
               Detalye ng Pagbili
@@ -93,9 +143,15 @@ export default function BuyScreen() {
               value={quantity}
               onChangeText={(t) => setQuantity(t.replace(/\D/g, ''))}
               suffixText="kilo/kg"
-              error={overAvailable}
-              hint={`Hindi maaaring lumampas sa ${listing.availableKg} kg na aktwal na timbang.`}
-              hintTone={overAvailable ? 'danger' : 'muted'}
+              error={overRemaining || underMinimum}
+              hint={
+                overRemaining
+                  ? `Hindi maaaring lumampas sa ${listing.remainingQuantityKg} kg na natitirang stock.`
+                  : underMinimum
+                    ? `Kailangan ng hindi bababa sa ${listing.minimumRequestKg} kg.`
+                    : `${listing.minimumRequestKg}–${listing.remainingQuantityKg} kg ang maaaring hilingin.`
+              }
+              hintTone={overRemaining || underMinimum ? 'danger' : 'muted'}
             />
           </View>
 
@@ -116,7 +172,7 @@ export default function BuyScreen() {
                 Presyo bawat kilo
               </AnimoText>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                {formatPeso(listing.pricePerKg)}
+                {formatPeso(pricePerKg)}
               </AnimoText>
             </View>
             <AnimoText variant="caption" color={AnimoColors.muted}>
@@ -126,37 +182,46 @@ export default function BuyScreen() {
             <View style={styles.divider} />
 
             <View style={styles.rowBetween}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+              <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.rowLabel}>
                 Kabuuang halaga
               </AnimoText>
-              <AnimoText variant="price" color={AnimoColors.green}>
+              <AnimoText variant="price" color={AnimoColors.green} style={styles.rowValue}>
                 {formatPeso(total)}
               </AnimoText>
             </View>
             <AnimoText variant="caption" color={AnimoColors.muted}>
-              Awtomatikong kinakalkula: {formatPeso(listing.pricePerKg)} × {qtyNum} kg
+              Awtomatikong kinakalkula: {formatPeso(pricePerKg)} × {qtyNum} kg
             </AnimoText>
           </View>
+
+          {submitError ? (
+            <AnimoText variant="caption" color={AnimoColors.danger}>
+              {submitError}
+            </AnimoText>
+          ) : null}
         </ScrollView>
 
         <View style={styles.footer}>
           <AnimoButton
-            label="Kumpirmahin ang Pagbili"
-            onPress={() => setShowSuccessModal(true)}
+            label={submitting ? 'Ipinapadala…' : 'Kumpirmahin ang Pagbili'}
+            onPress={handleConfirm}
             disabled={!canConfirm}
           />
         </View>
       </KeyboardAvoidingView>
 
-      {/* Order Placed Success Modal */}
-      <FeedbackModal
-        visible={showSuccessModal}
-        tone="success"
-        title="Naipadala ang Order!"
-        message={`Matagumpay na naipadala ang iyong order para sa ${qtyNum} kg ng ${listing.variety} (${formatPeso(total)}). Makikita mo ang progreso nito sa pahina ng Transaksyon.`}
-        confirmLabel="Pumunta sa Transaksyon"
-        onConfirm={() => {
-          setShowSuccessModal(false);
+      <BidConfirmationModal
+        visible={submittedRequest !== null}
+        summary={`${varietyLabel(listing)} · ${qtyNum} kg`}
+        total={total}
+        cancelDeadline={submittedRequest?.cancelDeadline ?? null}
+        onCancel={async () => {
+          if (!submittedRequest) return;
+          await cancelPurchaseRequest(submittedRequest.id);
+          setSubmittedRequest(null);
+        }}
+        onComplete={() => {
+          setSubmittedRequest(null);
           router.replace('/(buyer)/transaksyon');
         }}
       />
@@ -226,8 +291,17 @@ const styles = StyleSheet.create({
   },
   rowBetween: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
+    gap: AnimoSpacing.sm,
+  },
+  rowLabel: {
+    flex: 1,
+    flexShrink: 1,
+  },
+  rowValue: {
+    textAlign: 'right',
+    flexShrink: 0,
   },
   divider: {
     height: 1,

@@ -1,19 +1,15 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import {
-  Clock,
-  Info,
-  XCircle,
-} from 'lucide-react-native';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Check, Clock, Info, X, XCircle } from 'lucide-react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { CancelRequestModal } from '@/components/animo/cancel-request-modal';
+import { FarmerCard, LockedFarmerCard } from '@/components/animo/farmer-card';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
-import { LockedFarmerCard } from '@/components/animo/farmer-card';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { PaymentSummary } from '@/components/animo/payment-summary';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
@@ -21,90 +17,172 @@ import { RequestListingCard } from '@/components/animo/request-listing-card';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { fetchCropListing } from '@/services/crop-listing-service';
 import {
+  cancelPurchaseRequest as cancelPurchaseRequestRpc,
+  fetchPurchaseRequest,
+} from '@/services/purchase-request-service';
+import {
+  cancelTransaction as cancelTransactionRpc,
+  fetchTransactionByRequestId,
+  fetchTransactionCounterpart,
+} from '@/services/transaction-service';
+import type { CropListing } from '@/types/crop-listing';
+import type { PurchaseRequest } from '@/types/purchase-request';
+import {
+  DISPLAY_STAGE_LABELS,
+  buildProgressSteps,
   cancelPolicy,
-  getPurchaseRequest,
-  progressSteps,
+  deriveDisplayStage,
   requestTotal,
   type CancelPolicy,
-  type PurchaseRequest,
-} from '@/constants/marketplace';
+  type PurchaseOutcome,
+  type TransactionCounterpart,
+} from '@/types/transaction';
 
 /**
  * Katayuan ng Transaksyon.
  *
- * Automatically forwards to the active step in the flow:
- * - accepted / scheduled -> pickup screen
- * - inspected -> bayad screen
- * - completed / reviewed -> resibo screen
- * - pending / cancelled -> shows status screen
+ * Automatically forwards to the active step in the flow once matched:
+ * - awaiting_payment / payment_sent -> bayad
+ * - payment_confirmed / delivered / completed -> resibo
+ * - request_pending / dead states -> shows the status screen in place
  */
 export default function TransactionStatusScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const request = getPurchaseRequest(id);
+
+  const [outcome, setOutcome] = useState<PurchaseOutcome | null>(null);
+  const [listing, setListing] = useState<CropListing | null>(null);
+  const [counterpart, setCounterpart] = useState<TransactionCounterpart | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [showCancelledSuccessModal, setShowCancelledSuccessModal] = useState(false);
 
-  if (!request) {
+  const load = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const request = await fetchPurchaseRequest(id);
+      if (!request) {
+        setOutcome(null);
+        return;
+      }
+      const transaction = await fetchTransactionByRequestId(id);
+      const nextOutcome: PurchaseOutcome = transaction ? { kind: 'matched', request, transaction } : { kind: 'unmatched', request };
+      setOutcome(nextOutcome);
+
+      const [listingResult, counterpartResult] = await Promise.all([
+        fetchCropListing(request.listingId),
+        transaction ? fetchTransactionCounterpart(transaction.farmerId) : Promise.resolve(null),
+      ]);
+      setListing(listingResult);
+      setCounterpart(counterpartResult);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Hindi ma-load ang transaksyon.');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ScreenHeader title="Katayuan ng Transaksyon" />
+        <View style={styles.missing}>
+          <ActivityIndicator color={AnimoColors.green} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!outcome || error) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScreenHeader title="Katayuan ng Transaksyon" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            Hindi nahanap ang transaksyon na ito.
+            {error ?? 'Hindi nahanap ang transaksyon na ito.'}
           </AnimoText>
         </View>
       </SafeAreaView>
     );
   }
 
-  // Directly proceed to pickup when farmer has accepted
-  if (request.stage === 'accepted' || request.stage === 'scheduled') {
-    return <Redirect href={`/(buyer)/transaksyon/${request.id}/pickup`} />;
+  const stage = deriveDisplayStage(outcome);
+
+  if (stage === 'awaiting_payment') {
+    return <Redirect href={`/(buyer)/transaksyon/${outcome.request.id}/pickup`} />;
+  }
+  if (stage === 'payment_sent' || stage === 'payment_confirmed' || stage === 'delivered' || stage === 'completed') {
+    return <Redirect href={`/(buyer)/transaksyon/${outcome.request.id}/resibo`} />;
   }
 
-  if (request.stage === 'inspected') {
-    return <Redirect href={`/(buyer)/transaksyon/${request.id}/bayad`} />;
-  }
+  const isDead = stage === 'request_rejected' || stage === 'request_cancelled';
+  const policy = cancelPolicy(outcome);
+  const quantityKg = outcome.kind === 'matched' ? outcome.transaction.quantityKg : outcome.request.requestedQuantityKg;
+  const total = outcome.kind === 'matched' ? requestTotal(outcome) : (listing?.pricePerKg ?? 0) * quantityKg;
+  const pricePerKg = outcome.kind === 'matched' ? outcome.transaction.agreedPricePerKg : (listing?.pricePerKg ?? 0);
 
-  if (request.stage === 'completed' || request.stage === 'reviewed') {
-    return <Redirect href={`/(buyer)/transaksyon/${request.id}/resibo`} />;
-  }
-
-  const { stage } = request;
-  const isCancelled = stage === 'cancelled';
-  const policy = cancelPolicy(request);
+  const handleConfirmCancel = async () => {
+    setCancelError(null);
+    try {
+      if (outcome.kind === 'matched') {
+        await cancelTransactionRpc(outcome.transaction.id);
+      } else {
+        await cancelPurchaseRequestRpc(outcome.request.id);
+      }
+      setCancelling(false);
+      setShowCancelledSuccessModal(true);
+    } catch (e) {
+      setCancelError(e instanceof Error ? e.message : 'Hindi makansela ang transaksyon.');
+      setCancelling(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
       <ScreenHeader title="Katayuan ng Transaksyon" />
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-        <StageBanner request={request} />
-        <RequestListingCard request={request} muted={isCancelled} />
-        <ProgressTracker steps={progressSteps(request)} />
-        <PaymentBreakdown request={request} />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <StageBanner request={outcome.request} isDead={isDead} label={DISPLAY_STAGE_LABELS[stage]} />
+        {listing ? (
+          <RequestListingCard listing={listing} quantityKg={quantityKg} totalAmount={total} muted={isDead} />
+        ) : null}
+        <ProgressTracker steps={buildProgressSteps(outcome, 'buyer')} />
+        <PaymentSummary
+          rows={[
+            { label: 'Dami ng Palay', amount: quantityKg },
+            { label: 'Presyo bawat kilo', amount: pricePerKg },
+          ]}
+          total={{ label: 'Kabuuang babayaran', amount: total }}
+        />
 
-        <LockedFarmerCard />
+        {counterpart ? <FarmerCard farmer={counterpart} /> : <LockedFarmerCard />}
 
-        {isCancelled ? (
+        {cancelError ? (
+          <AnimoText variant="caption" color={AnimoColors.danger}>
+            {cancelError}
+          </AnimoText>
+        ) : null}
+
+        {isDead ? (
           <NoticeBanner tone="neutral" icon={<Info size={16} color={AnimoColors.muted} />}>
-            Walang parusa sa pagkansela nito. Muling nakalista ang palay para sa
-            ibang mamimili.
+            Walang parusa sa pagkansela nito. Muling nakalista ang palay para sa ibang mamimili.
           </NoticeBanner>
         ) : null}
       </ScrollView>
 
-      <StageFooter
-        request={request}
-        policy={policy}
-        onCancel={() => setCancelling(true)}
-      />
+      <StageFooter isDead={isDead} policy={policy} onCancel={() => setCancelling(true)} />
 
-      {/* Confirmation sheet before cancellation */}
       <CancelRequestModal
         visible={cancelling}
         title={policy.title}
@@ -112,13 +190,9 @@ export default function TransactionStatusScreen() {
         consequences={policy.consequences}
         confirmLabel={policy.confirmLabel}
         onDismiss={() => setCancelling(false)}
-        onConfirm={() => {
-          setCancelling(false);
-          setShowCancelledSuccessModal(true);
-        }}
+        onConfirm={handleConfirmCancel}
       />
 
-      {/* Successfully Cancelled Notification Modal */}
       <FeedbackModal
         visible={showCancelledSuccessModal}
         tone="danger"
@@ -127,7 +201,7 @@ export default function TransactionStatusScreen() {
         confirmLabel="OK"
         onConfirm={() => {
           setShowCancelledSuccessModal(false);
-          router.replace('/(buyer)/transaksyon/pr-cancelled');
+          router.replace('/(buyer)/transaksyon');
         }}
       />
     </SafeAreaView>
@@ -135,10 +209,8 @@ export default function TransactionStatusScreen() {
 }
 
 /** Top status card — icon, headline and the stage pill. */
-function StageBanner({ request }: { request: PurchaseRequest }) {
-  const { stage } = request;
-
-  if (stage === 'cancelled') {
+function StageBanner({ request, isDead, label }: { request: PurchaseRequest; isDead: boolean; label: string }) {
+  if (isDead) {
     return (
       <View style={styles.bannerCard}>
         <View style={styles.bannerRow}>
@@ -147,21 +219,13 @@ function StageBanner({ request }: { request: PurchaseRequest }) {
           </View>
           <View style={styles.bannerText}>
             <AnimoText variant="h3" color={AnimoColors.black}>
-              Nakansela ang Transaksyon
-            </AnimoText>
-            <AnimoText variant="caption" color={AnimoColors.muted}>
-              {request.cancelReason ?? 'Kinansela ang transaksyon'}
+              {request.status === 'Rejected' ? 'Tinanggihan ang Request' : 'Nakansela ang Transaksyon'}
             </AnimoText>
           </View>
         </View>
         <View style={styles.bannerMeta}>
-          <StatusBadge label="Nakansela" tone="neutral" />
-          <AnimoText variant="caption" color={AnimoColors.muted}>
-            {request.cancelledAt}
-          </AnimoText>
+          <StatusBadge label={label} tone="neutral" />
         </View>
-        <View style={styles.divider} />
-        <MetaRow label="Transaction ID" value={request.reference} />
       </View>
     );
   }
@@ -182,50 +246,28 @@ function StageBanner({ request }: { request: PurchaseRequest }) {
         </View>
       </View>
       <View style={styles.bannerMeta}>
-        <StatusBadge label="Naghihintay" tone="warning" />
-        <AnimoText variant="caption" color={AnimoColors.muted}>
-          Inaasahan sa loob ng 24 oras
-        </AnimoText>
+        <StatusBadge label={label} tone="warning" />
       </View>
       <View style={styles.divider} />
-      <MetaRow label="Transaction ID" value={request.reference} />
-      <MetaRow label="Naipadala" value={request.sentAt} />
+      <MetaRow label="Naipadala" value={request.submittedAt} />
     </View>
-  );
-}
-
-/** Money breakdown. */
-function PaymentBreakdown({ request }: { request: PurchaseRequest }) {
-  const total = requestTotal(request);
-
-  return (
-    <PaymentSummary
-      rows={[
-        { label: 'Dami ng Palay', amount: request.quantityKg },
-        { label: 'Presyo bawat kilo', amount: request.pricePerKg },
-      ]}
-      total={{ label: 'Kabuuang babayaran sa pickup', amount: total }}
-    />
   );
 }
 
 /** Footer action(s). */
 function StageFooter({
-  request,
+  isDead,
   policy,
   onCancel,
 }: {
-  request: PurchaseRequest;
+  isDead: boolean;
   policy: CancelPolicy;
   onCancel: () => void;
 }) {
-  if (request.stage === 'cancelled') {
+  if (isDead) {
     return (
       <View style={styles.footerStack}>
-        <AnimoButton
-          label="Mag-browse ng Ibang Listing"
-          onPress={() => router.replace('/(buyer)/palengke')}
-        />
+        <AnimoButton label="Mag-browse ng Ibang Listing" icon={Check} onPress={() => router.replace('/(buyer)/palengke')} />
         <AnimoButton
           label="Tingnan ang Kasaysayan"
           variant="secondary"
@@ -238,11 +280,7 @@ function StageFooter({
   return (
     <View style={styles.footerStack}>
       {policy.triggerLabel ? (
-        <AnimoButton
-          label={policy.triggerLabel}
-          variant="dangerOutline"
-          onPress={onCancel}
-        />
+        <AnimoButton label={policy.triggerLabel} variant="dangerOutline" icon={X} onPress={onCancel} />
       ) : null}
     </View>
   );

@@ -1,14 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Banknote, Check, CheckCircle2, Lock, TriangleAlert } from 'lucide-react-native';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  Banknote,
-  Check,
-  CheckCircle2,
-  Lock,
-  TriangleAlert,
-} from 'lucide-react-native';
-import { useState } from 'react';
-import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -26,13 +21,12 @@ import { NoticeBanner } from '@/components/animo/notice-banner';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import {
-  formatPeso,
-  getPurchaseRequest,
-  requestTotal,
-  type DiscrepancyReason,
-  type PaymentMethod,
-} from '@/constants/marketplace';
+import { formatPeso } from '@/constants/marketplace';
+import { fetchPurchaseRequest } from '@/services/purchase-request-service';
+import { confirmPaymentSent, fetchTransactionByRequestId } from '@/services/transaction-service';
+import { requestTotal, type PurchaseOutcome } from '@/types/transaction';
+
+type DiscrepancyReason = 'Mas mababa/mataas ang timbang' | 'Magkaiba ang grade' | 'Iba ang variant' | 'Iba pa';
 
 const REASON_OPTIONS: DiscrepancyReason[] = [
   'Mas mababa/mataas ang timbang',
@@ -42,61 +36,90 @@ const REASON_OPTIONS: DiscrepancyReason[] = [
 ];
 
 /**
- * Kumpirmasyon ng Bayad — Screens 3 & 4 in the revised flow.
- *
- * Checks if the actual amount matches the agreed price.
- * If match: Shows success confirmation (Tugma) and "Kumpirmahin ang Bayad" button.
- * If mismatch: Shows warning and feedback form (Ipaliwanag ang Pagkakaiba).
+ * Kumpirmasyon ng Bayad — reads the real recorded payment and calls
+ * `buyer_confirm_payment_sent`. There is no separate discrepancy-record RPC
+ * in this schema: both the match and mismatch paths end up calling the same
+ * confirm-sent action, so a discrepancy reason is a client-only note for the
+ * buyer's own clarity, never actually delivered to the farmer or an LGU.
  */
 export default function PaymentConfirmationScreen() {
-  const { id, method: queryMethod, actualAmount: queryAmount } = useLocalSearchParams<{
-    id: string;
-    method?: string;
-    actualAmount?: string;
-  }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
 
-  const request = getPurchaseRequest(id);
-  const agreedTotal = request ? requestTotal(request) : 8000;
+  const [outcome, setOutcome] = useState<PurchaseOutcome | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const actualAmount = queryAmount ? parseFloat(queryAmount) : agreedTotal;
-  const paymentMethod: PaymentMethod = queryMethod === 'cash' ? 'cash' : 'gcash';
-
-  const difference = actualAmount - agreedTotal;
-  const isMatch = Math.abs(difference) < 0.01;
-
-  // Discrepancy state
-  const [selectedReason, setSelectedReason] = useState<DiscrepancyReason | null>(
-    difference !== 0 ? 'Mas mababa/mataas ang timbang' : null
-  );
+  const [selectedReason, setSelectedReason] = useState<DiscrepancyReason | null>(null);
   const [explanation, setExplanation] = useState('');
-
-  // Feedback modals
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [showExplanationSubmittedModal, setShowExplanationSubmittedModal] = useState(false);
 
-  if (!request) {
+  const load = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const request = await fetchPurchaseRequest(id);
+      const transaction = request ? await fetchTransactionByRequestId(id) : null;
+      if (!request || !transaction) {
+        setOutcome(null);
+        return;
+      }
+      setOutcome({ kind: 'matched', request, transaction });
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Hindi ma-load ang transaksyon.');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ScreenHeader title="Kumpirmasyon ng Bayad" />
+        <View style={styles.missing}>
+          <ActivityIndicator color={AnimoColors.green} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const payment = outcome?.kind === 'matched' ? outcome.transaction.payment : null;
+
+  if (!outcome || outcome.kind !== 'matched' || !payment || loadError) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScreenHeader title="Kumpirmasyon ng Bayad" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            Hindi nahanap ang transaksyon na ito.
+            {loadError ?? 'Wala pang naitalang bayad para sa transaksyong ito.'}
           </AnimoText>
         </View>
       </SafeAreaView>
     );
   }
 
-  const navigateToReceipt = () => {
-    router.push({
-      pathname: `/(buyer)/transaksyon/${request.id}/resibo` as any,
-      params: {
-        method: paymentMethod,
-        amount: actualAmount.toString(),
-        reason: selectedReason ?? undefined,
-        explanation: explanation || undefined,
-      },
-    });
+  const agreedTotal = requestTotal(outcome);
+  const actualAmount = payment.amount;
+  const difference = actualAmount - agreedTotal;
+  const isMatch = Math.abs(difference) < 0.01;
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await confirmPaymentSent(payment.id);
+      setShowConfirmModal(true);
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : 'Hindi makumpirma ang bayad.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -104,17 +127,10 @@ export default function PaymentConfirmationScreen() {
       <StatusBar style="dark" />
       <ScreenHeader title="Kumpirmasyon ng Bayad" />
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {isMatch ? (
-            /* ================= EXACT MATCH (SCREEN 3) ================= */
             <>
-              {/* Status Card */}
               <View style={styles.card}>
                 <View style={styles.bannerRow}>
                   <View style={[styles.bannerIcon, styles.bannerIconSuccess]}>
@@ -122,22 +138,18 @@ export default function PaymentConfirmationScreen() {
                   </View>
                   <View style={styles.bannerText}>
                     <AnimoText variant="h3" color={AnimoColors.black}>
-                      Matagumpay ang Bayad
+                      Tugma ang Halaga
                     </AnimoText>
                     <AnimoText variant="caption" color={AnimoColors.muted}>
-                      Tugma ang halagang binayaran
+                      Naitala ang bayad na binigay
                     </AnimoText>
                   </View>
                 </View>
                 <View style={styles.bannerMeta}>
-                  <StatusBadge label="Tinanggap" tone="success" />
-                  <AnimoText variant="caption" color={AnimoColors.muted}>
-                    Okt 18, 2025 · 11:42 AM
-                  </AnimoText>
+                  <StatusBadge label="Naitala" tone="success" />
                 </View>
               </View>
 
-              {/* Halagang Binayaran Card */}
               <View style={styles.card}>
                 <AnimoText variant="caption" color={AnimoColors.muted}>
                   Halagang Binayaran
@@ -156,16 +168,6 @@ export default function PaymentConfirmationScreen() {
                     {formatPeso(agreedTotal)}
                   </AnimoText>
                 </View>
-
-                <View style={styles.rowBetween}>
-                  <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                    Halagang binayaran
-                  </AnimoText>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    {formatPeso(actualAmount)}
-                  </AnimoText>
-                </View>
-
                 <View style={styles.rowBetween}>
                   <AnimoText variant="body" color={AnimoColors.blackSecondary}>
                     Pagkakaiba
@@ -176,69 +178,44 @@ export default function PaymentConfirmationScreen() {
                 </View>
               </View>
 
-              {/* Paraan ng Bayad Card */}
               <View style={styles.card}>
                 <AnimoText variant="h3" color={AnimoColors.black}>
                   Paraan ng Bayad
                 </AnimoText>
-
                 <View style={styles.methodInfoBox}>
-                  {paymentMethod === 'gcash' ? (
-                    <>
-                      <View style={styles.methodRow}>
-                        <View style={styles.gcashLogo}>
-                          <AnimoText variant="tag" color={AnimoColors.white}>
-                            GCash
-                          </AnimoText>
-                        </View>
-                        <View style={styles.methodTexts}>
-                          <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                            GCash
-                          </AnimoText>
-                          <AnimoText variant="caption" color={AnimoColors.muted}>
-                            0917 •••• 567
-                          </AnimoText>
-                        </View>
-                        <Check size={18} color={AnimoColors.green} strokeWidth={3} />
+                  <View style={styles.methodRow}>
+                    {payment.paymentMode === 'GCash' ? (
+                      <View style={styles.gcashLogo}>
+                        <AnimoText variant="tag" color={AnimoColors.white}>
+                          GCash
+                        </AnimoText>
                       </View>
-                      <AnimoText variant="caption" color={AnimoColors.muted}>
-                        Ligtas na bayad sa pamamagitan ng GCash.
-                      </AnimoText>
-                    </>
-                  ) : (
-                    <>
-                      <View style={styles.methodRow}>
-                        <View style={styles.cashLogo}>
-                          <Banknote size={18} color={AnimoColors.green} />
-                        </View>
-                        <View style={styles.methodTexts}>
-                          <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                            Cash
-                          </AnimoText>
-                          <AnimoText variant="caption" color={AnimoColors.muted}>
-                            Bayad sa oras ng pickup
-                          </AnimoText>
-                        </View>
-                        <Check size={18} color={AnimoColors.green} strokeWidth={3} />
+                    ) : (
+                      <View style={styles.cashLogo}>
+                        <Banknote size={18} color={AnimoColors.green} />
                       </View>
-                      <AnimoText variant="caption" color={AnimoColors.muted}>
-                        Naibigay na cash sa magsasaka sa oras ng pickup.
+                    )}
+                    <View style={styles.methodTexts}>
+                      <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+                        {payment.paymentMode === 'GCash' ? 'GCash Transfer' : 'Cash'}
                       </AnimoText>
-                    </>
-                  )}
+                      {payment.gcashReferenceNumber ? (
+                        <AnimoText variant="caption" color={AnimoColors.muted}>
+                          Ref: {payment.gcashReferenceNumber}
+                        </AnimoText>
+                      ) : null}
+                    </View>
+                    <Check size={18} color={AnimoColors.green} strokeWidth={3} />
+                  </View>
                 </View>
               </View>
 
-              {/* Info Banner */}
               <NoticeBanner tone="info" icon={<Lock size={16} color="#2563A8" />}>
                 Tugma ang halaga kaya hindi na kailangan ng paliwanag.
-                Awtomatikong nakumpleto ang talaan ng bayad.
               </NoticeBanner>
             </>
           ) : (
-            /* ================= MISMATCH / DISCREPANCY (SCREEN 4) ================= */
             <>
-              {/* Warning Header Card */}
               <View style={[styles.card, styles.warningCard]}>
                 <View style={styles.bannerRow}>
                   <View style={[styles.bannerIcon, styles.bannerIconWarning]}>
@@ -257,12 +234,10 @@ export default function PaymentConfirmationScreen() {
                 </View>
               </View>
 
-              {/* Halagang Binayaran Card */}
               <View style={styles.card}>
                 <AnimoText variant="h3" color={AnimoColors.black}>
                   Halagang Binayaran
                 </AnimoText>
-
                 <View style={styles.rowBetween}>
                   <AnimoText variant="body" color={AnimoColors.blackSecondary}>
                     Napagkasunduang presyo
@@ -271,7 +246,6 @@ export default function PaymentConfirmationScreen() {
                     {formatPeso(agreedTotal)}
                   </AnimoText>
                 </View>
-
                 <View style={styles.rowBetween}>
                   <AnimoText variant="body" color={AnimoColors.blackSecondary}>
                     Halagang binayaran
@@ -280,58 +254,42 @@ export default function PaymentConfirmationScreen() {
                     {formatPeso(actualAmount)}
                   </AnimoText>
                 </View>
-
                 <View style={styles.divider} />
-
                 <View style={styles.rowBetween}>
                   <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
                     Pagkakaiba
                   </AnimoText>
-                  <AnimoText
-                    variant="price"
-                    color={difference > 0 ? '#B4791A' : AnimoColors.danger}>
+                  <AnimoText variant="price" color={difference > 0 ? '#B4791A' : AnimoColors.danger}>
                     {difference > 0 ? `+${formatPeso(difference)}` : `-${formatPeso(Math.abs(difference))}`}
                   </AnimoText>
                 </View>
               </View>
 
-              {/* Feedback Form Card (Ipaliwanag ang Pagkakaiba) */}
               <View style={styles.card}>
                 <AnimoText variant="h3" color={AnimoColors.black}>
-                  Ipaliwanag ang Pagkakaiba
+                  Tandaan ang Pagkakaiba (para sa iyo lang)
                 </AnimoText>
                 <AnimoText variant="caption" color={AnimoColors.muted}>
-                  Kailangan ito bago magpatuloy. Piliin ang dahilan at magdagdag ng detalye.
+                  Hindi ito ipinapadala kaninuman — sanggunian mo lang ito bago magpatuloy.
                 </AnimoText>
 
-                {/* Reason Chips */}
                 <View style={styles.chipGroup}>
                   {REASON_OPTIONS.map((reason) => (
                     <Pressable
                       key={reason}
-                      style={[
-                        styles.chip,
-                        selectedReason === reason && styles.chipActive,
-                      ]}
+                      style={[styles.chip, selectedReason === reason && styles.chipActive]}
                       onPress={() => setSelectedReason(reason)}>
-                      <AnimoText
-                        variant="caption"
-                        color={
-                          selectedReason === reason
-                            ? AnimoColors.green
-                            : AnimoColors.black
-                        }>
+                      <AnimoText variant="caption" color={selectedReason === reason ? AnimoColors.green : AnimoColors.black}>
                         {reason}
                       </AnimoText>
                     </Pressable>
                   ))}
                 </View>
 
-                {/* Textarea */}
                 <View style={styles.textareaContainer}>
                   <TextInput
                     style={styles.textarea}
-                    placeholder="Isulat ang paliwanag dito..."
+                    placeholder="Isulat ang tala dito..."
                     placeholderTextColor={AnimoColors.muted}
                     multiline
                     numberOfLines={4}
@@ -345,63 +303,34 @@ export default function PaymentConfirmationScreen() {
                   </AnimoText>
                 </View>
               </View>
-
-              {/* LGU Notice Banner */}
-              <NoticeBanner tone="warning" icon={<TriangleAlert size={16} color="#B4791A" />}>
-                Ipapadala ang paliwanag na ito sa magsasaka at sa LGU para sa talaan
-                ng transaksyon.
-              </NoticeBanner>
             </>
           )}
+
+          {submitError ? (
+            <AnimoText variant="caption" color={AnimoColors.danger}>
+              {submitError}
+            </AnimoText>
+          ) : null}
         </ScrollView>
 
-        {/* Footer Actions */}
         <View style={styles.footerStack}>
-          {isMatch ? (
-            <AnimoButton
-              label="Kumpirmahin ang Bayad"
-              onPress={() => setShowConfirmModal(true)}
-            />
-          ) : (
-            <>
-              <AnimoButton
-                label="Isumite ang Paliwanag"
-                onPress={() => setShowExplanationSubmittedModal(true)}
-                disabled={!selectedReason}
-              />
-              <AnimoButton
-                label="Baguhin ang Halaga"
-                variant="secondary"
-                onPress={() => router.back()}
-              />
-            </>
-          )}
+          <AnimoButton
+            label={submitting ? 'Ipinapadala…' : isMatch ? 'Kumpirmahin ang Bayad' : 'Kumpirmahin Pa Rin'}
+            onPress={handleConfirm}
+            disabled={submitting || (!isMatch && !selectedReason)}
+          />
         </View>
       </KeyboardAvoidingView>
 
-      {/* Confirmation Success Modal */}
       <FeedbackModal
         visible={showConfirmModal}
         tone="success"
-        title="Matagumpay ang Bayad!"
-        message={`Nakumpirma ang buong bayad na ${formatPeso(actualAmount)} gamit ang ${paymentMethod === 'cash' ? 'Cash' : 'GCash'}.`}
+        title="Naipadala ang Kumpirmasyon"
+        message={`Naghihintay na ngayon ng kumpirmasyon ng magsasaka na natanggap ang bayad na ${formatPeso(actualAmount)}.`}
         confirmLabel="Tingnan ang Resibo"
         onConfirm={() => {
           setShowConfirmModal(false);
-          navigateToReceipt();
-        }}
-      />
-
-      {/* Discrepancy Submitted Modal */}
-      <FeedbackModal
-        visible={showExplanationSubmittedModal}
-        tone="success"
-        title="Naisumite ang Paliwanag!"
-        message={`Naitala ang dahilan (${selectedReason}) at nakumpirma ang bayad na ${formatPeso(actualAmount)}.`}
-        confirmLabel="Tingnan ang Resibo"
-        onConfirm={() => {
-          setShowExplanationSubmittedModal(false);
-          navigateToReceipt();
+          router.replace(`/(buyer)/transaksyon/${outcome.request.id}/resibo`);
         }}
       />
     </SafeAreaView>
@@ -409,24 +338,10 @@ export default function PaymentConfirmationScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.background,
-  },
-  flex: {
-    flex: 1,
-  },
-  missing: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: AnimoSpacing.xl,
-  },
-  content: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingBottom: AnimoSpacing.xl,
-    gap: AnimoSpacing.lg,
-  },
+  safeArea: { flex: 1, backgroundColor: AnimoColors.background },
+  flex: { flex: 1 },
+  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: AnimoSpacing.xl },
+  content: { paddingHorizontal: AnimoSpacing.xl, paddingBottom: AnimoSpacing.xl, gap: AnimoSpacing.lg },
   card: {
     borderWidth: 1,
     borderColor: AnimoColors.border,
@@ -435,48 +350,15 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.sm,
     backgroundColor: AnimoColors.white,
   },
-  warningCard: {
-    borderColor: '#F0D79A',
-    backgroundColor: '#FDF6E4',
-  },
-  bannerRow: {
-    flexDirection: 'row',
-    gap: AnimoSpacing.md,
-    alignItems: 'center',
-  },
-  bannerIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bannerIconSuccess: {
-    backgroundColor: AnimoColors.greenTint,
-  },
-  bannerIconWarning: {
-    backgroundColor: '#FBF0D9',
-  },
-  bannerText: {
-    flex: 1,
-    gap: 2,
-  },
-  bannerMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.sm,
-    marginTop: AnimoSpacing.xs,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: AnimoColors.border,
-    marginVertical: AnimoSpacing.xs,
-  },
-  rowBetween: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+  warningCard: { borderColor: '#F0D79A', backgroundColor: '#FDF6E4' },
+  bannerRow: { flexDirection: 'row', gap: AnimoSpacing.md, alignItems: 'center' },
+  bannerIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  bannerIconSuccess: { backgroundColor: AnimoColors.greenTint },
+  bannerIconWarning: { backgroundColor: '#FBF0D9' },
+  bannerText: { flex: 1, gap: 2 },
+  bannerMeta: { flexDirection: 'row', alignItems: 'center', gap: AnimoSpacing.sm, marginTop: AnimoSpacing.xs },
+  divider: { height: 1, backgroundColor: AnimoColors.border, marginVertical: AnimoSpacing.xs },
+  rowBetween: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: AnimoSpacing.sm },
   methodInfoBox: {
     borderWidth: 1,
     borderColor: AnimoColors.green,
@@ -485,32 +367,11 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.sm,
     backgroundColor: AnimoColors.greenTint,
   },
-  methodRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.md,
-  },
-  gcashLogo: {
-    backgroundColor: '#0B76D1',
-    borderRadius: AnimoRadius.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  cashLogo: {
-    backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.sm,
-    padding: 6,
-  },
-  methodTexts: {
-    flex: 1,
-    gap: 1,
-  },
-  chipGroup: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: AnimoSpacing.sm,
-    marginTop: AnimoSpacing.xs,
-  },
+  methodRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoSpacing.md },
+  gcashLogo: { backgroundColor: '#0B76D1', borderRadius: AnimoRadius.sm, paddingHorizontal: 8, paddingVertical: 4 },
+  cashLogo: { backgroundColor: AnimoColors.white, borderRadius: AnimoRadius.sm, padding: 6 },
+  methodTexts: { flex: 1, gap: 1 },
+  chipGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: AnimoSpacing.sm, marginTop: AnimoSpacing.xs },
   chip: {
     paddingHorizontal: AnimoSpacing.md,
     paddingVertical: AnimoSpacing.sm,
@@ -519,10 +380,7 @@ const styles = StyleSheet.create({
     borderColor: AnimoColors.border,
     backgroundColor: AnimoColors.surface,
   },
-  chipActive: {
-    borderColor: AnimoColors.green,
-    backgroundColor: AnimoColors.greenTint,
-  },
+  chipActive: { borderColor: AnimoColors.green, backgroundColor: AnimoColors.greenTint },
   textareaContainer: {
     borderWidth: 1,
     borderColor: AnimoColors.border,
@@ -532,14 +390,8 @@ const styles = StyleSheet.create({
     marginTop: AnimoSpacing.xs,
     gap: AnimoSpacing.xs,
   },
-  textarea: {
-    fontSize: 14,
-    color: AnimoColors.black,
-    minHeight: 80,
-  },
-  counter: {
-    alignSelf: 'flex-end',
-  },
+  textarea: { fontSize: 16, color: AnimoColors.black, minHeight: 80 },
+  counter: { alignSelf: 'flex-end' },
   footerStack: {
     paddingHorizontal: AnimoSpacing.xl,
     paddingTop: AnimoSpacing.md,

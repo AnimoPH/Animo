@@ -4,78 +4,130 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
-import type { DisplayStage, PaymentMode } from '@/types/transaction';
+import type { RequestStage } from '@/constants/marketplace';
 
-/** Which real `DisplayStage` values put a "needs your action" banner on the card. */
-const NEEDS_ACTION: Partial<Record<DisplayStage, true>> = {
-  request_pending: true,
-  payment_sent: true,
-  payment_confirmed: true,
-};
+export const BUYER_STATUS_CONFIG = {
+  'Bagong Kahilingan': {
+    dotColor: AnimoColors.moderate,
+    textColor: AnimoColors.moderate,
+    showDot: true,
+    isFilled: false,
+    needsAction: false,
+  },
+  'Mag-iskedyul ng Pickup': {
+    dotColor: AnimoColors.moderate,
+    textColor: AnimoColors.moderate,
+    showDot: false,
+    isFilled: false,
+    needsAction: true,
+  },
+  'Naghihintay ng Inspeksyon': {
+    dotColor: AnimoColors.mild,
+    textColor: AnimoColors.mild,
+    showDot: true,
+    isFilled: false,
+    needsAction: false,
+  },
+  'Naghihintay ng Bayad': {
+    dotColor: AnimoColors.focusRing,
+    textColor: AnimoColors.focusRing,
+    showDot: true,
+    isFilled: false,
+    needsAction: true,
+  },
+  'Transaction Done': {
+    dotColor: AnimoColors.accentPrimary,
+    textColor: AnimoColors.white,
+    showDot: false,
+    isFilled: true,
+    needsAction: false,
+  },
+  Nakansela: {
+    dotColor: AnimoColors.objectDisabled,
+    textColor: AnimoColors.objectDisabled,
+    showDot: false,
+    isFilled: false,
+    needsAction: false,
+  },
+  'Hindi Natuloy': {
+    dotColor: AnimoColors.caution,
+    textColor: AnimoColors.caution,
+    showDot: false,
+    isFilled: false,
+    needsAction: false,
+  },
+} as const;
 
-const DOT_TONE: Partial<Record<DisplayStage, string>> = {
-  request_pending: AnimoColors.moderate,
-  awaiting_payment: AnimoColors.focusRing,
-  payment_sent: AnimoColors.mild,
-  payment_confirmed: AnimoColors.mild,
-};
+export type BuyerTransactionStatus = keyof typeof BUYER_STATUS_CONFIG;
+export type PaymentMode = 'GCash' | 'Cash';
 
-export type FarmerTransactionCardItem = {
-  /** Routing key — a request_id for `request_pending` rows, a transaction_id otherwise. */
+export type BuyerTransactionCardItem = {
   id: string;
-  stage: DisplayStage;
-  statusLabel: string;
+  txnId: string;
   variety: string;
   moisture: string;
+  status: BuyerTransactionStatus;
+  stage: RequestStage;
   price: string;
   weight: string;
   pricePerKg: string;
-  paymentMode: PaymentMode | null;
-  buyer: string;
+  paymentMode: PaymentMode;
+  farmer: string;
+  location?: string;
   date: string;
-  time: string;
+  time?: string;
 };
 
-export type TransactionCardProps = {
-  item: FarmerTransactionCardItem;
+export type BuyerTransactionCardProps = {
+  item: BuyerTransactionCardItem;
   onPress?: () => void;
 };
 
-/** Farmer transaksyon list card: status, variety, payment, total, buyer, date. */
-export function TransactionCard({ item, onPress }: TransactionCardProps) {
-  const isDone = item.stage === 'completed';
-  const needsAction = NEEDS_ACTION[item.stage] === true;
-  const dotColor = DOT_TONE[item.stage];
+/** Buyer transaksyon card matching farmer transaction-card layout and visual design. */
+export function BuyerTransactionCard({ item, onPress }: BuyerTransactionCardProps) {
+  const config = BUYER_STATUS_CONFIG[item.status] ?? {
+    dotColor: AnimoColors.mild,
+    textColor: AnimoColors.mild,
+    showDot: true,
+    isFilled: false,
+    needsAction: false,
+  };
 
-  const openTransactionDetail = () => {
+  const handlePress = () => {
     if (onPress) {
       onPress();
       return;
     }
-    router.push({ pathname: '/(farmer)/transaksyon/[id]', params: { id: item.id } });
+
+    if (item.stage === 'accepted' || item.stage === 'scheduled') {
+      router.push(`/(buyer)/transaksyon/${item.id}/pickup`);
+    } else if (item.stage === 'inspected') {
+      router.push(`/(buyer)/transaksyon/${item.id}/bayad`);
+    } else if (item.stage === 'completed' || item.stage === 'reviewed') {
+      router.push(`/(buyer)/transaksyon/${item.id}/resibo`);
+    } else {
+      router.push(`/(buyer)/transaksyon/${item.id}`);
+    }
   };
 
   return (
-    <TouchableOpacity accessibilityRole="button" activeOpacity={0.85} onPress={openTransactionDetail} style={styles.card}>
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.85}
+      onPress={handlePress}
+      style={styles.card}>
       <View style={styles.cardBody}>
         <View style={styles.rowBetween}>
           <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-            {item.buyer}
+            {item.txnId}
           </AnimoText>
-          <StatusLabel label={item.statusLabel} isDone={isDone} dotColor={dotColor} />
+          <StatusLabel status={item.status} />
         </View>
 
         <View style={styles.varietyRow}>
           <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
             {item.variety} ({item.moisture})
           </AnimoText>
-          {item.paymentMode ? (
-            <View style={item.paymentMode === 'GCash' ? styles.payPillGcash : styles.payPillCash}>
-              <AnimoText variant="tag" color={item.paymentMode === 'GCash' ? AnimoColors.focusRing : AnimoColors.textMediumEmphasis}>
-                {item.paymentMode}
-              </AnimoText>
-            </View>
-          ) : null}
         </View>
 
         <View style={styles.priceRow}>
@@ -94,19 +146,37 @@ export function TransactionCard({ item, onPress }: TransactionCardProps) {
 
         <View style={styles.divider} />
 
-        <View style={styles.buyerRow}>
+        <View style={styles.farmerRow}>
+          <View style={styles.farmerCol}>
+            <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+              Magsasaka:
+            </AnimoText>
+            <AnimoText
+              variant="bodyEmphasis"
+              color={AnimoColors.textHighEmphasis}
+              style={styles.farmerName}>
+              {item.farmer}
+            </AnimoText>
+            {item.location ? (
+              <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+                {item.location}
+              </AnimoText>
+            ) : null}
+          </View>
           <View style={styles.dateCol}>
             <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
               {item.date}
             </AnimoText>
-            <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.time}>
-              {item.time}
-            </AnimoText>
+            {item.time ? (
+              <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.time}>
+                {item.time}
+              </AnimoText>
+            ) : null}
           </View>
         </View>
       </View>
 
-      {needsAction ? (
+      {config.needsAction ? (
         <View style={styles.actionBanner}>
           <AlertCircle size={14} color={AnimoColors.moderate} />
           <AnimoText variant="caption" color={AnimoColors.moderate} style={styles.actionText}>
@@ -118,12 +188,20 @@ export function TransactionCard({ item, onPress }: TransactionCardProps) {
   );
 }
 
-function StatusLabel({ label, isDone, dotColor }: { label: string; isDone: boolean; dotColor?: string }) {
-  if (isDone) {
+function StatusLabel({ status }: { status: BuyerTransactionStatus }) {
+  const config = BUYER_STATUS_CONFIG[status] ?? {
+    dotColor: AnimoColors.mild,
+    textColor: AnimoColors.mild,
+    showDot: true,
+    isFilled: false,
+    needsAction: false,
+  };
+
+  if (config.isFilled) {
     return (
       <View style={styles.statusFilled}>
         <AnimoText variant="tag" color={AnimoColors.white}>
-          {label}
+          {status}
         </AnimoText>
       </View>
     );
@@ -131,9 +209,11 @@ function StatusLabel({ label, isDone, dotColor }: { label: string; isDone: boole
 
   return (
     <View style={styles.statusPlain}>
-      {dotColor ? <View style={[styles.statusDot, { backgroundColor: dotColor }]} /> : null}
-      <AnimoText variant="tag" color={dotColor ?? AnimoColors.textMediumEmphasis}>
-        {label}
+      {config.showDot ? (
+        <View style={[styles.statusDot, { backgroundColor: config.dotColor }]} />
+      ) : null}
+      <AnimoText variant="tag" color={config.textColor}>
+        {status}
       </AnimoText>
     </View>
   );
@@ -217,10 +297,17 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.borderLowEmphasis,
     marginBottom: AnimoSpacing.md,
   },
-  buyerRow: {
+  farmerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  farmerCol: {
+    flex: 1,
+    paddingRight: AnimoSpacing.md,
+  },
+  farmerName: {
+    marginTop: 2,
   },
   dateCol: {
     alignItems: 'flex-end',

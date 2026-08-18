@@ -133,6 +133,6 @@ const styles = StyleSheet.create({
     paddingVertical: AnimoSpacing.xs,
   },
   label: {
-    fontSize: 11,
+    fontSize: 12.5,
   },
 });

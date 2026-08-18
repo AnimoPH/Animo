@@ -2,7 +2,7 @@ import { CloudRain, Leaf } from "lucide-react-native";
 import { FlatList, StyleSheet, View, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { BackHeader } from "@/components/animo/back-header";
+import { ScreenHeader } from "@/components/animo/screen-header";
 import { AnimoText } from "@/components/animo/animo-text";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
 
@@ -48,7 +48,7 @@ const PAST_ADVISORIES: PastAdvisory[] = [
 export default function AdvisoryDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <BackHeader title="Payo sa Bukid" />
+      <ScreenHeader title="Payo sa Bukid" />
 
       <FlatList
         contentContainerStyle={styles.content}
