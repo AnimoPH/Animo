@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+keras==3.13.2
+tensorflow>=2.16.1
+scikit-learn==1.6.1
+joblib
+pandas
+numpy
+pydantic
