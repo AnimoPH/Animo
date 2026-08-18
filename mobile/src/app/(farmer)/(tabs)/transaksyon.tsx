@@ -124,7 +124,10 @@ export default function FarmerTransactionsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <AppHeader title="Mga Transaksyon" />
+      <AppHeader
+        title="Mga Transaksyon"
+        onPressBell={() => router.push('/(farmer)/notipikasyon')}
+      />
 
       <View style={styles.filters}>
         <FilterChips options={FILTERS} value={filter} onChange={setFilter} />

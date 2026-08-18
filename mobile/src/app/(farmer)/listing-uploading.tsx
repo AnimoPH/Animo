@@ -4,7 +4,7 @@ import { Animated, Easing, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 
-import { BackHeader } from "@/components/animo/back-header";
+import { ScreenHeader } from "@/components/animo/screen-header";
 import { ProgressSteps } from "@/components/animo/farmer/progress-steps";
 import { AnimoText } from "@/components/animo/animo-text";
 import {
@@ -61,20 +61,7 @@ export default function ListingUploadingScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Stack.Screen
-        options={{
-          title: "Gumawa ng Listing",
-          headerTitleStyle: {
-            ...AnimoType.h3,
-            color: AnimoColors.textHighEmphasis,
-          },
-          headerStyle: { backgroundColor: AnimoColors.surfacePrimary },
-          headerTintColor: AnimoColors.textHighEmphasis,
-          gestureEnabled: false,
-          headerBackVisible: false,
-        }}
-      />
-      <BackHeader title="Gumawa ng Listing" />
+      <ScreenHeader title="Gumawa ng Listing" />
 
       {/* Progress Bar */}
       <ProgressSteps currentStep={1} />

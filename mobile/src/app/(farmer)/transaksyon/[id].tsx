@@ -8,6 +8,7 @@ import {
   Clock,
   Droplets,
   FileText,
+  HelpCircle,
   MapPin,
   Package,
   Phone,
@@ -33,10 +34,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { BackHeader } from '@/components/animo/back-header';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { PaymentSummary } from '@/components/animo/payment-summary';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
+import { ScreenHeader } from '@/components/animo/screen-header';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import {
@@ -51,7 +52,7 @@ import {
   type FarmerTransactionStage,
 } from '@/constants/marketplace';
 
-type ConfirmKind = 'accept' | 'payment' | 'pickup' | 'rating' | 'receipt' | null;
+type ConfirmKind = 'accept' | 'schedule_accept' | 'inspection_pass' | 'payment' | 'rating' | null;
 
 const REJECTION_REASONS = [
   'Kulang ang natitirang stock o naubos na',
@@ -63,9 +64,11 @@ const REJECTION_REASONS = [
 /**
  * Farmer Transaction Detail Screen.
  *
- * Implemented to match the rich UI and comprehensive details of the Buyer module
- * transaction flow (Stage Banner, Crop Listing Card, Progress Tracker, Payment Breakdown,
- * Buyer Info with Click-to-Call, Pickup & Inspection details, Digital Receipt, and action modals).
+ * Flow aligned with Buyer module:
+ * 1. Request Stage (Pending) -> Farmer accepts request with confirmation modal.
+ * 2. Schedule & Inspection Stage -> Farmer accepts proposed schedule -> Confirms inspection passed.
+ * 3. Payment Stage -> "Paraan ng Pagbabayad" becomes visible -> Farmer confirms payment received.
+ * 4. Completed Stage -> Digital receipt & Review sa Mamimili at Progreso ng Transaksyon.
  */
 export default function FarmerTransactionDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
@@ -74,6 +77,18 @@ export default function FarmerTransactionDetailScreen() {
     () => getFarmerTransaction(id),
   );
   const [confirm, setConfirm] = useState<ConfirmKind>(null);
+
+  // Inspection & schedule confirmation state (accepted if already paying or completed!)
+  const initialScheduleAccepted =
+    transaction?.stage === 'completed' ||
+    transaction?.stage === 'awaiting_payment' ||
+    transaction?.stage === 'awaiting_pickup';
+  const [scheduleAccepted, setScheduleAccepted] = useState(initialScheduleAccepted);
+
+  // Action Confirmation Prompt Modals
+  const [actionConfirmType, setActionConfirmType] = useState<
+    'accept_request' | 'accept_schedule' | 'confirm_inspection' | 'confirm_payment' | null
+  >(null);
 
   // Reject / Cancel Modal State
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -91,6 +106,25 @@ export default function FarmerTransactionDetailScreen() {
     Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`).catch(() => {});
   };
 
+  const handleExecuteAction = () => {
+    const type = actionConfirmType;
+    setActionConfirmType(null);
+
+    if (type === 'accept_request') {
+      bump('accepted');
+      setConfirm('accept');
+    } else if (type === 'accept_schedule') {
+      setScheduleAccepted(true);
+      setConfirm('schedule_accept');
+    } else if (type === 'confirm_inspection') {
+      bump('awaiting_payment');
+      setConfirm('inspection_pass');
+    } else if (type === 'confirm_payment') {
+      bump('completed');
+      setConfirm('payment');
+    }
+  };
+
   const handleConfirmReject = () => {
     bump('cancelled');
     setShowRejectModal(false);
@@ -101,7 +135,7 @@ export default function FarmerTransactionDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        <BackHeader title="Detalye ng Transaksyon" />
+        <ScreenHeader title="Detalye ng Transaksyon" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
             Hindi nahanap ang transaksyon na ito.
@@ -114,34 +148,49 @@ export default function FarmerTransactionDetailScreen() {
   const steps = farmerProgressSteps(transaction);
   const pricePerKg = transaction.quantityKg > 0 ? transaction.total / transaction.quantityKg : 0;
   const isPending = transaction.stage === 'pending';
-  const isCancelled = transaction.stage === 'cancelled' || transaction.stage === 'failed';
+  const isPaymentStage = transaction.stage === 'awaiting_payment';
   const isCompleted = transaction.stage === 'completed';
-  const showPickupDetails = !isPending && !isCancelled;
+  const isCancelled = transaction.stage === 'cancelled' || transaction.stage === 'failed';
+
+  // Only show payment method if in payment stage or completed
+  const showPaymentMethod = isPaymentStage || isCompleted;
+
+  // Build payment breakdown rows conditionally
+  const paymentRows = [
+    { label: 'Dami ng Palay', amount: `${transaction.quantityKg} kg` },
+    { label: 'Presyo bawat kilo', amount: formatPeso(pricePerKg) },
+    ...(showPaymentMethod
+      ? [{ label: 'Paraan ng Pagbabayad', amount: paymentMethodLabel(transaction.paymentMethod) }]
+      : []),
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title="Detalye ng Transaksyon" />
+      <ScreenHeader title="Detalye ng Transaksyon" />
 
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}>
-        {/* 1. Stage Banner Card (Matching Buyer UI) */}
-        <StageBanner transaction={transaction} />
+        {/* 1. Stage Banner Card */}
+        <StageBanner
+          transaction={transaction}
+          showPaymentMethod={showPaymentMethod}
+        />
 
         {/* 2. Crop Listing Summary Card */}
-        <ListingCard transaction={transaction} pricePerKg={pricePerKg} isCancelled={isCancelled} />
+        <ListingCard
+          transaction={transaction}
+          pricePerKg={pricePerKg}
+          isCancelled={isCancelled}
+        />
 
-        {/* 3. Progress Tracker */}
+        {/* 3. Progress Tracker (5 Steps: Kahilingan -> Tinanggap -> Iskedyul at Inspeksyon -> Bayad -> Review) */}
         <ProgressTracker title="Progreso ng Transaksyon" steps={steps} />
 
-        {/* 4. Payment Breakdown */}
+        {/* 4. Payment Breakdown (Payment method only visible when at payment stage) */}
         <PaymentSummary
-          rows={[
-            { label: 'Dami ng Palay', amount: `${transaction.quantityKg} kg` as any },
-            { label: 'Presyo bawat kilo', amount: formatPeso(pricePerKg) as any },
-            { label: 'Paraan ng Pagbabayad', amount: paymentMethodLabel(transaction.paymentMethod) as any },
-          ]}
+          rows={paymentRows}
           total={{ label: 'Kabuuang Halaga ng Transaksyon', amount: transaction.total }}
         />
 
@@ -154,8 +203,13 @@ export default function FarmerTransactionDetailScreen() {
         ) : null}
 
         {/* 6. Pickup & Inspection Details Card */}
-        {showPickupDetails ? (
-          <PickupInspectionCard isCompleted={isCompleted} quantityKg={transaction.quantityKg} />
+        {!isPending && !isCancelled ? (
+          <PickupInspectionCard
+            isCompleted={isCompleted}
+            quantityKg={transaction.quantityKg}
+            scheduleAccepted={scheduleAccepted || isCompleted || isPaymentStage}
+            onAcceptSchedule={() => setActionConfirmType('accept_schedule')}
+          />
         ) : null}
 
         {/* 7. Digital Receipt Card (When Completed) */}
@@ -184,24 +238,80 @@ export default function FarmerTransactionDetailScreen() {
       <View style={styles.footer}>
         <FooterActions
           stage={transaction.stage}
-          onAccept={() => {
-            bump('awaiting_payment');
-            setConfirm('accept');
-          }}
+          scheduleAccepted={scheduleAccepted || isCompleted || isPaymentStage}
+          onAcceptRequest={() => setActionConfirmType('accept_request')}
           onDecline={() => setShowRejectModal(true)}
-          onConfirmPayment={() => {
-            bump('awaiting_pickup');
-            setConfirm('payment');
-          }}
+          onConfirmSchedule={() => setActionConfirmType('accept_schedule')}
+          onConfirmInspectionPass={() => setActionConfirmType('confirm_inspection')}
+          onConfirmPayment={() => setActionConfirmType('confirm_payment')}
           onCancel={() => setShowRejectModal(true)}
-          onConfirmPickup={() => {
-            bump('completed');
-            setConfirm('pickup');
-          }}
-          onRate={() => setConfirm('rating')}
+          onRate={() => router.push({ pathname: '/(farmer)/review', params: { id: transaction.id } })}
           onBackToMarket={() => router.push('/(farmer)/(tabs)/palengke' as Href)}
         />
       </View>
+
+      {/* ACTION CONFIRMATION MODAL */}
+      <Modal
+        visible={actionConfirmType !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActionConfirmType(null)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setActionConfirmType(null)}>
+          <Pressable style={styles.confirmModalCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.confirmModalIconCircle}>
+              <HelpCircle size={28} color={AnimoColors.accentPrimary} />
+            </View>
+
+            <View style={styles.confirmModalHeaderGroup}>
+              <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.textCenter}>
+                {actionConfirmType === 'accept_request'
+                  ? 'Tanggapin ang Order?'
+                  : actionConfirmType === 'accept_schedule'
+                    ? 'Tanggapin ang Iskedyul?'
+                    : actionConfirmType === 'confirm_inspection'
+                      ? 'Pumasa sa Inspeksyon?'
+                      : 'Kumpirmahin ang Bayad?'}
+              </AnimoText>
+              <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
+                {actionConfirmType === 'accept_request'
+                  ? `Sigurado ka bang nais mong tanggapin ang purchase request mula kay ${transaction.buyer.name}?`
+                  : actionConfirmType === 'accept_schedule'
+                    ? 'Sigurado ka bang ayos sa iyo ang itinakdang oras at petsa ng pickup ng palay?'
+                    : actionConfirmType === 'confirm_inspection'
+                      ? 'Sigurado ka bang na-inspeksyon at pumasa ang kalidad at timbang ng palay?'
+                      : 'Sigurado ka bang natanggap mo na ang buong bayad sa GCash o Cash?'}
+              </AnimoText>
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleExecuteAction}
+                style={({ pressed }) => [styles.confirmActionBtn, pressed && styles.pressed]}>
+                <Check size={18} color={AnimoColors.white} />
+                <AnimoText variant="button" color={AnimoColors.white}>
+                  {actionConfirmType === 'accept_request'
+                    ? 'Oo, Tanggapin ang Order'
+                    : actionConfirmType === 'accept_schedule'
+                      ? 'Oo, Tanggapin ang Iskedyul'
+                      : actionConfirmType === 'confirm_inspection'
+                        ? 'Oo, Kumpirmahin (Pumasa)'
+                        : 'Oo, Nakumpirma ang Bayad'}
+                </AnimoText>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setActionConfirmType(null)}
+                style={({ pressed }) => [styles.cancelDismissBtn, pressed && styles.pressed]}>
+                <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
+                  Huwag Muna
+                </AnimoText>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* REJECT / CANCEL REASON PROMPT MODAL */}
       <Modal
@@ -220,7 +330,7 @@ export default function FarmerTransactionDetailScreen() {
                 {isPending ? 'Tanggihan ang Kahilingan?' : 'Kanselahin ang Transaksyon?'}
               </AnimoText>
               <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
-                Pumili o maglagay ng dahilan para sa mamimili ({transaction.buyer.name}):
+                Sigurado ka bang nais mong kanselahin? Pumili o maglagay ng dahilan para kay {transaction.buyer.name}:
               </AnimoText>
             </View>
 
@@ -304,7 +414,7 @@ export default function FarmerTransactionDetailScreen() {
       {/* CONFIRMATION / SUCCESS MODAL */}
       <FeedbackModal
         visible={confirm !== null}
-        tone={confirm === 'receipt' ? 'info' : 'success'}
+        tone="success"
         title={confirmTitle(confirm)}
         message={confirmMessage(transaction, confirm)}
         confirmLabel="Sige"
@@ -315,7 +425,13 @@ export default function FarmerTransactionDetailScreen() {
 }
 
 /** Stage banner matching the Buyer UI stage card style */
-function StageBanner({ transaction }: { transaction: FarmerTransaction }) {
+function StageBanner({
+  transaction,
+  showPaymentMethod,
+}: {
+  transaction: FarmerTransaction;
+  showPaymentMethod: boolean;
+}) {
   const badge = farmerStageBadge(transaction.stage);
   const { stage } = transaction;
 
@@ -329,19 +445,19 @@ function StageBanner({ transaction }: { transaction: FarmerTransaction }) {
           caption: 'Naghihintay ng iyong pagtanggap upang simulan ang transaksyon.',
         };
       case 'accepted':
-      case 'awaiting_payment':
-        return {
-          icon: <Package size={20} color={AnimoColors.accentPrimary} />,
-          iconBg: AnimoColors.accentPrimaryLight,
-          title: 'Tinanggap — Naghihintay ng Bayad',
-          caption: 'Kumpirmahin kapag naipadala na ng mamimili ang bayad.',
-        };
       case 'awaiting_pickup':
+        return {
+          icon: <CalendarDays size={20} color={AnimoColors.accentPrimary} />,
+          iconBg: AnimoColors.accentPrimaryLight,
+          title: 'Iskedyul at Inspeksyon sa Bukid',
+          caption: 'Ihanda ang palay para sa inspeksyon sa itinakdang oras ng pickup.',
+        };
+      case 'awaiting_payment':
         return {
           icon: <Package size={20} color="#D97706" />,
           iconBg: '#FEF3C7',
-          title: 'Bayad Na — Handa para sa Pickup',
-          caption: 'Ihanda ang palay para sa inspeksyon at pagkuha ng mamimili.',
+          title: 'Pumasa sa Inspeksyon — Naghihintay ng Bayad',
+          caption: 'Kumpirmahin kapag naipadala na ng mamimili ang buong bayad.',
         };
       case 'completed':
         return {
@@ -390,12 +506,14 @@ function StageBanner({ transaction }: { transaction: FarmerTransaction }) {
 
       <MetaRow label="Transaction ID" value={transaction.reference} />
       <MetaRow label="Mamimili" value={transaction.buyer.name} />
-      <MetaRow label="Paraan ng Bayad" value={paymentMethodLabel(transaction.paymentMethod)} />
+      {showPaymentMethod ? (
+        <MetaRow label="Paraan ng Bayad" value={paymentMethodLabel(transaction.paymentMethod)} />
+      ) : null}
     </View>
   );
 }
 
-/** Crop listing summary card */
+/** Crop listing summary card with robust layout against price overlap */
 function ListingCard({
   transaction,
   pricePerKg,
@@ -408,7 +526,7 @@ function ListingCard({
   return (
     <View style={[styles.listingCard, isCancelled && styles.listingCardMuted]}>
       <View style={styles.listingHeader}>
-        <View style={styles.flex}>
+        <View style={styles.listingTitleGroup}>
           <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
             {transaction.variety}
           </AnimoText>
@@ -416,7 +534,7 @@ function ListingCard({
             {farmerListingLine(transaction)}
           </AnimoText>
         </View>
-        <AnimoText variant="price" color={AnimoColors.accentPrimary}>
+        <AnimoText variant="price" color={AnimoColors.accentPrimary} style={styles.listingPriceText}>
           {formatPeso(transaction.total)}
         </AnimoText>
       </View>
@@ -471,7 +589,7 @@ function BuyerPartyCard({
           accessibilityLabel={`Tawagan si ${buyer.name}`}
           onPress={onCall}
           style={({ pressed }) => [styles.callBtn, pressed && styles.pressed]}>
-          <Phone size={16} color={AnimoColors.accentPrimary} />
+          <Phone size={15} color={AnimoColors.accentPrimary} />
           <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.callBtnText}>
             Tawagan
           </AnimoText>
@@ -488,7 +606,7 @@ function BuyerPartyCard({
       </View>
 
       <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-        Mag-ugnayan sa pamamagitan ng telepono para sa eksaktong oras at lokasyon ng pagkuha ng palay.
+        Makipag-ugnayan sa mamimili gamit ang telepono para sa koordinasyon ng pickup at inspeksyon.
       </AnimoText>
     </View>
   );
@@ -498,43 +616,76 @@ function BuyerPartyCard({
 function PickupInspectionCard({
   isCompleted,
   quantityKg,
+  scheduleAccepted,
+  onAcceptSchedule,
 }: {
   isCompleted: boolean;
   quantityKg: number;
+  scheduleAccepted: boolean;
+  onAcceptSchedule: () => void;
 }) {
   return (
     <View style={styles.inspectionCard}>
       <View style={styles.inspectionHeader}>
         <CalendarDays size={18} color={AnimoColors.accentPrimary} />
         <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-          Iskedyul at Inspeksyon sa Bukid
+          Iskedyul ng Pickup at Inspeksyon
         </AnimoText>
       </View>
 
-      <View style={styles.scheduleRow}>
-        <MapPin size={15} color={AnimoColors.textMediumEmphasis} />
-        <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.flex}>
-          Barangay San Jose, Antipolo, Rizal (Itinakdang Lugar)
-        </AnimoText>
+      <View style={styles.scheduleBox}>
+        <View style={styles.scheduleRow}>
+          <Clock size={15} color={AnimoColors.accentPrimary} />
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+            Biyernes, Ago 21, 2026 · 08:00 AM - 10:00 AM
+          </AnimoText>
+        </View>
+
+        <View style={styles.scheduleRow}>
+          <MapPin size={15} color={AnimoColors.textMediumEmphasis} />
+          <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.flex}>
+            Barangay San Jose, Antipolo, Rizal (Lokasyon ng Bukid)
+          </AnimoText>
+        </View>
       </View>
+
+      {!scheduleAccepted ? (
+        <View style={styles.scheduleAcceptWrap}>
+          <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+            Itinakda ng mamimili ang oras na ito. Tanggapin upang kumpirmahin ang iskedyul:
+          </AnimoText>
+          <AnimoButton
+            label="Tanggapin ang Iskedyul"
+            icon={Check}
+            onPress={onAcceptSchedule}
+          />
+        </View>
+      ) : (
+        <View style={styles.confirmedScheduleBanner}>
+          <CheckCircle2 size={16} color={AnimoColors.accentPrimary} />
+          <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.passedText}>
+            Kumpirmado na ang iskedyul ng pickup.
+          </AnimoText>
+        </View>
+      )}
 
       <View style={styles.divider} />
 
       <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-        Talaan ng Inspeksyon:
+        Talaan ng Inspeksyon sa Oras ng Pickup:
       </AnimoText>
 
       <View style={styles.checksList}>
-        <CheckRow label="Uri at Kalidad ng Palay" passed />
-        <CheckRow label={`Bilang ng Sako (${Math.ceil(quantityKg / 50)} sako × 50kg)`} passed />
-        <CheckRow label={`Aktwal na Timbang (${quantityKg} kg)`} passed />
+        <CheckRow label="Uri at Kalidad ng Palay" passed={isCompleted} />
+        <CheckRow label={`Bilang ng Sako (${Math.ceil(quantityKg / 50)} sako × 50kg)`} passed={isCompleted} />
+        <CheckRow label={`Aktwal na Timbang (${quantityKg} kg)`} passed={isCompleted} />
       </View>
 
       {isCompleted ? (
         <View style={styles.passedBanner}>
           <CheckCircle2 size={16} color={AnimoColors.accentPrimary} />
           <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.passedText}>
-            Matagumpay na natapos ang inspeksyon at pickup.
+            Matagumpay na natapos ang inspeksyon at nakuha na ang palay.
           </AnimoText>
         </View>
       ) : null}
@@ -556,10 +707,10 @@ function CheckRow({ label, passed }: { label: string; passed: boolean }) {
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.metaRow}>
-      <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+      <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.metaLabel}>
         {label}
       </AnimoText>
-      <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+      <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.metaValue}>
         {value}
       </AnimoText>
     </View>
@@ -568,27 +719,32 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 
 function FooterActions({
   stage,
-  onAccept,
+  scheduleAccepted,
+  onAcceptRequest,
   onDecline,
+  onConfirmSchedule,
+  onConfirmInspectionPass,
   onConfirmPayment,
   onCancel,
-  onConfirmPickup,
   onRate,
   onBackToMarket,
 }: {
   stage: FarmerTransactionStage;
-  onAccept: () => void;
+  scheduleAccepted: boolean;
+  onAcceptRequest: () => void;
   onDecline: () => void;
+  onConfirmSchedule: () => void;
+  onConfirmInspectionPass: () => void;
   onConfirmPayment: () => void;
   onCancel: () => void;
-  onConfirmPickup: () => void;
   onRate: () => void;
   onBackToMarket: () => void;
 }) {
+  // 1. Pending stage
   if (stage === 'pending') {
     return (
       <View style={styles.footerStack}>
-        <AnimoButton label="Accept" icon={Check} onPress={onAccept} />
+        <AnimoButton label="Accept" icon={Check} onPress={onAcceptRequest} />
         <AnimoButton
           label="Tanggihan"
           variant="dangerOutline"
@@ -599,11 +755,39 @@ function FooterActions({
     );
   }
 
-  if (stage === 'accepted' || stage === 'awaiting_payment') {
+  // 2. Schedule & Inspection stage
+  if (stage === 'accepted' || stage === 'awaiting_pickup') {
+    return (
+      <View style={styles.footerStack}>
+        {!scheduleAccepted ? (
+          <AnimoButton
+            label="Tanggapin ang Iskedyul ng Pickup"
+            icon={Check}
+            onPress={onConfirmSchedule}
+          />
+        ) : (
+          <AnimoButton
+            label="Kumpirmahin ang Inspeksyon (Pumasa)"
+            icon={Check}
+            onPress={onConfirmInspectionPass}
+          />
+        )}
+        <AnimoButton
+          label="Kanselahin ang Transaksyon"
+          variant="dangerOutline"
+          icon={X}
+          onPress={onCancel}
+        />
+      </View>
+    );
+  }
+
+  // 3. Payment stage
+  if (stage === 'awaiting_payment') {
     return (
       <View style={styles.footerStack}>
         <AnimoButton
-          label="Natanggap ko na ang bayad"
+          label="Natanggap ko na ang Bayad"
           icon={Check}
           onPress={onConfirmPayment}
         />
@@ -617,18 +801,7 @@ function FooterActions({
     );
   }
 
-  if (stage === 'awaiting_pickup') {
-    return (
-      <View style={styles.footerStack}>
-        <AnimoButton
-          label="Nakuha na ang palay (Tapusin)"
-          icon={Check}
-          onPress={onConfirmPickup}
-        />
-      </View>
-    );
-  }
-
+  // 4. Completed stage
   if (stage === 'completed') {
     return (
       <View style={styles.footerStack}>
@@ -638,7 +811,11 @@ function FooterActions({
           icon={Star}
           onPress={onRate}
         />
-        <AnimoButton label="Bumalik sa Palengke" onPress={onBackToMarket} />
+        <AnimoButton
+          label="Bumalik sa Palengke"
+          icon={Check}
+          onPress={onBackToMarket}
+        />
       </View>
     );
   }
@@ -654,14 +831,14 @@ function confirmTitle(kind: ConfirmKind): string {
   switch (kind) {
     case 'accept':
       return 'Tinanggap ang Kahilingan';
+    case 'schedule_accept':
+      return 'Tinanggap ang Iskedyul';
+    case 'inspection_pass':
+      return 'Pumasa sa Inspeksyon';
     case 'payment':
       return 'Nakumpirma ang Bayad';
-    case 'pickup':
-      return 'Nakuha na ang Palay';
     case 'rating':
       return 'Salamat sa iyong Rating';
-    case 'receipt':
-      return 'Digital na Resibo';
     default:
       return '';
   }
@@ -670,15 +847,15 @@ function confirmTitle(kind: ConfirmKind): string {
 function confirmMessage(tx: FarmerTransaction, kind: ConfirmKind): string {
   switch (kind) {
     case 'accept':
-      return 'Makikita na ang numero ng mamimili. Makipag-ugnayan at kumpirmahin ang bayad kapag natanggap mo na ito.';
+      return 'Tinanggap mo ang purchase request. Makikita na ang numero ng mamimili para sa pickup at inspeksyon.';
+    case 'schedule_accept':
+      return 'Kumpirmado na ang itinakdang oras at araw para sa pickup at inspeksyon ng palay.';
+    case 'inspection_pass':
+      return 'Nakumpirma na ang kalidad at timbang ng palay. Maaari nang magbayad ang mamimili.';
     case 'payment':
-      return 'Nakumpirma na ang bayad. Ihanda ang palay at kumpirmahin kapag nakuha na ng mamimili.';
-    case 'pickup':
-      return 'Tapos na ang transaksyon. Maaari mo nang suriin ang digital na resibo at magbigay ng feedback.';
+      return 'Nakumpirma na ang bayad at tapos na ang transaksyon. Maaari mo nang tingnan ang digital na resibo.';
     case 'rating':
       return 'Naitala ang iyong rating para sa mamimili.';
-    case 'receipt':
-      return `Naka-save ang resibo ${tx.reference} sa iyong Transaksyon.`;
     default:
       return '';
   }
@@ -743,6 +920,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: AnimoSpacing.md,
   },
+  metaLabel: {
+    flex: 1,
+  },
+  metaValue: {
+    textAlign: 'right',
+    flexShrink: 0,
+  },
   listingCard: {
     borderWidth: 1,
     borderColor: AnimoColors.borderLowEmphasis,
@@ -759,6 +943,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: AnimoSpacing.md,
+  },
+  listingTitleGroup: {
+    flex: 1,
+    gap: 2,
+  },
+  listingPriceText: {
+    textAlign: 'right',
+    flexShrink: 0,
   },
   specsRow: {
     flexDirection: 'row',
@@ -823,11 +1015,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  scheduleBox: {
+    gap: 6,
+    paddingVertical: 2,
+  },
   scheduleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 2,
+  },
+  scheduleAcceptWrap: {
+    gap: AnimoSpacing.sm,
+    backgroundColor: AnimoColors.surfaceSecondary,
+    padding: AnimoSpacing.md,
+    borderRadius: AnimoRadius.md,
+    marginTop: 4,
+  },
+  confirmedScheduleBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: AnimoColors.accentPrimaryLight,
+    padding: AnimoSpacing.sm,
+    borderRadius: AnimoRadius.md,
+    marginTop: 2,
   },
   checksList: {
     gap: 6,
@@ -885,6 +1096,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: AnimoSpacing.lg,
+  },
+  confirmModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderRadius: AnimoRadius.lg,
+    padding: AnimoSpacing.xl,
+    gap: AnimoSpacing.md,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  confirmModalIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: AnimoColors.accentPrimaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmModalHeaderGroup: {
+    alignItems: 'center',
+    gap: AnimoSpacing.xs,
+  },
+  confirmActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: AnimoSpacing.sm,
+    width: '100%',
+    height: 50,
+    borderRadius: AnimoRadius.pill,
+    backgroundColor: AnimoColors.accentPrimary,
   },
   rejectCard: {
     width: '100%',

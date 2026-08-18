@@ -29,7 +29,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { BackHeader } from '@/components/animo/back-header';
+import { ScreenHeader } from '@/components/animo/screen-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import {
   getBuyerPublicProfile,
@@ -52,7 +52,7 @@ export default function BuyerProfileScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        <BackHeader title="Profile ng Mamimili" />
+        <ScreenHeader title="Profile ng Mamimili" />
         <View style={styles.centerState}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -64,7 +64,7 @@ export default function BuyerProfileScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        <BackHeader title="Profile ng Mamimili" />
+        <ScreenHeader title="Profile ng Mamimili" />
         <View style={styles.centerState}>
           <AnimoText
             variant="body"
@@ -80,7 +80,7 @@ export default function BuyerProfileScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title="Profile ng Mamimili" />
+      <ScreenHeader title="Profile ng Mamimili" />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}

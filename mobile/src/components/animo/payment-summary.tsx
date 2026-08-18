@@ -6,7 +6,7 @@ import { formatPeso } from '@/constants/marketplace';
 
 export type PaymentSummaryRow = {
   label: string;
-  amount: number;
+  amount: number | string;
   /** Render in green — used for the amount currently due. */
   emphasis?: boolean;
   /** Show as a negative (already-paid) line. */
@@ -19,7 +19,7 @@ export type PaymentSummaryProps = {
   title?: string;
   rows: PaymentSummaryRow[];
   /** Bold total row rendered under a divider. */
-  total?: { label: string; amount: number };
+  total?: { label: string; amount: number | string };
 };
 
 /** "Buod ng Bayad" — a labelled money breakdown. */
@@ -28,6 +28,11 @@ export function PaymentSummary({
   rows,
   total,
 }: PaymentSummaryProps) {
+  const renderAmount = (amount: number | string) => {
+    if (typeof amount === 'number') return formatPeso(amount);
+    return amount;
+  };
+
   return (
     <View style={styles.card}>
       <AnimoText variant="h3" color={AnimoColors.black}>
@@ -48,9 +53,10 @@ export function PaymentSummary({
           </View>
           <AnimoText
             variant="bodyEmphasis"
-            color={row.emphasis ? AnimoColors.green : AnimoColors.black}>
+            color={row.emphasis ? AnimoColors.green : AnimoColors.black}
+            style={styles.amountText}>
             {row.negative ? '− ' : ''}
-            {formatPeso(row.amount)}
+            {renderAmount(row.amount)}
           </AnimoText>
         </View>
       ))}
@@ -58,12 +64,12 @@ export function PaymentSummary({
       {total ? (
         <>
           <View style={styles.divider} />
-          <View style={styles.row}>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+          <View style={styles.totalRow}>
+            <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.totalLabel}>
               {total.label}
             </AnimoText>
-            <AnimoText variant="price" color={AnimoColors.green}>
-              {formatPeso(total.amount)}
+            <AnimoText variant="price" color={AnimoColors.green} style={styles.totalPrice}>
+              {renderAmount(total.amount)}
             </AnimoText>
           </View>
         </>
@@ -82,7 +88,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: AnimoSpacing.md,
   },
@@ -90,9 +96,26 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 1,
   },
+  amountText: {
+    textAlign: 'right',
+    flexShrink: 0,
+  },
   divider: {
     height: 1,
     backgroundColor: AnimoColors.border,
     marginVertical: AnimoSpacing.xs,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: AnimoSpacing.md,
+  },
+  totalLabel: {
+    flex: 1,
+  },
+  totalPrice: {
+    textAlign: 'right',
+    flexShrink: 0,
   },
 });

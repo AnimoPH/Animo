@@ -90,7 +90,7 @@ export default function FarmerHomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <StatusBar style="dark" />
-      <AppHeader onPressBell={() => console.log("Bell pressed")} />
+      <AppHeader onPressBell={() => router.push('/(farmer)/notipikasyon')} />
 
       <ScrollView
         contentContainerStyle={styles.content}

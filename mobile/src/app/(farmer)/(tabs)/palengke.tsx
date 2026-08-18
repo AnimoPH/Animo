@@ -264,7 +264,7 @@ export default function FarmerPalengkeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <AppHeader />
+      <AppHeader onPressBell={() => router.push('/(farmer)/notipikasyon')} />
 
       {/* Top Search Bar & Filter Button Row */}
       <View style={styles.searchFilterRow}>

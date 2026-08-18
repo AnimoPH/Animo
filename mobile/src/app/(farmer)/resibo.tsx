@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
-import { BackHeader } from '@/components/animo/back-header';
+import { ScreenHeader } from '@/components/animo/screen-header';
 import {
   AnimoColors,
   AnimoType,
@@ -67,7 +67,7 @@ export default function FarmerReceiptScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <BackHeader title="Digital na Resibo" />
+      <ScreenHeader title="Digital na Resibo" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}

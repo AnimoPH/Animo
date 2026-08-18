@@ -110,6 +110,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: AnimoColors.surfacePrimary,
     borderRadius: AnimoRadius.lg,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
     marginHorizontal: AnimoSpacing.xxl,
     padding: AnimoSpacing.xl,
     alignItems: 'center',

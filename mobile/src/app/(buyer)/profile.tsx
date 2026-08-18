@@ -11,8 +11,10 @@ import {
   LogOut,
   Mail,
   MapPin,
+  Package,
   Phone,
   ShieldCheck,
+  Star,
   UserRound,
   X,
 } from 'lucide-react-native';
@@ -49,29 +51,121 @@ const SETTINGS_ROWS = [
   { icon: ShieldCheck, label: 'Patakaran sa Privacy', key: 'privacy' },
 ] as const;
 
+const TOP_BUYER_FEEDBACKS = [
+  {
+    id: 'fb-1',
+    author: 'Mang Kanor (Magsasaka mula Teresa)',
+    rating: 5,
+    date: '2 araw ang nakalipas',
+    comment: 'Napakadaling kausap at napapanahon ang pagkuha ng palay. Maayos at mabilis magbayad sa GCash.',
+  },
+  {
+    id: 'fb-2',
+    author: 'Tatay Dante (Magsasaka mula Antipolo)',
+    rating: 5,
+    date: '1 linggo ang nakalipas',
+    comment: 'Tapat sa usapan at walang naging problema sa pickup at inspeksyon ng mga sako.',
+  },
+  {
+    id: 'fb-3',
+    author: 'Mang Carding (Magsasaka mula Morong)',
+    rating: 5,
+    date: '2 linggo ang nakalipas',
+    comment: 'Mabilis na proseso ng transaksyon. Kumuha ng 500 kg na Inbred palay nang walang delay.',
+  },
+  {
+    id: 'fb-4',
+    author: 'Aling Elena (Magsasaka mula Baras)',
+    rating: 5,
+    date: '3 linggo ang nakalipas',
+    comment: 'Maayos makipagtransaksyon at madaling koordinasyon sa telepono para sa oras ng pickup.',
+  },
+  {
+    id: 'fb-5',
+    author: 'Mang Ben (Magsasaka mula Tanay)',
+    rating: 5,
+    date: '1 buwan ang nakalipas',
+    comment: 'Suki na mamimili! Maasahan at laging handa sa itinakdang iskedyul sa bukid.',
+  },
+];
+
+const TOP_BUYER_TRANSACTIONS = [
+  {
+    id: 'TXN-8821',
+    variety: 'Inbred (RC 218)',
+    quantity: '300 kg',
+    price: '₱6,300.00',
+    method: 'GCash',
+    farmer: 'Juan Dela Cruz',
+    date: 'Ago 15, 2026',
+    status: 'Kumpleto',
+  },
+  {
+    id: 'TXN-7419',
+    variety: 'Hybrid (SL-8H)',
+    quantity: '500 kg',
+    price: '₱11,500.00',
+    method: 'GCash',
+    farmer: 'Tatay Dante',
+    date: 'Ago 08, 2026',
+    status: 'Kumpleto',
+  },
+  {
+    id: 'TXN-6102',
+    variety: 'Dinorado',
+    quantity: '250 kg',
+    price: '₱6,250.00',
+    method: 'Cash',
+    farmer: 'Mang Kanor',
+    date: 'Hul 28, 2026',
+    status: 'Kumpleto',
+  },
+  {
+    id: 'TXN-5940',
+    variety: 'Inbred (NSIC Rc160)',
+    quantity: '400 kg',
+    price: '₱8,800.00',
+    method: 'GCash',
+    farmer: 'Aling Elena',
+    date: 'Hul 15, 2026',
+    status: 'Kumpleto',
+  },
+  {
+    id: 'TXN-4211',
+    variety: 'Sinandomeng',
+    quantity: '350 kg',
+    price: '₱7,700.00',
+    method: 'Cash',
+    farmer: 'Mang Ben',
+    date: 'Hun 30, 2026',
+    status: 'Kumpleto',
+  },
+];
+
 /**
  * Buyer Profile Screen (Mamimili).
  *
  * Adopts the unified hero identity banner, floating stats row, account info,
- * payment methods, and setting card structure matching the farmer module design.
+ * payment methods, top 5 feedback and recent transactions modals matching design system.
  */
 export default function BuyerProfileScreen() {
   const { signOut } = useSession();
   const [showPersonalInfoModal, setShowPersonalInfoModal] = useState(false);
+  const [showFeedbacksModal, setShowFeedbacksModal] = useState(false);
+  const [showRecentTxnsModal, setShowRecentTxnsModal] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
-  const [showSignOutModal, setShowSignOutModal] = useState(false);
 
   const handleLogout = async () => {
-    await signOut();
     setShowSignOutModal(false);
+    await signOut();
     router.replace('/login');
   };
 
   const handleSettingPress = (key: string) => {
     if (key === 'help') setShowHelpModal(true);
-    else if (key === 'terms') setShowTermsModal(true);
-    else if (key === 'privacy') setShowTermsModal(true);
+    else if (key === 'terms' || key === 'privacy') setShowTermsModal(true);
   };
 
   return (
@@ -98,20 +192,32 @@ export default function BuyerProfileScreen() {
           </SafeAreaView>
         </View>
 
-        {/* SECTION 2 — Stats Row */}
+        {/* SECTION 2 — Stats Row (Interactive) */}
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tingnan ang rating at feedback"
+            onPress={() => setShowFeedbacksModal(true)}
+            style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
             <Text style={styles.statValue}>5.0 ★</Text>
             <Text style={styles.statLabel}>Rating</Text>
-          </View>
-          <View style={styles.statCard}>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tingnan ang mga review"
+            onPress={() => setShowFeedbacksModal(true)}
+            style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
             <Text style={styles.statValue}>12</Text>
             <Text style={styles.statLabel}>Reviews</Text>
-          </View>
-          <View style={styles.statCard}>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tingnan ang kamakailang transaksyon"
+            onPress={() => setShowRecentTxnsModal(true)}
+            style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
             <Text style={styles.statValue}>15</Text>
             <Text style={styles.statLabel}>Transaksyon</Text>
-          </View>
+          </Pressable>
         </View>
 
         {/* SECTION 3 — Account Information */}
@@ -303,6 +409,131 @@ export default function BuyerProfileScreen() {
             <AnimoButton
               label="Isara"
               onPress={() => setShowPersonalInfoModal(false)}
+            />
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Top 5 Feedbacks Modal */}
+      <Modal
+        visible={showFeedbacksModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowFeedbacksModal(false)}>
+        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
+          <View style={styles.modalHeader}>
+            <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
+              Rating at Feedback (Top 5)
+            </AnimoText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Isara ang modal"
+              hitSlop={12}
+              onPress={() => setShowFeedbacksModal(false)}>
+              <X size={24} color={AnimoColors.objectMediumEmphasis} />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            style={styles.modalScroll}
+            contentContainerStyle={styles.modalContent}
+            showsVerticalScrollIndicator={false}>
+            {/* Rating Summary Banner */}
+            <View style={styles.ratingSummaryBanner}>
+              <View style={styles.ratingBigWrap}>
+                <Text style={styles.ratingBigText}>5.0</Text>
+                <View style={styles.starsRow}>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} size={16} color="#F9A825" fill="#F9A825" />
+                  ))}
+                </View>
+              </View>
+              <Text style={styles.ratingSubCaption}>
+                12 kabuuang review mula sa mga rehistradong magsasaka
+              </Text>
+            </View>
+
+            {/* Feedback List */}
+            {TOP_BUYER_FEEDBACKS.map((fb) => (
+              <View key={fb.id} style={styles.feedbackCard}>
+                <View style={styles.feedbackHeader}>
+                  <View style={styles.flex}>
+                    <Text style={styles.feedbackAuthor}>{fb.author}</Text>
+                    <Text style={styles.feedbackDate}>{fb.date}</Text>
+                  </View>
+                  <View style={styles.starsRowSmall}>
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star key={s} size={13} color="#F9A825" fill="#F9A825" />
+                    ))}
+                  </View>
+                </View>
+                <Text style={styles.feedbackComment}>"{fb.comment}"</Text>
+              </View>
+            ))}
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <AnimoButton
+              label="Isara"
+              onPress={() => setShowFeedbacksModal(false)}
+            />
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Top 5 Recent Transactions Modal */}
+      <Modal
+        visible={showRecentTxnsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowRecentTxnsModal(false)}>
+        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
+          <View style={styles.modalHeader}>
+            <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
+              Kamakailang Transaksyon (Top 5)
+            </AnimoText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Isara ang modal"
+              hitSlop={12}
+              onPress={() => setShowRecentTxnsModal(false)}>
+              <X size={24} color={AnimoColors.objectMediumEmphasis} />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            style={styles.modalScroll}
+            contentContainerStyle={styles.modalContent}
+            showsVerticalScrollIndicator={false}>
+            {TOP_BUYER_TRANSACTIONS.map((tx) => (
+              <View key={tx.id} style={styles.txCard}>
+                <View style={styles.txHeader}>
+                  <View style={styles.flex}>
+                    <Text style={styles.txVariety}>{tx.variety}</Text>
+                    <Text style={styles.txSubtitle}>Magsasaka: {tx.farmer} · {tx.date}</Text>
+                  </View>
+                  <View style={styles.txStatusBadge}>
+                    <Text style={styles.txStatusText}>{tx.status}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.txFooterRow}>
+                  <View style={styles.txMetaLeft}>
+                    <Text style={styles.txRef}>{tx.id}</Text>
+                    <Text style={styles.txQuantity}>{tx.quantity}</Text>
+                  </View>
+                  <Text style={styles.txPrice}>{tx.price}</Text>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <AnimoButton
+              label="Isara"
+              onPress={() => setShowRecentTxnsModal(false)}
             />
           </View>
         </SafeAreaView>
@@ -552,9 +783,131 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   modalScroll: {
-    paddingHorizontal: AnimoSpacing.xl,
+    flex: 1,
+  },
+  modalContent: {
+    paddingHorizontal: AnimoSpacing.lg,
     paddingVertical: AnimoSpacing.lg,
     gap: AnimoSpacing.md,
+  },
+  ratingSummaryBanner: {
+    backgroundColor: AnimoColors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    borderRadius: AnimoRadius.lg,
+    padding: AnimoSpacing.lg,
+    alignItems: 'center',
+    gap: AnimoSpacing.xs,
+  },
+  ratingBigWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AnimoSpacing.sm,
+  },
+  ratingBigText: {
+    fontSize: 32,
+    lineHeight: 38,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    color: AnimoColors.textHighEmphasis,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  starsRowSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  ratingSubCaption: {
+    ...AnimoType.caption,
+    color: AnimoColors.textMediumEmphasis,
+    textAlign: 'center',
+  },
+  feedbackCard: {
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    borderRadius: AnimoRadius.lg,
+    padding: AnimoSpacing.lg,
+    gap: AnimoSpacing.sm,
+  },
+  feedbackHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: AnimoSpacing.md,
+  },
+  feedbackAuthor: {
+    ...AnimoType.bodyEmphasis,
+    color: AnimoColors.textHighEmphasis,
+  },
+  feedbackDate: {
+    ...AnimoType.caption,
+    color: AnimoColors.textLowEmphasis,
+  },
+  feedbackComment: {
+    ...AnimoType.body,
+    color: AnimoColors.textMediumEmphasis,
+    fontStyle: 'italic',
+    lineHeight: 22,
+  },
+  txCard: {
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    borderRadius: AnimoRadius.lg,
+    padding: AnimoSpacing.lg,
+    gap: AnimoSpacing.sm,
+  },
+  txHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: AnimoSpacing.md,
+  },
+  txVariety: {
+    ...AnimoType.bodyEmphasis,
+    color: AnimoColors.textHighEmphasis,
+  },
+  txSubtitle: {
+    ...AnimoType.caption,
+    color: AnimoColors.textMediumEmphasis,
+  },
+  txStatusBadge: {
+    backgroundColor: AnimoColors.accentPrimaryLight,
+    borderRadius: AnimoRadius.pill,
+    paddingHorizontal: AnimoSpacing.sm,
+    paddingVertical: 2,
+  },
+  txStatusText: {
+    ...AnimoType.tag,
+    color: AnimoColors.accentPrimary,
+  },
+  txFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: AnimoSpacing.md,
+  },
+  txMetaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AnimoSpacing.md,
+  },
+  txRef: {
+    ...AnimoType.caption,
+    color: AnimoColors.textLowEmphasis,
+    fontFamily: 'monospace',
+  },
+  txQuantity: {
+    ...AnimoType.body,
+    color: AnimoColors.textMediumEmphasis,
+  },
+  txPrice: {
+    ...AnimoType.bodyEmphasis,
+    color: AnimoColors.accentPrimary,
   },
   infoCard: {
     borderWidth: 1,

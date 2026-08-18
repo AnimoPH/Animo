@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AnimoButton } from "@/components/animo/animo-button";
 import { AnimoText } from "@/components/animo/animo-text";
-import { BackHeader } from "@/components/animo/back-header";
+import { ScreenHeader } from "@/components/animo/screen-header";
 import { FeedbackModal } from "@/components/animo/feedback-modal";
 import { ListingDetailContent } from "@/components/animo/farmer/listing-detail-content";
 import { StatusBadge } from "@/components/animo/status-badge";
@@ -155,7 +155,7 @@ export default function ListingDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <StatusBar style="dark" />
-        <BackHeader title="Detalye ng Listing" />
+        <ScreenHeader title="Detalye ng Listing" />
         <View style={styles.centerState}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -167,7 +167,7 @@ export default function ListingDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <StatusBar style="dark" />
-        <BackHeader title="Detalye ng Listing" />
+        <ScreenHeader title="Detalye ng Listing" />
         <View style={styles.centerState}>
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
             {errorMessage ?? "Hindi nahanap ang listing na ito."}
@@ -182,7 +182,7 @@ export default function ListingDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
       <StatusBar style="dark" />
-      <BackHeader title="Detalye ng Listing" />
+      <ScreenHeader title="Detalye ng Listing" />
 
       {/* Segment Navigation Tabs */}
       <View style={styles.tabsWrapper}>
