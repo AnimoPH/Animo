@@ -1,270 +1,303 @@
-import { router, useFocusEffect, type Href } from 'expo-router';
+import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronRight } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ClipboardList, Search, X } from 'lucide-react-native';
+import { useState } from 'react';
+import {
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
-import { FilterChips } from '@/components/animo/filter-chips';
-import { StatusBadge, type BadgeTone } from '@/components/animo/status-badge';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import {
-  FARMER_TRANSACTIONS,
-  ONGOING_FARMER_STAGES,
-  farmerListingLine,
-  farmerStageBadge,
-  formatPeso,
-  paymentMethodLabel,
-  type FarmerTransaction,
-} from '@/constants/marketplace';
+  TransactionCard,
+  type FarmerTransactionCardItem,
+} from '@/components/animo/farmer/transaction-card';
+import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
 
-type Filter = 'lahat' | 'aktibo' | 'tapos' | 'cancelled';
+const SCREEN_PADDING = AnimoSpacing.lg;
 
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: 'lahat', label: 'Lahat' },
-  { value: 'aktibo', label: 'Aktibo' },
-  { value: 'tapos', label: 'Tapos' },
-  { value: 'cancelled', label: 'Nakansela' },
+type FilterValue = 'Lahat' | 'Kailangan ng Aksyon' | 'Naghihintay' | 'Kumpleto' | 'Nabigo';
+
+const FILTERS: FilterValue[] = [
+  'Lahat',
+  'Kailangan ng Aksyon',
+  'Naghihintay',
+  'Kumpleto',
+  'Nabigo',
 ];
 
-type FarmerHistoryItem = {
-  id: string;
-  reference: string;
-  variety: string;
-  buyerName: string;
-  quantityKg: number;
-  total: number;
-  date: string;
-  status: 'tapos' | 'cancelled';
-};
+const ACTION_STATUSES = [
+  'Bagong Kahilingan',
+  'I-approve ang Schedule',
+  'Naghihintay ng Bayad',
+  'Naghihintay ng Kumpirmasyon',
+];
 
-const FARMER_HISTORY: FarmerHistoryItem[] = [
+const FAILED_STATUSES = ['Nakansela', 'Hindi Natuloy'];
+
+const TRANSACTIONS: FarmerTransactionCardItem[] = [
   {
-    id: 'fh-1',
-    reference: 'TXN-2026-0045',
-    variety: 'Palay RC 160 (Tuyo)',
-    buyerName: 'Tres Rice Mill Corp',
-    quantityKg: 500,
-    total: 8000,
-    date: 'Hulyo 20, 2026',
-    status: 'tapos',
+    id: 'ft-pending',
+    txnId: 'TXN-2026-0071',
+    variety: 'Rc218',
+    moisture: 'Tuyo',
+    status: 'Bagong Kahilingan',
+    price: '₱6,300.00',
+    weight: '300 kg',
+    pricePerKg: '₱21.00/kg',
+    paymentMode: 'GCash',
+    buyer: 'Mateo Santos',
+    date: 'Jul 30, 2026',
+    time: '9:15 AM',
   },
   {
-    id: 'fh-2',
-    reference: 'TXN-2026-0038',
-    variety: 'Palay NSIC Rc222 (Basa)',
-    buyerName: 'Aling Coring Rice Mill',
-    quantityKg: 350,
-    total: 5320,
-    date: 'Hulyo 12, 2026',
-    status: 'tapos',
+    id: 'ft-schedule',
+    txnId: 'TXN-2026-0077',
+    variety: 'Rc222',
+    moisture: 'Basa',
+    status: 'I-approve ang Schedule',
+    price: '₱4,500.00',
+    weight: '300 kg',
+    pricePerKg: '₱15.00/kg',
+    paymentMode: 'GCash',
+    buyer: 'Tres Rice Mill Corp',
+    date: 'Jul 29, 2026',
+    time: '2:40 PM',
   },
   {
-    id: 'fh-3',
-    reference: 'TXN-2026-0029',
-    variety: 'Palay Dinorado',
-    buyerName: 'Bulacan Rice Traders',
-    quantityKg: 200,
-    total: 5000,
-    date: 'Hunyo 28, 2026',
-    status: 'cancelled',
+    id: 'ft-pickup',
+    txnId: 'TXN-2026-0073',
+    variety: 'Rc 638 SR',
+    moisture: 'Basa',
+    status: 'Naghihintay ng Inspeksyon',
+    price: '₱3,875.00',
+    weight: '250 kg',
+    pricePerKg: '₱15.50/kg',
+    paymentMode: 'Cash',
+    buyer: 'Tres Rice Mill Corp',
+    date: 'Jul 28, 2026',
+    time: '2:40 PM',
+  },
+  {
+    id: 'ft-payment',
+    txnId: 'TXN-2026-0072',
+    variety: 'Rc218',
+    moisture: 'Tuyo',
+    status: 'Naghihintay ng Bayad',
+    price: '₱3,000.00',
+    weight: '200 kg',
+    pricePerKg: '₱15.00/kg',
+    paymentMode: 'GCash',
+    buyer: 'Aling Coring Rice Mill',
+    date: 'Jul 30, 2026',
+    time: '9:15 AM',
+  },
+  {
+    id: 'ft-pending-riri',
+    txnId: 'TXN-2026-0075',
+    variety: 'Rc218',
+    moisture: 'Tuyo',
+    status: 'Naghihintay ng Kumpirmasyon',
+    price: '₱3,000.00',
+    weight: '300 kg',
+    pricePerKg: '₱10.00/kg',
+    paymentMode: 'GCash',
+    buyer: 'Riri Circulado Rice Corp',
+    date: 'Jul 30, 2026',
+    time: '9:15 AM',
+  },
+  {
+    id: 'ft-completed',
+    txnId: 'TXN-2026-0074',
+    variety: 'Rc218',
+    moisture: 'Tuyo',
+    status: 'Transaction Done',
+    price: '₱3,000.00',
+    weight: '300 kg',
+    pricePerKg: '₱10.00/kg',
+    paymentMode: 'GCash',
+    buyer: 'Mateo Santos',
+    date: 'Jul 30, 2026',
+    time: '9:15 AM',
+  },
+  {
+    id: 'ft-cancelled',
+    txnId: 'TXN-2026-0061',
+    variety: 'Dinorado',
+    moisture: 'Basa',
+    status: 'Nakansela',
+    price: '₱2,400.00',
+    weight: '150 kg',
+    pricePerKg: '₱16.00/kg',
+    paymentMode: 'Cash',
+    buyer: 'Aling Nena Rice Mill',
+    date: 'Jul 18, 2026',
+    time: '3:10 PM',
+  },
+  {
+    id: 'ft-failed',
+    txnId: 'TXN-2026-0055',
+    variety: 'Rc222',
+    moisture: 'Tuyo',
+    status: 'Hindi Natuloy',
+    price: '₱3,750.00',
+    weight: '250 kg',
+    pricePerKg: '₱15.00/kg',
+    paymentMode: 'GCash',
+    buyer: 'Bulacan Rice Traders',
+    date: 'Jul 12, 2026',
+    time: '1:45 PM',
   },
 ];
 
-const HISTORY_STATUS_META: Record<'tapos' | 'cancelled', { label: string; tone: BadgeTone }> = {
-  tapos: { label: 'Kumpleto', tone: 'success' },
-  cancelled: { label: 'Nakansela', tone: 'neutral' },
-};
-
-/**
- * Farmer Transactions Screen (Mga Transaksyon).
- *
- * Formatted identically to the Buyer Module transaction screen, separated
- * properly into:
- * 1. Kasalukuyang Request (Active ongoing requests in flight)
- * 2. Mga Natapos (Settled completed/cancelled transactions)
- * 3. Kasaysayan (Historical past sales)
- */
+/** Farmer Transaksyon — filterable list of purchase requests and completed sales. */
 export default function FarmerTransactionsScreen() {
-  const [filter, setFilter] = useState<Filter>('lahat');
-  const [items, setItems] = useState<FarmerTransaction[]>(FARMER_TRANSACTIONS);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<FilterValue>('Lahat');
 
-  useFocusEffect(
-    useCallback(() => {
-      setItems([...FARMER_TRANSACTIONS]);
-    }, []),
-  );
+  const filteredData = TRANSACTIONS.filter((item) => {
+    const matchesFilter = (() => {
+      if (activeFilter === 'Lahat') return true;
+      if (activeFilter === 'Kailangan ng Aksyon') return ACTION_STATUSES.includes(item.status);
+      if (activeFilter === 'Naghihintay') return item.status === 'Naghihintay ng Inspeksyon';
+      if (activeFilter === 'Kumpleto') return item.status === 'Transaction Done';
+      if (activeFilter === 'Nabigo') return FAILED_STATUSES.includes(item.status);
+      return true;
+    })();
 
-  // Active / Ongoing requests
-  const ongoingRequests = useMemo(() => {
-    if (filter === 'tapos' || filter === 'cancelled') return [];
-    return items.filter((tx) => ONGOING_FARMER_STAGES.includes(tx.stage));
-  }, [filter, items]);
+    const query = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      query === '' ||
+      item.txnId.toLowerCase().includes(query) ||
+      item.variety.toLowerCase().includes(query) ||
+      item.buyer.toLowerCase().includes(query) ||
+      item.status.toLowerCase().includes(query);
 
-  // Settled requests from the current active roster
-  const settledRequests = useMemo(() => {
-    if (filter === 'aktibo') return [];
-    return items.filter((tx) => {
-      if (filter === 'tapos') return tx.stage === 'completed';
-      if (filter === 'cancelled') return tx.stage === 'cancelled' || tx.stage === 'failed';
-      return tx.stage === 'completed' || tx.stage === 'cancelled' || tx.stage === 'failed';
-    });
-  }, [filter, items]);
-
-  // Historical past records
-  const historyRecords = useMemo(() => {
-    if (filter === 'aktibo') return [];
-    if (filter === 'tapos') return FARMER_HISTORY.filter((h) => h.status === 'tapos');
-    if (filter === 'cancelled') return FARMER_HISTORY.filter((h) => h.status === 'cancelled');
-    return FARMER_HISTORY;
-  }, [filter]);
+    return matchesFilter && matchesSearch;
+  });
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <AppHeader
-        title="Mga Transaksyon"
-        onPressBell={() => router.push('/(farmer)/notipikasyon')}
-      />
+      <AppHeader onPressBell={() => router.push('/(farmer)/notipikasyon')} />
 
-      <View style={styles.filters}>
-        <FilterChips options={FILTERS} value={filter} onChange={setFilter} />
+      <View style={styles.searchBar}>
+        <Search size={18} color={AnimoColors.objectLowEmphasis} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Maghanap ng transaksyon..."
+          placeholderTextColor={AnimoColors.textDisabled}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+          underlineColorAndroid="transparent"
+        />
+        {searchQuery.length > 0 ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="I-clear ang search"
+            onPress={() => setSearchQuery('')}
+            activeOpacity={0.85}
+            hitSlop={8}>
+            <X size={18} color={AnimoColors.objectLowEmphasis} />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {/* SECTION 1: Kasalukuyang Request */}
-        {ongoingRequests.length > 0 ? (
-          <>
-            <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-              Kasalukuyang Request
-            </AnimoText>
-            {ongoingRequests.map((tx) => (
-              <FarmerRequestRow
-                key={tx.id}
-                transaction={tx}
-                onPress={() => router.push(`/(farmer)/transaksyon/${tx.id}` as Href)}
-              />
-            ))}
-          </>
-        ) : null}
-
-        {/* SECTION 2: Mga Natapos */}
-        {settledRequests.length > 0 ? (
-          <>
-            <AnimoText
-              variant="h3"
-              color={AnimoColors.textHighEmphasis}
-              style={ongoingRequests.length > 0 ? styles.sectionGap : undefined}>
-              Mga Natapos
-            </AnimoText>
-            {settledRequests.map((tx) => (
-              <FarmerRequestRow
-                key={tx.id}
-                transaction={tx}
-                onPress={() => router.push(`/(farmer)/transaksyon/${tx.id}` as Href)}
-              />
-            ))}
-          </>
-        ) : null}
-
-        {/* SECTION 3: Kasaysayan */}
-        {historyRecords.length > 0 ? (
-          <>
-            <AnimoText
-              variant="h3"
-              color={AnimoColors.textHighEmphasis}
-              style={
-                ongoingRequests.length > 0 || settledRequests.length > 0
-                  ? styles.sectionGap
-                  : undefined
-              }>
-              Kasaysayan
-            </AnimoText>
-            {historyRecords.map((history) => (
-              <FarmerHistoryRow key={history.id} item={history} />
-            ))}
-          </>
-        ) : null}
-
-        {ongoingRequests.length === 0 &&
-        settledRequests.length === 0 &&
-        historyRecords.length === 0 ? (
-          <View style={styles.emptyState}>
-            <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
-              Walang transaksyon sa filter na ito.
-            </AnimoText>
-          </View>
-        ) : null}
-      </ScrollView>
+      <FlatList
+        style={styles.scroll}
+        data={filteredData}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <TransactionCard item={item} />}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filters}
+            style={styles.filterScroll}>
+            {FILTERS.map((filter) => {
+              const active = activeFilter === filter;
+              return (
+                <TouchableOpacity
+                  key={filter}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => setActiveFilter(filter)}
+                  activeOpacity={0.85}
+                  style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}>
+                  <AnimoText
+                    variant="bodyEmphasis"
+                    color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
+                    {filter}
+                  </AnimoText>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        }
+        ListEmptyComponent={
+          searchQuery.trim() !== '' ? (
+            <SearchEmptyState query={searchQuery} onClear={() => setSearchQuery('')} />
+          ) : (
+            <EmptyState />
+          )
+        }
+      />
     </SafeAreaView>
   );
 }
 
-/** Uniform transaction row for active & settled farmer requests */
-function FarmerRequestRow({
-  transaction,
-  onPress,
-}: {
-  transaction: FarmerTransaction;
-  onPress: () => void;
-}) {
-  const badge = farmerStageBadge(transaction.stage);
-
+function SearchEmptyState({ query, onClear }: { query: string; onClear: () => void }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      <View style={styles.rowText}>
-        <View style={styles.rowTop}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-            {transaction.variety} ({transaction.moisture})
-          </AnimoText>
-          <StatusBadge label={badge.label} tone={badge.tone} />
-        </View>
-
-        <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-          {transaction.reference} · {transaction.quantityKg} kg · {formatPeso(transaction.total)} · {paymentMethodLabel(transaction.paymentMethod)}
+    <View style={styles.empty}>
+      <Search size={48} color={AnimoColors.accentPrimaryLight} />
+      <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
+        Walang resulta para sa "{query}"
+      </AnimoText>
+      <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
+        Subukan ang ibang keyword o i-clear ang search.
+      </AnimoText>
+      <TouchableOpacity
+        accessibilityRole="button"
+        activeOpacity={0.85}
+        onPress={onClear}
+        style={styles.searchEmptyCta}>
+        <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
+          I-clear ang Search
         </AnimoText>
-
-        <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-          Mamimili: {transaction.buyer.name} · {transaction.sentAt}
-        </AnimoText>
-      </View>
-      <ChevronRight size={20} color={AnimoColors.objectLowEmphasis} />
-    </Pressable>
+      </TouchableOpacity>
+    </View>
   );
 }
 
-/** Uniform transaction row for historical sales */
-function FarmerHistoryRow({ item }: { item: FarmerHistoryItem }) {
-  const meta = HISTORY_STATUS_META[item.status];
-
+function EmptyState() {
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => router.push('/(farmer)/resibo' as Href)}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      <View style={styles.rowText}>
-        <View style={styles.rowTop}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-            {item.variety}
-          </AnimoText>
-          <StatusBadge label={meta.label} tone={meta.tone} />
-        </View>
-
-        <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-          {item.reference} · {item.quantityKg} kg · {formatPeso(item.total)}
+    <View style={styles.empty}>
+      <ClipboardList size={64} color={AnimoColors.accentPrimaryLight} />
+      <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
+        Wala pang transaksyon
+      </AnimoText>
+      <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
+        Maglista ng palay para magsimulang makatanggap ng mga kahilingan.
+      </AnimoText>
+      <TouchableOpacity
+        accessibilityRole="button"
+        activeOpacity={0.85}
+        onPress={() => router.push('/(farmer)/(tabs)/palengke')}
+        style={styles.emptyCta}>
+        <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
+          Maglista ng Palay
         </AnimoText>
-
-        <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-          Mamimili: {item.buyerName} ({item.date})
-        </AnimoText>
-      </View>
-      <ChevronRight size={20} color={AnimoColors.objectLowEmphasis} />
-    </Pressable>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -273,51 +306,85 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AnimoColors.appBackground,
   },
-  filters: {
-    paddingVertical: AnimoSpacing.md,
+  scroll: {
+    flex: 1,
+    backgroundColor: AnimoColors.appBackground,
   },
-  list: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingBottom: AnimoSpacing.xxl,
-    gap: AnimoSpacing.md,
-  },
-  sectionGap: {
-    marginTop: AnimoSpacing.sm,
-  },
-  row: {
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: AnimoSpacing.md,
+    marginHorizontal: SCREEN_PADDING,
+    marginTop: AnimoSpacing.md,
+    marginBottom: AnimoSpacing.sm,
+    backgroundColor: AnimoColors.surfacePrimary,
     borderWidth: 1,
     borderColor: AnimoColors.borderLowEmphasis,
     borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    backgroundColor: AnimoColors.surfacePrimary,
+    paddingHorizontal: AnimoSpacing.md,
+    paddingVertical: AnimoSpacing.sm,
+    gap: AnimoSpacing.sm,
     shadowColor: AnimoColors.darkBackground,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
-  rowText: {
+  searchInput: {
     flex: 1,
-    gap: 3,
+    ...AnimoType.body,
+    color: AnimoColors.textHighEmphasis,
+    padding: 0,
   },
-  rowTop: {
-    flexDirection: 'row',
+  filterScroll: {
+    marginHorizontal: -SCREEN_PADDING,
+    marginBottom: AnimoSpacing.md,
+  },
+  filters: {
+    paddingHorizontal: SCREEN_PADDING,
+  },
+  pill: {
+    borderRadius: AnimoRadius.pill,
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingVertical: AnimoSpacing.sm,
+    marginRight: AnimoSpacing.sm,
+  },
+  pillActive: {
+    backgroundColor: AnimoColors.accentPrimary,
+  },
+  pillInactive: {
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderWidth: 1.5,
+    borderColor: AnimoColors.borderLowEmphasis,
+  },
+  list: {
+    paddingHorizontal: SCREEN_PADDING,
+    paddingBottom: AnimoSpacing.xxl,
+  },
+  empty: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: AnimoSpacing.sm,
+    marginTop: AnimoSpacing.xxl,
   },
-  pressed: {
-    opacity: 0.85,
-  },
-  emptyState: {
-    paddingVertical: AnimoSpacing.xxl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  textCenter: {
+  emptyTitle: {
     textAlign: 'center',
+    marginTop: AnimoSpacing.lg,
+  },
+  emptyBody: {
+    textAlign: 'center',
+    marginTop: AnimoSpacing.sm,
+    paddingHorizontal: AnimoSpacing.xxl,
+  },
+  emptyCta: {
+    backgroundColor: AnimoColors.accentPrimary,
+    borderRadius: AnimoRadius.lg,
+    paddingHorizontal: AnimoSpacing.xl,
+    paddingVertical: AnimoSpacing.md,
+    marginTop: AnimoSpacing.xl,
+  },
+  searchEmptyCta: {
+    backgroundColor: AnimoColors.surfaceTertiary,
+    borderRadius: AnimoRadius.lg,
+    paddingHorizontal: AnimoSpacing.xl,
+    paddingVertical: AnimoSpacing.md,
+    marginTop: AnimoSpacing.xl,
   },
 });
