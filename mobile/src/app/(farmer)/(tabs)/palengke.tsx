@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
 import { ImageIcon, Plus, Scale } from "lucide-react-native";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -13,18 +13,44 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AnimoText } from "@/components/animo/animo-text";
 import { AppHeader } from "@/components/animo/app-header";
-import { FilterChips } from "@/components/animo/filter-chips";
+import { FilterModal } from "@/components/animo/filter-modal";
+import { LabeledInput } from "@/components/animo/labeled-input";
+import { SearchFilterBar } from "@/components/animo/search-filter-bar";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
 import { formatPeso } from "@/constants/marketplace";
 import { fetchCoverPhotos, fetchMyCropListings } from "@/services/crop-listing-service";
 import {
+  MOISTURE_OPTIONS,
   STATUS_LABELS,
+  VARIETY_OPTIONS,
   varietyLabel,
   type CropListing,
+  type DeclaredVariety,
   type ListingStatus,
+  type MoistureType,
 } from "@/types/crop-listing";
 
 type FilterKey = "Lahat" | Extract<ListingStatus, "Available" | "Sold_Out" | "Cancelled">;
+type VarietyChoice = "Lahat" | DeclaredVariety;
+type MoistureChoice = "Lahat" | MoistureType;
+
+type PalengkeFilterDraft = {
+  status: FilterKey;
+  quantityText: string;
+  minPriceText: string;
+  maxPriceText: string;
+  variety: VarietyChoice;
+  moisture: MoistureChoice;
+};
+
+const EMPTY_FILTERS: PalengkeFilterDraft = {
+  status: "Lahat",
+  quantityText: "",
+  minPriceText: "",
+  maxPriceText: "",
+  variety: "Lahat",
+  moisture: "Lahat",
+};
 
 const FILTERS: { value: FilterKey; label: string }[] = [
   { value: "Lahat", label: "Lahat" },
@@ -32,6 +58,76 @@ const FILTERS: { value: FilterKey; label: string }[] = [
   { value: "Sold_Out", label: STATUS_LABELS.Sold_Out },
   { value: "Cancelled", label: STATUS_LABELS.Cancelled },
 ];
+
+const VARIETY_CHOICES: { value: VarietyChoice; label: string }[] = [
+  { value: "Lahat", label: "Lahat" },
+  ...VARIETY_OPTIONS,
+];
+
+const MOISTURE_CHOICES: { value: MoistureChoice; label: string }[] = [
+  { value: "Lahat", label: "Lahat" },
+  ...MOISTURE_OPTIONS,
+];
+
+/** Parses a filter text field, treating blank/garbage as "not set" rather than 0. */
+function parseNumber(text: string): number | undefined {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return undefined;
+  const value = Number(trimmed);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+function countActiveFilters(filters: PalengkeFilterDraft): number {
+  return [
+    filters.status !== "Lahat" ? true : undefined,
+    parseNumber(filters.quantityText),
+    parseNumber(filters.minPriceText),
+    parseNumber(filters.maxPriceText),
+    filters.variety !== "Lahat" ? true : undefined,
+    filters.moisture !== "Lahat" ? true : undefined,
+  ].filter((value) => value !== undefined).length;
+}
+
+function listingMatchesFilters(
+  listing: CropListing,
+  filters: PalengkeFilterDraft,
+): boolean {
+  if (filters.status !== "Lahat" && listing.status !== filters.status) {
+    return false;
+  }
+
+  const desiredQuantityKg = parseNumber(filters.quantityText);
+  if (desiredQuantityKg !== undefined && desiredQuantityKg > 0) {
+    if (
+      listing.remainingQuantityKg < desiredQuantityKg ||
+      listing.minimumRequestKg > desiredQuantityKg
+    ) {
+      return false;
+    }
+  }
+
+  const minPricePerKg = parseNumber(filters.minPriceText);
+  const maxPricePerKg = parseNumber(filters.maxPriceText);
+  if (minPricePerKg !== undefined) {
+    if (listing.pricePerKg === null || listing.pricePerKg < minPricePerKg) {
+      return false;
+    }
+  }
+  if (maxPricePerKg !== undefined) {
+    if (listing.pricePerKg === null || listing.pricePerKg > maxPricePerKg) {
+      return false;
+    }
+  }
+
+  if (filters.variety !== "Lahat" && listing.declaredVariety !== filters.variety) {
+    return false;
+  }
+  if (filters.moisture !== "Lahat" && listing.declaredMoisture !== filters.moisture) {
+    return false;
+  }
+
+  return true;
+}
 
 const STATUS_BADGE_COLORS: Record<ListingStatus, string> = {
   Draft: AnimoColors.objectLowEmphasis,
@@ -42,7 +138,12 @@ const STATUS_BADGE_COLORS: Record<ListingStatus, string> = {
 
 /** Palengke — farmer's own listings, fetched live from `croplisting` (own rows only, per RLS). */
 export default function FarmerPalengkeScreen() {
-  const [activeFilter, setActiveFilter] = useState<FilterKey>("Lahat");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [appliedFilters, setAppliedFilters] =
+    useState<PalengkeFilterDraft>(EMPTY_FILTERS);
+  const [draftFilters, setDraftFilters] =
+    useState<PalengkeFilterDraft>(EMPTY_FILTERS);
+  const [modalOpen, setModalOpen] = useState(false);
   const [listings, setListings] = useState<CropListing[]>([]);
   const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -89,22 +190,169 @@ export default function FarmerPalengkeScreen() {
     }, [load]),
   );
 
-  const filtered =
-    activeFilter === "Lahat"
-      ? listings
-      : listings.filter((l) => l.status === activeFilter);
+  const activeFilterCount = countActiveFilters(appliedFilters);
+
+  const displayedListings = useMemo(() => {
+    const filtered = listings.filter((listing) =>
+      listingMatchesFilters(listing, appliedFilters),
+    );
+
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return filtered;
+
+    return filtered.filter((listing) => {
+      const vLabel = varietyLabel(listing).toLowerCase();
+      const rawVariety = listing.declaredVariety.toLowerCase();
+      const custom = listing.declaredVarietyCustom?.toLowerCase() || "";
+      return (
+        vLabel.includes(query) ||
+        rawVariety.includes(query) ||
+        custom.includes(query)
+      );
+    });
+  }, [listings, appliedFilters, searchQuery]);
+
+  const emptyMessage = searchQuery.trim().length > 0
+    ? `Walang nakitang listing para sa "${searchQuery}".`
+    : activeFilterCount > 0
+      ? "Walang listing sa filter na ito."
+      : "Wala ka pang listing. Gumawa ng una mong listing ng palay.";
+
+  const openModal = () => {
+    setDraftFilters(appliedFilters);
+    setModalOpen(true);
+  };
+
+  const applyFilters = () => {
+    setAppliedFilters(draftFilters);
+    setModalOpen(false);
+  };
+
+  const resetFilters = () => {
+    setDraftFilters(EMPTY_FILTERS);
+    setAppliedFilters(EMPTY_FILTERS);
+    setModalOpen(false);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <AppHeader onPressBell={() => console.log("Bell pressed")} />
 
-      <View style={styles.filters}>
-        <FilterChips
-          options={FILTERS}
-          value={activeFilter}
-          onChange={setActiveFilter}
-        />
-      </View>
+      <SearchFilterBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Maghanap ng palay, uri..."
+        activeFilterCount={activeFilterCount}
+        onFilterPress={openModal}
+      />
+
+      <FilterModal
+        visible={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onReset={resetFilters}
+        onApply={applyFilters}
+        activeCount={activeFilterCount}
+      >
+        <View style={styles.filterSection}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+            Katayuan
+          </AnimoText>
+          <View style={styles.chipsWrap}>
+            {FILTERS.map((choice) => (
+              <FilterChoiceChip
+                key={choice.value}
+                label={choice.label}
+                active={draftFilters.status === choice.value}
+                onPress={() =>
+                  setDraftFilters((prev) => ({ ...prev, status: choice.value }))
+                }
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.filterSection}>
+          <LabeledInput
+            label="Gustong Dami"
+            hint="Itatago ang mga listing na hindi kayang punan ang dami na ito."
+            keyboardType="numeric"
+            suffixText="kg"
+            placeholder="Halimbawa: 100"
+            value={draftFilters.quantityText}
+            onChangeText={(quantityText) =>
+              setDraftFilters((prev) => ({ ...prev, quantityText }))
+            }
+          />
+        </View>
+
+        <View style={styles.filterSection}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+            Presyo bawat Kilo (₱)
+          </AnimoText>
+          <View style={styles.filterPriceRow}>
+            <View style={styles.filterPriceField}>
+              <LabeledInput
+                label="Pinakamababa"
+                keyboardType="numeric"
+                prefixText="₱"
+                placeholder="Halimbawa: 15"
+                value={draftFilters.minPriceText}
+                onChangeText={(minPriceText) =>
+                  setDraftFilters((prev) => ({ ...prev, minPriceText }))
+                }
+              />
+            </View>
+            <View style={styles.filterPriceField}>
+              <LabeledInput
+                label="Pinakamataas"
+                keyboardType="numeric"
+                prefixText="₱"
+                placeholder="Halimbawa: 25"
+                value={draftFilters.maxPriceText}
+                onChangeText={(maxPriceText) =>
+                  setDraftFilters((prev) => ({ ...prev, maxPriceText }))
+                }
+              />
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.filterSection}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+            Uri ng Palay
+          </AnimoText>
+          <View style={styles.chipsWrap}>
+            {VARIETY_CHOICES.map((choice) => (
+              <FilterChoiceChip
+                key={choice.value}
+                label={choice.label}
+                active={draftFilters.variety === choice.value}
+                onPress={() =>
+                  setDraftFilters((prev) => ({ ...prev, variety: choice.value }))
+                }
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.filterSection}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+            Antas ng Moisture
+          </AnimoText>
+          <View style={styles.chipsWrap}>
+            {MOISTURE_CHOICES.map((choice) => (
+              <FilterChoiceChip
+                key={choice.value}
+                label={choice.label}
+                active={draftFilters.moisture === choice.value}
+                onPress={() =>
+                  setDraftFilters((prev) => ({ ...prev, moisture: choice.value }))
+                }
+              />
+            ))}
+          </View>
+        </View>
+      </FilterModal>
 
       <View style={styles.listContainer}>
         {loading ? (
@@ -126,21 +374,19 @@ export default function FarmerPalengkeScreen() {
               </AnimoText>
             </Pressable>
           </View>
-        ) : filtered.length === 0 ? (
+        ) : displayedListings.length === 0 ? (
           <View style={styles.centerState}>
             <AnimoText
               variant="body"
               color={AnimoColors.textMediumEmphasis}
               style={styles.centerText}
             >
-              {listings.length === 0
-                ? "Wala ka pang listing. Gumawa ng una mong listing ng palay."
-                : "Walang listing sa filter na ito."}
+              {emptyMessage}
             </AnimoText>
           </View>
         ) : (
           <FlatList
-            data={filtered}
+            data={displayedListings}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             renderItem={({ item }) => (
@@ -158,6 +404,33 @@ export default function FarmerPalengkeScreen() {
         </Pressable>
       </View>
     </SafeAreaView>
+  );
+}
+
+function FilterChoiceChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={[styles.chipItem, active && styles.chipItemActive]}
+    >
+      <AnimoText
+        variant="body"
+        color={active ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
+        style={active ? styles.chipTextActive : undefined}
+      >
+        {label}
+      </AnimoText>
+    </Pressable>
   );
 }
 
@@ -244,8 +517,37 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.pill,
     backgroundColor: AnimoColors.accentPrimaryLight,
   },
-  filters: {
-    paddingBottom: AnimoSpacing.md,
+  filterSection: {
+    gap: AnimoSpacing.sm,
+  },
+  filterPriceRow: {
+    flexDirection: "row",
+    gap: AnimoSpacing.md,
+  },
+  filterPriceField: {
+    flex: 1,
+  },
+  chipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: AnimoSpacing.sm,
+    marginTop: 2,
+  },
+  chipItem: {
+    paddingHorizontal: AnimoSpacing.md,
+    paddingVertical: 10,
+    borderRadius: AnimoRadius.pill,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    backgroundColor: AnimoColors.surfacePrimary,
+  },
+  chipItemActive: {
+    borderColor: AnimoColors.accentPrimary,
+    backgroundColor: AnimoColors.accentPrimaryLight,
+  },
+  chipTextActive: {
+    fontFamily: "PlusJakartaSans_600SemiBold",
+    color: AnimoColors.accentPrimary,
   },
   listContainer: {
     flex: 1,

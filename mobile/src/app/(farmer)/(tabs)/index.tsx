@@ -259,14 +259,14 @@ function ActivityRow({ activity }: { activity: Activity }) {
         <User size={20} color={AnimoColors.green} />
       </View>
       <View style={styles.activityTextWrap}>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-          Bagong Kahilingan mula sa {activity.buyer}
+        <AnimoText variant="bodyEmphasis" color={AnimoColors.black} numberOfLines={1}>
+          {activity.buyer}
         </AnimoText>
         <AnimoText variant="caption" color={AnimoColors.muted}>
           {activity.variety} {activity.weight}
         </AnimoText>
       </View>
-      <AnimoText variant="price" color={AnimoColors.black}>
+      <AnimoText variant="h3" color={AnimoColors.accentPrimary}>
         {activity.amount}
       </AnimoText>
     </View>
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   activityList: {
-    gap: AnimoSpacing.xs,
+    gap: AnimoSpacing.md,
   },
   activityRow: {
     flexDirection: "row",
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   },
   activityTextWrap: {
     flex: 1,
-    gap: 2,
+    gap: 5,
   },
   divider: {
     height: 1,
