@@ -181,7 +181,7 @@ export default function ListingDetailScreen() {
 
   const activePhoto = galleryItems[selectedPhotoIndex] || galleryItems[0];
   const modalActivePhoto = galleryItems[modalPhotoIndex] || galleryItems[0];
-  const locationText = farmerProfile?.location || 'San Isidro, Nueva Ecija';
+  const locationText = farmerProfile?.location || '';
 
   const openModalAt = (index: number) => {
     setModalPhotoIndex(index);
@@ -339,11 +339,13 @@ export default function ListingDetailScreen() {
               label="Kalidad"
               value={purityLabel(listing.declaredPurityGrade)}
             />
-            <SpecBox
-              icon={<MapPin size={16} color={AnimoColors.accentPrimary} />}
-              label="Lokasyon"
-              value={locationText}
-            />
+            {locationText ? (
+              <SpecBox
+                icon={<MapPin size={16} color={AnimoColors.accentPrimary} />}
+                label="Lokasyon"
+                value={locationText}
+              />
+            ) : null}
           </View>
         </View>
 
@@ -375,17 +377,23 @@ export default function ListingDetailScreen() {
                     {farmerProfile.name}
                   </AnimoText>
 
-                  <View style={styles.farmerLocationRow}>
-                    <MapPin size={13} color={AnimoColors.accentPrimary} />
-                    <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                      {farmerProfile.location}
-                    </AnimoText>
-                  </View>
+                  {farmerProfile.location ? (
+                    <View style={styles.farmerLocationRow}>
+                      <MapPin size={13} color={AnimoColors.accentPrimary} />
+                      <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                        {farmerProfile.location}
+                      </AnimoText>
+                    </View>
+                  ) : null}
 
                   <View style={styles.farmerRatingRow}>
-                    <Star size={13} color="#F59E0B" fill="#F59E0B" />
+                    <Star
+                      size={13}
+                      color="#F59E0B"
+                      fill={farmerProfile.totalReviews > 0 ? '#F59E0B' : 'transparent'}
+                    />
                     <AnimoText variant="caption" color={AnimoColors.textHighEmphasis} style={styles.farmerRatingText}>
-                      {farmerProfile.averageRating}
+                      {farmerProfile.totalReviews > 0 ? farmerProfile.averageRating : '—'}
                     </AnimoText>
                     <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
                       ({farmerProfile.totalReviews} review)

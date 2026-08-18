@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -133,9 +132,14 @@ export default function FarmerProfileScreen() {
     );
   }
 
-  const averagePerTransaction = Math.round(
-    profile.totalSoldKg / Math.max(1, profile.completedTransactionsCount),
-  );
+  const averagePerTransaction =
+    profile.completedTransactionsCount > 0
+      ? Math.round(profile.totalSoldKg / profile.completedTransactionsCount)
+      : 0;
+  const soldVolumeLabel =
+    profile.totalSoldKg >= 1000
+      ? `${(profile.totalSoldKg / 1000).toFixed(1)}k`
+      : `${profile.totalSoldKg}`;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -170,18 +174,20 @@ export default function FarmerProfileScreen() {
             {profile.name}
           </AnimoText>
 
-          {/* Location Pill Badge (replacing Magsasaka label) */}
-          <View style={styles.locationPill}>
-            <MapPin size={15} color={AnimoColors.white} />
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.white} style={styles.locationPillText}>
-              {profile.location}
-            </AnimoText>
-          </View>
+          {profile.location ? (
+            <View style={styles.locationPill}>
+              <MapPin size={15} color={AnimoColors.white} />
+              <AnimoText variant="bodyEmphasis" color={AnimoColors.white} style={styles.locationPillText}>
+                {profile.location}
+              </AnimoText>
+            </View>
+          ) : null}
 
-          {/* Member Subtitle */}
-          <AnimoText variant="body" color="rgba(255, 255, 255, 0.9)" style={styles.memberSubtitle}>
-            Miyembro mula {profile.memberSince}
-          </AnimoText>
+          {profile.memberSince ? (
+            <AnimoText variant="body" color="rgba(255, 255, 255, 0.9)" style={styles.memberSubtitle}>
+              Miyembro mula {profile.memberSince}
+            </AnimoText>
+          ) : null}
         </View>
 
         {/* 3 Floating Stat Cards (Overlapping the green banner & Clickable) */}
@@ -208,9 +214,14 @@ export default function FarmerProfileScreen() {
             style={styles.statCard}>
             <View style={styles.ratingNumberRow}>
               <AnimoText variant="h1" color={AnimoColors.textHighEmphasis} style={styles.statNumber}>
-                {profile.averageRating}
+                {profile.totalReviews > 0 ? profile.averageRating : '—'}
               </AnimoText>
-              <Star size={18} color="#F59E0B" fill="#F59E0B" style={styles.statStar} />
+              <Star
+                size={18}
+                color="#F59E0B"
+                fill={profile.totalReviews > 0 ? '#F59E0B' : 'transparent'}
+                style={styles.statStar}
+              />
             </View>
             <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.statLabel}>
               {profile.totalReviews} reviews
@@ -224,7 +235,7 @@ export default function FarmerProfileScreen() {
             onPress={() => setShowTransactionsModal(true)}
             style={styles.statCard}>
             <AnimoText variant="h1" color={AnimoColors.textHighEmphasis} style={styles.statNumber}>
-              {(profile.totalSoldKg / 1000).toFixed(1)}k
+              {soldVolumeLabel}
             </AnimoText>
             <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.statLabel}>
               Kilo na Naibenta
@@ -245,11 +256,11 @@ export default function FarmerProfileScreen() {
             {/* Row 1: Nagbebenta ng Dekalidad */}
             <View style={styles.tableRow}>
               <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.rowLabel}>
-                Nagbebenta ng Dekalidad
+                Positibong Feedback
               </AnimoText>
               <View style={styles.greenBadge}>
                 <AnimoText variant="bodyEmphasis" color="#166534" style={styles.greenBadgeText}>
-                  98%
+                  {profile.positiveFeedbackPct != null ? `${profile.positiveFeedbackPct}%` : '—'}
                 </AnimoText>
               </View>
             </View>
@@ -285,7 +296,7 @@ export default function FarmerProfileScreen() {
               <View style={styles.rowValueRightGroup}>
                 <View style={styles.ratingStarsRight}>
                   <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.rowValue}>
-                    {profile.averageRating} / 5.0
+                    {profile.totalReviews > 0 ? `${profile.averageRating} / 5.0` : '—'}
                   </AnimoText>
                   <View style={styles.miniStarsRow}>
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -293,7 +304,11 @@ export default function FarmerProfileScreen() {
                         key={star}
                         size={15}
                         color="#F59E0B"
-                        fill={star <= Math.round(profile.averageRating) ? '#F59E0B' : 'transparent'}
+                        fill={
+                          profile.totalReviews > 0 && star <= Math.round(profile.averageRating)
+                            ? '#F59E0B'
+                            : 'transparent'
+                        }
                       />
                     ))}
                   </View>
@@ -320,7 +335,7 @@ export default function FarmerProfileScreen() {
                 Pangunahing uri ng palay
               </AnimoText>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.rowValue}>
-                {profile.commonlySoldVarieties[0] || 'Inbred (RC 160)'}
+                {profile.commonlySoldVarieties[0] || '—'}
               </AnimoText>
             </View>
 
@@ -332,14 +347,20 @@ export default function FarmerProfileScreen() {
                 Iba pang uri na karaniwang ibinebenta
               </AnimoText>
               <View style={styles.varietyChipsWrap}>
-                {profile.commonlySoldVarieties.map((variety) => (
-                  <View key={variety} style={styles.varietyPill}>
-                    <Sprout size={14} color={AnimoColors.accentPrimary} />
-                    <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.varietyPillText}>
-                      {variety}
-                    </AnimoText>
-                  </View>
-                ))}
+                {profile.commonlySoldVarieties.length > 0 ? (
+                  profile.commonlySoldVarieties.map((variety) => (
+                    <View key={variety} style={styles.varietyPill}>
+                      <Sprout size={14} color={AnimoColors.accentPrimary} />
+                      <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.varietyPillText}>
+                        {variety}
+                      </AnimoText>
+                    </View>
+                  ))
+                ) : (
+                  <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                    Wala pang talaan
+                  </AnimoText>
+                )}
               </View>
             </View>
 
@@ -352,7 +373,7 @@ export default function FarmerProfileScreen() {
               </AnimoText>
               <View style={styles.greenBadge}>
                 <AnimoText variant="bodyEmphasis" color="#166534" style={styles.greenBadgeText}>
-                  {listing ? moistureLabel(listing.declaredMoisture) : 'Tuyo (14%)'}
+                  {listing ? moistureLabel(listing.declaredMoisture) : '—'}
                 </AnimoText>
               </View>
             </View>
@@ -365,7 +386,9 @@ export default function FarmerProfileScreen() {
                 Karaniwang dami bawat ani
               </AnimoText>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.rowValue}>
-                ~{averagePerTransaction.toLocaleString()} kg
+                {profile.completedTransactionsCount > 0
+                  ? `~${averagePerTransaction.toLocaleString()} kg`
+                  : '—'}
               </AnimoText>
             </View>
 
@@ -519,47 +542,16 @@ export default function FarmerProfileScreen() {
             </AnimoText>
 
             <ScrollView style={styles.modalScrollList} showsVerticalScrollIndicator={false}>
-              <View style={styles.historyItem}>
-                <View style={styles.historyIcon}>
-                  <CheckCircle2 size={18} color={AnimoColors.accentPrimary} />
-                </View>
-                <View style={styles.historyDetails}>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                    2,500 kg · Inbred (RC 160)
-                  </AnimoText>
-                  <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                    Nakumpleto sa San Isidro, Nueva Ecija
-                  </AnimoText>
-                </View>
-              </View>
-
-              <View style={styles.historyItem}>
-                <View style={styles.historyIcon}>
-                  <CheckCircle2 size={18} color={AnimoColors.accentPrimary} />
-                </View>
-                <View style={styles.historyDetails}>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                    1,800 kg · Hybrid (SL-8H)
-                  </AnimoText>
-                  <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                    Nakumpleto sa San Isidro, Nueva Ecija
-                  </AnimoText>
-                </View>
-              </View>
-
-              <View style={styles.historyItem}>
-                <View style={styles.historyIcon}>
-                  <CheckCircle2 size={18} color={AnimoColors.accentPrimary} />
-                </View>
-                <View style={styles.historyDetails}>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                    2,000 kg · Tradisyonal
-                  </AnimoText>
-                  <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                    Nakumpleto sa San Isidro, Nueva Ecija
-                  </AnimoText>
-                </View>
-              </View>
+              {profile.completedTransactionsCount === 0 ? (
+                <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+                  Wala pang naitalang transaksyon.
+                </AnimoText>
+              ) : (
+                <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+                  {profile.completedTransactionsCount} naitala, kabuuang{' '}
+                  {profile.totalSoldKg.toLocaleString()} kg.
+                </AnimoText>
+              )}
             </ScrollView>
 
             <AnimoButton
@@ -599,7 +591,7 @@ export default function FarmerProfileScreen() {
               <View style={styles.feedbackRatingBig}>
                 <Star size={32} color="#F59E0B" fill="#F59E0B" />
                 <AnimoText variant="h1" color={AnimoColors.textHighEmphasis} style={styles.feedbackScoreText}>
-                  {profile.averageRating}
+                  {profile.totalReviews > 0 ? profile.averageRating : '—'}
                 </AnimoText>
               </View>
               <View style={styles.feedbackRatingCol}>
@@ -609,19 +601,25 @@ export default function FarmerProfileScreen() {
                       key={star}
                       size={18}
                       color="#F59E0B"
-                      fill={star <= Math.round(profile.averageRating) ? '#F59E0B' : 'transparent'}
+                      fill={
+                        profile.totalReviews > 0 && star <= Math.round(profile.averageRating)
+                          ? '#F59E0B'
+                          : 'transparent'
+                      }
                     />
                   ))}
                 </View>
                 <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
                   {profile.totalReviews} mga review mula sa mamimili
                 </AnimoText>
-                <View style={styles.feedbackThumbsRow}>
-                  <ThumbsUp size={13} color={AnimoColors.accentPrimary} />
-                  <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.thumbsText}>
-                    98% Positibong Feedback
-                  </AnimoText>
-                </View>
+                {profile.positiveFeedbackPct != null ? (
+                  <View style={styles.feedbackThumbsRow}>
+                    <ThumbsUp size={13} color={AnimoColors.accentPrimary} />
+                    <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.thumbsText}>
+                      {profile.positiveFeedbackPct}% Positibong Feedback
+                    </AnimoText>
+                  </View>
+                ) : null}
               </View>
             </View>
 
@@ -630,29 +628,25 @@ export default function FarmerProfileScreen() {
             </AnimoText>
 
             <ScrollView style={styles.modalScrollList} showsVerticalScrollIndicator={false}>
-              <View style={styles.reviewCommentCard}>
-                <View style={styles.reviewCommentHeader}>
-                  <MessageSquareQuote size={15} color={AnimoColors.accentPrimary} />
-                  <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                    Mamimili · Na-verify na Transaksyon
-                  </AnimoText>
-                </View>
-                <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.reviewQuoteText}>
-                  &quot;Napakaganda ng kalidad ng palay, malinis at eksakto ang timbang sa pickup. Maayos kausap ang magsasaka.&quot;
+              {profile.comments.length === 0 ? (
+                <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+                  Wala pang komento mula sa mga mamimili.
                 </AnimoText>
-              </View>
-
-              <View style={styles.reviewCommentCard}>
-                <View style={styles.reviewCommentHeader}>
-                  <MessageSquareQuote size={15} color={AnimoColors.accentPrimary} />
-                  <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                    Mamimili · Na-verify na Transaksyon
-                  </AnimoText>
-                </View>
-                <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.reviewQuoteText}>
-                  &quot;Mabilis at walang aberya ang transaksyon. Tugma ang moisture sa nakasaad sa listing.&quot;
-                </AnimoText>
-              </View>
+              ) : (
+                profile.comments.map((comment, index) => (
+                  <View key={`${comment}-${index}`} style={styles.reviewCommentCard}>
+                    <View style={styles.reviewCommentHeader}>
+                      <MessageSquareQuote size={15} color={AnimoColors.accentPrimary} />
+                      <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                        Mamimili
+                      </AnimoText>
+                    </View>
+                    <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.reviewQuoteText}>
+                      &quot;{comment}&quot;
+                    </AnimoText>
+                  </View>
+                ))
+              )}
             </ScrollView>
 
             <AnimoButton

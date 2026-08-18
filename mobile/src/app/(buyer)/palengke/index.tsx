@@ -30,7 +30,7 @@ import { LabeledInput } from '@/components/animo/labeled-input';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { fetchCoverPhotos } from '@/services/crop-listing-service';
 import {
-  DEMO_RANKED_FARMERS,
+  fetchTopRankedFarmers,
   type RankedFarmer,
 } from '@/services/farmer-public-profile';
 import { fetchMarketplaceListings } from '@/services/marketplace-service';
@@ -87,6 +87,7 @@ export default function MarketplaceScreen() {
   const [filters, setFilters] = useState<MarketplaceFilters>({});
 
   const [ranked, setRanked] = useState<RankedListing[]>([]);
+  const [farmers, setFarmers] = useState<RankedFarmer[]>([]);
   const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
@@ -100,6 +101,13 @@ export default function MarketplaceScreen() {
       const result = await fetchMarketplaceListings(filters);
       if (latestRequestId.current !== requestId) return;
       setRanked(result);
+
+      try {
+        const farmerResult = await fetchTopRankedFarmers();
+        if (latestRequestId.current === requestId) setFarmers(farmerResult);
+      } catch {
+        if (latestRequestId.current === requestId) setFarmers([]);
+      }
 
       try {
         const photos = await fetchCoverPhotos(result.map((item) => item.listing.id));
@@ -199,18 +207,17 @@ export default function MarketplaceScreen() {
     });
   }, [ranked, searchQuery]);
 
-  // Filter farmers by search query
   const displayedFarmers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return DEMO_RANKED_FARMERS;
+    if (!query) return farmers;
 
-    return DEMO_RANKED_FARMERS.filter(
+    return farmers.filter(
       (f) =>
         f.name.toLowerCase().includes(query) ||
         f.location.toLowerCase().includes(query) ||
         f.commonlySoldVarieties.some((v) => v.toLowerCase().includes(query)),
     );
-  }, [searchQuery]);
+  }, [farmers, searchQuery]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -511,7 +518,9 @@ export default function MarketplaceScreen() {
             ListEmptyComponent={
               <View style={styles.centerState}>
                 <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.centerText}>
-                  Walang nakitang magsasaka para sa &quot;{searchQuery}&quot;.
+                  {searchQuery.trim().length > 0
+                    ? `Walang nakitang magsasaka para sa "${searchQuery}".`
+                    : 'Wala pang magsasaka sa palengke.'}
                 </AnimoText>
               </View>
             }
@@ -521,7 +530,7 @@ export default function MarketplaceScreen() {
                 onPress={() =>
                   router.push({
                     pathname: '/(buyer)/palengke/magsasaka/[id]',
-                    params: { id: ranked[0]?.listing.id || '1' },
+                    params: { id: item.listingId },
                   })
                 }
               />
@@ -555,20 +564,26 @@ function FarmerDirectoryCard({
           <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.farmerNameText}>
             {farmer.name}
           </AnimoText>
-          <View style={styles.farmerLocRow}>
-            <MapPin size={13} color={AnimoColors.textMediumEmphasis} />
-            <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-              {farmer.location}
-            </AnimoText>
-          </View>
+          {farmer.location ? (
+            <View style={styles.farmerLocRow}>
+              <MapPin size={13} color={AnimoColors.textMediumEmphasis} />
+              <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                {farmer.location}
+              </AnimoText>
+            </View>
+          ) : null}
         </View>
 
         {/* Reviews and Rating placed on the right */}
         <View style={styles.farmerRatingRightCol}>
           <View style={styles.farmerRatingRow}>
-            <Star size={14} color="#F59E0B" fill="#F59E0B" />
+            <Star
+              size={14}
+              color="#F59E0B"
+              fill={farmer.totalReviews > 0 ? '#F59E0B' : 'transparent'}
+            />
             <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.ratingNumberBold}>
-              {farmer.averageRating}
+              {farmer.totalReviews > 0 ? farmer.averageRating : '—'}
             </AnimoText>
           </View>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
