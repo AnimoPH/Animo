@@ -1,56 +1,43 @@
-# Welcome to your Expo app 👋
+# ANIMO mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo app (farmer / buyer). Auth, listings, purchase requests, and prices live in **Supabase**. The LSTM/GRU service is a **separate** Docker app under `../pricing` — this client never calls it.
 
-## Get started
+## Two ways to run
 
-1. Install dependencies
+| | Database | Price model | When to use |
+|---|---|---|---|
+| **Hosted** | `EXPO_PUBLIC_SUPABASE_URL=https://….supabase.co` | Not on your laptop. Listings use whatever `marketpricefeed.dry_base` is already in the cloud (often the ₱18.83 seed). | UI against shared team data |
+| **Local (full stack)** | `http://127.0.0.1:54321` | Docker + edge functions + one curl sync/refresh | Testing listings **and** the model together |
 
-   ```bash
-   npm install
-   ```
+**Hosted Expo will not pick up Docker on your machine.** Cloud Postgres cannot reach `localhost:8000`.
 
-2. Start the app
+For local DB + model + app, follow **[../pricing/README.md](../pricing/README.md)** (start order, keys, `.env`, smoke test). That is the source of truth for the pricing loop.
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Quick start (app only, hosted or already-running local)
 
 ```bash
-npm run reset-project
+cd ~/Desktop/Animo/mobile
+cp .env.example .env   # then fill URL + anon key
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+- **Hosted:** paste the team project URL and anon JWT from the Supabase dashboard.
+- **Local:** after `npx supabase start`, run `npx supabase status -o env` and copy `API_URL` + `ANON_KEY` (the `eyJ…` anon JWT, not `sb_publishable_…`).
 
-### Other setup steps
+Restart Expo after every `.env` change.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Physical phone: `127.0.0.1` is the phone. Use your PC’s LAN IP and port `54321`, or an emulator alias (`10.0.2.2` on Android). Details in the pricing README.
 
-## Learn more
+Local Auth has no hosted users. Register again (or seed) on local Postgres. `EXPO_PUBLIC_DEV_*` accounts only work if those users exist in **this** project.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Layout
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- `src/app/` — Expo Router screens
+- `src/services/` — Supabase client calls (listings, marketplace, purchase requests)
+- `supabase/migrations/` — schema (apply with local `supabase start` / `db reset`, or `db push` to hosted)
+- `supabase/functions/` — OTP, registration, PSA sync, `refresh-dry-base` (needs `PRICING_SERVICE_URL` when serving)
 
-## Join the community
+## Expo template leftovers
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+`npx expo start` still works as usual (Expo Go, emulator, web). Do not run `npm run reset-project` on this repo — that is create-expo-app scaffolding, not ANIMO.
