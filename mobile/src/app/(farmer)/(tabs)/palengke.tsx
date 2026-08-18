@@ -1,24 +1,12 @@
 import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
-import {
-  Droplets,
-  ImageIcon,
-  Plus,
-  Scale,
-  Search,
-  ShieldCheck,
-  SlidersHorizontal,
-  X,
-} from 'lucide-react-native';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { Droplets, ImageIcon, Plus, Scale, ShieldCheck } from 'lucide-react-native';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -26,7 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
+import { FilterModal } from '@/components/animo/filter-modal';
 import { LabeledInput } from '@/components/animo/labeled-input';
+import { SearchFilterBar } from '@/components/animo/search-filter-bar';
 import { StatusBadge, type BadgeTone } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
@@ -47,6 +37,24 @@ import {
 type StatusFilterKey = 'Lahat' | Extract<ListingStatus, 'Available' | 'Sold_Out' | 'Cancelled'>;
 type VarietyChoice = 'Lahat' | DeclaredVariety;
 type MoistureChoice = 'Lahat' | MoistureType;
+
+type PalengkeFilterDraft = {
+  status: StatusFilterKey;
+  quantityText: string;
+  minPriceText: string;
+  maxPriceText: string;
+  variety: VarietyChoice;
+  moisture: MoistureChoice;
+};
+
+const EMPTY_FILTERS: PalengkeFilterDraft = {
+  status: 'Lahat',
+  quantityText: '',
+  minPriceText: '',
+  maxPriceText: '',
+  variety: 'Lahat',
+  moisture: 'Lahat',
+};
 
 const STATUS_FILTER_OPTIONS: { value: StatusFilterKey; label: string }[] = [
   { value: 'Lahat', label: 'Lahat' },
@@ -72,6 +80,7 @@ const STATUS_TONES: Record<ListingStatus, BadgeTone> = {
   Cancelled: 'danger',
 };
 
+/** Parses a filter text field, treating blank/garbage as "not set" rather than 0. */
 function parseNumber(text: string): number | undefined {
   const trimmed = text.trim();
   if (trimmed.length === 0) return undefined;
@@ -79,29 +88,94 @@ function parseNumber(text: string): number | undefined {
   return Number.isFinite(value) ? value : undefined;
 }
 
+function countActiveFilters(filters: PalengkeFilterDraft): number {
+  return [
+    filters.status !== 'Lahat' ? true : undefined,
+    parseNumber(filters.quantityText),
+    parseNumber(filters.minPriceText),
+    parseNumber(filters.maxPriceText),
+    filters.variety !== 'Lahat' ? true : undefined,
+    filters.moisture !== 'Lahat' ? true : undefined,
+  ].filter((value) => value !== undefined).length;
+}
+
+function listingMatchesFilters(listing: CropListing, filters: PalengkeFilterDraft): boolean {
+  if (filters.status !== 'Lahat' && listing.status !== filters.status) {
+    return false;
+  }
+
+  const minQty = parseNumber(filters.quantityText);
+  if (minQty !== undefined && listing.remainingQuantityKg < minQty) {
+    return false;
+  }
+
+  const minPricePerKg = parseNumber(filters.minPriceText);
+  const maxPricePerKg = parseNumber(filters.maxPriceText);
+  if (minPricePerKg !== undefined) {
+    if (listing.pricePerKg === null || listing.pricePerKg < minPricePerKg) {
+      return false;
+    }
+  }
+  if (maxPricePerKg !== undefined) {
+    if (listing.pricePerKg === null || listing.pricePerKg > maxPricePerKg) {
+      return false;
+    }
+  }
+
+  if (filters.variety !== 'Lahat' && listing.declaredVariety !== filters.variety) {
+    return false;
+  }
+  if (filters.moisture !== 'Lahat' && listing.declaredMoisture !== filters.moisture) {
+    return false;
+  }
+
+  return true;
+}
+
+function listingMatchesSearch(listing: CropListing, searchQuery: string): boolean {
+  const query = searchQuery.trim().toLowerCase();
+  if (!query) return true;
+
+  const terms = query
+    .split(/\s+/)
+    .filter((t) => t.length > 0 && !['ng', 'ang', 'mga', 'sa'].includes(t));
+  if (terms.length === 0) return true;
+
+  const vLabel = varietyLabel(listing).toLowerCase();
+  const rawVariety = listing.declaredVariety.toLowerCase();
+  const custom = listing.declaredVarietyCustom?.toLowerCase() || '';
+  const moisture = listing.declaredMoisture.toLowerCase();
+  const mLabel = moistureLabel(listing.declaredMoisture).toLowerCase();
+  const purity = purityLabel(listing.declaredPurityGrade).toLowerCase();
+
+  return terms.every((term) => {
+    if (term === 'palay') return true;
+    if (term === 'dry' || term === 'tuyo' || term === 'tuyong') {
+      return listing.declaredMoisture === 'Dry';
+    }
+    if (term === 'wet' || term === 'basa' || term === 'basang') {
+      return listing.declaredMoisture === 'Wet';
+    }
+    return (
+      vLabel.includes(term) ||
+      rawVariety.includes(term) ||
+      custom.includes(term) ||
+      moisture.includes(term) ||
+      mLabel.includes(term) ||
+      purity.includes(term)
+    );
+  });
+}
+
 /**
- * Aking Ani (Farmer Palengke) — matches Buyer Palengke's visual design, search, and filtering.
+ * Aking Ani (Farmer Palengke) — own listings with reusable search/filter chrome
+ * and marketplace-style cards.
  */
 export default function FarmerPalengkeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeStatus, setActiveStatus] = useState<StatusFilterKey>('Lahat');
+  const [appliedFilters, setAppliedFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
+  const [draftFilters, setDraftFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
   const [modalOpen, setModalOpen] = useState(false);
-
-  // Draft filter modal state
-  const [minPriceText, setMinPriceText] = useState('');
-  const [maxPriceText, setMaxPriceText] = useState('');
-  const [minQtyText, setMinQtyText] = useState('');
-  const [varietyFilter, setVarietyFilter] = useState<VarietyChoice>('Lahat');
-  const [moistureFilter, setMoistureFilter] = useState<MoistureChoice>('Lahat');
-
-  // Applied advanced filters
-  const [appliedFilters, setAppliedFilters] = useState<{
-    minPrice?: number;
-    maxPrice?: number;
-    minQty?: number;
-    variety?: DeclaredVariety;
-    moisture?: MoistureType;
-  }>({});
 
   const [listings, setListings] = useState<CropListing[]>([]);
   const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
@@ -122,7 +196,7 @@ export default function FarmerPalengkeScreen() {
         const photos = await fetchCoverPhotos(result.map((l) => l.id));
         if (latestRequestId.current === requestId) setCoverPhotos(photos);
       } catch {
-        // Fallback to placeholder
+        // Cards fall back to the placeholder icon.
       }
     } catch (err) {
       if (latestRequestId.current === requestId) {
@@ -141,202 +215,160 @@ export default function FarmerPalengkeScreen() {
     }, [load]),
   );
 
-  const applyModalFilters = () => {
-    setAppliedFilters({
-      minPrice: parseNumber(minPriceText),
-      maxPrice: parseNumber(maxPriceText),
-      minQty: parseNumber(minQtyText),
-      variety: varietyFilter === 'Lahat' ? undefined : varietyFilter,
-      moisture: moistureFilter === 'Lahat' ? undefined : moistureFilter,
-    });
+  const activeFilterCount = countActiveFilters(appliedFilters);
+
+  const displayedListings = useMemo(() => {
+    return listings.filter(
+      (listing) =>
+        listingMatchesFilters(listing, appliedFilters) &&
+        listingMatchesSearch(listing, searchQuery),
+    );
+  }, [listings, appliedFilters, searchQuery]);
+
+  const emptyMessage =
+    searchQuery.trim().length > 0
+      ? `Walang nakitang listing para sa "${searchQuery}".`
+      : activeFilterCount > 0
+        ? 'Walang listing sa filter na ito.'
+        : 'Wala ka pang listing. Gumawa ng una mong listing ng palay.';
+
+  const openModal = () => {
+    setDraftFilters(appliedFilters);
+    setModalOpen(true);
+  };
+
+  const applyFilters = () => {
+    setAppliedFilters(draftFilters);
     setModalOpen(false);
   };
 
-  const resetModalFilters = () => {
-    setMinPriceText('');
-    setMaxPriceText('');
-    setMinQtyText('');
-    setVarietyFilter('Lahat');
-    setMoistureFilter('Lahat');
-    setAppliedFilters({});
+  const resetFilters = () => {
+    setDraftFilters(EMPTY_FILTERS);
+    setAppliedFilters(EMPTY_FILTERS);
     setModalOpen(false);
   };
-
-  const activeAdvancedFilterCount = useMemo(
-    () =>
-      [
-        appliedFilters.minPrice,
-        appliedFilters.maxPrice,
-        appliedFilters.minQty,
-        appliedFilters.variety,
-        appliedFilters.moisture,
-      ].filter((v) => v !== undefined).length,
-    [appliedFilters],
-  );
-
-  // Compute filtered listings
-  const filteredListings = useMemo(() => {
-    return listings.filter((item) => {
-      // 1. Status Chip filter
-      if (activeStatus !== 'Lahat' && item.status !== activeStatus) {
-        return false;
-      }
-
-      // 2. Search Query filter
-      if (searchQuery.trim().length > 0) {
-        const query = searchQuery.trim().toLowerCase();
-        const terms = query
-          .split(/\s+/)
-          .filter((t) => t.length > 0 && !['ng', 'ang', 'mga', 'sa'].includes(t));
-
-        if (terms.length > 0) {
-          const vLabel = varietyLabel(item).toLowerCase();
-          const rawVariety = item.declaredVariety.toLowerCase();
-          const custom = item.declaredVarietyCustom?.toLowerCase() || '';
-          const moisture = item.declaredMoisture.toLowerCase(); // 'dry' or 'wet'
-          const mLabel = moistureLabel(item.declaredMoisture).toLowerCase(); // 'tuyo (dry)' or 'basa (wet)'
-          const purity = purityLabel(item.declaredPurityGrade).toLowerCase();
-
-          const allMatched = terms.every((term) => {
-            if (term === 'palay') return true;
-            if (term === 'dry' || term === 'tuyo' || term === 'tuyong') {
-              return item.declaredMoisture === 'Dry';
-            }
-            if (term === 'wet' || term === 'basa' || term === 'basang') {
-              return item.declaredMoisture === 'Wet';
-            }
-            return (
-              vLabel.includes(term) ||
-              rawVariety.includes(term) ||
-              custom.includes(term) ||
-              moisture.includes(term) ||
-              mLabel.includes(term) ||
-              purity.includes(term)
-            );
-          });
-
-          if (!allMatched) return false;
-        }
-      }
-
-      // 3. Variety filter
-      if (appliedFilters.variety && item.declaredVariety !== appliedFilters.variety) {
-        return false;
-      }
-
-      // 4. Moisture filter
-      if (appliedFilters.moisture && item.declaredMoisture !== appliedFilters.moisture) {
-        return false;
-      }
-
-      // 5. Min Quantity filter
-      if (appliedFilters.minQty && item.remainingQuantityKg < appliedFilters.minQty) {
-        return false;
-      }
-
-      // 6. Price filters
-      if (appliedFilters.minPrice && (item.pricePerKg ?? 0) < appliedFilters.minPrice) {
-        return false;
-      }
-      if (appliedFilters.maxPrice && (item.pricePerKg ?? 0) > appliedFilters.maxPrice) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [listings, activeStatus, searchQuery, appliedFilters]);
-
-  // Count items per status
-  const statusCounts = useMemo(() => {
-    const counts: Record<StatusFilterKey, number> = {
-      Lahat: listings.length,
-      Available: 0,
-      Sold_Out: 0,
-      Cancelled: 0,
-    };
-    listings.forEach((l) => {
-      if (l.status in counts) {
-        counts[l.status as StatusFilterKey]++;
-      }
-    });
-    return counts;
-  }, [listings]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <AppHeader onPressBell={() => router.push('/(farmer)/notipikasyon')} />
 
-      {/* Top Search Bar & Filter Button Row */}
-      <View style={styles.searchFilterRow}>
-        <View style={styles.searchBar}>
-          <Search size={18} color={AnimoColors.objectMediumEmphasis} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Maghanap ng sariling ani, uri..."
-            placeholderTextColor={AnimoColors.textLowEmphasis}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-          />
-          {searchQuery.length > 0 ? (
-            <Pressable
-              onPress={() => setSearchQuery('')}
-              hitSlop={8}
-              style={styles.clearSearchBtn}>
-              <X size={16} color={AnimoColors.objectLowEmphasis} />
-            </Pressable>
-          ) : null}
+      <SearchFilterBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Maghanap ng sariling ani, uri..."
+        activeFilterCount={activeFilterCount}
+        onFilterPress={openModal}
+      />
+
+      <FilterModal
+        visible={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onReset={resetFilters}
+        onApply={applyFilters}
+        activeCount={activeFilterCount}
+        title="Mga Filter ng Ani"
+      >
+        <View style={styles.filterSection}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+            Katayuan
+          </AnimoText>
+          <View style={styles.chipsWrap}>
+            {STATUS_FILTER_OPTIONS.map((choice) => (
+              <FilterChoiceChip
+                key={choice.value}
+                label={choice.label}
+                active={draftFilters.status === choice.value}
+                onPress={() =>
+                  setDraftFilters((prev) => ({ ...prev, status: choice.value }))
+                }
+              />
+            ))}
+          </View>
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setModalOpen(true)}
-          style={[
-            styles.filterIconButton,
-            activeAdvancedFilterCount > 0 && styles.filterIconButtonActive,
-          ]}>
-          <SlidersHorizontal
-            size={18}
-            color={activeAdvancedFilterCount > 0 ? AnimoColors.white : AnimoColors.accentPrimary}
+        <View style={styles.filterSection}>
+          <LabeledInput
+            label="Pinakamababang Dami (kg)"
+            hint="Ipakita lamang ang mga listing na may natitirang timbang na ito."
+            keyboardType="numeric"
+            suffixText="kg"
+            placeholder="Halimbawa: 100"
+            value={draftFilters.quantityText}
+            onChangeText={(quantityText) =>
+              setDraftFilters((prev) => ({ ...prev, quantityText }))
+            }
           />
-          {activeAdvancedFilterCount > 0 ? (
-            <View style={styles.filterBadge}>
-              <AnimoText variant="tag" color={AnimoColors.white} style={styles.filterBadgeText}>
-                {activeAdvancedFilterCount}
-              </AnimoText>
+        </View>
+
+        <View style={styles.filterSection}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+            Presyo bawat Kilo (₱)
+          </AnimoText>
+          <View style={styles.filterPriceRow}>
+            <View style={styles.filterPriceField}>
+              <LabeledInput
+                label="Pinakamababa"
+                keyboardType="numeric"
+                prefixText="₱"
+                placeholder="Halimbawa: 15"
+                value={draftFilters.minPriceText}
+                onChangeText={(minPriceText) =>
+                  setDraftFilters((prev) => ({ ...prev, minPriceText }))
+                }
+              />
             </View>
-          ) : null}
-        </Pressable>
-      </View>
+            <View style={styles.filterPriceField}>
+              <LabeledInput
+                label="Pinakamataas"
+                keyboardType="numeric"
+                prefixText="₱"
+                placeholder="Halimbawa: 25"
+                value={draftFilters.maxPriceText}
+                onChangeText={(maxPriceText) =>
+                  setDraftFilters((prev) => ({ ...prev, maxPriceText }))
+                }
+              />
+            </View>
+          </View>
+        </View>
 
-      {/* Status Filter Chips Row */}
-      <View style={styles.statusChipsWrapper}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.statusChipsContainer}>
-          {STATUS_FILTER_OPTIONS.map((opt) => {
-            const isSelected = activeStatus === opt.value;
-            const count = statusCounts[opt.value];
-            return (
-              <Pressable
-                key={opt.value}
-                accessibilityRole="tab"
-                onPress={() => setActiveStatus(opt.value)}
-                style={[styles.statusChip, isSelected && styles.statusChipActive]}>
-                <AnimoText
-                  variant="bodyEmphasis"
-                  color={isSelected ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
-                  style={styles.statusChipText}>
-                  {opt.label} ({count})
-                </AnimoText>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+        <View style={styles.filterSection}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+            Uri ng Palay
+          </AnimoText>
+          <View style={styles.chipsWrap}>
+            {VARIETY_CHOICES.map((choice) => (
+              <FilterChoiceChip
+                key={choice.value}
+                label={choice.label}
+                active={draftFilters.variety === choice.value}
+                onPress={() =>
+                  setDraftFilters((prev) => ({ ...prev, variety: choice.value }))
+                }
+              />
+            ))}
+          </View>
+        </View>
 
-      {/* Main Content Area */}
+        <View style={styles.filterSection}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+            Antas ng Moisture
+          </AnimoText>
+          <View style={styles.chipsWrap}>
+            {MOISTURE_CHOICES.map((choice) => (
+              <FilterChoiceChip
+                key={choice.value}
+                label={choice.label}
+                active={draftFilters.moisture === choice.value}
+                onPress={() =>
+                  setDraftFilters((prev) => ({ ...prev, moisture: choice.value }))
+                }
+              />
+            ))}
+          </View>
+        </View>
+      </FilterModal>
+
       <View style={styles.listContainer}>
         {loading ? (
           <View style={styles.centerState}>
@@ -353,24 +385,18 @@ export default function FarmerPalengkeScreen() {
               </AnimoText>
             </Pressable>
           </View>
-        ) : filteredListings.length === 0 ? (
+        ) : displayedListings.length === 0 ? (
           <View style={styles.centerState}>
             <AnimoText
               variant="body"
               color={AnimoColors.textMediumEmphasis}
               style={styles.centerText}>
-              {searchQuery.trim().length > 0
-                ? `Walang nakitang listing para sa "${searchQuery}".`
-                : activeAdvancedFilterCount > 0
-                  ? 'Walang listing na tumutugma sa mga napiling filter.'
-                  : listings.length === 0
-                    ? 'Wala ka pang listing. Gumawa ng una mong listing ng palay.'
-                    : 'Walang listing sa filter na ito.'}
+              {emptyMessage}
             </AnimoText>
           </View>
         ) : (
           <FlatList
-            data={filteredListings}
+            data={displayedListings}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
@@ -389,7 +415,6 @@ export default function FarmerPalengkeScreen() {
           />
         )}
 
-        {/* Floating Action Button (Create Listing) */}
         <Pressable
           onPress={() => router.push('/(farmer)/creation-listing')}
           style={[styles.fab, styles.fabShadow]}
@@ -397,151 +422,32 @@ export default function FarmerPalengkeScreen() {
           <Plus size={28} color={AnimoColors.white} />
         </Pressable>
       </View>
-
-      {/* Floating Filter Modal */}
-      <Modal
-        visible={modalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setModalOpen(false)}>
-          <Pressable style={styles.floatingWindow} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderTitleRow}>
-                <SlidersHorizontal size={20} color={AnimoColors.accentPrimary} />
-                <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-                  Mga Filter ng Ani
-                </AnimoText>
-                {activeAdvancedFilterCount > 0 ? (
-                  <View style={styles.modalActiveBadge}>
-                    <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
-                      {activeAdvancedFilterCount} aktibo
-                    </AnimoText>
-                  </View>
-                ) : null}
-              </View>
-
-              <Pressable
-                onPress={() => setModalOpen(false)}
-                hitSlop={10}
-                style={styles.closeBtn}>
-                <X size={20} color={AnimoColors.objectMediumEmphasis} />
-              </Pressable>
-            </View>
-
-            <ScrollView
-              contentContainerStyle={styles.modalScrollContent}
-              showsVerticalScrollIndicator={false}>
-              {/* Minimum Available Quantity */}
-              <View style={styles.inputCard}>
-                <LabeledInput
-                  label="Pinakamababang Dami (kg)"
-                  hint="Ipakita lamang ang mga listing na may natitirang timbang na ito."
-                  keyboardType="numeric"
-                  suffixText="kg"
-                  placeholder="Halimbawa: 100"
-                  value={minQtyText}
-                  onChangeText={setMinQtyText}
-                />
-              </View>
-
-              {/* Price range */}
-              <View style={styles.inputCard}>
-                <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                  Presyo bawat Kilo (₱)
-                </AnimoText>
-                <View style={styles.modalPriceRow}>
-                  <View style={styles.modalPriceField}>
-                    <LabeledInput
-                      label="Pinakamababa"
-                      keyboardType="numeric"
-                      prefixText="₱"
-                      placeholder="Hal: 15"
-                      value={minPriceText}
-                      onChangeText={setMinPriceText}
-                    />
-                  </View>
-                  <View style={styles.modalPriceField}>
-                    <LabeledInput
-                      label="Pinakamataas"
-                      keyboardType="numeric"
-                      prefixText="₱"
-                      placeholder="Hal: 25"
-                      value={maxPriceText}
-                      onChangeText={setMaxPriceText}
-                    />
-                  </View>
-                </View>
-              </View>
-
-              {/* Rice variety chips */}
-              <View style={styles.inputCard}>
-                <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                  Uri ng Palay
-                </AnimoText>
-                <View style={styles.chipsWrapContainer}>
-                  {VARIETY_CHOICES.map((choice) => {
-                    const active = varietyFilter === choice.value;
-                    return (
-                      <Pressable
-                        key={choice.value}
-                        onPress={() => setVarietyFilter(choice.value)}
-                        style={[styles.chipItem, active && styles.chipItemActive]}>
-                        <AnimoText
-                          variant="body"
-                          color={active ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
-                          style={active && styles.chipTextActive}>
-                          {choice.label}
-                        </AnimoText>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {/* Moisture level chips */}
-              <View style={styles.inputCard}>
-                <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                  Antas ng Moisture
-                </AnimoText>
-                <View style={styles.chipsWrapContainer}>
-                  {MOISTURE_CHOICES.map((choice) => {
-                    const active = moistureFilter === choice.value;
-                    return (
-                      <Pressable
-                        key={choice.value}
-                        onPress={() => setMoistureFilter(choice.value)}
-                        style={[styles.chipItem, active && styles.chipItemActive]}>
-                        <AnimoText
-                          variant="body"
-                          color={active ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
-                          style={active && styles.chipTextActive}>
-                          {choice.label}
-                        </AnimoText>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-            </ScrollView>
-
-            {/* Modal actions */}
-            <View style={styles.modalFooter}>
-              <Pressable onPress={resetModalFilters} style={styles.resetButton}>
-                <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
-                  I-reset
-                </AnimoText>
-              </Pressable>
-              <Pressable onPress={applyModalFilters} style={styles.applyButton}>
-                <AnimoText variant="button" color={AnimoColors.white}>
-                  Ilapat ang Filter
-                </AnimoText>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
+  );
+}
+
+function FilterChoiceChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={[styles.chipItem, active && styles.chipItemActive]}>
+      <AnimoText
+        variant="body"
+        color={active ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
+        style={active ? styles.chipTextActive : undefined}>
+        {label}
+      </AnimoText>
+    </Pressable>
   );
 }
 
@@ -563,7 +469,6 @@ function FarmerMarketplaceCard({
       activeOpacity={0.85}
       onPress={onPress}
       style={[styles.card, styles.shadow]}>
-      {/* Cover Photo */}
       <View style={styles.photoArea}>
         {coverPhotoUrl ? (
           <Image source={{ uri: coverPhotoUrl }} style={styles.photoImage} contentFit="cover" />
@@ -578,7 +483,6 @@ function FarmerMarketplaceCard({
         </View>
       </View>
 
-      {/* Card Body */}
       <View style={styles.body}>
         <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
           {varietyLabel(listing)}
@@ -614,7 +518,7 @@ function FarmerMarketplaceCard({
   );
 }
 
-function Spec({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+function Spec({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
     <View style={styles.spec}>
       {icon}
@@ -630,93 +534,37 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AnimoColors.appBackground,
   },
-  searchFilterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.sm,
+  filterSection: {
     gap: AnimoSpacing.sm,
   },
-  searchBar: {
-    flex: 1,
+  filterPriceRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.md,
-    paddingHorizontal: AnimoSpacing.md,
-    height: 50,
+    gap: AnimoSpacing.md,
   },
-  searchIcon: {
-    marginRight: AnimoSpacing.xs,
-  },
-  searchInput: {
+  filterPriceField: {
     flex: 1,
-    height: '100%',
-    fontSize: 16,
-    fontFamily: 'PlusJakartaSans_400Regular',
-    color: AnimoColors.textHighEmphasis,
-    paddingVertical: 0,
   },
-  clearSearchBtn: {
-    padding: 4,
-  },
-  filterIconButton: {
-    width: 50,
-    height: 50,
-    borderRadius: AnimoRadius.md,
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  filterIconButtonActive: {
-    backgroundColor: AnimoColors.accentPrimary,
-    borderColor: AnimoColors.accentPrimary,
-  },
-  filterBadge: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    backgroundColor: '#DC2626',
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  filterBadgeText: {
-    fontSize: 11,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    lineHeight: 12,
-  },
-  statusChipsWrapper: {
-    paddingBottom: AnimoSpacing.xs,
-  },
-  statusChipsContainer: {
+  chipsWrap: {
     flexDirection: 'row',
-    paddingHorizontal: AnimoSpacing.lg,
+    flexWrap: 'wrap',
     gap: AnimoSpacing.sm,
-    paddingBottom: AnimoSpacing.xs,
+    marginTop: 2,
   },
-  statusChip: {
+  chipItem: {
     paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.surfacePrimary,
     borderWidth: 1,
     borderColor: AnimoColors.borderLowEmphasis,
+    backgroundColor: AnimoColors.surfacePrimary,
   },
-  statusChipActive: {
+  chipItemActive: {
     borderColor: AnimoColors.accentPrimary,
     backgroundColor: AnimoColors.accentPrimaryLight,
   },
-  statusChipText: {
-    fontSize: 13.5,
+  chipTextActive: {
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    color: AnimoColors.accentPrimary,
   },
   listContainer: {
     flex: 1,
@@ -802,118 +650,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.22,
     shadowRadius: 8,
     elevation: 6,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.xl,
-  },
-  floatingWindow: {
-    width: '100%',
-    maxHeight: '85%',
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
-    overflow: 'hidden',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: AnimoColors.borderLowEmphasis,
-  },
-  modalHeaderTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.sm,
-  },
-  modalActiveBadge: {
-    backgroundColor: AnimoColors.accentPrimaryLight,
-    paddingHorizontal: AnimoSpacing.sm,
-    paddingVertical: 2,
-    borderRadius: AnimoRadius.pill,
-    marginLeft: AnimoSpacing.xs,
-  },
-  closeBtn: {
-    padding: 4,
-  },
-  modalScrollContent: {
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.lg,
-  },
-  inputCard: {
-    gap: AnimoSpacing.sm,
-  },
-  chipsWrapContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: AnimoSpacing.sm,
-    marginTop: 2,
-  },
-  chipItem: {
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: 10,
-    borderRadius: AnimoRadius.pill,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: AnimoColors.surfacePrimary,
-  },
-  chipItemActive: {
-    borderColor: AnimoColors.accentPrimary,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-  },
-  chipTextActive: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-    color: AnimoColors.accentPrimary,
-  },
-  modalPriceRow: {
-    flexDirection: 'row',
-    gap: AnimoSpacing.md,
-    alignItems: 'flex-start',
-    marginTop: 2,
-  },
-  modalPriceField: {
-    flex: 1,
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.md,
-    borderTopWidth: 1,
-    borderTopColor: AnimoColors.borderLowEmphasis,
-    gap: AnimoSpacing.md,
-    backgroundColor: AnimoColors.surfaceSecondary,
-  },
-  resetButton: {
-    flex: 1,
-    height: 48,
-    borderRadius: AnimoRadius.md,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: AnimoColors.surfacePrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  applyButton: {
-    flex: 1,
-    height: 48,
-    borderRadius: AnimoRadius.md,
-    backgroundColor: AnimoColors.accentPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
