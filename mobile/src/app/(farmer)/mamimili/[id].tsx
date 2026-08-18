@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { ScreenHeader } from '@/components/animo/screen-header';
+import { BackHeader } from '@/components/animo/back-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { fetchBuyerRatingComments, fetchBuyerTrustStats, type BuyerTrustStats } from '@/services/farmer-public-profile';
@@ -57,7 +57,7 @@ export default function BuyerProfileScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        <ScreenHeader title="Profile ng Mamimili" />
+        <BackHeader title="Profile ng Mamimili" />
         <View style={styles.centerState}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -69,7 +69,7 @@ export default function BuyerProfileScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        <ScreenHeader title="Profile ng Mamimili" />
+        <BackHeader title="Profile ng Mamimili" />
         <View style={styles.centerState}>
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.centerText}>
             {error ?? 'Hindi ma-load ang profile ng mamimili.'}
@@ -84,7 +84,7 @@ export default function BuyerProfileScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Profile ng Mamimili" />
+      <BackHeader title="Profile ng Mamimili" />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.greenBanner}>

@@ -255,7 +255,7 @@ export default function FarmerPalengkeScreen() {
       <SearchFilterBar
         value={searchQuery}
         onChangeText={setSearchQuery}
-        placeholder="Maghanap ng sariling ani, uri..."
+        placeholder="Maghanap ng ani, uri, at..."
         activeFilterCount={activeFilterCount}
         onFilterPress={openModal}
       />

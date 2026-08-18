@@ -25,7 +25,7 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { PaymentSummary } from '@/components/animo/payment-summary';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
-import { ScreenHeader } from '@/components/animo/screen-header';
+import { BackHeader } from '@/components/animo/back-header';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
@@ -146,7 +146,7 @@ export default function FarmerTransactionDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <ScreenHeader title="Detalye ng Transaksyon" />
+        <BackHeader title="Detalye ng Transaksyon" />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -158,7 +158,7 @@ export default function FarmerTransactionDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        <ScreenHeader title="Detalye ng Transaksyon" />
+        <BackHeader title="Detalye ng Transaksyon" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
             {error ?? 'Hindi nahanap ang transaksyon na ito.'}
@@ -178,7 +178,7 @@ export default function FarmerTransactionDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title={farmerHeaderTitle(stage)} />
+      <BackHeader title={farmerHeaderTitle(stage)} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <StageBanner stage={stage} transaction={transaction} buyerName={buyer?.name} />
@@ -196,7 +196,14 @@ export default function FarmerTransactionDetailScreen() {
           total={{ label: 'Kabuuang Halaga ng Transaksyon', amount: transaction.totalAmount }}
         />
 
-        {buyer ? <BuyerPartyCard buyer={buyer} onCall={() => handleCallBuyer(buyer.phone)} /> : null}
+        {buyer ? (
+          <BuyerPartyCard
+            buyer={buyer}
+            quantityKg={transaction.quantityKg}
+            total={transaction.totalAmount}
+            onCall={() => handleCallBuyer(buyer.phone)}
+          />
+        ) : null}
 
         {isCompleted ? (
           <Pressable
@@ -460,21 +467,52 @@ function ListingCard({
   );
 }
 
-function BuyerPartyCard({ buyer, onCall }: { buyer: TransactionCounterpart; onCall: () => void }) {
+function BuyerPartyCard({
+  buyer,
+  quantityKg,
+  total,
+  onCall,
+}: {
+  buyer: TransactionCounterpart;
+  quantityKg: number;
+  total: number;
+  onCall: () => void;
+}) {
+  const openBuyerProfile = () => {
+    router.push({
+      pathname: '/(farmer)/mamimili/[id]',
+      params: {
+        id: buyer.id,
+        quantityKg: String(quantityKg),
+        total: String(total),
+      },
+    });
+  };
+
   return (
     <View style={styles.partyCard}>
       <View style={styles.partyHeaderRow}>
-        <View style={styles.partyAvatar}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Tingnan ang profile ng mamimili"
+          hitSlop={8}
+          onPress={openBuyerProfile}
+          style={({ pressed }) => [styles.partyAvatar, pressed && styles.pressed]}>
           <User size={20} color={AnimoColors.accentPrimary} />
-        </View>
-        <View style={styles.flex}>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Tingnan ang profile ni ${buyer.name}`}
+          hitSlop={8}
+          onPress={openBuyerProfile}
+          style={styles.flex}>
           <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
             {buyer.name}
           </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
             Mamimili
           </AnimoText>
-        </View>
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Tawagan si ${buyer.name}`}

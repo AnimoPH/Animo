@@ -14,7 +14,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { ScreenHeader } from '@/components/animo/screen-header';
+import { BackHeader } from '@/components/animo/back-header';
 import { FilterChips } from '@/components/animo/filter-chips';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 
@@ -160,7 +160,7 @@ export default function FarmerNotificationsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Mga Notipikasyon" />
+      <BackHeader title="Mga Notipikasyon" />
 
       <View style={styles.filterBar}>
         <FilterChips

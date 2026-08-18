@@ -41,7 +41,7 @@ export default function ListingResultScreen() {
               Congrats! Naaprubahan.
             </AnimoText>
             <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-              Pasok sa pamantayan ang iyong ibinebentang palay.
+              Pasok sa pamantayan ang iyong palay.
             </AnimoText>
           </View>
         </View>
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "flex-start",
-    gap: 24,
+    gap: 18,
     backgroundColor: AnimoColors.appBackground,
     padding: AnimoSpacing.lg,
   },

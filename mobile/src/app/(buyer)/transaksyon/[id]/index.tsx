@@ -14,7 +14,7 @@ import { NoticeBanner } from '@/components/animo/notice-banner';
 import { PaymentSummary } from '@/components/animo/payment-summary';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
 import { RequestListingCard } from '@/components/animo/request-listing-card';
-import { ScreenHeader } from '@/components/animo/screen-header';
+import { BackHeader } from '@/components/animo/back-header';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { fetchCropListing } from '@/services/crop-listing-service';
@@ -34,6 +34,7 @@ import {
   buildProgressSteps,
   cancelPolicy,
   deriveDisplayStage,
+  formatDateTime,
   requestTotal,
   type CancelPolicy,
   type PurchaseOutcome,
@@ -95,7 +96,7 @@ export default function TransactionStatusScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScreenHeader title="Katayuan ng Transaksyon" />
+        <BackHeader title="Katayuan ng Transaksyon" />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.green} />
         </View>
@@ -106,7 +107,7 @@ export default function TransactionStatusScreen() {
   if (!outcome || error) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScreenHeader title="Katayuan ng Transaksyon" />
+        <BackHeader title="Katayuan ng Transaksyon" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
             {error ?? 'Hindi nahanap ang transaksyon na ito.'}
@@ -150,7 +151,7 @@ export default function TransactionStatusScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Katayuan ng Transaksyon" />
+      <BackHeader title="Katayuan ng Transaksyon" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <StageBanner request={outcome.request} isDead={isDead} label={DISPLAY_STAGE_LABELS[stage]} />
@@ -249,7 +250,7 @@ function StageBanner({ request, isDead, label }: { request: PurchaseRequest; isD
         <StatusBadge label={label} tone="warning" />
       </View>
       <View style={styles.divider} />
-      <MetaRow label="Naipadala" value={request.submittedAt} />
+      <MetaRow label="Naipadala" value={formatDateTime(request.submittedAt)} />
     </View>
   );
 }
@@ -289,10 +290,14 @@ function StageFooter({
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.metaRow}>
-      <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+      <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.metaLabel}>
         {label}
       </AnimoText>
-      <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+      <AnimoText
+        variant="bodyEmphasis"
+        color={AnimoColors.black}
+        style={styles.metaValue}
+        numberOfLines={1}>
         {value}
       </AnimoText>
     </View>
@@ -355,9 +360,17 @@ const styles = StyleSheet.create({
   },
   metaRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: AnimoSpacing.md,
+  },
+  metaLabel: {
+    flexShrink: 0,
+  },
+  metaValue: {
+    flex: 1,
+    textAlign: 'right',
+    flexShrink: 1,
   },
   footerStack: {
     paddingHorizontal: AnimoSpacing.xl,
