@@ -87,7 +87,7 @@ export default function FarmerTransactionDetailScreen() {
 
   // Action Confirmation Prompt Modals
   const [actionConfirmType, setActionConfirmType] = useState<
-    'accept_request' | 'accept_schedule' | 'confirm_inspection' | 'confirm_payment' | null
+    'accept_request' | 'accept_schedule' | 'confirm_payment' | null
   >(null);
 
   // Reject / Cancel Modal State
@@ -116,9 +116,6 @@ export default function FarmerTransactionDetailScreen() {
     } else if (type === 'accept_schedule') {
       setScheduleAccepted(true);
       setConfirm('schedule_accept');
-    } else if (type === 'confirm_inspection') {
-      bump('awaiting_payment');
-      setConfirm('inspection_pass');
     } else if (type === 'confirm_payment') {
       bump('completed');
       setConfirm('payment');
@@ -243,7 +240,6 @@ export default function FarmerTransactionDetailScreen() {
           onAcceptRequest={() => setActionConfirmType('accept_request')}
           onDecline={() => setShowRejectModal(true)}
           onConfirmSchedule={() => setActionConfirmType('accept_schedule')}
-          onConfirmInspectionPass={() => setActionConfirmType('confirm_inspection')}
           onConfirmPayment={() => setActionConfirmType('confirm_payment')}
           onCancel={() => setShowRejectModal(true)}
           onRate={() => router.push({ pathname: '/(farmer)/review', params: { id: transaction.id } })}
@@ -269,18 +265,14 @@ export default function FarmerTransactionDetailScreen() {
                   ? 'Tanggapin ang Order?'
                   : actionConfirmType === 'accept_schedule'
                     ? 'Tanggapin ang Iskedyul?'
-                    : actionConfirmType === 'confirm_inspection'
-                      ? 'Pumasa sa Inspeksyon?'
-                      : 'Kumpirmahin ang Bayad?'}
+                    : 'Kumpirmahin ang Bayad?'}
               </AnimoText>
               <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
                 {actionConfirmType === 'accept_request'
                   ? `Sigurado ka bang nais mong tanggapin ang purchase request mula kay ${transaction.buyer.name}?`
                   : actionConfirmType === 'accept_schedule'
                     ? 'Sigurado ka bang ayos sa iyo ang itinakdang oras at petsa ng pickup ng palay?'
-                    : actionConfirmType === 'confirm_inspection'
-                      ? 'Sigurado ka bang na-inspeksyon at pumasa ang kalidad at timbang ng palay?'
-                      : 'Sigurado ka bang natanggap mo na ang buong bayad sa GCash o Cash?'}
+                    : 'Sigurado ka bang natanggap mo na ang buong bayad sa GCash o Cash?'}
               </AnimoText>
             </View>
 
@@ -295,9 +287,7 @@ export default function FarmerTransactionDetailScreen() {
                     ? 'Oo, Tanggapin ang Order'
                     : actionConfirmType === 'accept_schedule'
                       ? 'Oo, Tanggapin ang Iskedyul'
-                      : actionConfirmType === 'confirm_inspection'
-                        ? 'Oo, Kumpirmahin (Pumasa)'
-                        : 'Oo, Nakumpirma ang Bayad'}
+                      : 'Oo, Nakumpirma ang Bayad'}
                 </AnimoText>
               </Pressable>
 
@@ -724,7 +714,6 @@ function FooterActions({
   onAcceptRequest,
   onDecline,
   onConfirmSchedule,
-  onConfirmInspectionPass,
   onConfirmPayment,
   onCancel,
   onRate,
@@ -735,7 +724,6 @@ function FooterActions({
   onAcceptRequest: () => void;
   onDecline: () => void;
   onConfirmSchedule: () => void;
-  onConfirmInspectionPass: () => void;
   onConfirmPayment: () => void;
   onCancel: () => void;
   onRate: () => void;
@@ -766,13 +754,7 @@ function FooterActions({
             icon={Check}
             onPress={onConfirmSchedule}
           />
-        ) : (
-          <AnimoButton
-            label="Kumpirmahin ang Inspeksyon (Pumasa)"
-            icon={Check}
-            onPress={onConfirmInspectionPass}
-          />
-        )}
+        ) : null}
         <AnimoButton
           label="Kanselahin ang Transaksyon"
           variant="dangerOutline"

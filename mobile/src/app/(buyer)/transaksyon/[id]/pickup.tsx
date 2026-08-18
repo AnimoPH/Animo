@@ -808,4 +808,11 @@ const styles = StyleSheet.create({
     borderColor: AnimoColors.borderLowEmphasis,
     backgroundColor: AnimoColors.surfacePrimary,
   },
+  divider: {
+    height: 1,
+    backgroundColor: AnimoColors.borderLowEmphasis,
+  },
+  pressed: {
+    opacity: 0.85,
+  },
 });

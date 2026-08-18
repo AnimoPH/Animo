@@ -4,16 +4,17 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
+import type { RequestStage } from '@/constants/marketplace';
 
-export const STATUS_CONFIG = {
+export const BUYER_STATUS_CONFIG = {
   'Bagong Kahilingan': {
     dotColor: AnimoColors.moderate,
     textColor: AnimoColors.moderate,
     showDot: true,
     isFilled: false,
-    needsAction: true,
+    needsAction: false,
   },
-  'I-approve ang Schedule': {
+  'Mag-iskedyul ng Pickup': {
     dotColor: AnimoColors.moderate,
     textColor: AnimoColors.moderate,
     showDot: false,
@@ -30,13 +31,6 @@ export const STATUS_CONFIG = {
   'Naghihintay ng Bayad': {
     dotColor: AnimoColors.focusRing,
     textColor: AnimoColors.focusRing,
-    showDot: true,
-    isFilled: false,
-    needsAction: true,
-  },
-  'Naghihintay ng Kumpirmasyon': {
-    dotColor: AnimoColors.mild,
-    textColor: AnimoColors.mild,
     showDot: true,
     isFilled: false,
     needsAction: true,
@@ -64,49 +58,63 @@ export const STATUS_CONFIG = {
   },
 } as const;
 
-export type TransactionStatus = keyof typeof STATUS_CONFIG;
+export type BuyerTransactionStatus = keyof typeof BUYER_STATUS_CONFIG;
 export type PaymentMode = 'GCash' | 'Cash';
 
-export type FarmerTransactionCardItem = {
+export type BuyerTransactionCardItem = {
   id: string;
   txnId: string;
   variety: string;
   moisture: string;
-  status: TransactionStatus;
+  status: BuyerTransactionStatus;
+  stage: RequestStage;
   price: string;
   weight: string;
   pricePerKg: string;
   paymentMode: PaymentMode;
-  buyer: string;
+  farmer: string;
+  location?: string;
   date: string;
-  time: string;
+  time?: string;
 };
 
-export type TransactionCardProps = {
-  item: FarmerTransactionCardItem;
+export type BuyerTransactionCardProps = {
+  item: BuyerTransactionCardItem;
   onPress?: () => void;
 };
 
-/** Farmer transaksyon list card: ID, status, variety, payment, total, buyer, date. */
-export function TransactionCard({ item, onPress }: TransactionCardProps) {
-  const config = STATUS_CONFIG[item.status];
+/** Buyer transaksyon card matching farmer transaction-card layout and visual design. */
+export function BuyerTransactionCard({ item, onPress }: BuyerTransactionCardProps) {
+  const config = BUYER_STATUS_CONFIG[item.status] ?? {
+    dotColor: AnimoColors.mild,
+    textColor: AnimoColors.mild,
+    showDot: true,
+    isFilled: false,
+    needsAction: false,
+  };
 
-  const openTransactionDetail = () => {
+  const handlePress = () => {
     if (onPress) {
       onPress();
       return;
     }
-    router.push({
-      pathname: '/(farmer)/transaksyon/[id]',
-      params: { id: item.id },
-    });
+
+    if (item.stage === 'accepted' || item.stage === 'scheduled') {
+      router.push(`/(buyer)/transaksyon/${item.id}/pickup`);
+    } else if (item.stage === 'inspected') {
+      router.push(`/(buyer)/transaksyon/${item.id}/bayad`);
+    } else if (item.stage === 'completed' || item.stage === 'reviewed') {
+      router.push(`/(buyer)/transaksyon/${item.id}/resibo`);
+    } else {
+      router.push(`/(buyer)/transaksyon/${item.id}`);
+    }
   };
 
   return (
     <TouchableOpacity
       accessibilityRole="button"
       activeOpacity={0.85}
-      onPress={openTransactionDetail}
+      onPress={handlePress}
       style={styles.card}>
       <View style={styles.cardBody}>
         <View style={styles.rowBetween}>
@@ -138,25 +146,32 @@ export function TransactionCard({ item, onPress }: TransactionCardProps) {
 
         <View style={styles.divider} />
 
-        <View style={styles.buyerRow}>
-          <View style={styles.buyerCol}>
+        <View style={styles.farmerRow}>
+          <View style={styles.farmerCol}>
             <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-              Mamimili:
+              Magsasaka:
             </AnimoText>
             <AnimoText
               variant="bodyEmphasis"
               color={AnimoColors.textHighEmphasis}
-              style={styles.buyerName}>
-              {item.buyer}
+              style={styles.farmerName}>
+              {item.farmer}
             </AnimoText>
+            {item.location ? (
+              <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+                {item.location}
+              </AnimoText>
+            ) : null}
           </View>
           <View style={styles.dateCol}>
             <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
               {item.date}
             </AnimoText>
-            <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.time}>
-              {item.time}
-            </AnimoText>
+            {item.time ? (
+              <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.time}>
+                {item.time}
+              </AnimoText>
+            ) : null}
           </View>
         </View>
       </View>
@@ -173,8 +188,14 @@ export function TransactionCard({ item, onPress }: TransactionCardProps) {
   );
 }
 
-function StatusLabel({ status }: { status: TransactionStatus }) {
-  const config = STATUS_CONFIG[status];
+function StatusLabel({ status }: { status: BuyerTransactionStatus }) {
+  const config = BUYER_STATUS_CONFIG[status] ?? {
+    dotColor: AnimoColors.mild,
+    textColor: AnimoColors.mild,
+    showDot: true,
+    isFilled: false,
+    needsAction: false,
+  };
 
   if (config.isFilled) {
     return (
@@ -276,16 +297,16 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.borderLowEmphasis,
     marginBottom: AnimoSpacing.md,
   },
-  buyerRow: {
+  farmerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
-  buyerCol: {
+  farmerCol: {
     flex: 1,
     paddingRight: AnimoSpacing.md,
   },
-  buyerName: {
+  farmerName: {
     marginTop: 2,
   },
   dateCol: {
