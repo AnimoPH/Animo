@@ -287,7 +287,7 @@ export default function MarketplaceScreen() {
             variant="bodyEmphasis"
             color={activeTab === 'palay' ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
             style={styles.tabText}>
-            Mga Palay ({displayedListings.length})
+            Palay ({displayedListings.length})
           </AnimoText>
         </Pressable>
 
@@ -303,7 +303,7 @@ export default function MarketplaceScreen() {
             variant="bodyEmphasis"
             color={activeTab === 'magsasaka' ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
             style={styles.tabText}>
-            Mga Magsasaka ({displayedFarmers.length})
+            Magsasaka ({displayedFarmers.length})
           </AnimoText>
         </Pressable>
       </View>

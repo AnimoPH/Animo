@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Check, TriangleAlert, UserRound, X } from "lucide-react-native";
+import { Check, Inbox, PackageSearch, TriangleAlert, UserRound, X } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AnimoText } from "@/components/animo/animo-text";
-import { ScreenHeader } from "@/components/animo/screen-header";
+import { BackHeader } from "@/components/animo/back-header";
 import { FeedbackModal } from "@/components/animo/feedback-modal";
 import { BuyerTrustStatsCard } from "@/components/animo/farmer/buyer-trust-stats-card";
 import { ListingDetailContent } from "@/components/animo/farmer/listing-detail-content";
@@ -183,7 +183,7 @@ export default function ListingDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <StatusBar style="dark" />
-        <ScreenHeader title="Detalye ng Listing" />
+        <BackHeader title="Detalye ng Listing" />
         <View style={styles.centerState}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -195,11 +195,25 @@ export default function ListingDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <StatusBar style="dark" />
-        <ScreenHeader title="Detalye ng Listing" />
-        <View style={styles.centerState}>
-          <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-            {errorMessage ?? "Hindi nahanap ang listing na ito."}
+        <BackHeader title="Detalye ng Listing" />
+        <View style={styles.emptyScreen}>
+          <View style={styles.emptyIconWrap}>
+            <PackageSearch size={32} color={AnimoColors.accentPrimary} />
+          </View>
+          <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
+            Hindi nahanap ang listing
           </AnimoText>
+          <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
+            {errorMessage ?? "Hindi nahanap ang listing na ito. Maaaring natanggal na ito o hindi ito sa iyo."}
+          </AnimoText>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.replace("/(farmer)/(tabs)/palengke")}
+            style={({ pressed }) => [styles.emptyCta, pressed && styles.pressed]}>
+            <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
+              Bumalik sa Aking Ani
+            </AnimoText>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -210,7 +224,7 @@ export default function ListingDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Detalye ng Listing" />
+      <BackHeader title="Detalye ng Listing" />
 
       <View style={styles.tabsWrapper}>
         <View style={styles.tabsContainer}>
@@ -248,30 +262,29 @@ export default function ListingDetailScreen() {
           </View>
         ) : (
           <View style={styles.ordersSection}>
-            <View style={styles.ordersHeaderRow}>
-              <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-                Mga Kahilingan mula sa Mamimili
-              </AnimoText>
-              <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-                {ranked.length} kabuuan
-              </AnimoText>
-            </View>
-
             {ranked.length === 0 ? (
-              <AnimoText variant="body" color={AnimoColors.textLowEmphasis}>
-                Wala pang kahilingan sa listing na ito.
-              </AnimoText>
+              <OrdersEmptyState />
             ) : (
-              ranked.map(({ request }) => (
-                <PurchaseRequestCard
-                  key={request.id}
-                  request={request}
-                  pricePerKg={listing.pricePerKg ?? 0}
-                  trustStats={trustByBuyer.get(request.buyerId)}
-                  onAccept={() => openAcceptModal(request)}
-                  onReject={() => handleOpenReject(request)}
-                />
-              ))
+              <>
+                <View style={styles.ordersHeaderRow}>
+                  <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
+                    Mga Kahilingan mula sa Mamimili
+                  </AnimoText>
+                  <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+                    {ranked.length} kabuuan
+                  </AnimoText>
+                </View>
+                {ranked.map(({ request }) => (
+                  <PurchaseRequestCard
+                    key={request.id}
+                    request={request}
+                    pricePerKg={listing.pricePerKg ?? 0}
+                    trustStats={trustByBuyer.get(request.buyerId)}
+                    onAccept={() => openAcceptModal(request)}
+                    onReject={() => handleOpenReject(request)}
+                  />
+                ))}
+              </>
             )}
           </View>
         )}
@@ -440,6 +453,23 @@ export default function ListingDetailScreen() {
   );
 }
 
+function OrdersEmptyState() {
+  return (
+    <View style={styles.emptyCard}>
+      <View style={styles.emptyIconWrap}>
+        <Inbox size={32} color={AnimoColors.accentPrimary} />
+      </View>
+      <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
+        Wala pang kahilingan
+      </AnimoText>
+      <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
+        Kapag may mamimiling interesado sa listing na ito, lalabas dito ang kanilang order.
+        Hintaying dumating ang unang kahilingan.
+      </AnimoText>
+    </View>
+  );
+}
+
 function PurchaseRequestCard({
   request,
   pricePerKg,
@@ -536,6 +566,45 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: AnimoSpacing.lg, paddingTop: AnimoSpacing.sm, paddingBottom: AnimoSpacing.xxl, gap: AnimoSpacing.lg },
   ordersSection: { gap: AnimoSpacing.md },
   ordersHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 2, marginTop: 2 },
+  emptyScreen: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: AnimoSpacing.xl,
+  },
+  emptyCard: {
+    alignItems: "center",
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderRadius: AnimoRadius.lg,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    paddingHorizontal: AnimoSpacing.xl,
+    paddingVertical: AnimoSpacing.xxl,
+    marginTop: AnimoSpacing.lg,
+  },
+  emptyIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: AnimoRadius.pill,
+    backgroundColor: AnimoColors.accentPrimaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: AnimoSpacing.lg,
+  },
+  emptyTitle: {
+    textAlign: "center",
+  },
+  emptyBody: {
+    textAlign: "center",
+    marginTop: AnimoSpacing.sm,
+  },
+  emptyCta: {
+    backgroundColor: AnimoColors.accentPrimary,
+    borderRadius: AnimoRadius.lg,
+    paddingHorizontal: AnimoSpacing.xl,
+    paddingVertical: AnimoSpacing.md,
+    marginTop: AnimoSpacing.xl,
+  },
   shadow: { shadowColor: AnimoColors.darkBackground, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
   requestCard: {
     backgroundColor: AnimoColors.surfacePrimary,

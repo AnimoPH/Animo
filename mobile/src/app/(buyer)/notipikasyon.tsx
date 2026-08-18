@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { FilterChips } from '@/components/animo/filter-chips';
-import { ScreenHeader } from '@/components/animo/screen-header';
+import { BackHeader } from '@/components/animo/back-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 
 type NotificationCategory = 'lahat' | 'transaksyon' | 'palengke' | 'sistema';
@@ -159,7 +159,7 @@ export default function NotificationsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Mga Notipikasyon" />
+      <BackHeader title="Mga Notipikasyon" />
 
       <View style={styles.filterBar}>
         <FilterChips

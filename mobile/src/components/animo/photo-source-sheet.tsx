@@ -1,4 +1,4 @@
-import { Camera, Image as ImageIcon } from 'lucide-react-native';
+import { Camera, Image as ImageIcon, X } from 'lucide-react-native';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
@@ -56,8 +56,9 @@ export function PhotoSourceSheet({
           </Pressable>
 
           <Pressable accessibilityRole="button" onPress={onClose} style={styles.cancelButton}>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.textLowEmphasis}>
-              Kanselahin
+            <X size={20} color={AnimoColors.textMediumEmphasis} />
+            <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
+              Cancel
             </AnimoText>
           </Pressable>
         </Pressable>
@@ -78,7 +79,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: AnimoRadius.lg,
     paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.lg,
-    paddingBottom: AnimoSpacing.xxl,
+    paddingBottom: AnimoSpacing.xl,
     gap: AnimoSpacing.sm,
   },
   title: {
@@ -106,8 +107,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelButton: {
+    flexDirection: 'row',
+    gap: AnimoSpacing.sm,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: AnimoSpacing.md,
-    marginTop: AnimoSpacing.xs,
+    paddingVertical: AnimoSpacing.lg,
+    marginTop: AnimoSpacing.lg,
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    borderRadius: AnimoRadius.lg,
+    paddingHorizontal: AnimoSpacing.lg,
   },
 });

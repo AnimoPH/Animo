@@ -26,6 +26,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BackHeader } from '@/components/animo/back-header';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
@@ -85,7 +86,7 @@ export default function FarmerProfileScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <View style={styles.topNav}>
+        {/* <View style={styles.topNav}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Bumalik"
@@ -98,7 +99,8 @@ export default function FarmerProfileScreen() {
             Profile ng Magsasaka
           </AnimoText>
           <View style={styles.backBtnPlaceholder} />
-        </View>
+        </View> */}
+        <BackHeader title="Profile ng Magsasaka" />
         <View style={styles.centerState}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -144,22 +146,7 @@ export default function FarmerProfileScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-
-      {/* Top App Bar with back chevron */}
-      <View style={styles.topNav}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Bumalik"
-          hitSlop={12}
-          onPress={() => router.back()}
-          style={styles.backBtn}>
-          <ChevronLeft size={26} color={AnimoColors.black} />
-        </Pressable>
-        <AnimoText variant="h2" color={AnimoColors.black} style={styles.topNavTitle}>
-          Profile ng Magsasaka
-        </AnimoText>
-        <View style={styles.backBtnPlaceholder} />
-      </View>
+      <BackHeader title="Profile ng Magsasaka" />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -421,10 +408,10 @@ export default function FarmerProfileScreen() {
                 </AnimoText>
               </View>
               <View style={styles.viewListingPill}>
-                <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.viewListingText}>
+                {/* <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.viewListingText}>
                   Tingnan
-                </AnimoText>
-                <ChevronRight size={16} color={AnimoColors.accentPrimary} />
+                </AnimoText> */}
+                <ChevronRight size={18} color={AnimoColors.textMediumEmphasis} />
               </View>
             </View>
 
@@ -919,9 +906,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    // backgroundColor: AnimoColors.accentPrimaryLight,
+    // paddingHorizontal: 10,
+    // paddingVertical: 4,
     borderRadius: AnimoRadius.pill,
   },
   viewListingText: {
@@ -995,7 +982,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   bottomFooter: {
-    paddingHorizontal: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.md,
     paddingBottom: AnimoSpacing.md,
     backgroundColor: '#FBF9F4',

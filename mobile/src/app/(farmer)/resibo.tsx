@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
-import { ScreenHeader } from '@/components/animo/screen-header';
+import { BackHeader } from '@/components/animo/back-header';
 import { AnimoColors, AnimoType, AnimoSpacing, AnimoRadius } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { fetchCropListing } from '@/services/crop-listing-service';
@@ -94,7 +94,7 @@ export default function FarmerReceiptScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScreenHeader title="Digital na Resibo" />
+        <BackHeader title="Digital na Resibo" />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -106,7 +106,7 @@ export default function FarmerReceiptScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        <ScreenHeader title="Digital na Resibo" />
+        <BackHeader title="Digital na Resibo" />
         <View style={styles.missing}>
           <Text style={styles.missingText}>{error ?? 'Hindi nahanap ang transaksyon na ito.'}</Text>
         </View>
@@ -129,7 +129,7 @@ export default function FarmerReceiptScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Digital na Resibo" />
+      <BackHeader title="Digital na Resibo" />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <View style={styles.checkCircle}>
