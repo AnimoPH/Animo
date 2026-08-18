@@ -111,13 +111,13 @@ export type PhotoType = 'BeforeHarvest' | 'AfterHarvestUnsacked' | 'Overview';
 
 /** Capture slots for the "Gumawa ng Listing" form, in the order shown. */
 export const PHOTO_SLOTS: { value: PhotoType; label: string }[] = [
-  { value: 'BeforeHarvest', label: 'Bago Anihin' },
+  { value: 'Overview', label: 'Pangkalahatang Larawan (Overview)' },
   { value: 'AfterHarvestUnsacked', label: 'Pagkatapos Anihin (Hindi pa Nakasako)' },
-  { value: 'Overview', label: 'Pangkalahatang Larawan' },
+  { value: 'BeforeHarvest', label: 'Bago Anihin (Taniman)' },
 ];
 
 /** Preference order for picking a single cover photo out of whichever slots are filled. */
-export const COVER_PHOTO_PREFERENCE: PhotoType[] = ['Overview', 'BeforeHarvest', 'AfterHarvestUnsacked'];
+export const COVER_PHOTO_PREFERENCE: PhotoType[] = ['Overview', 'AfterHarvestUnsacked', 'BeforeHarvest'];
 
 /** A listing's photo, resolved to a short-lived signed URL (the storage bucket is private). */
 export type ListingPhoto = {

@@ -15,7 +15,14 @@ import { fetchCropListing } from '@/services/crop-listing-service';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import { fetchTransactionByRequestId, fetchTransactionCounterpart } from '@/services/transaction-service';
 import { varietyLabel, type CropListing } from '@/types/crop-listing';
-import { deriveDisplayStage, requestTotal, type PurchaseOutcome, type TransactionCounterpart } from '@/types/transaction';
+import {
+  deriveDisplayStage,
+  formatDate,
+  formatReferenceId,
+  requestTotal,
+  type PurchaseOutcome,
+  type TransactionCounterpart,
+} from '@/types/transaction';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
 
@@ -94,6 +101,7 @@ export default function BuyerReceiptScreen() {
   const total = requestTotal(outcome);
 
   const detailRows: { label: string; value: string }[] = [
+    { label: 'Transaction ID', value: formatReferenceId(transaction.id, 'TXN') },
     { label: 'Uri ng Palay', value: listing ? varietyLabel(listing) : 'Palay' },
     { label: 'Dami', value: `${transaction.quantityKg} kg` },
     { label: 'Presyo bawat kilo', value: `${formatPeso(transaction.agreedPricePerKg)}/kg` },
@@ -101,7 +109,7 @@ export default function BuyerReceiptScreen() {
     ...(payment?.gcashReferenceNumber ? [{ label: 'Reference No.', value: payment.gcashReferenceNumber }] : []),
     { label: 'Magsasaka', value: counterpart?.name ?? 'Magsasaka' },
     { label: 'Mamimili', value: account?.fullName ?? 'Ikaw' },
-    { label: 'Petsa', value: new Date(transaction.createdAt).toLocaleDateString('en-PH') },
+    { label: 'Petsa', value: formatDate(transaction.createdAt) },
   ];
 
   return (

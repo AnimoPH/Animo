@@ -13,7 +13,7 @@ import { formatPeso } from '@/constants/marketplace';
 import { fetchCropListing } from '@/services/crop-listing-service';
 import { fetchTransaction, fetchTransactionCounterpart } from '@/services/transaction-service';
 import { varietyLabel, type CropListing } from '@/types/crop-listing';
-import type { TransactionCounterpart, TransactionWithPayment } from '@/types/transaction';
+import { formatReferenceId, formatDate, type TransactionCounterpart, type TransactionWithPayment } from '@/types/transaction';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
 
@@ -71,7 +71,7 @@ export default function FarmerReceiptScreen() {
 
   if (!transaction || error) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
         <ScreenHeader title="Digital na Resibo" />
         <View style={styles.missing}>
@@ -83,13 +83,14 @@ export default function FarmerReceiptScreen() {
 
   const payment = transaction.payment;
   const detailRows: { label: string; value: string }[] = [
+    { label: 'Transaction ID', value: formatReferenceId(transaction.id, 'TXN') },
     { label: 'Uri ng Palay', value: listing ? varietyLabel(listing) : 'Palay' },
     { label: 'Dami', value: `${transaction.quantityKg} kg` },
     { label: 'Presyo bawat kilo', value: `${formatPeso(transaction.agreedPricePerKg)}/kg` },
     { label: 'Paraan ng Bayad', value: payment?.paymentMode ?? '—' },
     ...(payment?.gcashReferenceNumber ? [{ label: 'Reference No.', value: payment.gcashReferenceNumber }] : []),
     { label: 'Mamimili', value: buyer?.name ?? 'Mamimili' },
-    { label: 'Petsa', value: transaction.dateCompleted ? new Date(transaction.dateCompleted).toLocaleDateString('en-PH') : '—' },
+    { label: 'Petsa', value: transaction.dateCompleted ? formatDate(transaction.dateCompleted) : '—' },
   ];
 
   return (
