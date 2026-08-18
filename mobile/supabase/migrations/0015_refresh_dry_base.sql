@@ -5,10 +5,10 @@
 -- dry_base via croplisting_lock_price; a failed refresh leaves the previous
 -- value (0007's ₱18.83 until the first successful write).
 --
--- pg_net + Vault follow 0013: secrets stay out of this file. Reuses
+-- pg_net + Vault follow 0014: secrets stay out of this file. Reuses
 -- psa_sync_service_role_key. URL is refresh_dry_base_function_url if set,
 -- otherwise derived from psa_sync_function_url by swapping the function name.
--- Until those exist, the NFA trigger skips with a notice (same as 0013).
+-- Until those exist, the NFA trigger skips with a notice (same as 0014).
 --
 --   select vault.create_secret('<the real service_role key>', 'psa_sync_service_role_key');
 --   select vault.create_secret('https://<project-ref>.supabase.co/functions/v1/refresh-dry-base', 'refresh_dry_base_function_url');

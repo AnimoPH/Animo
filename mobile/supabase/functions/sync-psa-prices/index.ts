@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
 
   // Two ways in: an LGU official's own session (the "sync now" dashboard
   // button), or the service-role key itself (the monthly pg_cron job -
-  // see migration 0013). The service-role key is itself a validly-signed
+  // see migration 0014). The service-role key is itself a validly-signed
   // JWT, so Supabase's platform-level JWT check already accepts it; this
   // is just how *this function* tells the two callers apart once inside.
   const bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
