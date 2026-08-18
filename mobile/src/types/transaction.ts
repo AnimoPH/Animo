@@ -178,6 +178,48 @@ export type ProgressStep = {
   state: 'done' | 'current' | 'upcoming' | 'failed';
 };
 
+export function formatDateTime(isoString: string | null | undefined): string {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    const datePart = d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const timePart = d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+    return `${datePart} · ${timePart}`;
+  } catch {
+    return isoString;
+  }
+}
+
+export function formatDate(isoString: string | null | undefined): string {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return isoString;
+  }
+}
+
+export function formatTime(isoString: string | null | undefined): string {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    return d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+  } catch {
+    return isoString;
+  }
+}
+
+export function formatReferenceId(id: string | null | undefined, prefix: 'PR' | 'TXN' = 'TXN'): string {
+  if (!id) return '';
+  if (id.startsWith('PR-') || id.startsWith('TXN-')) return id;
+  const clean = id.replace(/-/g, '').slice(0, 8).toUpperCase();
+  return `${prefix}-${clean}`;
+}
+
 /**
  * Four real milestones: Request -> Tinanggap -> Bayad -> Kumpleto. There is
  * no pickup/inspection milestone — nothing in the schema backs one.
@@ -220,25 +262,42 @@ export function buildProgressSteps(
     if (!accepted) return 'Kasunod ng pagtanggap ng magsasaka.';
     if (stage === 'transaction_cancelled') return 'Kinansela ang transaksyon.';
     if (stage === 'payment_failed') return 'Hindi natuloy ang bayad.';
-    if (paymentConfirmedOrBeyond) return 'Nakumpirma ang bayad.';
-    if (stage === 'payment_sent') return 'Naghihintay ng kumpirmasyon ng magsasaka.';
+    if (paymentConfirmedOrBeyond) {
+      const confirmedAt = outcome.kind === 'matched' ? outcome.transaction.payment?.farmerConfirmedAt : null;
+      return confirmedAt ? `Nakumpirma (${formatDateTime(confirmedAt)})` : 'Nakumpirma ang bayad.';
+    }
+    if (stage === 'payment_sent') {
+      const sentAt = outcome.kind === 'matched' ? outcome.transaction.payment?.buyerConfirmedAt : null;
+      return sentAt ? `Naipadala (${formatDateTime(sentAt)})` : 'Naghihintay ng kumpirmasyon ng magsasaka.';
+    }
     if (stage === 'awaiting_payment') return role === 'buyer' ? 'Isumite ang bayad.' : 'Naghihintay ng bayad mula sa mamimili.';
     return 'Naghihintay.';
   })();
 
   return [
-    { key: 'kahilingan', label: 'Request naipadala', detail: outcome.request.submittedAt, state: kahilinganState },
+    { key: 'kahilingan', label: 'Request naipadala', detail: formatDateTime(outcome.request.submittedAt), state: kahilinganState },
     {
       key: 'tinanggap',
       label: accepted ? 'Tinanggap ng magsasaka' : 'Pag-accept ng magsasaka',
-      detail: accepted ? 'Tinanggap ang kahilingan.' : isDead ? 'Hindi na itutuloy.' : 'Naghihintay ng sagot.',
+      detail: accepted
+        ? outcome.kind === 'matched' && outcome.transaction.createdAt
+          ? `Tinanggap (${formatDateTime(outcome.transaction.createdAt)})`
+          : 'Tinanggap ang kahilingan.'
+        : isDead
+          ? 'Hindi na itutuloy.'
+          : 'Naghihintay ng sagot.',
       state: tinanggapState,
     },
     { key: 'bayad', label: role === 'buyer' ? 'Bayad sa magsasaka' : 'Bayad mula sa Mamimili', detail: bayadDetail, state: bayadState },
     {
       key: 'kumpleto',
       label: 'Kumpleto',
-      detail: stage === 'completed' ? 'Tapos na ang transaksyon.' : 'Huling hakbang.',
+      detail:
+        stage === 'completed'
+          ? outcome.kind === 'matched' && outcome.transaction.dateCompleted
+            ? `Kumpleto (${formatDateTime(outcome.transaction.dateCompleted)})`
+            : 'Tapos na ang transaksyon.'
+          : 'Huling hakbang.',
       state: completedState,
     },
   ];

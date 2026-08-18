@@ -250,3 +250,47 @@ export async function fetchTransactionCounterpart(userId: string): Promise<Trans
   if (!data) return null;
   return { id: data.user_id, name: data.full_name, phone: data.contact_number };
 }
+
+/**
+ * Batched lookup of counterpart user names by user IDs.
+ */
+export async function fetchCounterpartNames(userIds: string[]): Promise<Map<string, string>> {
+  const uniqueIds = [...new Set(userIds)].filter(Boolean);
+  if (uniqueIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from('user')
+    .select('user_id, full_name')
+    .in('user_id', uniqueIds);
+
+  if (error) return new Map();
+  const nameById = new Map<string, string>();
+  (data ?? []).forEach((row: { user_id: string; full_name: string }) => {
+    if (row.user_id && row.full_name) {
+      nameById.set(row.user_id, row.full_name);
+    }
+  });
+  return nameById;
+}
+
+/**
+ * Batched lookup of public farmer names by listing IDs.
+ */
+export async function fetchFarmerNamesByListingIds(listingIds: string[]): Promise<Map<string, string>> {
+  const uniqueIds = [...new Set(listingIds)].filter(Boolean);
+  if (uniqueIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from('listing_farmer_public')
+    .select('listing_id, farmer_name')
+    .in('listing_id', uniqueIds);
+
+  if (error) return new Map();
+  const nameByListing = new Map<string, string>();
+  (data ?? []).forEach((row: { listing_id: string; farmer_name: string }) => {
+    if (row.listing_id && row.farmer_name) {
+      nameByListing.set(row.listing_id, row.farmer_name);
+    }
+  });
+  return nameByListing;
+}
