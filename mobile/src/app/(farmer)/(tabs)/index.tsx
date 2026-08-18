@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
   ChevronRight,
@@ -9,106 +9,115 @@ import {
   User,
   Wheat,
 } from "lucide-react-native";
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AnimoText } from "@/components/animo/animo-text";
 import { AppHeader } from "@/components/animo/app-header";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
+import {
+  fetchFarmerHomeData,
+  type FarmerHomeActivity,
+  type FarmerHomeStats,
+} from "@/services/farmer-home-service";
 
 const AdvisoryOrange = "#F57C00";
 
-type Activity = {
-  id: string;
-  buyer: string;
-  variety: string;
-  weight: string;
-  amount: string;
+const EMPTY_STATS: FarmerHomeStats = {
+  activeListings: 0,
+  pendingRequests: 0,
+  pendingTransactions: 0,
 };
-
-const ACTIVITIES: Activity[] = [
-  {
-    id: "1",
-    buyer: "Aling Coring Rice Mill",
-    variety: "RC 638 SR",
-    weight: "200 kg",
-    amount: "₱2,000.00",
-  },
-  {
-    id: "2",
-    buyer: "Tres Rice Corp",
-    variety: "RC 638 SR",
-    weight: "200 kg",
-    amount: "₱4,000.00",
-  },
-  {
-    id: "3",
-    buyer: "Tres Rice Corp",
-    variety: "RC 638 SR",
-    weight: "200 kg",
-    amount: "₱4,000.00",
-  },
-];
-
-type StatDefinition = {
-  key: string;
-  icon: React.ComponentType<{ size?: number; color?: string }>;
-  value: number;
-  label: string;
-  onPress: () => void;
-};
-
-const STATS: StatDefinition[] = [
-  {
-    key: "listings",
-    icon: ListChecks,
-    value: 2,
-    label: "Aktibong Listahan",
-    onPress: () => router.push("/(farmer)/(tabs)/palengke"),
-  },
-  {
-    key: "requests",
-    icon: ShoppingCart,
-    value: 5,
-    label: "Bagong Kahilingan",
-    onPress: () => router.push("/(farmer)/(tabs)/transaksyon"),
-  },
-  {
-    key: "transactions",
-    icon: Clock,
-    value: 3,
-    label: "Nakabinbing Transaksyon",
-    onPress: () => router.push("/(farmer)/(tabs)/transaksyon"),
-  },
-];
 
 /** Tahanan — farmer home: weather advisory, quick stats, sell CTA, activity feed. */
 export default function FarmerHomeScreen() {
   const [hasActiveAdvisory] = useState(true);
+  const [stats, setStats] = useState<FarmerHomeStats>(EMPTY_STATS);
+  const [activities, setActivities] = useState<FarmerHomeActivity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (isRefresh: boolean) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchFarmerHomeData();
+      setStats(data.stats);
+      setActivities(data.activities);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Hindi ma-load ang dashboard.");
+    } finally {
+      if (isRefresh) setRefreshing(false);
+      else setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load(false);
+    }, [load]),
+  );
+
+  const statCards = [
+    {
+      key: "listings",
+      icon: ListChecks,
+      value: stats.activeListings,
+      label: "Aktibong Listahan",
+      onPress: () => router.push("/(farmer)/(tabs)/palengke"),
+    },
+    {
+      key: "requests",
+      icon: ShoppingCart,
+      value: stats.pendingRequests,
+      label: "Bagong Kahilingan",
+      onPress: () => router.push("/(farmer)/(tabs)/transaksyon"),
+    },
+    {
+      key: "transactions",
+      icon: Clock,
+      value: stats.pendingTransactions,
+      label: "Nakabinbing Transaksyon",
+      onPress: () => router.push("/(farmer)/(tabs)/transaksyon"),
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <StatusBar style="dark" />
-      <AppHeader onPressBell={() => router.push('/(farmer)/notipikasyon')} />
+      <AppHeader onPressBell={() => router.push("/(farmer)/notipikasyon")} />
 
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
+        }
       >
         {hasActiveAdvisory ? (
           <AdvisoryCard
-            onPress={() => console.log("Navigate to advisory detail")}
+            onPress={() => router.push("/(farmer)/advisory")}
           />
         ) : null}
 
         <View style={styles.statsRow}>
-          {STATS.map((stat) => (
+          {statCards.map((stat) => (
             <StatCard
               key={stat.key}
               icon={stat.icon}
               value={stat.value}
               label={stat.label}
+              loading={loading}
               onPress={stat.onPress}
             />
           ))}
@@ -122,7 +131,7 @@ export default function FarmerHomeScreen() {
               Mga Aktibidad
             </AnimoText>
             <Pressable
-              onPress={() => console.log("Tignan lahat pressed")}
+              onPress={() => router.push("/(farmer)/(tabs)/transaksyon")}
               hitSlop={8}
             >
               <AnimoText variant="caption" color={AnimoColors.green}>
@@ -131,16 +140,30 @@ export default function FarmerHomeScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.activityList}>
-            {ACTIVITIES.map((activity, index) => (
-              <View key={activity.id}>
-                <ActivityRow activity={activity} />
-                {index < ACTIVITIES.length - 1 ? (
-                  <View style={styles.divider} />
-                ) : null}
-              </View>
-            ))}
-          </View>
+          {loading ? (
+            <View style={styles.activityLoading}>
+              <ActivityIndicator color={AnimoColors.green} />
+            </View>
+          ) : error ? (
+            <AnimoText variant="caption" color={AnimoColors.danger}>
+              {error}
+            </AnimoText>
+          ) : activities.length === 0 ? (
+            <AnimoText variant="caption" color={AnimoColors.muted}>
+              Walang aktibidad pa. Maglista ng palay para magsimula.
+            </AnimoText>
+          ) : (
+            <View style={styles.activityList}>
+              {activities.map((activity, index) => (
+                <View key={`${activity.id}-${index}`}>
+                  <ActivityRow activity={activity} />
+                  {index < activities.length - 1 ? (
+                    <View style={styles.divider} />
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -170,7 +193,7 @@ function AdvisoryCard({ onPress }: { onPress: () => void }) {
 
       <Pressable
         accessibilityRole="button"
-        onPress={() => router.push("/(farmer)/advisory")}
+        onPress={onPress}
         style={({ pressed }) => [
           styles.advisoryInner,
           pressed && styles.pressed,
@@ -197,11 +220,13 @@ function StatCard({
   icon: Icon,
   value,
   label,
+  loading,
   onPress,
 }: {
   icon: React.ComponentType<{ size?: number; color?: string }>;
   value: number;
   label: string;
+  loading: boolean;
   onPress: () => void;
 }) {
   return (
@@ -211,13 +236,21 @@ function StatCard({
       style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}
     >
       <Icon size={22} color={AnimoColors.green} />
-      <AnimoText
-        variant="h1"
-        color={AnimoColors.black}
-        style={styles.statValue}
-      >
-        {value}
-      </AnimoText>
+      {loading ? (
+        <ActivityIndicator
+          color={AnimoColors.green}
+          size="small"
+          style={styles.statSpinner}
+        />
+      ) : (
+        <AnimoText
+          variant="h1"
+          color={AnimoColors.black}
+          style={styles.statValue}
+        >
+          {value}
+        </AnimoText>
+      )}
       <AnimoText
         variant="caption"
         color={AnimoColors.muted}
@@ -252,9 +285,24 @@ function CtaBanner({ onPress }: { onPress: () => void }) {
   );
 }
 
-function ActivityRow({ activity }: { activity: Activity }) {
+function ActivityRow({ activity }: { activity: FarmerHomeActivity }) {
+  const handlePress = () => {
+    if (activity.stage === "request_pending") {
+      router.push({
+        pathname: "/(farmer)/listing-detail",
+        params: { id: activity.id, tab: "orders" },
+      });
+      return;
+    }
+    router.push({ pathname: "/(farmer)/transaksyon/[id]", params: { id: activity.id } });
+  };
+
   return (
-    <View style={styles.activityRow}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={handlePress}
+      style={({ pressed }) => [styles.activityRow, pressed && styles.pressed]}
+    >
       <View style={styles.avatar}>
         <User size={20} color={AnimoColors.green} />
       </View>
@@ -263,13 +311,13 @@ function ActivityRow({ activity }: { activity: Activity }) {
           {activity.buyer}
         </AnimoText>
         <AnimoText variant="caption" color={AnimoColors.muted}>
-          {activity.variety} {activity.weight}
+          {activity.variety} · {activity.weight}
         </AnimoText>
       </View>
       <AnimoText variant="h3" color={AnimoColors.accentPrimary}>
         {activity.amount}
       </AnimoText>
-    </View>
+    </Pressable>
   );
 }
 
@@ -355,6 +403,10 @@ const styles = StyleSheet.create({
   statValue: {
     marginTop: 2,
   },
+  statSpinner: {
+    marginTop: 2,
+    height: 32,
+  },
   statLabel: {
     textAlign: "center",
   },
@@ -385,6 +437,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  activityLoading: {
+    alignItems: "center",
+    paddingVertical: AnimoSpacing.lg,
   },
   activityList: {
     gap: AnimoSpacing.md,
