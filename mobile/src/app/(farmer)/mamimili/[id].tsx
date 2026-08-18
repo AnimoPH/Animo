@@ -80,6 +80,10 @@ export default function BuyerProfileScreen() {
   }
 
   const reliabilityPct = Math.round(stats.reliabilityScore * 100);
+  const volumeLabel =
+    stats.totalBoughtKg >= 1000
+      ? `${(stats.totalBoughtKg / 1000).toFixed(1)}k`
+      : `${stats.totalBoughtKg}`;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -123,7 +127,7 @@ export default function BuyerProfileScreen() {
 
           <View style={styles.statCard}>
             <AnimoText variant="h1" color={AnimoColors.textHighEmphasis} style={styles.statNumber}>
-              {(stats.totalBoughtKg / 1000).toFixed(1)}k
+              {volumeLabel}
             </AnimoText>
             <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.statLabel}>
               Kilo na Nabili
@@ -141,11 +145,20 @@ export default function BuyerProfileScreen() {
           <View style={styles.cardBody}>
             <View style={styles.tableRow}>
               <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.rowLabel}>
+                Natapos na Transaksyon
+              </AnimoText>
+              <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+                {stats.completedTransactionsCount}
+              </AnimoText>
+            </View>
+
+            <View style={styles.tableRow}>
+              <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.rowLabel}>
                 Maasahang Mamimili
               </AnimoText>
               <View style={styles.greenBadge}>
                 <AnimoText variant="bodyEmphasis" color="#166534" style={styles.greenBadgeText}>
-                  {reliabilityPct}%
+                  {stats.completedTransactionsCount > 0 || stats.totalReviews > 0 ? `${reliabilityPct}%` : '—'}
                 </AnimoText>
               </View>
             </View>
