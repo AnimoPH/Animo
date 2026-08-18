@@ -36,6 +36,7 @@ import {
   type FarmerPublicProfile,
 } from '@/services/farmer-public-profile';
 import { fetchMarketplaceListing } from '@/services/marketplace-service';
+import { fetchMyActiveRequestForListing } from '@/services/purchase-request-service';
 import {
   moistureLabel,
   purityLabel,
@@ -44,6 +45,7 @@ import {
   type ListingPhoto,
   type PhotoType,
 } from '@/types/crop-listing';
+import type { PurchaseRequest } from '@/types/purchase-request';
 
 const DEFAULT_PALAY_PHOTOS: Record<PhotoType, string> = {
   Overview:
@@ -93,6 +95,7 @@ export default function ListingDetailScreen() {
   const [listing, setListing] = useState<CropListing | null>(null);
   const [farmerProfile, setFarmerProfile] = useState<FarmerPublicProfile | null>(null);
   const [photos, setPhotos] = useState<ListingPhoto[]>([]);
+  const [activeRequest, setActiveRequest] = useState<PurchaseRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
@@ -111,15 +114,18 @@ export default function ListingDetailScreen() {
         setListing(result);
         if (!result) return;
 
-        // Fetch photos and farmer public stats in parallel
+        // Fetch photos, farmer public stats, and the buyer's own active
+        // request (if any) on this listing in parallel.
         try {
-          const [listingPhotos, profile] = await Promise.all([
+          const [listingPhotos, profile, existingRequest] = await Promise.all([
             fetchListingPhotos(result.id).catch(() => []),
             fetchFarmerPublicProfile(result.id, result).catch(() => null),
+            fetchMyActiveRequestForListing(result.id).catch(() => null),
           ]);
           if (!cancelled) {
             setPhotos(listingPhotos);
             setFarmerProfile(profile);
+            setActiveRequest(existingRequest);
           }
         } catch {
           // Display falls back gracefully
@@ -385,8 +391,14 @@ export default function ListingDetailScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
+        {activeRequest ? (
+          <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.activeRequestNote}>
+            May aktibo ka nang request sa listing na ito.
+          </AnimoText>
+        ) : null}
         <AnimoButton
-          label="Bumili"
+          label={activeRequest ? 'May Aktibong Request Ka Na' : 'Bumili'}
+          disabled={activeRequest !== null}
           onPress={() =>
             router.push({ pathname: '/(buyer)/palengke/bid', params: { id: listing.id } })
           }
@@ -616,6 +628,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: AnimoSpacing.xl,
     paddingTop: AnimoSpacing.md,
     paddingBottom: AnimoSpacing.md,
+    gap: AnimoSpacing.xs,
+  },
+  activeRequestNote: {
+    textAlign: 'center',
   },
   modalBackdrop: {
     flex: 1,

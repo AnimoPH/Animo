@@ -41,7 +41,9 @@ export function mapPurchaseRequest(row: PurchaseRequestRow): PurchaseRequest {
  * Submits a new purchase request. RLS ("Buyers can submit purchase
  * requests") pins buyer_id to the caller and forces status='Pending'; the
  * purchaserequest_validate_availability trigger (0009) rejects requests
- * against a non-Available listing or a quantity beyond what remains.
+ * against a non-Available listing or a quantity beyond what remains, and
+ * the purchaserequest_one_active_per_buyer_listing unique index (0010)
+ * rejects a second active request from the same buyer on the same listing.
  */
 export async function submitPurchaseRequest(input: SubmitPurchaseRequestInput): Promise<PurchaseRequest> {
   const buyerId = await requireAuthUserId();
@@ -60,7 +62,13 @@ export async function submitPurchaseRequest(input: SubmitPurchaseRequestInput): 
     .select(PURCHASE_REQUEST_COLUMNS)
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // Postgres unique_violation on purchaserequest_one_active_per_buyer_listing.
+    if (error.code === '23505') {
+      throw new Error('May aktibo ka nang request sa listing na ito. Hintayin munang sagutin o kanselahin ito bago mag-request muli.');
+    }
+    throw error;
+  }
   return mapPurchaseRequest(data as PurchaseRequestRow);
 }
 
@@ -76,6 +84,27 @@ export async function fetchBuyerPurchaseRequests(): Promise<PurchaseRequest[]> {
 
   if (error) throw error;
   return (data as PurchaseRequestRow[]).map(mapPurchaseRequest);
+}
+
+/**
+ * The signed-in buyer's active (Pending/Accepted/Partially_Accepted) request
+ * on a given listing, if any — mirrors the
+ * purchaserequest_one_active_per_buyer_listing unique index (0010) so the UI
+ * can grey out "Bumili" before the buyer ever taps it.
+ */
+export async function fetchMyActiveRequestForListing(listingId: string): Promise<PurchaseRequest | null> {
+  const buyerId = await requireAuthUserId();
+
+  const { data, error } = await supabase
+    .from('purchaserequest')
+    .select(PURCHASE_REQUEST_COLUMNS)
+    .eq('listing_id', listingId)
+    .eq('buyer_id', buyerId)
+    .in('status', ['Pending', 'Accepted', 'Partially_Accepted'])
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ? mapPurchaseRequest(data as PurchaseRequestRow) : null;
 }
 
 /** One request by id — RLS restricts this to the buyer who sent it or the farmer who owns the listing. */
