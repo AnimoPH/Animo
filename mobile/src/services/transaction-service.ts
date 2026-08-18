@@ -1,4 +1,5 @@
 import { requireAuthUserId } from '@/services/crop-listing-service';
+import { unwrapFunctionError } from '@/services/auth-service';
 import {
   fetchBuyerPurchaseRequests,
   fetchFarmerPurchaseRequests,
@@ -87,6 +88,21 @@ export function mapPayment(row: PaymentRow): Payment {
     status: row.status,
     timestamp: row.timestamp,
   };
+}
+
+export type ReceiptRow = {
+  transaction_id: string;
+  tx_hash: string;
+};
+
+/** The real on-chain receipt for a completed transaction (§10) — just a tx_hash, nothing fabricated. */
+export type Receipt = {
+  transactionId: string;
+  txHash: string;
+};
+
+export function mapReceipt(row: ReceiptRow): Receipt {
+  return { transactionId: row.transaction_id, txHash: row.tx_hash };
 }
 
 type TransactionMatchWithPaymentsRow = TransactionMatchRow & { payment: PaymentRow[] };
@@ -227,6 +243,46 @@ export async function reportPaymentFailed(paymentId: string): Promise<void> {
 export async function markDelivered(transactionId: string): Promise<void> {
   const { error } = await supabase.rpc('farmer_mark_delivered', { p_transaction_id: transactionId });
   if (error) throw error;
+
+  // Best-effort: delivery itself already succeeded above (transactionmatch
+  // is already Completed via the transactionmatch_auto_complete trigger by
+  // the time this resolves) — a blockchain RPC hiccup here must never
+  // surface as a delivery failure. Both resibo screens retry this on load
+  // if it's still missing; the Edge Function is idempotent (see
+  // 0011_receipt_idempotency_guard.sql).
+  recordBlockchainReceipt(transactionId).catch((e) => {
+    console.warn('[markDelivered] blockchain receipt deferred:', e instanceof Error ? e.message : e);
+  });
+}
+
+/** The on-chain receipt for a transaction, if one has been recorded yet. RLS restricts this to the buyer/farmer party. */
+export async function fetchReceipt(transactionId: string): Promise<Receipt | null> {
+  const { data, error } = await supabase
+    .from('receipt')
+    .select('transaction_id, tx_hash')
+    .eq('transaction_id', transactionId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ? mapReceipt(data as ReceiptRow) : null;
+}
+
+/**
+ * Calls the `record-blockchain-receipt` Edge Function, which writes a real
+ * on-chain record (relayer-paid, no user gas) and returns its tx_hash.
+ * Idempotent — safe to call repeatedly for the same transaction
+ * (0011_receipt_idempotency_guard.sql). Callers treat this as best-effort:
+ * a failure here should never block or fail the surrounding user action.
+ */
+export async function recordBlockchainReceipt(transactionId: string): Promise<Receipt> {
+  const { data, error } = await supabase.functions.invoke('record-blockchain-receipt', {
+    body: { transactionId },
+  });
+  if (error) throw await unwrapFunctionError(error);
+
+  const txHash = (data as { txHash?: string } | null)?.txHash;
+  if (!txHash) throw new Error('Walang natanggap na tx hash mula sa blockchain function.');
+  return { transactionId, txHash };
 }
 
 export async function cancelTransaction(transactionId: string): Promise<void> {
