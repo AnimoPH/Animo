@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ClipboardList, Search, X } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, ClipboardList, Search, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,9 +20,18 @@ import { TransactionCard, type FarmerTransactionCardItem } from '@/components/an
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { fetchCropListingsByIds } from '@/services/crop-listing-service';
-import { fetchFarmerPurchaseOutcomes } from '@/services/transaction-service';
+import { fetchCounterpartNames, fetchFarmerPurchaseOutcomes } from '@/services/transaction-service';
 import { varietyLabel, type CropListing } from '@/types/crop-listing';
-import { DISPLAY_STAGE_LABELS, deriveDisplayStage, requestTotal, type DisplayStage, type PurchaseOutcome } from '@/types/transaction';
+import {
+  DISPLAY_STAGE_LABELS,
+  deriveDisplayStage,
+  formatDate,
+  formatReferenceId,
+  formatTime,
+  requestTotal,
+  type DisplayStage,
+  type PurchaseOutcome,
+} from '@/types/transaction';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
 const PAGE_SIZE = 5;
@@ -33,20 +42,25 @@ const FILTERS: FilterValue[] = ['Lahat', 'Kailangan ng Aksyon', 'Naghihintay', '
 
 const ACTION_STAGES: DisplayStage[] = ['request_pending', 'payment_sent', 'payment_confirmed'];
 const WAITING_STAGES: DisplayStage[] = ['awaiting_payment'];
+const COMPLETED_STAGES: DisplayStage[] = ['payment_confirmed', 'delivered', 'completed'];
 const FAILED_STAGES: DisplayStage[] = ['transaction_cancelled', 'payment_failed', 'request_rejected', 'request_cancelled'];
 
-function toCardItem(outcome: PurchaseOutcome, listing: CropListing | undefined): FarmerTransactionCardItem {
+function toCardItem(
+  outcome: PurchaseOutcome,
+  listing: CropListing | undefined,
+  buyerName?: string,
+): FarmerTransactionCardItem {
   const stage = deriveDisplayStage(outcome);
   const quantityKg = outcome.kind === 'matched' ? outcome.transaction.quantityKg : outcome.request.requestedQuantityKg;
   const pricePerKg = outcome.kind === 'matched' ? outcome.transaction.agreedPricePerKg : (listing?.pricePerKg ?? 0);
   const total = outcome.kind === 'matched' ? requestTotal(outcome) : pricePerKg * quantityKg;
-  const submitted = new Date(outcome.request.submittedAt);
 
   return {
     // Routing key: transaction id once matched (the farmer transaction detail
     // screen only understands transaction ids); the listing id pre-match, so
     // tapping a pending request lands on that listing's Orders tab instead.
     id: outcome.kind === 'matched' ? outcome.transaction.id : outcome.request.listingId,
+    referenceId: formatReferenceId(outcome.kind === 'matched' ? outcome.transaction.id : outcome.request.id, outcome.kind === 'matched' ? 'TXN' : 'PR'),
     stage,
     statusLabel: DISPLAY_STAGE_LABELS[stage],
     variety: listing ? varietyLabel(listing) : 'Palay',
@@ -55,12 +69,10 @@ function toCardItem(outcome: PurchaseOutcome, listing: CropListing | undefined):
     weight: `${quantityKg} kg`,
     pricePerKg: `${formatPeso(pricePerKg)}/kg`,
     paymentMode: outcome.kind === 'matched' ? (outcome.transaction.payment?.paymentMode ?? null) : null,
-    // Buyer identity is only revealed by RLS once a transaction match exists
-    // ("Counterpart contact revealed after a transaction match", 0001) — a
-    // still-pending request can't show a real buyer name yet.
-    buyer: outcome.kind === 'matched' ? 'Mamimili' : 'Bagong Mamimili',
-    date: submitted.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }),
-    time: submitted.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' }),
+    // Buyer identity is revealed once a transaction match exists, or falls back gracefully
+    buyer: buyerName || (outcome.kind === 'matched' ? 'Mamimili' : 'Bagong Mamimili'),
+    date: formatDate(outcome.request.submittedAt),
+    time: formatTime(outcome.request.submittedAt),
   };
 }
 
@@ -72,6 +84,7 @@ export default function FarmerTransactionsScreen() {
 
   const [outcomes, setOutcomes] = useState<PurchaseOutcome[]>([]);
   const [listingsById, setListingsById] = useState<Map<string, CropListing>>(new Map());
+  const [buyerNamesById, setBuyerNamesById] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +96,16 @@ export default function FarmerTransactionsScreen() {
     try {
       const result = await fetchFarmerPurchaseOutcomes();
       setOutcomes(result);
-      setListingsById(await fetchCropListingsByIds(result.map((o) => o.request.listingId)));
+      const buyerIds = result
+        .map((o) => (o.kind === 'matched' ? o.transaction.buyerId : o.request.buyerId))
+        .filter((id): id is string => Boolean(id));
+
+      const [listings, buyerNames] = await Promise.all([
+        fetchCropListingsByIds(result.map((o) => o.request.listingId)),
+        fetchCounterpartNames(buyerIds),
+      ]);
+      setListingsById(listings);
+      setBuyerNamesById(buyerNames);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Hindi ma-load ang mga transaksyon.');
     } finally {
@@ -97,27 +119,37 @@ export default function FarmerTransactionsScreen() {
   }, [load]);
 
   const items = useMemo(
-    () => outcomes.map((outcome) => toCardItem(outcome, listingsById.get(outcome.request.listingId))),
-    [outcomes, listingsById],
+    () =>
+      outcomes.map((outcome) => {
+        const buyerId = outcome.kind === 'matched' ? outcome.transaction.buyerId : outcome.request.buyerId;
+        const buyerName = buyerNamesById.get(buyerId);
+        return toCardItem(outcome, listingsById.get(outcome.request.listingId), buyerName);
+      }),
+    [outcomes, listingsById, buyerNamesById],
   );
 
-  const filteredData = items.filter((item) => {
-    const matchesFilter = (() => {
-      if (activeFilter === 'Lahat') return true;
-      if (activeFilter === 'Kailangan ng Aksyon') return ACTION_STAGES.includes(item.stage);
-      if (activeFilter === 'Naghihintay') return WAITING_STAGES.includes(item.stage);
-      if (activeFilter === 'Kumpleto') return item.stage === 'completed';
-      if (activeFilter === 'Nabigo') return FAILED_STAGES.includes(item.stage);
-      return true;
-    })();
+  const filteredData = useMemo(() => {
+    return items.filter((item) => {
+      const matchesFilter = (() => {
+        if (activeFilter === 'Lahat') return true;
+        if (activeFilter === 'Kailangan ng Aksyon') return ACTION_STAGES.includes(item.stage);
+        if (activeFilter === 'Naghihintay') return WAITING_STAGES.includes(item.stage);
+        if (activeFilter === 'Kumpleto') return COMPLETED_STAGES.includes(item.stage);
+        if (activeFilter === 'Nabigo') return FAILED_STAGES.includes(item.stage);
+        return true;
+      })();
 
-    const query = searchQuery.toLowerCase().trim();
-    const matchesSearch =
-      query === '' || item.variety.toLowerCase().includes(query) || item.statusLabel.toLowerCase().includes(query);
+      const query = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        query === '' ||
+        item.variety.toLowerCase().includes(query) ||
+        item.statusLabel.toLowerCase().includes(query) ||
+        item.referenceId.toLowerCase().includes(query) ||
+        item.buyer.toLowerCase().includes(query);
 
       return matchesFilter && matchesSearch;
     });
-  }, [activeFilter, searchQuery]);
+  }, [items, activeFilter, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
   const validPage = Math.min(currentPage, totalPages);
@@ -178,7 +210,7 @@ export default function FarmerTransactionsScreen() {
       ) : (
         <FlatList
           style={styles.scroll}
-          data={filteredData}
+          data={paginatedData}
           keyExtractor={(item, index) => `${item.id}-${index}`}
           renderItem={({ item }) => (
             <TransactionCard
@@ -206,7 +238,7 @@ export default function FarmerTransactionsScreen() {
                     key={filter}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
-                    onPress={() => setActiveFilter(filter)}
+                    onPress={() => handleFilterSelect(filter)}
                     activeOpacity={0.85}
                     style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}>
                     <AnimoText variant="bodyEmphasis" color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
@@ -217,9 +249,18 @@ export default function FarmerTransactionsScreen() {
               })}
             </ScrollView>
           }
+          ListFooterComponent={
+            <PaginationControls
+              currentPage={validPage}
+              totalPages={totalPages}
+              totalItems={filteredData.length}
+              pageSize={PAGE_SIZE}
+              onPageChange={setCurrentPage}
+            />
+          }
           ListEmptyComponent={
             searchQuery.trim() !== '' ? (
-              <SearchEmptyState query={searchQuery} onClear={() => setSearchQuery('')} />
+              <SearchEmptyState query={searchQuery} onClear={() => handleSearchChange('')} />
             ) : (
               <EmptyState />
             )

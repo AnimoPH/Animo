@@ -23,6 +23,7 @@ const DOT_TONE: Partial<Record<DisplayStage, string>> = {
 export type FarmerTransactionCardItem = {
   /** Routing key — a request_id for `request_pending` rows, a transaction_id otherwise. */
   id: string;
+  referenceId: string;
   stage: DisplayStage;
   statusLabel: string;
   variety: string;
@@ -60,7 +61,7 @@ export function TransactionCard({ item, onPress }: TransactionCardProps) {
       <View style={styles.cardBody}>
         <View style={styles.rowBetween}>
           <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-            {item.buyer}
+            {item.referenceId}
           </AnimoText>
           <StatusLabel label={item.statusLabel} isDone={isDone} dotColor={dotColor} />
         </View>
@@ -95,6 +96,17 @@ export function TransactionCard({ item, onPress }: TransactionCardProps) {
         <View style={styles.divider} />
 
         <View style={styles.buyerRow}>
+          <View style={styles.buyerCol}>
+            <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+              Mamimili:
+            </AnimoText>
+            <AnimoText
+              variant="bodyEmphasis"
+              color={AnimoColors.textHighEmphasis}
+              style={styles.buyerName}>
+              {item.buyer}
+            </AnimoText>
+          </View>
           <View style={styles.dateCol}>
             <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
               {item.date}
@@ -220,7 +232,14 @@ const styles = StyleSheet.create({
   buyerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  buyerCol: {
+    flex: 1,
+    paddingRight: AnimoSpacing.md,
+  },
+  buyerName: {
+    marginTop: 2,
   },
   dateCol: {
     alignItems: 'flex-end',

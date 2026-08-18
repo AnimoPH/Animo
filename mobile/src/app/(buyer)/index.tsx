@@ -17,6 +17,7 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
 import { MarketplaceListingCard } from '@/components/animo/buyer/marketplace-listing-card';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { fetchCoverPhotos } from '@/services/crop-listing-service';
 import {
   fetchMarketPopularityInsights,
   type MarketPopularityInsight,
@@ -38,11 +39,23 @@ const POPULAR_VARIETIES = [
 /** Tahanan — buyer home: welcome, market analytics, trending varieties, and fresh harvest recommendations. */
 export default function BuyerHomeScreen() {
   const [featured, setFeatured] = useState<RankedListing[]>([]);
+  const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
   const [insights, setInsights] = useState<MarketPopularityInsight | null>(null);
 
   useEffect(() => {
     fetchMarketPopularityInsights().then(setInsights).catch(() => { });
-    fetchMarketplaceListings({}).then((ranked) => setFeatured(ranked.slice(0, 3))).catch(() => { });
+    fetchMarketplaceListings({})
+      .then(async (ranked) => {
+        const topFeatured = ranked.slice(0, 3);
+        setFeatured(topFeatured);
+        try {
+          const photos = await fetchCoverPhotos(topFeatured.map((item) => item.listing.id));
+          setCoverPhotos(photos);
+        } catch {
+          // fallback
+        }
+      })
+      .catch(() => { });
   }, []);
 
   return (
@@ -236,6 +249,7 @@ export default function BuyerHomeScreen() {
               <MarketplaceListingCard
                 key={listing.id}
                 listing={listing}
+                coverPhotoUrl={coverPhotos.get(listing.id)}
                 onPress={() => router.push(`/(buyer)/palengke/${listing.id}`)}
               />
             ))}
