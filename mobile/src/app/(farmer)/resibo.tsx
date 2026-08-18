@@ -1,8 +1,8 @@
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { CheckCircle, Download, Star } from 'lucide-react-native';
+import { CheckCircle, Download, ExternalLink, Star } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
@@ -11,16 +11,26 @@ import { ScreenHeader } from '@/components/animo/screen-header';
 import { AnimoColors, AnimoType, AnimoSpacing, AnimoRadius } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { fetchCropListing } from '@/services/crop-listing-service';
-import { fetchTransaction, fetchTransactionCounterpart } from '@/services/transaction-service';
+import {
+  fetchReceipt,
+  fetchTransaction,
+  fetchTransactionCounterpart,
+  recordBlockchainReceipt,
+  type Receipt,
+} from '@/services/transaction-service';
 import { varietyLabel, type CropListing } from '@/types/crop-listing';
-import { formatReferenceId, formatDate, type TransactionCounterpart, type TransactionWithPayment } from '@/types/transaction';
+import { formatReferenceId, formatDate, shortenTxHash, type TransactionCounterpart, type TransactionWithPayment } from '@/types/transaction';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
+const POLYGONSCAN_TX_URL = 'https://amoy.polygonscan.com/tx/';
 
 /**
- * Digital na Resibo (farmer side) — reads the real completed transaction.
- * Blockchain writes/completion are explicitly out of scope for this app (see
- * CLAUDE.md); there is no fabricated tx hash or explorer link here.
+ * Digital na Resibo (farmer side) — reads the real completed transaction,
+ * plus its on-chain receipt once `record-blockchain-receipt` has recorded
+ * one (relayer-paid, see that Edge Function). If it hasn't landed yet by
+ * the time this screen loads, `ensureReceipt` below records it on the spot
+ * — the Edge Function is idempotent, so this is a safe retry, not a
+ * duplicate write.
  */
 export default function FarmerReceiptScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,6 +41,28 @@ export default function FarmerReceiptScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [receiptPending, setReceiptPending] = useState(false);
+
+  const ensureReceipt = useCallback(async (transactionId: string) => {
+    try {
+      const existing = await fetchReceipt(transactionId);
+      if (existing) {
+        setReceipt(existing);
+        return;
+      }
+      setReceiptPending(true);
+      const recorded = await recordBlockchainReceipt(transactionId);
+      setReceipt(recorded);
+    } catch (e) {
+      // Never surfaces as a screen error — the transaction itself is
+      // already complete; the blockchain record can simply be retried the
+      // next time this screen loads.
+      console.warn('[resibo] blockchain receipt not yet available', e instanceof Error ? e.message : e);
+    } finally {
+      setReceiptPending(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -46,13 +78,14 @@ export default function FarmerReceiptScreen() {
         ]);
         setListing(listingResult);
         setBuyer(buyerResult);
+        if (tx.status === 'Completed') ensureReceipt(tx.id);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Hindi ma-load ang resibo.');
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, ensureReceipt]);
 
   useEffect(() => {
     load();
@@ -125,6 +158,26 @@ export default function FarmerReceiptScreen() {
               </View>
             </View>
           ))}
+
+          {receipt || receiptPending ? <View style={styles.rowDivider} /> : null}
+          {receipt ? (
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => Linking.openURL(`${POLYGONSCAN_TX_URL}${receipt.txHash}`).catch(() => {})}
+              style={styles.blockchainRow}
+            >
+              <Text style={styles.detailLabel}>Katibayan</Text>
+              <View style={styles.blockchainValueGroup}>
+                <Text style={styles.detailValue}>{shortenTxHash(receipt.txHash)}</Text>
+                <ExternalLink size={14} color={AnimoColors.accentPrimary} />
+              </View>
+            </Pressable>
+          ) : receiptPending ? (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Katibayan</Text>
+              <ActivityIndicator size="small" color={AnimoColors.accentPrimary} />
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.actions}>
@@ -200,5 +253,7 @@ const styles = StyleSheet.create({
   detailLabel: { ...AnimoType.body, color: AnimoColors.textLowEmphasis },
   detailValue: { ...AnimoType.bodyEmphasis, color: AnimoColors.textHighEmphasis },
   rowDivider: { height: 1, backgroundColor: AnimoColors.surfaceTertiary },
+  blockchainRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: AnimoSpacing.sm },
+  blockchainValueGroup: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   actions: { marginHorizontal: SCREEN_PADDING, marginTop: AnimoSpacing.xxl, gap: AnimoSpacing.sm },
 });
