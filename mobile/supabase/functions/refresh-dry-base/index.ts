@@ -5,7 +5,7 @@
 // marketpricefeed.dry_base_price_per_kg so listing create can keep using
 // croplisting_lock_price (it reads that column; the client never submits a
 // price). Callers: sync-psa-prices after a successful history upsert, and
-// the nfa_intervention_window statement trigger in migration 0012.
+// the nfa_intervention_window statement trigger in migration 0014.
 //
 // Not invoked from get-price-prediction — that function stays a read of
 // FastAPI. On any failure this keeps the previous dry_base (0007's ₱18.83

@@ -1,7 +1,7 @@
 -- Empty ANIMO trade-price series for later Stage 2/3. Not read by
 -- pricing/ (FastAPI stays on palay_price_history / PSA). Not written yet —
--- buyer completion is still mock, and this migration does not hook
--- transactionmatch.status = 'Completed'.
+-- no transactionmatch completion hook; rows will be inserted manually or
+-- by a future trigger when status reaches 'Completed'.
 --
 -- Moisture and municipality are denormalized so a later listing/farm edit
 -- cannot rewrite history. Municipality defaults to Antipolo (v1 scope).
