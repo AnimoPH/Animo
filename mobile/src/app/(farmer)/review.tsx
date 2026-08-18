@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Check, Lock, Star, User, X } from 'lucide-react-native';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,7 +20,8 @@ import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import { getFarmerTransaction } from '@/constants/marketplace';
+import { fetchTransaction, fetchTransactionCounterpart } from '@/services/transaction-service';
+import type { TransactionCounterpart } from '@/types/transaction';
 
 const RATING_MOODS: Record<number, string> = {
   5: 'Napakahusay!',
@@ -33,25 +35,64 @@ const RATING_MOODS: Record<number, string> = {
 const STAR_GOLD = '#F5A623';
 
 /**
- * Suriin ang Mamimili — Farmer reviews the buyer.
- * Exact same rating UX, star criteria, comments, and submission flow as the buyer side.
+ * Suriin ang Mamimili. Reads the real transaction/buyer for display; the
+ * `rating` table write is not part of this task's scope (no rating RPC was
+ * added), so submitting stays a client-only success state.
+ * TODO(ratings): insert into public.rating once that task lands.
  */
 export default function ReviewBuyerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const tx = getFarmerTransaction(id);
 
-  const buyerName = tx?.buyer?.name ?? 'Mateo Santos';
+  const [buyer, setBuyer] = useState<TransactionCounterpart | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [overallRating, setOverallRating] = useState(5);
   const [paymentRating, setPaymentRating] = useState(5);
   const [communicationRating, setCommunicationRating] = useState(5);
-  const [punctualityRating, setPunctualityRating] = useState(4);
+  const [punctualityRating, setPunctualityRating] = useState(5);
   const [conductRating, setConductRating] = useState(5);
-
   const [comment, setComment] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  const load = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const tx = await fetchTransaction(id);
+      if (!tx) {
+        setBuyer(null);
+        return;
+      }
+      setBuyer(await fetchTransactionCounterpart(tx.buyerId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Hindi ma-load ang transaksyon.');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ScreenHeader title="Suriin ang Mamimili" />
+        <View style={styles.centerState}>
+          <ActivityIndicator color={AnimoColors.accentPrimary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const buyerName = buyer?.name ?? 'Mamimili';
+
   const handleSubmit = () => {
+    // TODO(ratings): insert into public.rating once that task lands — for
+    // now this is a client-only acknowledgement, nothing is persisted.
     setShowSuccessModal(true);
   };
 
@@ -64,14 +105,14 @@ export default function ReviewBuyerScreen() {
       <StatusBar style="dark" />
       <ScreenHeader title="Suriin ang Mamimili" />
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          {/* Buyer Card */}
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {error ? (
+            <AnimoText variant="caption" color={AnimoColors.danger}>
+              {error}
+            </AnimoText>
+          ) : null}
+
           <View style={styles.card}>
             <View style={styles.buyerRow}>
               <View style={styles.avatar}>
@@ -82,13 +123,12 @@ export default function ReviewBuyerScreen() {
                   {buyerName}
                 </AnimoText>
                 <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                  Mamimili · Na-verify na Account
+                  Mamimili
                 </AnimoText>
               </View>
             </View>
           </View>
 
-          {/* Overall Rating Card (Centered) */}
           <View style={[styles.card, styles.centerCard]}>
             <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
               Pangkalahatang Marka
@@ -97,58 +137,29 @@ export default function ReviewBuyerScreen() {
               {RATING_MOODS[overallRating]}
             </AnimoText>
 
-            {/* Big Star Selector */}
             <View style={styles.starRowBig}>
               {[1, 2, 3, 4, 5].map((star) => (
-                <Pressable
-                  key={star}
-                  hitSlop={8}
-                  onPress={() => setOverallRating(star)}
-                  style={styles.starTouch}>
-                  <Star
-                    size={36}
-                    color={star <= overallRating ? STAR_GOLD : AnimoColors.borderLowEmphasis}
-                    fill={star <= overallRating ? STAR_GOLD : 'transparent'}
-                  />
+                <Pressable key={star} hitSlop={8} onPress={() => setOverallRating(star)} style={styles.starTouch}>
+                  <Star size={36} color={star <= overallRating ? STAR_GOLD : AnimoColors.borderLowEmphasis} fill={star <= overallRating ? STAR_GOLD : 'transparent'} />
                 </Pressable>
               ))}
             </View>
           </View>
 
-          {/* Detailed Criteria Card */}
           <View style={styles.card}>
             <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
               Detalyadong Marka
             </AnimoText>
-
-            <StarCriterionRow
-              label="Pagbabayad sa tamang oras"
-              value={paymentRating}
-              onChange={setPaymentRating}
-            />
-            <StarCriterionRow
-              label="Komunikasyon sa telepono"
-              value={communicationRating}
-              onChange={setCommunicationRating}
-            />
-            <StarCriterionRow
-              label="Pagsunod sa oras ng pickup"
-              value={punctualityRating}
-              onChange={setPunctualityRating}
-            />
-            <StarCriterionRow
-              label="Pakikitungo sa transaksyon"
-              value={conductRating}
-              onChange={setConductRating}
-            />
+            <StarCriterionRow label="Pagbabayad sa tamang oras" value={paymentRating} onChange={setPaymentRating} />
+            <StarCriterionRow label="Komunikasyon" value={communicationRating} onChange={setCommunicationRating} />
+            <StarCriterionRow label="Pagsunod sa oras" value={punctualityRating} onChange={setPunctualityRating} />
+            <StarCriterionRow label="Pakikitungo sa transaksyon" value={conductRating} onChange={setConductRating} />
           </View>
 
-          {/* Comment Card */}
           <View style={styles.card}>
             <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
               Magdagdag ng komento (opsyonal)
             </AnimoText>
-
             <View style={styles.textareaContainer}>
               <TextInput
                 style={styles.textarea}
@@ -167,29 +178,17 @@ export default function ReviewBuyerScreen() {
             </View>
           </View>
 
-          {/* Info Banner */}
           <NoticeBanner tone="info" icon={<Lock size={16} color="#2563A8" />}>
             Makikita ng ibang magsasaka ang review na ito sa profile ng mamimili.
           </NoticeBanner>
         </ScrollView>
 
-        {/* Footer Actions */}
         <View style={styles.footerStack}>
-          <AnimoButton
-            label="Isumite ang Review"
-            icon={Check}
-            onPress={handleSubmit}
-          />
-          <AnimoButton
-            label="Laktawan Muna"
-            variant="secondary"
-            icon={X}
-            onPress={handleSkip}
-          />
+          <AnimoButton label="Isumite ang Review" icon={Check} onPress={handleSubmit} />
+          <AnimoButton label="Laktawan Muna" variant="secondary" icon={X} onPress={handleSkip} />
         </View>
       </KeyboardAvoidingView>
 
-      {/* Review Submitted Modal */}
       <FeedbackModal
         visible={showSuccessModal}
         tone="success"
@@ -205,15 +204,7 @@ export default function ReviewBuyerScreen() {
   );
 }
 
-function StarCriterionRow({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (val: number) => void;
-}) {
+function StarCriterionRow({ label, value, onChange }: { label: string; value: number; onChange: (val: number) => void }) {
   return (
     <View style={styles.criterionRow}>
       <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.flex}>
@@ -221,16 +212,8 @@ function StarCriterionRow({
       </AnimoText>
       <View style={styles.starRowMedium}>
         {[1, 2, 3, 4, 5].map((star) => (
-          <Pressable
-            key={star}
-            onPress={() => onChange(star)}
-            hitSlop={8}
-            style={styles.starMediumTouch}>
-            <Star
-              size={24}
-              color={star <= value ? STAR_GOLD : AnimoColors.borderLowEmphasis}
-              fill={star <= value ? STAR_GOLD : 'transparent'}
-            />
+          <Pressable key={star} onPress={() => onChange(star)} hitSlop={8} style={styles.starMediumTouch}>
+            <Star size={24} color={star <= value ? STAR_GOLD : AnimoColors.borderLowEmphasis} fill={star <= value ? STAR_GOLD : 'transparent'} />
           </Pressable>
         ))}
       </View>
@@ -239,101 +222,23 @@ function StarCriterionRow({
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.appBackground,
-  },
-  flex: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingBottom: AnimoSpacing.xl,
-    gap: AnimoSpacing.lg,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.surfacePrimary,
-  },
-  centerCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: AnimoSpacing.xl,
-    gap: AnimoSpacing.md,
-  },
-  textCenter: {
-    textAlign: 'center',
-  },
-  buyerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.md,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buyerText: {
-    flex: 1,
-    gap: 2,
-  },
-  starRowBig: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: AnimoSpacing.sm,
-    paddingVertical: AnimoSpacing.xs,
-  },
-  starTouch: {
-    padding: 3,
-  },
-  criterionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: AnimoSpacing.sm,
-  },
-  starRowMedium: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  starMediumTouch: {
-    padding: 2,
-  },
-  textareaContainer: {
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.md,
-    backgroundColor: AnimoColors.surfaceSecondary,
-    marginTop: AnimoSpacing.xs,
-    gap: AnimoSpacing.xs,
-  },
-  textarea: {
-    fontSize: 15,
-    fontFamily: 'PlusJakartaSans_400Regular',
-    color: AnimoColors.textHighEmphasis,
-    minHeight: 90,
-  },
-  counter: {
-    alignSelf: 'flex-end',
-  },
-  footerStack: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.md,
-    paddingBottom: AnimoSpacing.md,
-    gap: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.appBackground,
-    borderTopWidth: 1,
-    borderTopColor: AnimoColors.borderLowEmphasis,
-  },
+  safeArea: { flex: 1, backgroundColor: AnimoColors.appBackground },
+  centerState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  flex: { flex: 1 },
+  content: { paddingHorizontal: AnimoSpacing.lg, paddingBottom: AnimoSpacing.xl, gap: AnimoSpacing.lg },
+  card: { borderWidth: 1, borderColor: AnimoColors.borderLowEmphasis, borderRadius: AnimoRadius.lg, padding: AnimoSpacing.lg, gap: AnimoSpacing.sm, backgroundColor: AnimoColors.surfacePrimary },
+  centerCard: { alignItems: 'center', justifyContent: 'center', paddingVertical: AnimoSpacing.xl, gap: AnimoSpacing.md },
+  textCenter: { textAlign: 'center' },
+  buyerRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoSpacing.md },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: AnimoColors.accentPrimaryLight, alignItems: 'center', justifyContent: 'center' },
+  buyerText: { flex: 1, gap: 2 },
+  starRowBig: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: AnimoSpacing.sm, paddingVertical: AnimoSpacing.xs },
+  starTouch: { padding: 3 },
+  criterionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: AnimoSpacing.sm },
+  starRowMedium: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  starMediumTouch: { padding: 2 },
+  textareaContainer: { borderWidth: 1, borderColor: AnimoColors.borderLowEmphasis, borderRadius: AnimoRadius.md, padding: AnimoSpacing.md, backgroundColor: AnimoColors.surfaceSecondary, marginTop: AnimoSpacing.xs, gap: AnimoSpacing.xs },
+  textarea: { fontSize: 15, fontFamily: 'PlusJakartaSans_400Regular', color: AnimoColors.textHighEmphasis, minHeight: 90 },
+  counter: { alignSelf: 'flex-end' },
+  footerStack: { paddingHorizontal: AnimoSpacing.lg, paddingTop: AnimoSpacing.md, paddingBottom: AnimoSpacing.md, gap: AnimoSpacing.sm, backgroundColor: AnimoColors.appBackground, borderTopWidth: 1, borderTopColor: AnimoColors.borderLowEmphasis },
 });

@@ -5,55 +5,55 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useCountdownTo } from '@/hooks/use-countdown-to';
 
-const CANCEL_WINDOW = 10; // seconds the buyer can still cancel
 const SUCCESS_HOLD_MS = 1600; // how long the success message shows before redirect
 
-type Phase = 'counting' | 'success';
+type Phase = 'counting' | 'cancelling' | 'success';
 
 export type BidConfirmationModalProps = {
   visible: boolean;
-  summary: string; // e.g. "Palay RC160 · 200 kg · Baliwag"
+  summary: string; // e.g. "Palay RC160 · 200 kg"
   total: number;
-  /** Cancel within the window — dismisses and returns to the bid screen. */
-  onCancel: () => void;
-  /** Window elapsed (or auto-continue) — proceed to the transaction. */
+  /** Server-set cancel_deadline (submitted_at + 30s) — never a hardcoded window. */
+  cancelDeadline: string | null;
+  /** Buyer cancelled within the window — calls the real RPC, then dismisses. */
+  onCancel: () => Promise<void>;
+  /** Window elapsed — the request stands, proceed to Transaksyon. */
   onComplete: () => void;
 };
 
 /**
- * Post-bid confirmation. The escrow contract is "locked"; the buyer has a
- * 30-second window to cancel before a dispute is required. When the countdown
- * hits zero the bid is committed: a success message shows briefly, then
- * `onComplete` fires (the bid screen redirects to Transaksyon).
+ * Post-submit confirmation. The purchase request already exists in the DB the
+ * instant this modal opens — this is a real cancellation window (backed by
+ * `purchaserequest.cancel_deadline`), not a delay before the request "really"
+ * commits. Once the countdown hits zero the request simply stands: a success
+ * message shows briefly, then `onComplete` fires.
  */
 export function BidConfirmationModal({
   visible,
   summary,
   total,
+  cancelDeadline,
   onCancel,
   onComplete,
 }: BidConfirmationModalProps) {
-  const [secondsLeft, setSecondsLeft] = useState(CANCEL_WINDOW);
+  const secondsLeft = useCountdownTo(visible ? cancelDeadline : null);
   const [phase, setPhase] = useState<Phase>('counting');
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   // Reset state whenever the modal opens.
   useEffect(() => {
     if (visible) {
-      setSecondsLeft(CANCEL_WINDOW);
       setPhase('counting');
+      setCancelError(null);
     }
   }, [visible]);
 
-  // Countdown tick — on reaching zero, commit and switch to the success phase.
+  // Deadline elapsed — commit and switch to the success phase.
   useEffect(() => {
     if (!visible || phase !== 'counting') return;
-    if (secondsLeft <= 0) {
-      setPhase('success');
-      return;
-    }
-    const id = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(id);
+    if (secondsLeft <= 0) setPhase('success');
   }, [visible, phase, secondsLeft]);
 
   // Hold the success message, then hand off to the redirect.
@@ -63,10 +63,24 @@ export function BidConfirmationModal({
     return () => clearTimeout(id);
   }, [visible, phase, onComplete]);
 
-  const progress = secondsLeft / CANCEL_WINDOW;
+  const handleCancel = async () => {
+    setPhase('cancelling');
+    setCancelError(null);
+    try {
+      await onCancel();
+    } catch (error) {
+      // The deadline may have lapsed server-side between the last tick and
+      // this tap — surface it and let the countdown's own effect take over.
+      setCancelError(error instanceof Error ? error.message : 'Hindi makansela ang request.');
+      setPhase('counting');
+    }
+  };
+
+  const windowSeconds = 30; // display-only reference for the progress bar; the real gate is cancelDeadline itself
+  const progress = Math.min(1, secondsLeft / windowSeconds);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => {}}>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           {phase === 'success' ? (
@@ -75,11 +89,8 @@ export function BidConfirmationModal({
                 <CheckCircle2 size={32} color={AnimoColors.green} />
               </View>
               <AnimoText variant="h2" color={AnimoColors.black} style={styles.center}>
-                Matagumpay na naisagawa ang bid!
+                Naipadala ang iyong request!
               </AnimoText>
-              {/* <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.center}>
-                Na-lock na ang escrow smart contract. Makikita ninyo ito sa inyong mga transaksyon.
-              </AnimoText> */}
 
               <View style={styles.summaryBox}>
                 <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.center}>
@@ -101,12 +112,8 @@ export function BidConfirmationModal({
               </View>
 
               <AnimoText variant="h2" color={AnimoColors.black} style={styles.center}>
-                Naipasa ang inyong bid
+                Naipadala ang iyong request
               </AnimoText>
-              {/* <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.center}>
-                Ginawa na ang escrow smart contract sa Polygon PoS. Maaari mo pang kanselahin ang
-                bid sa loob ng 30 segundo.
-              </AnimoText> */}
 
               <View style={styles.countdown}>
                 <AnimoText variant="display" color={AnimoColors.green}>
@@ -131,19 +138,25 @@ export function BidConfirmationModal({
                 </AnimoText>
               </View>
 
+              {cancelError ? (
+                <AnimoText variant="caption" color={AnimoColors.danger} style={styles.center}>
+                  {cancelError}
+                </AnimoText>
+              ) : null}
+
               <Pressable
                 accessibilityRole="button"
-                onPress={onCancel}
-                style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+                disabled={phase === 'cancelling'}
+                onPress={handleCancel}
+                style={({ pressed }) => [
+                  styles.cancelButton,
+                  (pressed || phase === 'cancelling') && styles.pressed,
+                ]}>
                 <X size={20} color={AnimoColors.danger} />
                 <AnimoText variant="button" color={AnimoColors.danger}>
-                  Kanselahin
+                  {phase === 'cancelling' ? 'Kinakansela…' : 'Kanselahin'}
                 </AnimoText>
               </Pressable>
-
-              {/* <AnimoText variant="caption" color={AnimoColors.muted} style={styles.center}>
-                Pagkatapos ng 30 segundo, kailangan ng dispute para makansela ang transaksyon.
-              </AnimoText> */}
             </>
           )}
         </View>

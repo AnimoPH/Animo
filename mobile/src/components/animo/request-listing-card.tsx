@@ -3,21 +3,22 @@ import { StyleSheet, View } from 'react-native';
 import { AnimoText } from '@/components/animo/animo-text';
 import { ListingImage } from '@/components/animo/listing-image';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import {
-  formatPeso,
-  requestTotal,
-  type PurchaseRequest,
-} from '@/constants/marketplace';
+import { formatPeso } from '@/constants/marketplace';
+import { varietyLabel, type CropListing } from '@/types/crop-listing';
 
 export type RequestListingCardProps = {
-  request: PurchaseRequest;
-  /** Dim the card — used on cancelled requests. */
+  listing: CropListing;
+  quantityKg: number;
+  totalAmount: number;
+  /** Dim the card — used on rejected/cancelled requests. */
   muted?: boolean;
 };
 
-/** Listing thumbnail, farmer, price and quantity for a purchase request. */
+/** Listing thumbnail, price and quantity for a purchase request or transaction. */
 export function RequestListingCard({
-  request,
+  listing,
+  quantityKg,
+  totalAmount,
   muted = false,
 }: RequestListingCardProps) {
   const bodyColor = muted ? AnimoColors.muted : AnimoColors.blackSecondary;
@@ -30,15 +31,12 @@ export function RequestListingCard({
           <AnimoText
             variant="h3"
             color={muted ? AnimoColors.blackSecondary : AnimoColors.black}>
-            {request.variety}
-          </AnimoText>
-          <AnimoText variant="caption" color={AnimoColors.muted}>
-            {request.farmer.name} · {request.farmer.addressDetail}
+            {varietyLabel(listing)}
           </AnimoText>
           <AnimoText
             variant="bodyEmphasis"
             color={muted ? AnimoColors.blackSecondary : AnimoColors.green}>
-            {formatPeso(request.pricePerKg)}{' '}
+            {formatPeso(listing.pricePerKg ?? 0)}{' '}
             <AnimoText variant="caption" color={AnimoColors.muted}>
               bawat kilo
             </AnimoText>
@@ -53,7 +51,7 @@ export function RequestListingCard({
           Dami
         </AnimoText>
         <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-          {request.quantityKg} kg
+          {quantityKg} kg
         </AnimoText>
       </View>
 
@@ -62,7 +60,7 @@ export function RequestListingCard({
           Kabuuang halaga
         </AnimoText>
         <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-          {formatPeso(requestTotal(request))}
+          {formatPeso(totalAmount)}
         </AnimoText>
       </View>
     </View>

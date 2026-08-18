@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import type { ProgressStep } from '@/constants/marketplace';
+import type { ProgressStep } from '@/types/transaction';
 
 export type ProgressTrackerProps = {
   steps: ProgressStep[];

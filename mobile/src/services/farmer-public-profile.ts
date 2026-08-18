@@ -280,3 +280,97 @@ export async function fetchMarketPopularityInsights(): Promise<MarketPopularityI
     totalVolumeMonthKg: 86900,
   };
 }
+
+/**
+ * Buyer trust stats — there is no buyer-side equivalent of `credibilityscore`
+ * (that table is farmer-only, see 0001 §11), so this is computed on the fly
+ * from `transactionmatch` (completed sales to this buyer) and `rating`
+ * (`rated_id` = this buyer), the same two tables `fetchFarmerPublicProfile`
+ * already reads for the farmer-side trust stat above.
+ */
+export type BuyerTrustStats = {
+  buyerId: string;
+  completedTransactionsCount: number;
+  totalBoughtKg: number;
+  averageRating: number;
+  totalReviews: number;
+  /** 0–1, derived from completed-transaction count and average rating — a display-order aid, not a stored score. */
+  reliabilityScore: number;
+};
+
+function computeBuyerTrustStats(
+  buyerId: string,
+  transactions: { quantity_kg: number }[],
+  ratings: { score: number }[],
+): BuyerTrustStats {
+  const completedTransactionsCount = transactions.length;
+  const totalBoughtKg = transactions.reduce((sum, t) => sum + (Number(t.quantity_kg) || 0), 0);
+  const averageRating =
+    ratings.length > 0 ? ratings.reduce((sum, r) => sum + Number(r.score), 0) / ratings.length : 0;
+
+  // Reliability blends a normalized transaction-count signal (caps out at 20
+  // completed transactions) with the average rating (out of 5) — a rough,
+  // display-only ranking aid, not a claim of statistical precision.
+  const transactionSignal = Math.min(1, completedTransactionsCount / 20);
+  const ratingSignal = ratings.length > 0 ? averageRating / 5 : 0.5; // no ratings yet: neutral, not zero
+  const reliabilityScore = ratings.length > 0 ? transactionSignal * 0.5 + ratingSignal * 0.5 : transactionSignal * 0.5 + 0.25;
+
+  return {
+    buyerId,
+    completedTransactionsCount,
+    totalBoughtKg,
+    averageRating: Math.round(averageRating * 10) / 10,
+    totalReviews: ratings.length,
+    reliabilityScore,
+  };
+}
+
+export async function fetchBuyerTrustStats(buyerId: string): Promise<BuyerTrustStats> {
+  const [{ data: transactions, error: txError }, { data: ratings, error: ratingError }] = await Promise.all([
+    supabase.from('transactionmatch').select('quantity_kg').eq('buyer_id', buyerId).eq('status', 'Completed'),
+    supabase.from('rating').select('score').eq('rated_id', buyerId),
+  ]);
+
+  if (txError) throw txError;
+  if (ratingError) throw ratingError;
+
+  return computeBuyerTrustStats(buyerId, transactions ?? [], ratings ?? []);
+}
+
+/**
+ * Farmer-written comments about a buyer — `rating` is readable by anyone
+ * ("Anyone can view ratings" per 0001), so this works pre-match unlike
+ * `transactionmatch`'s own party-scoped RLS. Likely empty today since no
+ * rating-write flow has shipped yet (see the review screens' TODO).
+ */
+export async function fetchBuyerRatingComments(buyerId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('rating')
+    .select('comment')
+    .eq('rated_id', buyerId)
+    .not('comment', 'is', null);
+  if (error) throw error;
+  return (data ?? []).map((row) => row.comment as string).filter((comment) => comment.trim().length > 0);
+}
+
+/** Batched version of `fetchBuyerTrustStats`, avoiding one round trip per buyer when ranking a listing's requests. */
+export async function fetchBuyerTrustStatsBatch(buyerIds: string[]): Promise<Map<string, BuyerTrustStats>> {
+  const uniqueIds = [...new Set(buyerIds)];
+  if (uniqueIds.length === 0) return new Map();
+
+  const [{ data: transactions, error: txError }, { data: ratings, error: ratingError }] = await Promise.all([
+    supabase.from('transactionmatch').select('buyer_id, quantity_kg').in('buyer_id', uniqueIds).eq('status', 'Completed'),
+    supabase.from('rating').select('rated_id, score').in('rated_id', uniqueIds),
+  ]);
+
+  if (txError) throw txError;
+  if (ratingError) throw ratingError;
+
+  const statsByBuyer = new Map<string, BuyerTrustStats>();
+  for (const buyerId of uniqueIds) {
+    const buyerTransactions = (transactions ?? []).filter((t) => t.buyer_id === buyerId);
+    const buyerRatings = (ratings ?? []).filter((r) => r.rated_id === buyerId);
+    statsByBuyer.set(buyerId, computeBuyerTrustStats(buyerId, buyerTransactions, buyerRatings));
+  }
+  return statsByBuyer;
+}

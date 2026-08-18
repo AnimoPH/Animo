@@ -1,5 +1,6 @@
 import { mergeSort } from '@/lib/merge-sort';
 import type { CropListing, DeclaredVariety, MoistureType } from '@/types/crop-listing';
+import type { PurchaseRequest } from '@/types/purchase-request';
 import {
   SCORE_FLOOR,
   WPM_WEIGHTS,
@@ -91,6 +92,90 @@ export function rankListings(
       variety: varietyScore(listing.declaredVariety, filters.variety),
     };
     return { listing, breakdown, score: wpmScore(breakdown) };
+  });
+
+  return mergeSort(scored, (a, b) => {
+    const difference = b.score - a.score;
+    return Math.abs(difference) < SCORE_EPSILON ? 0 : difference;
+  });
+}
+
+/**
+ * Weighted Product Model ranking for a farmer's pending purchase requests —
+ * Trust 0.50, Quantity 0.30, Recency 0.20. Same shape as the listing ranking
+ * above: pure arithmetic over already-fetched rows, no I/O.
+ *
+ * This is purely a display-order aid for the farmer's Orders tab — it never
+ * excludes or blocks acceptance of any request, matching the buyer-side WPM's
+ * "never excludes" philosophy.
+ */
+export type RequestWpmBreakdown = { trust: number; quantity: number; recency: number };
+
+export const REQUEST_WPM_WEIGHTS = { trust: 0.5, quantity: 0.3, recency: 0.2 } as const;
+
+export type RankedPurchaseRequest = {
+  request: PurchaseRequest;
+  score: number;
+  breakdown: RequestWpmBreakdown;
+};
+
+/** Buyer reliability, min-max normalized within the candidate set — same shape as `priceScore`. */
+export function trustScore(reliability: number, minReliability: number, maxReliability: number): number {
+  if (!(maxReliability > minReliability)) return 1;
+  return SCORE_FLOOR + (1 - SCORE_FLOOR) * ((reliability - minReliability) / (maxReliability - minReliability));
+}
+
+/** Larger requests score higher — a farmer clearing a listing prefers fewer, bigger buyers. */
+export function quantityScore(requestedKg: number, minKg: number, maxKg: number): number {
+  if (!(maxKg > minKg)) return 1;
+  return SCORE_FLOOR + (1 - SCORE_FLOOR) * ((requestedKg - minKg) / (maxKg - minKg));
+}
+
+/** Older (earlier-submitted) requests score higher — FIFO fairness among otherwise-equal buyers. */
+export function recencyScore(submittedAt: string, oldestMs: number, newestMs: number): number {
+  if (!(newestMs > oldestMs)) return 1;
+  const submittedMs = new Date(submittedAt).getTime();
+  return SCORE_FLOOR + (1 - SCORE_FLOOR) * ((newestMs - submittedMs) / (newestMs - oldestMs));
+}
+
+/** WPM: the weighted geometric product of the request sub-scores. */
+export function requestWpmScore(breakdown: RequestWpmBreakdown): number {
+  return (
+    breakdown.trust ** REQUEST_WPM_WEIGHTS.trust *
+    breakdown.quantity ** REQUEST_WPM_WEIGHTS.quantity *
+    breakdown.recency ** REQUEST_WPM_WEIGHTS.recency
+  );
+}
+
+/**
+ * Ranks a listing's pending purchase requests, best-match first.
+ * `requests` must already be ordered oldest `submittedAt` first, same
+ * tiebreak convention as `rankListings`.
+ */
+export function rankPurchaseRequests(
+  requests: readonly { request: PurchaseRequest; reliabilityScore: number }[],
+): RankedPurchaseRequest[] {
+  if (requests.length === 0) return [];
+
+  const reliabilities = requests.map((r) => r.reliabilityScore);
+  const minReliability = Math.min(...reliabilities);
+  const maxReliability = Math.max(...reliabilities);
+
+  const quantities = requests.map((r) => r.request.requestedQuantityKg);
+  const minKg = Math.min(...quantities);
+  const maxKg = Math.max(...quantities);
+
+  const timestamps = requests.map((r) => new Date(r.request.submittedAt).getTime());
+  const oldestMs = Math.min(...timestamps);
+  const newestMs = Math.max(...timestamps);
+
+  const scored = requests.map(({ request, reliabilityScore }) => {
+    const breakdown: RequestWpmBreakdown = {
+      trust: trustScore(reliabilityScore, minReliability, maxReliability),
+      quantity: quantityScore(request.requestedQuantityKg, minKg, maxKg),
+      recency: recencyScore(request.submittedAt, oldestMs, newestMs),
+    };
+    return { request, breakdown, score: requestWpmScore(breakdown) };
   });
 
   return mergeSort(scored, (a, b) => {
