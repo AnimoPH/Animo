@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import {
   Banknote,
   Bell,
-  CheckCircle,
   ChevronRight,
   FileText,
   HelpCircle,
@@ -26,7 +25,6 @@ import {
 } from '@/constants/animo';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
-const IS_LGU_VERIFIED = true;
 
 const CARD_SHADOW = {
   shadowColor: AnimoColors.darkBackground,
@@ -43,7 +41,6 @@ const SETTINGS_ROWS = [
   { icon: ShieldCheck, label: 'Patakaran sa Privacy' },
 ] as const;
 
-
 /**
  * Farmer Profile — identity hero, stats, account, payment methods, and settings.
  * Bottom tabs are provided by `(tabs)/_layout.tsx`.
@@ -56,7 +53,6 @@ export default function FarmerProfileScreen() {
     setShowSignOutModal(false);
     router.replace('/login');
   };
-
 
   return (
     <View style={styles.screen}>
@@ -78,12 +74,6 @@ export default function FarmerProfileScreen() {
                 <Lock size={12} color={AnimoColors.white} />
                 <Text style={styles.roleBadgeText}>Magsasaka</Text>
               </View>
-              {IS_LGU_VERIFIED ? (
-                <View style={styles.verifiedBadge}>
-                  <CheckCircle size={12} color={AnimoColors.accentPrimary} />
-                  <Text style={styles.verifiedBadgeText}>LGU Verified</Text>
-                </View>
-              ) : null}
             </View>
           </SafeAreaView>
         </View>
@@ -248,19 +238,6 @@ const styles = StyleSheet.create({
     ...AnimoType.tag,
     color: AnimoColors.white,
   },
-  verifiedBadge: {
-    backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: AnimoSpacing.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.xs,
-  },
-  verifiedBadgeText: {
-    ...AnimoType.tag,
-    color: AnimoColors.accentPrimary,
-  },
   statsRow: {
     flexDirection: 'row',
     marginHorizontal: SCREEN_PADDING,
@@ -273,7 +250,8 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.md,
     paddingVertical: AnimoSpacing.md,
     alignItems: 'center',
-    ...CARD_SHADOW,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
   },
   statValue: {
     ...AnimoType.h2,
@@ -295,7 +273,8 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.lg,
     marginHorizontal: SCREEN_PADDING,
     marginTop: AnimoSpacing.sm,
-    ...CARD_SHADOW,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
   },
   settingsCard: {
     marginBottom: AnimoSpacing.xxl,
