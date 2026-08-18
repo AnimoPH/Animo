@@ -66,6 +66,7 @@ export type ProgressStepKey =
   | 'sent'
   | 'accepted'
   | 'pickup'
+  | 'pickup_inspeksyon'
   | 'payment'
   | 'review'
   | 'kahilingan'
