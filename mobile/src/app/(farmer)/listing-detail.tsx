@@ -1,4 +1,5 @@
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { Check, UserRound, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
@@ -14,6 +15,7 @@ import { AnimoText } from "@/components/animo/animo-text";
 import { BackHeader } from "@/components/animo/back-header";
 import { ListingDetailContent } from "@/components/animo/farmer/listing-detail-content";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
+import { useSession } from "@/hooks/use-session";
 import { fetchCropListing, fetchListingPhotos } from "@/services/crop-listing-service";
 import type { CropListing, ListingPhoto } from "@/types/crop-listing";
 
@@ -51,6 +53,7 @@ const PURCHASE_REQUESTS: PurchaseRequest[] = [
 /** Palay Listing detail — quality/price summary plus purchase requests from buyers. */
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { account } = useSession();
   const [activeTab, setActiveTab] = useState<DetailTab>("detalye");
   const [listing, setListing] = useState<CropListing | null>(null);
   const [photos, setPhotos] = useState<ListingPhoto[]>([]);
@@ -93,7 +96,8 @@ export default function ListingDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-        <BackHeader title="Palay Listing" />
+        <StatusBar style="dark" />
+        <BackHeader title="Detalye ng Listing" />
         <View style={styles.centerState}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -104,7 +108,8 @@ export default function ListingDetailScreen() {
   if (errorMessage || !listing) {
     return (
       <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-        <BackHeader title="Palay Listing" />
+        <StatusBar style="dark" />
+        <BackHeader title="Detalye ng Listing" />
         <View style={styles.centerState}>
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
             {errorMessage ?? "Hindi nahanap ang listing na ito."}
@@ -116,7 +121,8 @@ export default function ListingDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-      <BackHeader title="Palay Listing" />
+      <StatusBar style="dark" />
+      <BackHeader title="Detalye ng Listing" />
 
       {/* Body */}
       <ScrollView
@@ -161,7 +167,11 @@ export default function ListingDetailScreen() {
 
         {/* Detail Listing Content */}
         {activeTab === "detalye" ? (
-          <ListingDetailContent listing={listing} photos={photos} />
+          <ListingDetailContent
+            listing={listing}
+            photos={photos}
+            location={account?.barangay}
+          />
         ) : (
           <>
             <AnimoText
@@ -190,20 +200,40 @@ export default function ListingDetailScreen() {
 }
 
 function PurchaseRequestCard({ request }: { request: PurchaseRequest }) {
+  const openBuyerProfile = () => {
+    router.push({
+      pathname: "/(farmer)/mamimili/[id]",
+      params: { id: request.id },
+    });
+  };
+
   return (
     <View style={[styles.requestCard, styles.shadow]}>
       <View style={styles.requestTopRow}>
-        <View style={styles.requestAvatar}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Tingnan ang profile ni ${request.buyer}`}
+          hitSlop={8}
+          onPress={openBuyerProfile}
+          style={styles.requestAvatar}
+        >
           <UserRound size={22} color={AnimoColors.accentPrimary} />
-        </View>
+        </Pressable>
         <View style={styles.requestInfo}>
           <View style={styles.requestInfoTop}>
-            <AnimoText
-              variant="bodyEmphasis"
-              color={AnimoColors.textHighEmphasis}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Tingnan ang profile ni ${request.buyer}`}
+              hitSlop={8}
+              onPress={openBuyerProfile}
             >
-              {request.buyer}
-            </AnimoText>
+              <AnimoText
+                variant="bodyEmphasis"
+                color={AnimoColors.textHighEmphasis}
+              >
+                {request.buyer}
+              </AnimoText>
+            </Pressable>
             <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
               {request.quantity}
             </AnimoText>

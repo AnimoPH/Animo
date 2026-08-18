@@ -81,7 +81,7 @@ export default function FarmerTransactionDetailScreen() {
         {transaction.stage === 'completed' ? (
           <Pressable
             accessibilityRole="button"
-            onPress={() => setConfirm('receipt')}
+            onPress={() => router.push('/(farmer)/resibo' as Href)}
             style={({ pressed }) => [styles.receiptRow, pressed && styles.pressed]}>
             <View style={styles.receiptIcon}>
               <FileText size={20} color={AnimoColors.green} />
