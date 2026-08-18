@@ -66,11 +66,11 @@ export default function BuyerHomeScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Welcome Greeting */}
         <View style={styles.hero}>
-          <AnimoText variant="display" color={AnimoColors.black}>
+          <AnimoText variant="h1" color={AnimoColors.black}>
             Kumusta, Mamimili!
           </AnimoText>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            Maghanap ng de-kalidad na palay mula sa mga lokal na magsasaka sa patas na presyo.
+            Maghanap ng de-kalidad na palay mula sa mga magsasaka sa patas na presyo.
           </AnimoText>
         </View>
 
@@ -94,7 +94,7 @@ export default function BuyerHomeScreen() {
             <View style={styles.marketInsightInner}>
               <View style={styles.insightBox}>
                 <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                  Pinakasikat na Uri
+                  Most Sold
                 </AnimoText>
                 <AnimoText
                   variant="h1"
@@ -105,9 +105,18 @@ export default function BuyerHomeScreen() {
               </View>
 
               <View style={styles.insightBox}>
-                <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                  Average na Presyo
-                </AnimoText>
+                <View style={styles.insightBoxHeader}>
+                  <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                    Average Price
+                  </AnimoText>
+                  <View style={styles.trendRow}>
+                    <TrendingUp size={14} strokeWidth={2.5} color={AnimoColors.accentPrimary} />
+                    <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
+                      Matatag na presyo
+                    </AnimoText>
+                  </View>
+                </View>
+
                 <View style={styles.priceRowHighlight}>
                   <AnimoText
                     variant="h1"
@@ -120,12 +129,6 @@ export default function BuyerHomeScreen() {
                     color={AnimoColors.textMediumEmphasis}
                     style={styles.perKgText}>
                     / kg
-                  </AnimoText>
-                </View>
-                <View style={styles.trendRow}>
-                  <TrendingUp size={13} color={AnimoColors.accentPrimary} />
-                  <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
-                    Matatag na presyo
                   </AnimoText>
                 </View>
               </View>
@@ -212,7 +215,7 @@ export default function BuyerHomeScreen() {
                       ₱{item.avgPrice.toFixed(2)}
                     </AnimoText>
                     <AnimoText
-                      variant="caption"
+                      variant="body"
                       color={AnimoColors.textMediumEmphasis}
                       style={styles.varietyPerKgText}>
                       /kg
@@ -299,9 +302,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingTop: AnimoSpacing.lg,
-    paddingBottom: AnimoSpacing.xxl,
+    paddingHorizontal: AnimoSpacing.lg,
+    // paddingTop: AnimoSpacing.lg,
+    // paddingBottom: AnimoSpacing.xl,
     gap: AnimoSpacing.xl,
   },
   hero: {
@@ -333,16 +336,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   marketInsightInner: {
-    flexDirection: 'row',
-    backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.md,
+    flexDirection: 'column',
+    // backgroundColor: AnimoColors.white,
+    // borderRadius: AnimoRadius.md,
+    // padding: AnimoSpacing.md,
     gap: AnimoSpacing.md,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    // shadowColor: '#000000',
+    // shadowOffset: { width: 0, height: 1 },
+    // shadowOpacity: 0.08,
+    // shadowRadius: 4,
+    // elevation: 2,
   },
   insightBox: {
     flex: 1,
@@ -352,6 +355,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     gap: 3,
+    justifyContent: 'space-between',
+  },
+  insightBoxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
   priceRowHighlight: {
@@ -364,6 +372,8 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontFamily: 'PlusJakartaSans_700Bold',
     lineHeight: 30,
+    marginVertical: 4,
+
   },
   insightVarietyValueLarge: {
     fontSize: 24,

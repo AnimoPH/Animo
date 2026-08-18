@@ -27,6 +27,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { ScreenHeader } from '@/components/animo/screen-header';
+import { BackHeader } from '@/components/animo/back-header';
+
 import { SpecBox } from '@/components/animo/spec-box';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
@@ -158,7 +160,7 @@ export default function ListingDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <ScreenHeader title="Detalye ng Listing" />
+        <BackHeader title="Detalye ng Listing" />
         <View style={styles.centerState}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -169,7 +171,7 @@ export default function ListingDetailScreen() {
   if (errorMessage || !listing) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <ScreenHeader title="Detalye ng Listing" />
+        <BackHeader title="Detalye ng Listing" />
         <View style={styles.centerState}>
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.centerText}>
             {errorMessage ?? 'Hindi nahanap ang listing na ito.'}
@@ -199,7 +201,7 @@ export default function ListingDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Detalye ng Listing" />
+      <BackHeader title="Detalye ng Listing" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* 3-Image Gallery Section */}
@@ -395,10 +397,10 @@ export default function ListingDetailScreen() {
               </View>
 
               <View style={styles.viewProfilePill}>
-                <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.viewProfilePillText}>
+                {/* <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.viewProfilePillText}>
                   Tingnan ang Profile
-                </AnimoText>
-                <ChevronRight size={16} color={AnimoColors.accentPrimary} />
+                </AnimoText> */}
+                <ChevronRight size={16} strokeWidth={3} color={AnimoColors.accentPrimary} />
               </View>
             </Pressable>
           </View>
@@ -516,7 +518,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   content: {
-    paddingHorizontal: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
     paddingBottom: AnimoSpacing.xl,
     gap: AnimoSpacing.lg,
   },
@@ -649,7 +651,7 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.md,
   },
   footer: {
-    paddingHorizontal: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.md,
     paddingBottom: AnimoSpacing.md,
     gap: AnimoSpacing.xs,
@@ -781,10 +783,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: 6,
-    borderRadius: AnimoRadius.pill,
+    // backgroundColor: AnimoColors.accentPrimaryLight,
+    // paddingHorizontal: AnimoSpacing.md,
+    // paddingVertical: 6,
+    // borderRadius: AnimoRadius.pill,
   },
   viewProfilePillText: {
     fontFamily: 'PlusJakartaSans_600SemiBold',
