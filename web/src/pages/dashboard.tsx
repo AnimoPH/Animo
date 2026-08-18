@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
   Coins,
@@ -12,108 +12,175 @@ import {
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { useAuth } from '@/lib/auth-context';
 import {
-  PRICE_WEEK,
-  VOLATILITY_LOG,
-} from '@/constants/dashboard';
+  activateNfaInterventionWindow,
+  deactivateNfaInterventionWindows,
+  fetchMarketPriceFeed,
+  fetchNfaInterventionWindows,
+  fetchRizalPriceHistory,
+  syncPsaPrices,
+  formatPeso,
+  formatSyncTimestamp,
+  isNfaWindowActiveToday,
+  priceDelta,
+  toWeeklyBars,
+  type MarketPriceFeed,
+  type PriceHistoryPoint,
+} from '@/services/lgu-console-service';
 
 export type DashboardPageProps = {
   onSignOut: () => void;
 };
 
-/** LGU monitoring dashboard — metrics row with historical comparison, NFA Fallback & PSA cards, price benchmark, and volatility log. */
+/** LGU monitoring dashboard — live price feed and PSA history from Supabase (auth stub unchanged). */
 export function DashboardPage({ onSignOut }: DashboardPageProps) {
-  // NFA Volatility Warning Toggle State
-  const [nfaActive, setNfaActive] = useState(true);
+  const { session } = useAuth();
+  const [priceFeed, setPriceFeed] = useState<MarketPriceFeed | null>(null);
+  const [priceHistory, setPriceHistory] = useState<PriceHistoryPoint[]>([]);
+  const [nfaActive, setNfaActive] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [showNfaModal, setShowNfaModal] = useState(false);
   const [showNfaSuccessModal, setShowNfaSuccessModal] = useState(false);
   const [lastNfaAction, setLastNfaAction] = useState<'activated' | 'disabled'>('activated');
+  const [togglingNfa, setTogglingNfa] = useState(false);
 
-  // PSA Sync Modal / State
-  const [isSyncingPsa, setIsSyncingPsa] = useState(false);
-  const [showPsaSuccessModal, setShowPsaSuccessModal] = useState(false);
-  const [lastSyncTime, setLastSyncTime] = useState('Okt 12, 2025 · 08:00 AM');
+  function loadDashboard() {
+    setLoading(true);
+    setLoadError(null);
 
-  const handleToggleNfaConfirm = () => {
-    if (nfaActive) {
-      setNfaActive(false);
-      setLastNfaAction('disabled');
-    } else {
-      setNfaActive(true);
-      setLastNfaAction('activated');
+    return Promise.all([fetchMarketPriceFeed(), fetchRizalPriceHistory(12), fetchNfaInterventionWindows()])
+      .then(([feed, history, windows]) => {
+        setPriceFeed(feed);
+        setPriceHistory(history);
+        setNfaActive(isNfaWindowActiveToday(windows));
+      })
+      .catch((error) => {
+        setLoadError(error instanceof Error ? error.message : 'Hindi ma-load ang dashboard data.');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }
+
+  useEffect(() => {
+    void loadDashboard();
+  }, []);
+
+  async function handlePsaSync() {
+    setSyncing(true);
+    setSyncNotice(null);
+    try {
+      const result = await syncPsaPrices();
+      await loadDashboard();
+      const dryNote = result.dryBaseRefreshed
+        ? 'Na-refresh din ang model dry base.'
+        : 'Na-save ang PSA history; dry base nanatili (walang pricing service o kulang ang 12 buwan).';
+      setSyncNotice(`Na-sync ang ${result.syncedMonths} buwan mula sa PSA. ${dryNote}`);
+    } catch (error) {
+      setSyncNotice(error instanceof Error ? error.message : 'Hindi natapos ang PSA sync.');
+    } finally {
+      setSyncing(false);
     }
-    setShowNfaModal(false);
-    setShowNfaSuccessModal(true);
-  };
+  }
 
-  const handleSyncPsa = () => {
-    setIsSyncingPsa(true);
-    setTimeout(() => {
-      setIsSyncingPsa(false);
-      setLastSyncTime(
-        `Ngayong ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`
-      );
-      setShowPsaSuccessModal(true);
-    }, 1000);
-  };
+  async function handleToggleNfaConfirm() {
+    const userId = session?.user.id;
+    if (!userId) {
+      setLoadError('Kailangan ng LGU login para i-toggle ang NFA window.');
+      setShowNfaModal(false);
+      return;
+    }
+
+    setTogglingNfa(true);
+    try {
+      if (nfaActive) {
+        await deactivateNfaInterventionWindows();
+        setLastNfaAction('disabled');
+      } else {
+        await activateNfaInterventionWindow(userId);
+        setLastNfaAction('activated');
+      }
+      await loadDashboard();
+      setShowNfaModal(false);
+      setShowNfaSuccessModal(true);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Hindi ma-update ang NFA window.');
+      setShowNfaModal(false);
+    } finally {
+      setTogglingNfa(false);
+    }
+  }
+
+  const weeklyBars = useMemo(() => toWeeklyBars(priceHistory, 7), [priceHistory]);
+  const latestHistory = priceHistory.at(-1);
+  const previousHistory = priceHistory.at(-2);
+  const psaFarmgate = latestHistory?.pricePerKg ?? null;
+  const dryBase = priceFeed?.dryBasePerKg ?? latestHistory?.pricePerKg ?? null;
+  const benchmarkDelta = dryBase != null ? priceDelta(dryBase, previousHistory?.pricePerKg) : null;
+  const lastSyncTime = latestHistory ? formatSyncTimestamp(latestHistory.month) : 'Walang talaan pa';
 
   return (
     <ConsoleLayout
       title="Dashboard"
-      subtitle="Pangunahing Tanaw · LGU San Mateo, Rizal · Okt 12, 2025"
+      subtitle={`Pangunahing Tanaw · Rizal · ${priceFeed?.effectiveDate ?? '—'}`}
       onSignOut={onSignOut}>
+      {loading ? <p style={styles.loadNotice}>Naglo-load ng datos mula sa Supabase…</p> : null}
+      {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
       {/* Top Cards Grid */}
       <section style={styles.topCardsGrid}>
-        {/* Forecast Accuracy Card with Historical Comparison */}
         <article className="animo-card" style={styles.metricCard}>
           <div style={styles.metricTop}>
             <div style={styles.metricHead}>
-              <span style={styles.metricLabel}>Forecast accuracy</span>
+              <span style={styles.metricLabel}>Model dry base (cached)</span>
               <span style={styles.metricIcon}>
                 <TrendingUp size={20} color="var(--animo-green)" />
               </span>
             </div>
-            <div style={styles.metricValue}>88.5%</div>
+            <div style={styles.metricValue}>{dryBase != null ? formatPeso(dryBase) : '—'}</div>
             <div style={styles.comparisonRow}>
-              <span style={styles.trendPillGreen}>
-                <TrendingUp size={14} /> +3.2%
-              </span>
-              <span style={styles.comparisonText}>kumpara noong nakaraang buwan</span>
+              <span style={styles.comparisonText}>marketpricefeed · LSTM-GRU nowcast</span>
             </div>
           </div>
-
           <div style={styles.metricBottom}>
             <div style={styles.metricDelta}>
-              <span style={styles.pastValueText}>Dating 85.3%</span>
-              <span style={styles.deltaDot}>•</span>
-              <span>Batay sa 30-araw na tala ng panahon</span>
+              <span>Wet base (survey): {priceFeed ? formatPeso(priceFeed.wetBasePerKg) : '—'}</span>
             </div>
           </div>
         </article>
 
-        {/* Farmgate Benchmark Card with Historical Comparison */}
         <article className="animo-card" style={styles.metricCard}>
           <div style={styles.metricTop}>
             <div style={styles.metricHead}>
-              <span style={styles.metricLabel}>Farmgate benchmark</span>
+              <span style={styles.metricLabel}>PSA Rizal farmgate</span>
               <span style={styles.metricIcon}>
                 <Coins size={20} color="var(--animo-green)" />
               </span>
             </div>
-            <div style={styles.metricValue}>₱16.40</div>
-            <div style={styles.comparisonRow}>
-              <span style={styles.trendPillGreen}>
-                <TrendingUp size={14} /> +₱0.40 (+2.5%)
-              </span>
-              <span style={styles.comparisonText}>tumaas vs nakaraang linggo</span>
+            <div style={styles.metricValue}>
+              {psaFarmgate != null ? formatPeso(psaFarmgate) : '—'}
             </div>
+            {psaFarmgate != null && benchmarkDelta ? (
+              <div style={styles.comparisonRow}>
+                <span style={styles.trendPillGreen}>
+                  <TrendingUp size={14} /> {benchmarkDelta}
+                </span>
+                <span style={styles.comparisonText}>vs nakaraang buwan sa talaan</span>
+              </div>
+            ) : null}
           </div>
-
           <div style={styles.metricBottom}>
             <div style={styles.metricDelta}>
-              <span style={styles.pastValueText}>Dating ₱16.00/kg</span>
-              <span style={styles.deltaDot}>•</span>
-              <span>kada kilo · Region III Average</span>
+              {psaFarmgate != null ? (
+                <span>kada kilo · PSA OpenSTAT · Rizal province</span>
+              ) : (
+                <span>
+                  Walang talaan sa palay_price_history — kailangan ng PSA sync (LGU auth) o manual insert ng Rizal row.
+                </span>
+              )}
             </div>
           </div>
         </article>
@@ -166,11 +233,11 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
             </span>
           </div>
 
-          {/* Toggle Button: Activate or Disable */}
           {nfaActive ? (
             <button
               type="button"
               onClick={() => setShowNfaModal(true)}
+              disabled={togglingNfa}
               style={styles.actionButtonDisable}>
               <PauseCircle size={18} />
               I-disable ang NFA Volatility Alert
@@ -179,6 +246,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
             <button
               type="button"
               onClick={() => setShowNfaModal(true)}
+              disabled={togglingNfa}
               style={styles.actionButtonGreen}>
               <Gavel size={18} />
               I-activate ang NFA Volatility Alert
@@ -199,51 +267,46 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           </div>
 
           <p style={styles.actionCardDesc}>
-            Kumuha ng pinakabagong opisyal na presyo ng palay mula sa Philippine Statistics Authority.
+            Hinahatak ang Rizal farmgate prices mula sa PSA OpenSTAT papunta sa palay_price_history.
+            Pagkatapos, sinusubukang i-refresh ang model dry base.
           </p>
 
           <div style={styles.actionCardStatusRow}>
-            <span style={styles.actionStatusLabel}>Huling na-sync:</span>
+            <span style={styles.actionStatusLabel}>Huling tala:</span>
             <span style={styles.actionStatusValue}>{lastSyncTime}</span>
           </div>
 
+          {syncNotice ? <p style={styles.loadNotice}>{syncNotice}</p> : null}
+
           <button
             type="button"
-            onClick={handleSyncPsa}
-            disabled={isSyncingPsa}
-            style={styles.actionButtonPsa}>
-            <RefreshCw
-              size={18}
-              style={{
-                animation: isSyncingPsa ? 'spin 1s linear infinite' : undefined,
-              }}
-            />
-            {isSyncingPsa ? 'Kasalukuyang nag-si-sync...' : 'I-sync mula sa PSA'}
+            onClick={() => void handlePsaSync()}
+            disabled={syncing}
+            style={{
+              ...styles.actionButtonPsa,
+              ...(syncing ? { opacity: 0.7, cursor: 'wait' } : null),
+            }}>
+            <RefreshCw size={18} />
+            {syncing ? 'Sini-sync…' : 'I-sync mula sa PSA'}
           </button>
         </article>
       </section>
 
-      {/* Middle Row */}
       <section style={styles.midRow}>
-        <PriceBenchmarkCard />
-        <PricingConfidenceCard />
+        <PriceBenchmarkCard
+          dryBase={dryBase}
+          weeklyBars={weeklyBars}
+          effectiveDate={priceFeed?.effectiveDate ?? latestHistory?.month ?? null}
+        />
+        <PricingConfidenceCard nfaActive={nfaActive} />
       </section>
 
-      {/* Volatility Log Table */}
-      <VolatilityLogCard />
-
-      {/* NFA Confirmation Modal */}
-      {showNfaModal && (
+      {showNfaModal ? (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
             <div style={styles.modalHead}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span
-                  style={
-                    nfaActive
-                      ? styles.actionIconCircleDisable
-                      : styles.actionIconCircleActive
-                  }>
+                <span style={nfaActive ? styles.actionIconCircleDisable : styles.actionIconCircleActive}>
                   {nfaActive ? (
                     <PauseCircle size={24} color="var(--animo-danger)" />
                   ) : (
@@ -259,10 +322,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                   <p style={styles.modalSubtitle}>NFA Price Fallback Protocol</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowNfaModal(false)}
-                style={styles.closeBtn}>
+              <button type="button" onClick={() => setShowNfaModal(false)} style={styles.closeBtn}>
                 <X size={20} />
               </button>
             </div>
@@ -274,12 +334,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                   : 'Sigurado ka bang nais mong ipaalam sa sistema na may biglaang pagbabago sa presyo ng NFA? Awtomatikong ia-activate ng algorithm ang price stabilization at volatility clamps para sa proteksyon ng merkado.'}
               </p>
 
-              <div
-                style={
-                  nfaActive
-                    ? styles.calloutInfoBox
-                    : styles.calloutWarningBox
-                }>
+              <div style={nfaActive ? styles.calloutInfoBox : styles.calloutWarningBox}>
                 <TriangleAlert
                   size={20}
                   color={nfaActive ? '#2563EB' : 'var(--animo-warning)'}
@@ -294,16 +349,14 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
             </div>
 
             <div style={styles.modalFooter}>
-              <button
-                type="button"
-                onClick={() => setShowNfaModal(false)}
-                style={styles.cancelButton}>
+              <button type="button" onClick={() => setShowNfaModal(false)} style={styles.cancelButton}>
                 Huwag Ituloy
               </button>
               {nfaActive ? (
                 <button
                   type="button"
-                  onClick={handleToggleNfaConfirm}
+                  onClick={() => void handleToggleNfaConfirm()}
+                  disabled={togglingNfa}
                   style={styles.confirmButtonDisable}>
                   <PauseCircle size={18} />
                   Oo, I-disable ang Alerto
@@ -311,7 +364,8 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
               ) : (
                 <button
                   type="button"
-                  onClick={handleToggleNfaConfirm}
+                  onClick={() => void handleToggleNfaConfirm()}
+                  disabled={togglingNfa}
                   style={styles.confirmButtonGreen}>
                   <Gavel size={18} />
                   Oo, I-activate ang Alerto
@@ -320,10 +374,9 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* NFA Success Modal */}
-      {showNfaSuccessModal && (
+      {showNfaSuccessModal ? (
         <div style={styles.modalOverlay}>
           <div style={{ ...styles.modalCard, maxWidth: 480, textAlign: 'center' }}>
             <div style={styles.successIconBig}>
@@ -338,139 +391,102 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
             <p style={{ ...styles.modalText, margin: '8px 0 22px' }}>
               {lastNfaAction === 'activated'
                 ? 'Naabisuhan na ang sistema ukol sa mataas na volatility mula sa NFA. Aktibo na ang safeguards at price clamps para sa lahat ng transaksyon.'
-                : 'Matagumpay na ibinalik ang standard pricing algorithm sa marketplace.'}
+                : 'Ibinalik na ang karaniwang pricing mode. Mananatiling sinusubaybayan ang PSA benchmarks.'}
             </p>
 
             <button
               type="button"
               onClick={() => setShowNfaSuccessModal(false)}
               style={styles.submitButtonGreenFull}>
-              Naiintindihan Ko
+              Naintindihan
             </button>
           </div>
         </div>
-      )}
-
-      {/* PSA Sync Success Modal */}
-      {showPsaSuccessModal && (
-        <div style={styles.modalOverlay}>
-          <div style={{ ...styles.modalCard, maxWidth: 480, textAlign: 'center' }}>
-            <div style={styles.successIconBig}>
-              <CheckCircle2 size={46} color="var(--animo-green)" />
-            </div>
-
-            <h2 style={{ ...styles.modalTitle, marginTop: 14 }}>
-              Matagumpay na Na-sync mula sa PSA!
-            </h2>
-            <p style={{ ...styles.modalText, margin: '8px 0 22px' }}>
-              Na-update na ang pinakabagong lingguhang opisyal na presyo ng palay mula sa
-              Philippine Statistics Authority (PSA Region III average: ₱16.40/kg).
-            </p>
-
-            <button
-              type="button"
-              onClick={() => setShowPsaSuccessModal(false)}
-              style={styles.submitButtonGreenFull}>
-              Magpatuloy
-            </button>
-          </div>
-        </div>
-      )}
+      ) : null}
     </ConsoleLayout>
   );
 }
 
-function PriceBenchmarkCard() {
+function PriceBenchmarkCard({
+  dryBase,
+  weeklyBars,
+  effectiveDate,
+}: {
+  dryBase: number | null;
+  weeklyBars: ReturnType<typeof toWeeklyBars>;
+  effectiveDate: string | null;
+}) {
   return (
     <article className="animo-card" style={styles.panel}>
       <div>
         <h2 style={styles.panelTitle}>Benchmark ng Presyo sa Rehiyon</h2>
-        <p style={styles.panelSubtitle}>Regional farmgate price · Region III</p>
+        <p style={styles.panelSubtitle}>PSA Rizal · cached model dry base</p>
       </div>
 
       <div style={styles.priceHeadline}>
-        <span style={styles.priceValue}>₱16.40</span>
-        <span style={styles.priceUnit}>kada kilo</span>
+        <span style={styles.priceValue}>{dryBase != null ? formatPeso(dryBase) : '—'}</span>
+        <span style={styles.priceUnit}>kada kilo (dry)</span>
       </div>
 
       <div style={styles.priceMeta}>
-        <span style={styles.pricePill}>+2.4% vs nakaraang linggo</span>
-        <span style={styles.priceSource}>Sanggunian: DA–PhilRice, Okt 12</span>
+        <span style={styles.priceSource}>
+          Sanggunian: marketpricefeed{effectiveDate ? ` · ${effectiveDate}` : ''}
+        </span>
       </div>
 
       <div style={styles.chart}>
-        {PRICE_WEEK.map((bar) => (
-          <div key={bar.day} style={styles.chartColumn}>
-            {bar.active ? <span style={styles.chartValue}>₱16.40</span> : null}
-            <div
-              style={{
-                ...styles.chartBar,
-                height: `${bar.level * 100}%`,
-                background: bar.active
-                  ? 'var(--animo-green)'
-                  : 'var(--animo-green-tint)',
-              }}
-            />
-            <span style={styles.chartDay}>{bar.day}</span>
-          </div>
-        ))}
+        {weeklyBars.length === 0 ? (
+          <span style={styles.priceSource}>Walang price history pa.</span>
+        ) : (
+          weeklyBars.map((bar) => (
+            <div key={`${bar.day}-${bar.pricePerKg}`} style={styles.chartColumn}>
+              {bar.active ? <span style={styles.chartValue}>{formatPeso(bar.pricePerKg)}</span> : null}
+              <div
+                style={{
+                  ...styles.chartBar,
+                  height: `${bar.level * 100}%`,
+                  background: bar.active ? 'var(--animo-green)' : 'var(--animo-green-tint)',
+                }}
+              />
+              <span style={styles.chartDay}>{bar.day}</span>
+            </div>
+          ))
+        )}
       </div>
     </article>
   );
 }
 
-function PricingConfidenceCard() {
+function PricingConfidenceCard({ nfaActive }: { nfaActive: boolean }) {
   return (
     <article className="animo-card" style={styles.panel}>
       <div style={styles.panelHead}>
         <div>
           <h2 style={styles.panelTitle}>Market Pricing Confidence</h2>
-          <p style={styles.panelSubtitle}>Antas ng volatility ng presyo</p>
+          <p style={styles.panelSubtitle}>NFA intervention window signal</p>
         </div>
-        <span style={styles.normalBadge}>Normal</span>
+        <span style={nfaActive ? styles.warningBadge : styles.normalBadge}>
+          {nfaActive ? 'Elevated' : 'Normal'}
+        </span>
       </div>
 
       <div style={styles.meterTrack}>
-        <span style={{ ...styles.meterSegment, background: 'var(--animo-green)' }} />
+        <span style={{ ...styles.meterSegment, background: nfaActive ? 'var(--animo-border)' : 'var(--animo-green)' }} />
+        <span style={{ ...styles.meterSegment, background: nfaActive ? 'var(--animo-warning)' : 'var(--animo-border)' }} />
         <span style={{ ...styles.meterSegment, background: 'var(--animo-border)' }} />
-        <span style={{ ...styles.meterSegment, background: 'var(--animo-border)' }} />
-      </div>
-
-      <div style={styles.legendRow}>
-        <Legend color="var(--animo-green)" label="Normal" />
-        <Legend color="var(--animo-warning)" label="Elevated volatility" />
-        <Legend color="var(--animo-danger)" label="High volatility" />
       </div>
 
       <dl style={styles.statList}>
-        <StatRow label="Volatility index" value="0.42 (threshold 0.75)" />
-        <StatRow label="Kasalukuyang katayuan" value="Normal — walang clamp na aktibo" />
-        <StatRow label="Huling pagbabago" value="Okt 11, 2025 · 06:00 PM" />
-      </dl>
-
-      <div style={styles.calloutWarning}>
-        <TriangleAlert
-          size={18}
-          color="var(--animo-warning)"
-          style={{ flexShrink: 0, marginTop: 1 }}
+        <StatRow
+          label="Kasalukuyang katayuan"
+          value={nfaActive ? 'May aktibong NFA window' : 'Normal — walang aktibong window'}
         />
-        <span>
-          Kapag Elevated: awtomatikong nagki-clamp ng presyo (Tier 2) at
-          humihingi ng kumpirmasyon sa magsasaka (Tier 3).
-        </span>
-      </div>
+        <StatRow label="Pinagmulan" value="nfa_intervention_window (LGU toggle)" />
+      </dl>
     </article>
   );
 }
 
-function Legend({ color, label }: { color: string; label: string }) {
-  return (
-    <span style={styles.legendItem}>
-      <span style={{ ...styles.legendDot, background: color }} />
-      {label}
-    </span>
-  );
-}
 
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
@@ -478,72 +494,6 @@ function StatRow({ label, value }: { label: string; value: string }) {
       <dt style={styles.statLabel}>{label}</dt>
       <dd style={styles.statValue}>{value}</dd>
     </div>
-  );
-}
-
-function VolatilityLogCard() {
-  return (
-    <article className="animo-card" style={styles.panel}>
-      <div style={styles.panelHead}>
-        <div>
-          <h2 style={styles.panelTitle}>Price Volatility Log</h2>
-          <p style={styles.panelSubtitle}>
-            Tier 2 (clamped) at Tier 3 (fallback · kinumpirma ng magsasaka) na
-            listing lamang
-          </p>
-        </div>
-        <div style={styles.tierLegend}>
-          <span style={{ ...styles.tierBadge, ...styles.tierClamped }}>
-            Tier 2 · Clamped
-          </span>
-          <span style={{ ...styles.tierBadge, ...styles.tierFallback }}>
-            Tier 3 · Fallback
-          </span>
-        </div>
-      </div>
-
-      <div style={styles.tableWrap}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              {['Listing ID', 'Uri ng Palay', 'Presyo/Kilo', 'Tier', 'Katayuan', 'Petsa'].map(
-                (heading) => (
-                  <th key={heading} style={styles.th}>
-                    {heading.toUpperCase()}
-                  </th>
-                ),
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {VOLATILITY_LOG.map((row) => (
-              <tr key={row.listingId}>
-                <td style={{ ...styles.td, fontWeight: 700 }}>{row.listingId}</td>
-                <td style={styles.td}>{row.variety}</td>
-                <td style={styles.td}>
-                  {row.priceFrom} → {row.priceTo}
-                </td>
-                <td style={styles.td}>
-                  <span
-                    style={{
-                      ...styles.tierBadge,
-                      ...(row.tier === 'clamped'
-                        ? styles.tierClamped
-                        : styles.tierFallback),
-                    }}>
-                    {row.tier === 'clamped' ? 'Tier 2 · Clamped' : 'Tier 3 · Fallback'}
-                  </span>
-                </td>
-                <td style={styles.td}>{row.status}</td>
-                <td style={{ ...styles.td, color: 'var(--animo-black-secondary)' }}>
-                  {row.date}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </article>
   );
 }
 
@@ -826,7 +776,7 @@ const styles: Record<string, React.CSSProperties> = {
   priceSource: { fontSize: 13, color: 'var(--animo-muted)' },
   chart: {
     display: 'grid',
-    gridTemplateColumns: `repeat(${PRICE_WEEK.length}, 1fr)`,
+    gridTemplateColumns: 'repeat(7, 1fr)',
     gap: 12,
     height: 160,
     alignItems: 'end',
@@ -849,6 +799,24 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--animo-green)',
     fontSize: 13,
     fontWeight: 700,
+  },
+  warningBadge: {
+    padding: '5px 14px',
+    borderRadius: 'var(--animo-radius-pill)',
+    background: 'var(--animo-warning-tint, #FEF3C7)',
+    color: 'var(--animo-warning, #D97706)',
+    fontSize: 13,
+    fontWeight: 700,
+  },
+  loadNotice: {
+    margin: '0 0 12px',
+    color: 'var(--animo-black-secondary)',
+    fontSize: 14,
+  },
+  errorNotice: {
+    margin: '0 0 12px',
+    color: 'var(--animo-danger)',
+    fontSize: 14,
   },
   meterTrack: { display: 'flex', gap: 8 },
   meterSegment: { flex: 1, height: 8, borderRadius: 'var(--animo-radius-pill)' },
@@ -896,38 +864,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     lineHeight: '20px',
     color: '#1E40AF',
-  },
-  tierLegend: { display: 'flex', gap: 10, flexWrap: 'wrap' },
-  tierBadge: {
-    display: 'inline-block',
-    padding: '5px 12px',
-    borderRadius: 'var(--animo-radius-pill)',
-    fontSize: 13,
-    fontWeight: 700,
-    whiteSpace: 'nowrap',
-  },
-  tierClamped: { background: 'var(--animo-caution-tint)', color: '#8A6D12' },
-  tierFallback: {
-    background: 'var(--animo-danger-tint)',
-    color: 'var(--animo-danger)',
-  },
-  tableWrap: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', minWidth: 780 },
-  th: {
-    textAlign: 'left',
-    padding: '12px 14px',
-    background: 'var(--animo-surface)',
-    fontSize: 13,
-    fontWeight: 700,
-    letterSpacing: 0.4,
-    color: 'var(--animo-black-secondary)',
-    whiteSpace: 'nowrap',
-  },
-  td: {
-    padding: '14px',
-    borderTop: '1px solid var(--animo-border)',
-    fontSize: 15,
-    whiteSpace: 'nowrap',
   },
   modalOverlay: {
     position: 'fixed',

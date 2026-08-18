@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import {
   ChevronRight,
   Database,
@@ -8,7 +9,13 @@ import {
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
-import { APP_INFO, LEGAL_LINKS, LGU_PROFILE } from '@/constants/dashboard';
+import { useAuth } from '@/lib/auth-context';
+import { APP_INFO, LEGAL_LINKS } from '@/constants/dashboard';
+import {
+  fetchLguBarangayCoverage,
+  fetchLguUserProfile,
+  formatRegisteredDate,
+} from '@/services/lgu-console-service';
 
 export type SettingsPageProps = {
   onSignOut: () => void;
@@ -22,11 +29,65 @@ const LEGAL_ICONS = {
 
 /** Account details, security options and legal links for the LGU officer. */
 export function SettingsPage({ onSignOut }: SettingsPageProps) {
+  const { session } = useAuth();
+  const [contactNumber, setContactNumber] = useState<string>('—');
+  const [registeredDate, setRegisteredDate] = useState<string>('—');
+  const [barangayCoverage, setBarangayCoverage] = useState<string>('—');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!session?.userId) return;
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+
+    Promise.all([fetchLguUserProfile(session.userId), fetchLguBarangayCoverage()])
+      .then(([profile, barangays]) => {
+        if (cancelled) return;
+        if (profile) {
+          setContactNumber(profile.contactNumber?.trim() || '—');
+          setRegisteredDate(formatRegisteredDate(profile.dateRegistered));
+        }
+        setBarangayCoverage(
+          barangays.length > 0 ? barangays.join(', ') : 'Walang nakatala pa',
+        );
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : 'Hindi ma-load ang profile.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.userId]);
+
+  const fullName = session?.fullName ?? '—';
+  const email = session?.email ?? '—';
+  const initials = useMemo(
+    () =>
+      fullName
+        .split(' ')
+        .map((part) => part[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2) || '—',
+    [fullName],
+  );
+
   return (
     <ConsoleLayout
       title="Mga Setting"
       subtitle="Settings · Personal na detalye at legal"
       onSignOut={onSignOut}>
+      {loading ? <p style={styles.loadNotice}>Naglo-load ng profile mula sa Supabase…</p> : null}
+      {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
+
       <div style={styles.grid}>
         <article className="animo-card" style={styles.panel}>
           <div style={styles.panelHead}>
@@ -34,18 +95,16 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
               <h2 style={styles.panelTitle}>Personal na Detalye</h2>
               <p style={styles.panelSubtitle}>Personal details</p>
             </div>
-            <button type="button" style={styles.editButton}>
+            <button type="button" disabled style={{ ...styles.editButton, opacity: 0.5, cursor: 'not-allowed' }} title="Paparating">
               Baguhin
             </button>
           </div>
 
           <div style={styles.identity}>
-            <span style={styles.avatarLarge}>{LGU_PROFILE.initials}</span>
+            <span style={styles.avatarLarge}>{initials}</span>
             <div>
-              <div style={styles.identityName}>{LGU_PROFILE.name}</div>
-              <div style={styles.identityRole}>
-                {LGU_PROFILE.role} · {LGU_PROFILE.lgu}
-              </div>
+              <div style={styles.identityName}>{fullName}</div>
+              <div style={styles.identityRole}>LGU Official · San Mateo, Rizal</div>
               <div style={styles.chipRow}>
                 <span style={styles.chipVerified}>Verified LGU Account</span>
               </div>
@@ -53,12 +112,13 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
           </div>
 
           <dl style={styles.detailList}>
-            <DetailRow label="Buong pangalan" value={LGU_PROFILE.name} />
-            <DetailRow label="Posisyon" value={LGU_PROFILE.role} />
-            <DetailRow label="Email" value={LGU_PROFILE.email} />
-            <DetailRow label="Numero ng telepono" value={LGU_PROFILE.phone} />
+            <DetailRow label="Buong pangalan" value={fullName} />
+            <DetailRow label="Posisyon" value="LGU Official" />
+            <DetailRow label="Email" value={email} />
+            <DetailRow label="Numero ng telepono" value={contactNumber} />
+            <DetailRow label="Petsa ng rehistro" value={registeredDate} />
             <DetailRow label="LGU" value="San Mateo, Rizal" />
-            <DetailRow label="Saklaw na barangay" value={LGU_PROFILE.barangays} />
+            <DetailRow label="Saklaw na barangay" value={barangayCoverage} />
           </dl>
 
           <h3 style={styles.sectionHeading}>Seguridad</h3>
@@ -66,12 +126,14 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
             <ActionRow
               icon={<Lock size={20} color="var(--animo-black-secondary)" />}
               title="Palitan ang password"
-              subtitle="Huling binago noong Ago 4, 2025"
+              subtitle="Hindi pa naka-wire sa console — gamitin ang Supabase auth reset"
+              disabled
             />
             <ActionRow
               icon={<Phone size={20} color="var(--animo-black-secondary)" />}
               title="Two-factor authentication"
-              subtitle={`Naka-on sa ${LGU_PROFILE.phone}`}
+              subtitle="Hindi pa available sa prototype"
+              disabled
             />
           </div>
         </article>
@@ -148,18 +210,22 @@ function ActionRow({
   title,
   subtitle,
   bordered = false,
+  disabled = false,
 }: {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   bordered?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       style={{
         ...styles.actionRow,
         ...(bordered ? styles.actionRowBordered : null),
+        ...(disabled ? { opacity: 0.55, cursor: 'not-allowed' } : null),
       }}>
       {icon}
       <span style={styles.actionText}>
@@ -179,6 +245,16 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'start',
   },
   sideColumn: { display: 'flex', flexDirection: 'column', gap: 18 },
+  loadNotice: {
+    margin: '0 0 12px',
+    color: 'var(--animo-black-secondary)',
+    fontSize: 14,
+  },
+  errorNotice: {
+    margin: '0 0 12px',
+    color: 'var(--animo-danger)',
+    fontSize: 14,
+  },
   panel: { display: 'flex', flexDirection: 'column', gap: 18, padding: 24 },
   panelHead: {
     display: 'flex',

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { AnimoMark } from '@/components/animo-mark';
+import { useAuth } from '@/lib/auth-context';
 import { NAV_ITEMS, TRIGGER_ALERTS } from '@/constants/dashboard';
 
 const NAV_ICONS = {
@@ -43,6 +44,16 @@ export function ConsoleLayout({
   onSignOut,
   children,
 }: ConsoleLayoutProps) {
+  const { session } = useAuth();
+  const officerInitials =
+    session?.fullName
+      .split(' ')
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) ?? '—';
+  const officerName = session?.fullName ?? 'LGU Officer';
+
   const [showNotifications, setShowNotifications] = useState(false);
   const [alerts, setAlerts] = useState(TRIGGER_ALERTS);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -134,10 +145,10 @@ export function ConsoleLayout({
         <div style={styles.sidebarFooter}>
           {/* Quick Action: Sidebar User links directly to Settings */}
           <Link to="/settings" style={styles.sidebarUserLink} title="Pumunta sa Mga Setting">
-            <span style={styles.avatar}>MR</span>
+            <span style={styles.avatar}>{officerInitials}</span>
             <span>
-              <span style={styles.userName}>Ma. Reyes</span>
-              <span style={styles.userRole}>Agri Officer</span>
+              <span style={styles.userName}>{officerName}</span>
+              <span style={styles.userRole}>LGU Official</span>
             </span>
           </Link>
           <button type="button" onClick={onSignOut} style={styles.signOut}>
@@ -242,9 +253,9 @@ export function ConsoleLayout({
 
             {/* Quick Action: Header Profile links directly to Settings */}
             <Link to="/settings" style={styles.topUserLink} title="Pumunta sa Mga Setting">
-              <span style={styles.avatar}>MR</span>
+              <span style={styles.avatar}>{officerInitials}</span>
               <span>
-                <span style={styles.userName}>Ma. Reyes</span>
+                <span style={styles.userName}>{officerName}</span>
                 <span style={styles.userRole}>LGU San Mateo, Rizal</span>
               </span>
             </Link>

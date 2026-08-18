@@ -11,9 +11,26 @@ React 19 · TypeScript · Vite · React Router · Lucide icons · Plus Jakarta S
 
 ```bash
 npm install
-npm run dev     # http://localhost:5173
-npm run build   # typecheck + production bundle into dist/
+cp .env.example .env   # same Supabase project as ../mobile
+npm run dev            # http://localhost:5173
+npm run build          # typecheck + production bundle into dist/
 ```
+
+Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in `.env` (mirror the mobile
+project’s `EXPO_PUBLIC_SUPABASE_*` values).
+
+**LGU login (dev):** seed once, then sign in at `/login`.
+
+```bash
+cd ../mobile
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/seed-lgu-dev.mjs
+```
+
+Default credentials: `lgu@example.com` / same password as mobile dev farmer & buyer
+(`AnimoDevs@2026` unless you changed `EXPO_PUBLIC_DEV_FARMER_PASSWORD`).
+
+Apply migration `0020_lgu_official_auth_access.sql` (`supabase db push`) so LGU sessions
+can read registry tables under RLS.
 
 ## Layout
 
@@ -72,12 +89,11 @@ step. Prefer the `--animo-*` variables over literal hex values in new styles.
 
 ## Scaffold notes
 
-- **Auth is stubbed.** `App.tsx` holds `signedIn` in local state; submitting the
-  login form flips it and routes to `/dashboard`. Swap for the real session hook
-  when the API lands.
-- **All page data is static**, in `src/constants/dashboard.ts`. The shapes match
-  what the monitoring API is expected to return, so wiring the endpoints should
-  be a swap of that module rather than a page rewrite.
+- **Auth uses Supabase email/password.** Only `LGU_Official` accounts may enter the console.
+- **Dashboard, farmers, buyers, and account review read live Supabase data** via
+  `src/services/lgu-console-service.ts` under an authenticated LGU session.
+  PSA sync, NFA toggle, registration, and account suspension still need write RPCs later.
+  Advisory/messages/settings remain placeholder data.
 - **Farmer-action reporting is deliberately out of scope.** Advance cut, delayed
   harvest and no-action figures — and the panels that summarize them — are
   omitted throughout; advisory tracking covers issuance and delivery only.
