@@ -15,13 +15,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
-import { ListingCard } from '@/components/animo/listing-card';
+import { MarketplaceListingCard } from '@/components/animo/buyer/marketplace-listing-card';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import { LISTINGS } from '@/constants/marketplace';
 import {
   fetchMarketPopularityInsights,
   type MarketPopularityInsight,
 } from '@/services/farmer-public-profile';
+import { fetchMarketplaceListings } from '@/services/marketplace-service';
+import type { RankedListing } from '@/types/marketplace-filter';
 
 /** Curated popular rice varieties in the market. */
 const POPULAR_VARIETIES = [
@@ -34,11 +35,12 @@ const POPULAR_VARIETIES = [
 
 /** Tahanan — buyer home: welcome, market analytics, trending varieties, and fresh harvest recommendations. */
 export default function BuyerHomeScreen() {
-  const featured = LISTINGS.slice(0, 3);
+  const [featured, setFeatured] = useState<RankedListing[]>([]);
   const [insights, setInsights] = useState<MarketPopularityInsight | null>(null);
 
   useEffect(() => {
     fetchMarketPopularityInsights().then(setInsights).catch(() => { });
+    fetchMarketplaceListings({}).then((ranked) => setFeatured(ranked.slice(0, 3))).catch(() => { });
   }, []);
 
   return (
@@ -205,11 +207,10 @@ export default function BuyerHomeScreen() {
           </View>
 
           <View style={styles.featured}>
-            {featured.map((listing) => (
-              <ListingCard
+            {featured.map(({ listing }) => (
+              <MarketplaceListingCard
                 key={listing.id}
                 listing={listing}
-                badge="Bagong Ani"
                 onPress={() => router.push(`/(buyer)/palengke/${listing.id}`)}
               />
             ))}

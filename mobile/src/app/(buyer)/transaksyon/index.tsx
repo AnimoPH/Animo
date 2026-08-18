@@ -1,27 +1,29 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ChevronRight } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
 import { FilterChips } from '@/components/animo/filter-chips';
-import { StatusBadge, type BadgeTone } from '@/components/animo/status-badge';
+import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { formatPeso } from '@/constants/marketplace';
+import { fetchCropListingsByIds } from '@/services/crop-listing-service';
+import { fetchBuyerPurchaseOutcomes } from '@/services/transaction-service';
+import { varietyLabel, type CropListing } from '@/types/crop-listing';
 import {
-  PURCHASE_REQUESTS,
-  TRANSACTIONS,
-  formatPeso,
+  DISPLAY_STAGE_LABELS,
+  DISPLAY_STAGE_TONE,
+  deriveDisplayStage,
   requestTotal,
-  type PurchaseRequest,
-  type RequestStage,
-  type Transaction,
-  type TransactionStatus,
-} from '@/constants/marketplace';
+  type DisplayStage,
+  type PurchaseOutcome,
+} from '@/types/transaction';
 
-type Filter = 'lahat' | TransactionStatus;
+type Filter = 'lahat' | 'aktibo' | 'tapos' | 'cancelled';
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'lahat', label: 'Lahat' },
@@ -30,61 +32,73 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'cancelled', label: 'Nakansela' },
 ];
 
-/** Stage → Tagalog badge label & tone */
-const STAGE_META: Record<RequestStage, { label: string; tone: BadgeTone }> = {
-  pending: { label: 'Naghihintay', tone: 'warning' },
-  accepted: { label: 'Tinanggap', tone: 'info' },
-  scheduled: { label: 'Nakaiskedyul', tone: 'info' },
-  inspected: { label: 'Tapos ang Inspeksyon', tone: 'warning' },
-  completed: { label: 'Kumpleto', tone: 'success' },
-  reviewed: { label: 'Nasuri Na', tone: 'success' },
-  cancelled: { label: 'Nakansela', tone: 'neutral' },
-};
-
-const TRANSACTION_STATUS_META: Record<TransactionStatus, { label: string; tone: BadgeTone }> = {
-  aktibo: { label: 'Aktibo', tone: 'info' },
-  tapos: { label: 'Kumpleto', tone: 'success' },
-  cancelled: { label: 'Nakansela', tone: 'neutral' },
-};
-
-/** Requests still in flight, shown above the settled history. */
-const ONGOING_STAGES: RequestStage[] = [
-  'pending',
-  'accepted',
-  'scheduled',
-  'inspected',
+const ONGOING_STAGES: DisplayStage[] = [
+  'request_pending',
+  'awaiting_payment',
+  'payment_sent',
+  'payment_confirmed',
+  'delivered',
+];
+const DEAD_STAGES: DisplayStage[] = [
+  'request_rejected',
+  'request_cancelled',
+  'transaction_cancelled',
+  'payment_failed',
 ];
 
-/** Mga Transaksyon — ongoing purchase requests plus past transactions in uniform card style. */
+function matchesFilter(stage: DisplayStage, filter: Filter): boolean {
+  if (filter === 'lahat') return true;
+  if (filter === 'aktibo') return ONGOING_STAGES.includes(stage);
+  if (filter === 'tapos') return stage === 'completed';
+  return DEAD_STAGES.includes(stage);
+}
+
+/** Where a tap on a row should land, based on its current display stage. */
+function routeFor(outcome: PurchaseOutcome, stage: DisplayStage): string {
+  const id = outcome.request.id;
+  if (stage === 'awaiting_payment') return `/(buyer)/transaksyon/${id}/pickup`;
+  if (stage === 'payment_sent' || stage === 'payment_confirmed' || stage === 'delivered' || stage === 'completed') {
+    return `/(buyer)/transaksyon/${id}/resibo`;
+  }
+  return `/(buyer)/transaksyon/${id}`;
+}
+
+/** Mga Transaksyon — pending requests plus settled/completed transactions, driven by real data. */
 export default function TransactionsScreen() {
   const [filter, setFilter] = useState<Filter>('lahat');
+  const [outcomes, setOutcomes] = useState<PurchaseOutcome[]>([]);
+  const [listingsById, setListingsById] = useState<Map<string, CropListing>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const items = useMemo(
-    () => (filter === 'lahat' ? TRANSACTIONS : TRANSACTIONS.filter((t) => t.status === filter)),
-    [filter],
-  );
+  const load = useCallback(async (isRefresh: boolean) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+    try {
+      const result = await fetchBuyerPurchaseOutcomes();
+      setOutcomes(result);
+      const listings = await fetchCropListingsByIds(result.map((o) => o.request.listingId));
+      setListingsById(listings);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Hindi ma-load ang mga transaksyon.');
+    } finally {
+      if (isRefresh) setRefreshing(false);
+      else setLoading(false);
+    }
+  }, []);
 
-  // Ongoing requests are only meaningful under "Lahat" and "Aktibo".
-  const showRequests = filter === 'lahat' || filter === 'aktibo';
-  const requests = useMemo(
-    () =>
-      showRequests
-        ? PURCHASE_REQUESTS.filter((r) => ONGOING_STAGES.includes(r.stage))
-        : [],
-    [showRequests],
-  );
+  useEffect(() => {
+    load(false);
+  }, [load]);
 
-  const settled = useMemo(
-    () =>
-      filter === 'lahat' || filter === 'tapos' || filter === 'cancelled'
-        ? PURCHASE_REQUESTS.filter((r) => {
-            if (filter === 'tapos') return r.stage === 'completed' || r.stage === 'reviewed';
-            if (filter === 'cancelled') return r.stage === 'cancelled';
-            return r.stage === 'completed' || r.stage === 'reviewed' || r.stage === 'cancelled';
-          })
-        : [],
-    [filter],
+  const filtered = useMemo(
+    () => outcomes.filter((o) => matchesFilter(deriveDisplayStage(o), filter)),
+    [outcomes, filter],
   );
+  const ongoing = filtered.filter((o) => ONGOING_STAGES.includes(deriveDisplayStage(o)));
+  const settled = filtered.filter((o) => !ONGOING_STAGES.includes(deriveDisplayStage(o)));
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -95,104 +109,80 @@ export default function TransactionsScreen() {
         <FilterChips options={FILTERS} value={filter} onChange={setFilter} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {requests.length > 0 ? (
-          <>
-            <AnimoText variant="h3" color={AnimoColors.black}>
-              Kasalukuyang Request
-            </AnimoText>
-            {requests.map((request) => (
-              <RequestRow key={request.id} request={request} />
-            ))}
-          </>
-        ) : null}
+      {loading ? (
+        <View style={styles.centerFill}>
+          <ActivityIndicator color={AnimoColors.green} />
+        </View>
+      ) : error ? (
+        <View style={styles.centerFill}>
+          <AnimoText variant="body" color={AnimoColors.danger}>
+            {error}
+          </AnimoText>
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}>
+          {ongoing.length > 0 ? (
+            <>
+              <AnimoText variant="h3" color={AnimoColors.black}>
+                Kasalukuyang Request
+              </AnimoText>
+              {ongoing.map((outcome) => (
+                <OutcomeRow
+                  key={outcome.request.id}
+                  outcome={outcome}
+                  listing={listingsById.get(outcome.request.listingId)}
+                />
+              ))}
+            </>
+          ) : null}
 
-        {settled.length > 0 ? (
-          <>
-            <AnimoText variant="h3" color={AnimoColors.black} style={styles.sectionGap}>
-              Mga Natapos
-            </AnimoText>
-            {settled.map((request) => (
-              <RequestRow key={request.id} request={request} />
-            ))}
-          </>
-        ) : null}
+          {settled.length > 0 ? (
+            <>
+              <AnimoText variant="h3" color={AnimoColors.black} style={styles.sectionGap}>
+                Kasaysayan
+              </AnimoText>
+              {settled.map((outcome) => (
+                <OutcomeRow
+                  key={outcome.request.id}
+                  outcome={outcome}
+                  listing={listingsById.get(outcome.request.listingId)}
+                />
+              ))}
+            </>
+          ) : null}
 
-        {items.length > 0 ? (
-          <>
-            <AnimoText variant="h3" color={AnimoColors.black} style={styles.sectionGap}>
-              Kasaysayan
+          {ongoing.length === 0 && settled.length === 0 ? (
+            <AnimoText variant="body" color={AnimoColors.muted} style={styles.emptyText}>
+              Wala ka pang transaksyon.
             </AnimoText>
-            {items.map((t) => (
-              <HistoryRow key={t.id} transaction={t} />
-            ))}
-          </>
-        ) : null}
-      </ScrollView>
+          ) : null}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
 
-/** Purchase-request row that opens the status / pickup screen. */
-function RequestRow({ request }: { request: PurchaseRequest }) {
-  const meta = STAGE_META[request.stage];
-
-  const handlePress = () => {
-    if (request.stage === 'accepted' || request.stage === 'scheduled') {
-      router.push(`/(buyer)/transaksyon/${request.id}/pickup`);
-    } else if (request.stage === 'inspected') {
-      router.push(`/(buyer)/transaksyon/${request.id}/bayad`);
-    } else if (request.stage === 'completed' || request.stage === 'reviewed') {
-      router.push(`/(buyer)/transaksyon/${request.id}/resibo`);
-    } else {
-      router.push(`/(buyer)/transaksyon/${request.id}`);
-    }
-  };
+function OutcomeRow({ outcome, listing }: { outcome: PurchaseOutcome; listing: CropListing | undefined }) {
+  const stage = deriveDisplayStage(outcome);
+  const quantityKg =
+    outcome.kind === 'matched' ? outcome.transaction.quantityKg : outcome.request.requestedQuantityKg;
+  const total =
+    outcome.kind === 'matched' ? requestTotal(outcome) : (listing?.pricePerKg ?? 0) * quantityKg;
 
   return (
-    <Pressable style={styles.row} onPress={handlePress}>
+    <Pressable style={styles.row} onPress={() => router.push(routeFor(outcome, stage) as never)}>
       <View style={styles.rowText}>
         <View style={styles.rowTop}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-            {request.variety}
+            {listing ? varietyLabel(listing) : 'Palay'}
           </AnimoText>
-          <StatusBadge label={meta.label} tone={meta.tone} />
+          <StatusBadge label={DISPLAY_STAGE_LABELS[stage]} tone={DISPLAY_STAGE_TONE[stage]} />
         </View>
         <AnimoText variant="caption" color={AnimoColors.muted}>
-          {request.reference} · {request.quantityKg} kg ·{' '}
-          {formatPeso(requestTotal(request))}
-        </AnimoText>
-        <AnimoText variant="caption" color={AnimoColors.muted}>
-          {request.farmer.name} · {request.farmer.addressDetail}
-        </AnimoText>
-      </View>
-      <ChevronRight size={20} color={AnimoColors.muted} />
-    </Pressable>
-  );
-}
-
-/** Past history card in identical uniform layout. */
-function HistoryRow({ transaction }: { transaction: Transaction }) {
-  const meta = TRANSACTION_STATUS_META[transaction.status];
-
-  return (
-    <Pressable
-      style={styles.row}
-      onPress={() => router.push('/(buyer)/transaksyon/pr-completed/resibo')}>
-      <View style={styles.rowText}>
-        <View style={styles.rowTop}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-            {transaction.variety}
-          </AnimoText>
-          <StatusBadge label={meta.label} tone={meta.tone} />
-        </View>
-        <AnimoText variant="caption" color={AnimoColors.muted}>
-          {transaction.reference || transaction.id} · {transaction.quantityKg} kg ·{' '}
-          {formatPeso(transaction.total)}
-        </AnimoText>
-        <AnimoText variant="caption" color={AnimoColors.muted}>
-          {transaction.farmerName || 'Magsasaka'} · {transaction.municipality},{' '}
-          {transaction.province} ({transaction.date})
+          {quantityKg} kg · {formatPeso(total)}
         </AnimoText>
       </View>
       <ChevronRight size={20} color={AnimoColors.muted} />
@@ -208,6 +198,11 @@ const styles = StyleSheet.create({
   filters: {
     paddingVertical: AnimoSpacing.md,
   },
+  centerFill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   list: {
     paddingHorizontal: AnimoSpacing.xl,
     paddingBottom: AnimoSpacing.xxl,
@@ -215,6 +210,10 @@ const styles = StyleSheet.create({
   },
   sectionGap: {
     marginTop: AnimoSpacing.sm,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: AnimoSpacing.xxl,
   },
   row: {
     flexDirection: 'row',

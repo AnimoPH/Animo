@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
-  CalendarDays,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -9,27 +8,16 @@ import {
   Droplets,
   FileText,
   HelpCircle,
-  MapPin,
   Package,
   Phone,
   Scale,
-  ShieldCheck,
   Star,
-  TriangleAlert,
   User,
   X,
   XCircle,
 } from 'lucide-react-native';
-import { useState } from 'react';
-import {
-  Linking,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
@@ -40,184 +28,180 @@ import { ProgressTracker } from '@/components/animo/progress-tracker';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { formatPeso } from '@/constants/marketplace';
+import { fetchCropListing } from '@/services/crop-listing-service';
+import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import {
-  farmerListingLine,
-  farmerProgressSteps,
-  farmerStageBadge,
-  formatPeso,
-  getFarmerTransaction,
-  paymentMethodLabel,
-  updateFarmerTransactionStage,
-  type FarmerTransaction,
-  type FarmerTransactionStage,
-} from '@/constants/marketplace';
+  cancelTransaction,
+  confirmPaymentReceived,
+  fetchTransaction,
+  fetchTransactionCounterpart,
+  markDelivered,
+} from '@/services/transaction-service';
+import { varietyLabel, type CropListing } from '@/types/crop-listing';
+import type { PurchaseRequest } from '@/types/purchase-request';
+import {
+  DISPLAY_STAGE_LABELS,
+  DISPLAY_STAGE_TONE,
+  buildProgressSteps,
+  deriveDisplayStage,
+  type DisplayStage,
+  type PurchaseOutcome,
+  type TransactionCounterpart,
+  type TransactionWithPayment,
+} from '@/types/transaction';
 
-type ConfirmKind = 'accept' | 'schedule_accept' | 'inspection_pass' | 'payment' | 'rating' | null;
-
-const REJECTION_REASONS = [
-  'Kulang ang natitirang stock o naubos na',
-  'Hindi tugma ang iskedyul ng pickup',
-  'Masyadong mababa ang itinakdang dami',
-  'Iba pang dahilan',
-];
+type ConfirmKind = 'payment_received' | 'delivered' | null;
+type ActionConfirmType = 'confirm_payment' | 'confirm_delivered' | null;
 
 /**
- * Farmer Transaction Detail Screen.
- *
- * Flow aligned with Buyer module:
- * 1. Request Stage (Pending) -> Farmer accepts request with confirmation modal.
- * 2. Schedule & Inspection Stage -> Farmer accepts proposed schedule -> Confirms inspection passed.
- * 3. Payment Stage -> "Paraan ng Pagbabayad" becomes visible -> Farmer confirms payment received.
- * 4. Completed Stage -> Digital receipt & Review sa Mamimili at Progreso ng Transaksyon.
+ * Farmer Transaction Detail Screen — reads a real `transactionmatch` (this
+ * `id` is always a transaction_id; pending pre-match requests are triaged in
+ * the listing's Orders tab, not here). Payment happens before delivery in
+ * the real flow: "Kumpirmahin ang Paghahatid" only appears once the payment
+ * is Confirmed, and is effectively the completion action (see
+ * `transactionmatch_auto_complete`, migration 0001).
  */
 export default function FarmerTransactionDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const [transaction, setTransaction] = useState<FarmerTransaction | undefined>(
-    () => getFarmerTransaction(id),
-  );
+
+  const [transaction, setTransaction] = useState<TransactionWithPayment | null>(null);
+  const [request, setRequest] = useState<PurchaseRequest | null>(null);
+  const [listing, setListing] = useState<CropListing | null>(null);
+  const [buyer, setBuyer] = useState<TransactionCounterpart | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [confirm, setConfirm] = useState<ConfirmKind>(null);
-
-  // Inspection & schedule confirmation state (accepted if already paying or completed!)
-  const initialScheduleAccepted =
-    transaction?.stage === 'completed' ||
-    transaction?.stage === 'awaiting_payment' ||
-    transaction?.stage === 'awaiting_pickup';
-  const [scheduleAccepted, setScheduleAccepted] = useState(initialScheduleAccepted);
-
-  // Action Confirmation Prompt Modals
-  const [actionConfirmType, setActionConfirmType] = useState<
-    'accept_request' | 'accept_schedule' | 'confirm_inspection' | 'confirm_payment' | null
-  >(null);
-
-  // Reject / Cancel Modal State
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [selectedReason, setSelectedReason] = useState(REJECTION_REASONS[0]);
-  const [customReasonNote, setCustomReasonNote] = useState('');
+  const [actionConfirmType, setActionConfirmType] = useState<ActionConfirmType>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [showCancelSuccessModal, setShowCancelSuccessModal] = useState(false);
 
-  const bump = (stage: FarmerTransactionStage) => {
+  const load = useCallback(async () => {
     if (!id) return;
-    const updated = updateFarmerTransactionStage(id, stage);
-    if (updated) setTransaction(updated);
-  };
+    setLoading(true);
+    setError(null);
+    try {
+      const tx = await fetchTransaction(id);
+      setTransaction(tx);
+      if (tx) {
+        const [listingResult, buyerResult, requestResult] = await Promise.all([
+          fetchCropListing(tx.listingId),
+          fetchTransactionCounterpart(tx.buyerId),
+          fetchPurchaseRequest(tx.requestId),
+        ]);
+        setListing(listingResult);
+        setBuyer(buyerResult);
+        setRequest(requestResult);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Hindi ma-load ang transaksyon.');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleCallBuyer = (phone: string) => {
     Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`).catch(() => {});
   };
 
-  const handleExecuteAction = () => {
+  const handleExecuteAction = async () => {
     const type = actionConfirmType;
     setActionConfirmType(null);
-
-    if (type === 'accept_request') {
-      bump('accepted');
-      setConfirm('accept');
-    } else if (type === 'accept_schedule') {
-      setScheduleAccepted(true);
-      setConfirm('schedule_accept');
-    } else if (type === 'confirm_inspection') {
-      bump('awaiting_payment');
-      setConfirm('inspection_pass');
-    } else if (type === 'confirm_payment') {
-      bump('completed');
-      setConfirm('payment');
+    if (!transaction) return;
+    setActionError(null);
+    try {
+      if (type === 'confirm_payment' && transaction.payment) {
+        await confirmPaymentReceived(transaction.payment.id);
+        setConfirm('payment_received');
+      } else if (type === 'confirm_delivered') {
+        await markDelivered(transaction.id);
+        setConfirm('delivered');
+      }
+      await load();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Hindi naisagawa ang aksyon.');
     }
   };
 
-  const handleConfirmReject = () => {
-    bump('cancelled');
-    setShowRejectModal(false);
-    setShowCancelSuccessModal(true);
+  const handleConfirmCancel = async () => {
+    if (!transaction) return;
+    setActionError(null);
+    try {
+      await cancelTransaction(transaction.id);
+      setShowCancelModal(false);
+      setShowCancelSuccessModal(true);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Hindi makansela ang transaksyon.');
+      setShowCancelModal(false);
+    }
   };
 
-  if (!transaction) {
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <ScreenHeader title="Detalye ng Transaksyon" />
+        <View style={styles.missing}>
+          <ActivityIndicator color={AnimoColors.accentPrimary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!transaction || !request || error) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
         <ScreenHeader title="Detalye ng Transaksyon" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-            Hindi nahanap ang transaksyon na ito.
+            {error ?? 'Hindi nahanap ang transaksyon na ito.'}
           </AnimoText>
         </View>
       </SafeAreaView>
     );
   }
 
-  const steps = farmerProgressSteps(transaction);
-  const pricePerKg = transaction.quantityKg > 0 ? transaction.total / transaction.quantityKg : 0;
-  const isPending = transaction.stage === 'pending';
-  const isPaymentStage = transaction.stage === 'awaiting_payment';
-  const isCompleted = transaction.stage === 'completed';
-  const isCancelled = transaction.stage === 'cancelled' || transaction.stage === 'failed';
-
-  // Only show payment method if in payment stage or completed
-  const showPaymentMethod = isPaymentStage || isCompleted;
-  const headerTitle = farmerHeaderTitle(transaction.stage);
-
-  // Build payment breakdown rows conditionally
-  const paymentRows = [
-    { label: 'Dami ng Palay', amount: `${transaction.quantityKg} kg` },
-    { label: 'Presyo bawat kilo', amount: formatPeso(pricePerKg) },
-    ...(showPaymentMethod
-      ? [{ label: 'Paraan ng Pagbabayad', amount: paymentMethodLabel(transaction.paymentMethod) }]
-      : []),
-  ];
+  const outcome: PurchaseOutcome = { kind: 'matched', request, transaction };
+  const stage = deriveDisplayStage(outcome);
+  const isCancelled = stage === 'transaction_cancelled' || stage === 'payment_failed';
+  const isCompleted = stage === 'completed';
+  const canCancel = transaction.status === 'Pending_Payment';
+  const steps = buildProgressSteps(outcome, 'farmer');
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title={headerTitle} />
+      <ScreenHeader title={farmerHeaderTitle(stage)} />
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}>
-        {/* 1. Stage Banner Card */}
-        <StageBanner
-          transaction={transaction}
-          showPaymentMethod={showPaymentMethod}
-        />
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <StageBanner stage={stage} transaction={transaction} buyerName={buyer?.name} />
 
-        {/* 2. Crop Listing Summary Card */}
-        <ListingCard
-          transaction={transaction}
-          pricePerKg={pricePerKg}
-          isCancelled={isCancelled}
-        />
+        {listing ? <ListingCard listing={listing} transaction={transaction} isCancelled={isCancelled} /> : null}
 
-        {/* 3. Progress Tracker (5 Steps: Kahilingan -> Tinanggap -> Iskedyul at Inspeksyon -> Bayad -> Review) */}
         <ProgressTracker title="Progreso ng Transaksyon" steps={steps} />
 
-        {/* 4. Payment Breakdown (Payment method only visible when at payment stage) */}
         <PaymentSummary
-          rows={paymentRows}
-          total={{ label: 'Kabuuang Halaga ng Transaksyon', amount: transaction.total }}
+          rows={[
+            { label: 'Dami ng Palay', amount: `${transaction.quantityKg} kg` },
+            { label: 'Presyo bawat kilo', amount: formatPeso(transaction.agreedPricePerKg) },
+            ...(transaction.payment ? [{ label: 'Paraan ng Pagbabayad', amount: transaction.payment.paymentMode }] : []),
+          ]}
+          total={{ label: 'Kabuuang Halaga ng Transaksyon', amount: transaction.totalAmount }}
         />
 
-        {/* 5. Buyer Contact & Party Card */}
-        {!isPending && !isCancelled ? (
-          <BuyerPartyCard
-            buyer={transaction.buyer}
-            onCall={() => handleCallBuyer(transaction.buyer.phone)}
-          />
-        ) : null}
+        {buyer ? <BuyerPartyCard buyer={buyer} onCall={() => handleCallBuyer(buyer.phone)} /> : null}
 
-        {/* 6. Pickup & Inspection Details Card */}
-        {!isPending && !isCancelled ? (
-          <PickupInspectionCard
-            isCompleted={isCompleted}
-            quantityKg={transaction.quantityKg}
-            scheduleAccepted={scheduleAccepted || isCompleted || isPaymentStage}
-            onAcceptSchedule={() => setActionConfirmType('accept_schedule')}
-          />
-        ) : null}
-
-        {/* 7. Digital Receipt Card (When Completed) */}
         {isCompleted ? (
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push('/(farmer)/resibo' as Href)}
+            onPress={() => router.push({ pathname: '/(farmer)/resibo', params: { id: transaction.id } } as Href)}
             style={({ pressed }) => [styles.receiptRow, pressed && styles.pressed]}>
             <View style={styles.receiptIcon}>
               <FileText size={20} color={AnimoColors.green} />
@@ -227,63 +211,48 @@ export default function FarmerTransactionDetailScreen() {
                 Digital na Resibo
               </AnimoText>
               <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                {transaction.reference} · Naka-save sa iyong talaan
+                Naka-save sa iyong talaan
               </AnimoText>
             </View>
             <ChevronRight size={18} color={AnimoColors.objectLowEmphasis} />
           </Pressable>
         ) : null}
+
+        {actionError ? (
+          <AnimoText variant="caption" color={AnimoColors.danger}>
+            {actionError}
+          </AnimoText>
+        ) : null}
       </ScrollView>
 
-      {/* Bottom Footer Actions */}
       <View style={styles.footer}>
         <FooterActions
-          stage={transaction.stage}
-          scheduleAccepted={scheduleAccepted || isCompleted || isPaymentStage}
-          onAcceptRequest={() => setActionConfirmType('accept_request')}
-          onDecline={() => setShowRejectModal(true)}
-          onConfirmSchedule={() => setActionConfirmType('accept_schedule')}
-          onConfirmInspectionPass={() => setActionConfirmType('confirm_inspection')}
+          stage={stage}
+          canCancel={canCancel}
           onConfirmPayment={() => setActionConfirmType('confirm_payment')}
-          onCancel={() => setShowRejectModal(true)}
+          onConfirmDelivered={() => setActionConfirmType('confirm_delivered')}
+          onCancel={() => setShowCancelModal(true)}
           onRate={() => router.push({ pathname: '/(farmer)/review', params: { id: transaction.id } })}
           onBackToMarket={() => router.push('/(farmer)/(tabs)/palengke' as Href)}
         />
       </View>
 
-      {/* ACTION CONFIRMATION MODAL */}
-      <Modal
-        visible={actionConfirmType !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setActionConfirmType(null)}>
+      <Modal visible={actionConfirmType !== null} transparent animationType="fade" onRequestClose={() => setActionConfirmType(null)}>
         <Pressable style={styles.modalOverlay} onPress={() => setActionConfirmType(null)}>
           <Pressable style={styles.confirmModalCard} onPress={(e) => e.stopPropagation()}>
             <View style={styles.confirmModalIconCircle}>
               <HelpCircle size={28} color={AnimoColors.accentPrimary} />
             </View>
-
             <View style={styles.confirmModalHeaderGroup}>
               <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.textCenter}>
-                {actionConfirmType === 'accept_request'
-                  ? 'Tanggapin ang Order?'
-                  : actionConfirmType === 'accept_schedule'
-                    ? 'Tanggapin ang Iskedyul?'
-                    : actionConfirmType === 'confirm_inspection'
-                      ? 'Pumasa sa Inspeksyon?'
-                      : 'Kumpirmahin ang Bayad?'}
+                {actionConfirmType === 'confirm_payment' ? 'Kumpirmahin ang Bayad?' : 'Kumpirmahin ang Paghahatid?'}
               </AnimoText>
               <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
-                {actionConfirmType === 'accept_request'
-                  ? `Sigurado ka bang nais mong tanggapin ang purchase request mula kay ${transaction.buyer.name}?`
-                  : actionConfirmType === 'accept_schedule'
-                    ? 'Sigurado ka bang ayos sa iyo ang itinakdang oras at petsa ng pickup ng palay?'
-                    : actionConfirmType === 'confirm_inspection'
-                      ? 'Sigurado ka bang na-inspeksyon at pumasa ang kalidad at timbang ng palay?'
-                      : 'Sigurado ka bang natanggap mo na ang buong bayad sa GCash o Cash?'}
+                {actionConfirmType === 'confirm_payment'
+                  ? 'Sigurado ka bang natanggap mo na ang buong bayad sa GCash o Cash?'
+                  : 'Sigurado ka bang naihatid mo na ang palay sa mamimili? Ito ang huling hakbang bago makumpleto ang transaksyon.'}
               </AnimoText>
             </View>
-
             <View style={styles.modalActions}>
               <Pressable
                 accessibilityRole="button"
@@ -291,16 +260,9 @@ export default function FarmerTransactionDetailScreen() {
                 style={({ pressed }) => [styles.confirmActionBtn, pressed && styles.pressed]}>
                 <Check size={18} color={AnimoColors.white} />
                 <AnimoText variant="button" color={AnimoColors.white}>
-                  {actionConfirmType === 'accept_request'
-                    ? 'Oo, Tanggapin ang Order'
-                    : actionConfirmType === 'accept_schedule'
-                      ? 'Oo, Tanggapin ang Iskedyul'
-                      : actionConfirmType === 'confirm_inspection'
-                        ? 'Oo, Kumpirmahin (Pumasa)'
-                        : 'Oo, Nakumpirma ang Bayad'}
+                  {actionConfirmType === 'confirm_payment' ? 'Oo, Nakumpirma ang Bayad' : 'Oo, Naihatid Na'}
                 </AnimoText>
               </Pressable>
-
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setActionConfirmType(null)}
@@ -314,81 +276,33 @@ export default function FarmerTransactionDetailScreen() {
         </Pressable>
       </Modal>
 
-      {/* REJECT / CANCEL REASON PROMPT MODAL */}
-      <Modal
-        visible={showRejectModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowRejectModal(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowRejectModal(false)}>
-          <Pressable style={styles.rejectCard} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.rejectIconCircle}>
-              <TriangleAlert size={28} color={AnimoColors.danger} />
+      <Modal visible={showCancelModal} transparent animationType="fade" onRequestClose={() => setShowCancelModal(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)}>
+          <Pressable style={styles.confirmModalCard} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.confirmModalIconCircle, styles.dangerIconCircle]}>
+              <XCircle size={28} color={AnimoColors.danger} />
             </View>
-
-            <View style={styles.rejectHeaderGroup}>
+            <View style={styles.confirmModalHeaderGroup}>
               <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.textCenter}>
-                {isPending ? 'Tanggihan ang Kahilingan?' : 'Kanselahin ang Transaksyon?'}
+                Kanselahin ang Transaksyon?
               </AnimoText>
               <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
-                Sigurado ka bang nais mong kanselahin? Pumili o maglagay ng dahilan para kay {transaction.buyer.name}:
+                Wala pang naitalang bayad sa transaksyong ito. Muling magiging available ang dami ng palay.
               </AnimoText>
             </View>
-
-            {/* Preset Options */}
-            <View style={styles.reasonsList}>
-              {REJECTION_REASONS.map((reason) => {
-                const isSelected = selectedReason === reason;
-                return (
-                  <Pressable
-                    key={reason}
-                    accessibilityRole="radio"
-                    onPress={() => setSelectedReason(reason)}
-                    style={[styles.reasonOption, isSelected && styles.reasonOptionSelected]}>
-                    <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
-                      {isSelected ? <View style={styles.radioInnerDot} /> : null}
-                    </View>
-                    <AnimoText
-                      variant={isSelected ? 'bodyEmphasis' : 'body'}
-                      color={isSelected ? AnimoColors.accentPrimary : AnimoColors.textHighEmphasis}
-                      style={styles.flex}>
-                      {reason}
-                    </AnimoText>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* Custom Notes */}
-            {selectedReason === 'Iba pang dahilan' ? (
-              <View style={styles.customInputWrap}>
-                <TextInput
-                  style={styles.customInput}
-                  placeholder="Isulat ang partikular na dahilan..."
-                  placeholderTextColor={AnimoColors.textLowEmphasis}
-                  value={customReasonNote}
-                  onChangeText={setCustomReasonNote}
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-            ) : null}
-
-            {/* Actions */}
             <View style={styles.modalActions}>
               <Pressable
                 accessibilityRole="button"
-                onPress={handleConfirmReject}
+                onPress={handleConfirmCancel}
                 style={({ pressed }) => [styles.confirmRejectBtn, pressed && styles.pressed]}>
                 <X size={18} color={AnimoColors.white} />
                 <AnimoText variant="button" color={AnimoColors.white}>
-                  {isPending ? 'Tanggihan ang Order' : 'Kanselahin ang Transaksyon'}
+                  Kanselahin ang Transaksyon
                 </AnimoText>
               </Pressable>
-
               <Pressable
                 accessibilityRole="button"
-                onPress={() => setShowRejectModal(false)}
+                onPress={() => setShowCancelModal(false)}
                 style={({ pressed }) => [styles.cancelDismissBtn, pressed && styles.pressed]}>
                 <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
                   Bumalik
@@ -399,12 +313,11 @@ export default function FarmerTransactionDetailScreen() {
         </Pressable>
       </Modal>
 
-      {/* CANCEL SUCCESS MODAL */}
       <FeedbackModal
         visible={showCancelSuccessModal}
         tone="danger"
         title="Matagumpay na Nakansela"
-        message="Nakansela na ang transaksyong ito at naipabatid na sa mamimili ang iyong dahilan."
+        message="Nakansela na ang transaksyong ito."
         confirmLabel="OK"
         onConfirm={() => {
           setShowCancelSuccessModal(false);
@@ -412,12 +325,15 @@ export default function FarmerTransactionDetailScreen() {
         }}
       />
 
-      {/* CONFIRMATION / SUCCESS MODAL */}
       <FeedbackModal
         visible={confirm !== null}
         tone="success"
-        title={confirmTitle(confirm)}
-        message={confirmMessage(transaction, confirm)}
+        title={confirm === 'delivered' ? 'Kumpleto na ang Transaksyon' : 'Nakumpirma ang Bayad'}
+        message={
+          confirm === 'delivered'
+            ? 'Naitala ang paghahatid at natapos na ang transaksyon. Maaari mo nang tingnan ang digital na resibo.'
+            : 'Nakumpirma ang bayad. Kapag naihatid mo na ang palay, kumpirmahin din ang paghahatid.'
+        }
         confirmLabel="Sige"
         onConfirm={() => setConfirm(null)}
       />
@@ -425,50 +341,46 @@ export default function FarmerTransactionDetailScreen() {
   );
 }
 
-/** Stage banner matching the Buyer UI stage card style */
 function StageBanner({
+  stage,
   transaction,
-  showPaymentMethod,
+  buyerName,
 }: {
-  transaction: FarmerTransaction;
-  showPaymentMethod: boolean;
+  stage: DisplayStage;
+  transaction: TransactionWithPayment;
+  buyerName?: string;
 }) {
-  const badge = farmerStageBadge(transaction.stage);
-  const { stage } = transaction;
-
-  const getStageHeader = () => {
+  const header = (() => {
     switch (stage) {
-      case 'pending':
+      case 'awaiting_payment':
         return {
           icon: <Clock size={20} color="#B4791A" />,
           iconBg: '#FBF0D9',
-          title: 'Bagong Purchase Request',
-          caption: 'Naghihintay ng iyong pagtanggap upang simulan ang transaksyon.',
+          title: 'Tinanggap ang Kahilingan',
+          caption: 'Naghihintay ng bayad mula sa mamimili.',
         };
-      case 'accepted':
-      case 'awaiting_pickup':
-        return {
-          icon: <CalendarDays size={20} color={AnimoColors.accentPrimary} />,
-          iconBg: AnimoColors.accentPrimaryLight,
-          title: 'Iskedyul at Inspeksyon sa Bukid',
-          caption: 'Ihanda ang palay para sa inspeksyon sa itinakdang oras ng pickup.',
-        };
-      case 'awaiting_payment':
+      case 'payment_sent':
         return {
           icon: <Package size={20} color="#D97706" />,
           iconBg: '#FEF3C7',
-          title: 'Pumasa sa Inspeksyon — Naghihintay ng Bayad',
-          caption: 'Kumpirmahin kapag naipadala na ng mamimili ang buong bayad.',
+          title: 'Naipadala na ang Bayad',
+          caption: 'Kumpirmahin kapag natanggap na ang buong bayad.',
+        };
+      case 'payment_confirmed':
+        return {
+          icon: <CheckCircle2 size={20} color={AnimoColors.accentPrimary} />,
+          iconBg: AnimoColors.accentPrimaryLight,
+          title: 'Nakumpirma ang Bayad',
+          caption: 'Kumpirmahin kapag naihatid mo na ang palay.',
         };
       case 'completed':
         return {
           icon: <CheckCircle2 size={20} color={AnimoColors.accentPrimary} />,
           iconBg: AnimoColors.accentPrimaryLight,
           title: 'Kumpleto na ang Transaksyon',
-          caption: 'Nakuha na ang palay at naisara na ang transaksyon.',
+          caption: 'Naihatid na ang palay at naisara na ang transaksyon.',
         };
-      case 'cancelled':
-      case 'failed':
+      default:
         return {
           icon: <XCircle size={20} color={AnimoColors.danger} />,
           iconBg: AnimoColors.dangerTint,
@@ -476,16 +388,12 @@ function StageBanner({
           caption: 'Hindi na itutuloy ang transaksyong ito.',
         };
     }
-  };
-
-  const header = getStageHeader();
+  })();
 
   return (
     <View style={styles.bannerCard}>
       <View style={styles.bannerRow}>
-        <View style={[styles.bannerIcon, { backgroundColor: header.iconBg }]}>
-          {header.icon}
-        </View>
+        <View style={[styles.bannerIcon, { backgroundColor: header.iconBg }]}>{header.icon}</View>
         <View style={styles.bannerText}>
           <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
             {header.title}
@@ -497,31 +405,23 @@ function StageBanner({
       </View>
 
       <View style={styles.bannerMeta}>
-        <StatusBadge label={badge.label} tone={badge.tone} />
-        <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-          {transaction.sentAt}
-        </AnimoText>
+        <StatusBadge label={DISPLAY_STAGE_LABELS[stage]} tone={DISPLAY_STAGE_TONE[stage]} />
       </View>
 
       <View style={styles.divider} />
-
-      <MetaRow label="Transaction ID" value={transaction.reference} />
-      <MetaRow label="Mamimili" value={transaction.buyer.name} />
-      {showPaymentMethod ? (
-        <MetaRow label="Paraan ng Bayad" value={paymentMethodLabel(transaction.paymentMethod)} />
-      ) : null}
+      {buyerName ? <MetaRow label="Mamimili" value={buyerName} /> : null}
+      {transaction.payment ? <MetaRow label="Paraan ng Bayad" value={transaction.payment.paymentMode} /> : null}
     </View>
   );
 }
 
-/** Crop listing summary card with robust layout against price overlap */
 function ListingCard({
+  listing,
   transaction,
-  pricePerKg,
   isCancelled,
 }: {
-  transaction: FarmerTransaction;
-  pricePerKg: number;
+  listing: CropListing;
+  transaction: TransactionWithPayment;
   isCancelled: boolean;
 }) {
   return (
@@ -529,14 +429,11 @@ function ListingCard({
       <View style={styles.listingHeader}>
         <View style={styles.listingTitleGroup}>
           <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            {transaction.variety}
-          </AnimoText>
-          <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            {farmerListingLine(transaction)}
+            {varietyLabel(listing)}
           </AnimoText>
         </View>
         <AnimoText variant="price" color={AnimoColors.accentPrimary} style={styles.listingPriceText}>
-          {formatPeso(transaction.total)}
+          {formatPeso(transaction.totalAmount)}
         </AnimoText>
       </View>
 
@@ -550,12 +447,12 @@ function ListingCard({
         <View style={styles.specItem}>
           <Droplets size={14} color={AnimoColors.textMediumEmphasis} />
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-            {transaction.moisture}
+            {listing.declaredMoisture}
           </AnimoText>
         </View>
         <View style={styles.specItem}>
           <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-            {formatPeso(pricePerKg)} / kg
+            {formatPeso(transaction.agreedPricePerKg)} / kg
           </AnimoText>
         </View>
       </View>
@@ -563,14 +460,7 @@ function ListingCard({
   );
 }
 
-/** Buyer party information card with click-to-call */
-function BuyerPartyCard({
-  buyer,
-  onCall,
-}: {
-  buyer: { name: string; phone: string };
-  onCall: () => void;
-}) {
+function BuyerPartyCard({ buyer, onCall }: { buyer: TransactionCounterpart; onCall: () => void }) {
   return (
     <View style={styles.partyCard}>
       <View style={styles.partyHeaderRow}>
@@ -582,7 +472,7 @@ function BuyerPartyCard({
             {buyer.name}
           </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            Mamimili · Na-verify na Account
+            Mamimili
           </AnimoText>
         </View>
         <Pressable
@@ -605,102 +495,6 @@ function BuyerPartyCard({
           {buyer.phone}
         </AnimoText>
       </View>
-
-      <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-        Makipag-ugnayan sa mamimili gamit ang telepono para sa koordinasyon ng pickup at inspeksyon.
-      </AnimoText>
-    </View>
-  );
-}
-
-/** Pickup & Inspection checklist card */
-function PickupInspectionCard({
-  isCompleted,
-  quantityKg,
-  scheduleAccepted,
-  onAcceptSchedule,
-}: {
-  isCompleted: boolean;
-  quantityKg: number;
-  scheduleAccepted: boolean;
-  onAcceptSchedule: () => void;
-}) {
-  return (
-    <View style={styles.inspectionCard}>
-      <View style={styles.inspectionHeader}>
-        <CalendarDays size={18} color={AnimoColors.accentPrimary} />
-        <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-          Iskedyul ng Pickup at Inspeksyon
-        </AnimoText>
-      </View>
-
-      <View style={styles.scheduleBox}>
-        <View style={styles.scheduleRow}>
-          <Clock size={15} color={AnimoColors.accentPrimary} />
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-            Biyernes, Ago 21, 2026 · 08:00 AM - 10:00 AM
-          </AnimoText>
-        </View>
-
-        <View style={styles.scheduleRow}>
-          <MapPin size={15} color={AnimoColors.textMediumEmphasis} />
-          <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.flex}>
-            Barangay San Jose, Antipolo, Rizal (Lokasyon ng Bukid)
-          </AnimoText>
-        </View>
-      </View>
-
-      {!scheduleAccepted ? (
-        <View style={styles.scheduleAcceptWrap}>
-          <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            Itinakda ng mamimili ang oras na ito. Tanggapin upang kumpirmahin ang iskedyul:
-          </AnimoText>
-          <AnimoButton
-            label="Tanggapin ang Iskedyul"
-            icon={Check}
-            onPress={onAcceptSchedule}
-          />
-        </View>
-      ) : (
-        <View style={styles.confirmedScheduleBanner}>
-          <CheckCircle2 size={16} color={AnimoColors.accentPrimary} />
-          <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.passedText}>
-            Kumpirmado na ang iskedyul ng pickup.
-          </AnimoText>
-        </View>
-      )}
-
-      <View style={styles.divider} />
-
-      <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-        Talaan ng Inspeksyon sa Oras ng Pickup:
-      </AnimoText>
-
-      <View style={styles.checksList}>
-        <CheckRow label="Uri at Kalidad ng Palay" passed={isCompleted} />
-        <CheckRow label={`Bilang ng Sako (${Math.ceil(quantityKg / 50)} sako × 50kg)`} passed={isCompleted} />
-        <CheckRow label={`Aktwal na Timbang (${quantityKg} kg)`} passed={isCompleted} />
-      </View>
-
-      {isCompleted ? (
-        <View style={styles.passedBanner}>
-          <CheckCircle2 size={16} color={AnimoColors.accentPrimary} />
-          <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.passedText}>
-            Matagumpay na natapos ang inspeksyon at nakuha na ang palay.
-          </AnimoText>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function CheckRow({ label, passed }: { label: string; passed: boolean }) {
-  return (
-    <View style={styles.checkRow}>
-      <ShieldCheck size={16} color={passed ? AnimoColors.accentPrimary : AnimoColors.objectLowEmphasis} />
-      <AnimoText variant="body" color={AnimoColors.textHighEmphasis}>
-        {label}
-      </AnimoText>
     </View>
   );
 }
@@ -720,103 +514,51 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 
 function FooterActions({
   stage,
-  scheduleAccepted,
-  onAcceptRequest,
-  onDecline,
-  onConfirmSchedule,
-  onConfirmInspectionPass,
+  canCancel,
   onConfirmPayment,
+  onConfirmDelivered,
   onCancel,
   onRate,
   onBackToMarket,
 }: {
-  stage: FarmerTransactionStage;
-  scheduleAccepted: boolean;
-  onAcceptRequest: () => void;
-  onDecline: () => void;
-  onConfirmSchedule: () => void;
-  onConfirmInspectionPass: () => void;
+  stage: DisplayStage;
+  canCancel: boolean;
   onConfirmPayment: () => void;
+  onConfirmDelivered: () => void;
   onCancel: () => void;
   onRate: () => void;
   onBackToMarket: () => void;
 }) {
-  // 1. Pending stage
-  if (stage === 'pending') {
+  if (stage === 'payment_sent') {
     return (
       <View style={styles.footerStack}>
-        <AnimoButton label="Accept" icon={Check} onPress={onAcceptRequest} />
-        <AnimoButton
-          label="Tanggihan"
-          variant="dangerOutline"
-          icon={X}
-          onPress={onDecline}
-        />
+        <AnimoButton label="Natanggap ko na ang Bayad" icon={Check} onPress={onConfirmPayment} />
+        {canCancel ? <AnimoButton label="Kanselahin ang Transaksyon" variant="dangerOutline" icon={X} onPress={onCancel} /> : null}
       </View>
     );
   }
 
-  // 2. Schedule & Inspection stage
-  if (stage === 'accepted' || stage === 'awaiting_pickup') {
-    return (
-      <View style={styles.footerStack}>
-        {!scheduleAccepted ? (
-          <AnimoButton
-            label="Tanggapin ang Iskedyul ng Pickup"
-            icon={Check}
-            onPress={onConfirmSchedule}
-          />
-        ) : (
-          <AnimoButton
-            label="Kumpirmahin ang Inspeksyon (Pumasa)"
-            icon={Check}
-            onPress={onConfirmInspectionPass}
-          />
-        )}
-        <AnimoButton
-          label="Kanselahin ang Transaksyon"
-          variant="dangerOutline"
-          icon={X}
-          onPress={onCancel}
-        />
-      </View>
-    );
-  }
-
-  // 3. Payment stage
   if (stage === 'awaiting_payment') {
     return (
       <View style={styles.footerStack}>
-        <AnimoButton
-          label="Natanggap ko na ang Bayad"
-          icon={Check}
-          onPress={onConfirmPayment}
-        />
-        <AnimoButton
-          label="Kanselahin ang Transaksyon"
-          variant="dangerOutline"
-          icon={X}
-          onPress={onCancel}
-        />
+        {canCancel ? <AnimoButton label="Kanselahin ang Transaksyon" variant="dangerOutline" icon={X} onPress={onCancel} /> : null}
       </View>
     );
   }
 
-  // 4. Completed stage
+  if (stage === 'payment_confirmed') {
+    return (
+      <View style={styles.footerStack}>
+        <AnimoButton label="Kumpirmahin ang Paghahatid" icon={Check} onPress={onConfirmDelivered} />
+      </View>
+    );
+  }
+
   if (stage === 'completed') {
     return (
       <View style={styles.footerStack}>
-        <AnimoButton
-          label="Magbigay ng Rating"
-          variant="secondary"
-          icon={Star}
-          onPress={onRate}
-        />
-        <AnimoButton
-          label="Bumalik sa Palengke"
-          icon={Check}
-          onPress={onBackToMarket}
-        />
+        <AnimoButton label="Magbigay ng Rating" variant="secondary" icon={Star} onPress={onRate} />
+        <AnimoButton label="Bumalik sa Palengke" icon={Check} onPress={onBackToMarket} />
       </View>
     );
   }
@@ -828,77 +570,25 @@ function FooterActions({
   );
 }
 
-function farmerHeaderTitle(stage: FarmerTransactionStage): string {
+function farmerHeaderTitle(stage: DisplayStage): string {
   switch (stage) {
-    case 'pending':
-      return 'Katayuan ng Transaksyon';
-    case 'accepted':
-    case 'awaiting_pickup':
-      return 'Pickup at Inspeksyon';
     case 'awaiting_payment':
+    case 'payment_sent':
       return 'Pagbabayad';
+    case 'payment_confirmed':
+      return 'Paghahatid';
     case 'completed':
       return 'Detalye ng Transaksyon';
-    case 'cancelled':
-    case 'failed':
+    default:
       return 'Katayuan ng Transaksyon';
-  }
-}
-
-function confirmTitle(kind: ConfirmKind): string {
-  switch (kind) {
-    case 'accept':
-      return 'Tinanggap ang Kahilingan';
-    case 'schedule_accept':
-      return 'Tinanggap ang Iskedyul';
-    case 'inspection_pass':
-      return 'Pumasa sa Inspeksyon';
-    case 'payment':
-      return 'Nakumpirma ang Bayad';
-    case 'rating':
-      return 'Salamat sa iyong Rating';
-    default:
-      return '';
-  }
-}
-
-function confirmMessage(tx: FarmerTransaction, kind: ConfirmKind): string {
-  switch (kind) {
-    case 'accept':
-      return 'Tinanggap mo ang purchase request. Makikita na ang numero ng mamimili para sa pickup at inspeksyon.';
-    case 'schedule_accept':
-      return 'Kumpirmado na ang itinakdang oras at araw para sa pickup at inspeksyon ng palay.';
-    case 'inspection_pass':
-      return 'Nakumpirma na ang kalidad at timbang ng palay. Maaari nang magbayad ang mamimili.';
-    case 'payment':
-      return 'Nakumpirma na ang bayad at tapos na ang transaksyon. Maaari mo nang tingnan ang digital na resibo.';
-    case 'rating':
-      return 'Naitala ang iyong rating para sa mamimili.';
-    default:
-      return '';
   }
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.appBackground,
-  },
-  missing: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: AnimoSpacing.xl,
-  },
-  scroll: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.sm,
-    paddingBottom: AnimoSpacing.xl,
-    gap: AnimoSpacing.lg,
-  },
-  flex: {
-    flex: 1,
-  },
+  safeArea: { flex: 1, backgroundColor: AnimoColors.appBackground },
+  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: AnimoSpacing.xl },
+  scroll: { paddingHorizontal: AnimoSpacing.lg, paddingTop: AnimoSpacing.sm, paddingBottom: AnimoSpacing.xl, gap: AnimoSpacing.lg },
+  flex: { flex: 1 },
   bannerCard: {
     borderWidth: 1,
     borderColor: AnimoColors.borderLowEmphasis,
@@ -907,44 +597,14 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.sm,
     backgroundColor: AnimoColors.surfacePrimary,
   },
-  bannerRow: {
-    flexDirection: 'row',
-    gap: AnimoSpacing.md,
-  },
-  bannerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bannerText: {
-    flex: 1,
-    gap: 2,
-  },
-  bannerMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.sm,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: AnimoColors.borderLowEmphasis,
-    marginVertical: AnimoSpacing.xs,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: AnimoSpacing.md,
-  },
-  metaLabel: {
-    flex: 1,
-  },
-  metaValue: {
-    textAlign: 'right',
-    flexShrink: 0,
-  },
+  bannerRow: { flexDirection: 'row', gap: AnimoSpacing.md },
+  bannerIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  bannerText: { flex: 1, gap: 2 },
+  bannerMeta: { flexDirection: 'row', alignItems: 'center', gap: AnimoSpacing.sm },
+  divider: { height: 1, backgroundColor: AnimoColors.borderLowEmphasis, marginVertical: AnimoSpacing.xs },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoSpacing.md },
+  metaLabel: { flex: 1 },
+  metaValue: { textAlign: 'right', flexShrink: 0 },
   listingCard: {
     borderWidth: 1,
     borderColor: AnimoColors.borderLowEmphasis,
@@ -953,34 +613,12 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.surfacePrimary,
     gap: AnimoSpacing.sm,
   },
-  listingCardMuted: {
-    opacity: 0.7,
-  },
-  listingHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: AnimoSpacing.md,
-  },
-  listingTitleGroup: {
-    flex: 1,
-    gap: 2,
-  },
-  listingPriceText: {
-    textAlign: 'right',
-    flexShrink: 0,
-  },
-  specsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: AnimoSpacing.md,
-    marginTop: 4,
-  },
-  specItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
+  listingCardMuted: { opacity: 0.7 },
+  listingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: AnimoSpacing.md },
+  listingTitleGroup: { flex: 1, gap: 2 },
+  listingPriceText: { textAlign: 'right', flexShrink: 0 },
+  specsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: AnimoSpacing.md, marginTop: 4 },
+  specItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   partyCard: {
     borderWidth: 1,
     borderColor: AnimoColors.borderLowEmphasis,
@@ -989,11 +627,7 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.surfacePrimary,
     gap: AnimoSpacing.sm,
   },
-  partyHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.md,
-  },
+  partyHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoSpacing.md },
   partyAvatar: {
     width: 44,
     height: 44,
@@ -1011,74 +645,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: AnimoRadius.pill,
   },
-  callBtnText: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-  },
-  partyContactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 2,
-  },
-  inspectionCard: {
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    backgroundColor: AnimoColors.surfacePrimary,
-    gap: AnimoSpacing.sm,
-  },
-  inspectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  scheduleBox: {
-    gap: 6,
-    paddingVertical: 2,
-  },
-  scheduleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  scheduleAcceptWrap: {
-    gap: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.surfaceSecondary,
-    padding: AnimoSpacing.md,
-    borderRadius: AnimoRadius.md,
-    marginTop: 4,
-  },
-  confirmedScheduleBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-    padding: AnimoSpacing.sm,
-    borderRadius: AnimoRadius.md,
-    marginTop: 2,
-  },
-  checksList: {
-    gap: 6,
-    marginTop: 2,
-  },
-  checkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  passedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-    padding: AnimoSpacing.sm,
-    borderRadius: AnimoRadius.md,
-    marginTop: 4,
-  },
-  passedText: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-  },
+  callBtnText: { fontFamily: 'PlusJakartaSans_600SemiBold' },
+  partyContactRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
   receiptRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1089,14 +657,7 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.lg,
     padding: AnimoSpacing.lg,
   },
-  receiptIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: AnimoRadius.md,
-    backgroundColor: AnimoColors.greenTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  receiptIcon: { width: 40, height: 40, borderRadius: AnimoRadius.md, backgroundColor: AnimoColors.greenTint, alignItems: 'center', justifyContent: 'center' },
   footer: {
     paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.sm,
@@ -1105,16 +666,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: AnimoColors.borderLowEmphasis,
   },
-  footerStack: {
-    gap: AnimoSpacing.sm,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: AnimoSpacing.lg,
-  },
+  footerStack: { gap: AnimoSpacing.sm },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: AnimoSpacing.lg },
   confirmModalCard: {
     width: '100%',
     maxWidth: 380,
@@ -1129,18 +682,9 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 8,
   },
-  confirmModalIconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmModalHeaderGroup: {
-    alignItems: 'center',
-    gap: AnimoSpacing.xs,
-  },
+  confirmModalIconCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: AnimoColors.accentPrimaryLight, alignItems: 'center', justifyContent: 'center' },
+  dangerIconCircle: { backgroundColor: AnimoColors.dangerTint },
+  confirmModalHeaderGroup: { alignItems: 'center', gap: AnimoSpacing.xs },
   confirmActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1151,92 +695,8 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.pill,
     backgroundColor: AnimoColors.accentPrimary,
   },
-  rejectCard: {
-    width: '100%',
-    maxWidth: 400,
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.xl,
-    gap: AnimoSpacing.md,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  rejectIconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: AnimoColors.dangerTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rejectHeaderGroup: {
-    alignItems: 'center',
-    gap: AnimoSpacing.xs,
-  },
-  textCenter: {
-    textAlign: 'center',
-  },
-  reasonsList: {
-    width: '100%',
-    gap: AnimoSpacing.sm,
-    marginTop: 4,
-  },
-  reasonOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.md,
-    padding: AnimoSpacing.md,
-    borderRadius: AnimoRadius.md,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: AnimoColors.surfacePrimary,
-  },
-  reasonOptionSelected: {
-    borderColor: AnimoColors.accentPrimary,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-  },
-  radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: AnimoColors.borderLowEmphasis,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioCircleSelected: {
-    borderColor: AnimoColors.accentPrimary,
-  },
-  radioInnerDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: AnimoColors.accentPrimary,
-  },
-  customInputWrap: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.surfaceSecondary,
-  },
-  customInput: {
-    fontSize: 14,
-    fontFamily: 'PlusJakartaSans_400Regular',
-    color: AnimoColors.textHighEmphasis,
-    textAlignVertical: 'top',
-    minHeight: 60,
-  },
-  modalActions: {
-    width: '100%',
-    gap: AnimoSpacing.sm,
-    marginTop: 6,
-  },
+  textCenter: { textAlign: 'center' },
+  modalActions: { width: '100%', gap: AnimoSpacing.sm, marginTop: 6 },
   confirmRejectBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1257,7 +717,5 @@ const styles = StyleSheet.create({
     borderColor: AnimoColors.borderLowEmphasis,
     backgroundColor: AnimoColors.surfacePrimary,
   },
-  pressed: {
-    opacity: 0.85,
-  },
+  pressed: { opacity: 0.85 },
 });
