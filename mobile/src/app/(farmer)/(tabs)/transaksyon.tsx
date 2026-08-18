@@ -25,6 +25,7 @@ import { varietyLabel, type CropListing } from '@/types/crop-listing';
 import { DISPLAY_STAGE_LABELS, deriveDisplayStage, requestTotal, type DisplayStage, type PurchaseOutcome } from '@/types/transaction';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
+const PAGE_SIZE = 5;
 
 type FilterValue = 'Lahat' | 'Kailangan ng Aksyon' | 'Naghihintay' | 'Kumpleto' | 'Nabigo';
 
@@ -67,6 +68,7 @@ function toCardItem(outcome: PurchaseOutcome, listing: CropListing | undefined):
 export default function FarmerTransactionsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterValue>('Lahat');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [outcomes, setOutcomes] = useState<PurchaseOutcome[]>([]);
   const [listingsById, setListingsById] = useState<Map<string, CropListing>>(new Map());
@@ -113,8 +115,27 @@ export default function FarmerTransactionsScreen() {
     const matchesSearch =
       query === '' || item.variety.toLowerCase().includes(query) || item.statusLabel.toLowerCase().includes(query);
 
-    return matchesFilter && matchesSearch;
-  });
+      return matchesFilter && matchesSearch;
+    });
+  }, [activeFilter, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
+  const validPage = Math.min(currentPage, totalPages);
+
+  const paginatedData = useMemo(() => {
+    const start = (validPage - 1) * PAGE_SIZE;
+    return filteredData.slice(start, start + PAGE_SIZE);
+  }, [filteredData, validPage]);
+
+  const handleFilterSelect = (filter: FilterValue) => {
+    setActiveFilter(filter);
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    setCurrentPage(1);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -128,7 +149,7 @@ export default function FarmerTransactionsScreen() {
           placeholder="Maghanap ng transaksyon..."
           placeholderTextColor={AnimoColors.textDisabled}
           value={searchQuery}
-          onChangeText={setSearchQuery}
+          onChangeText={handleSearchChange}
           returnKeyType="search"
           underlineColorAndroid="transparent"
         />
@@ -136,7 +157,7 @@ export default function FarmerTransactionsScreen() {
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel="I-clear ang search"
-            onPress={() => setSearchQuery('')}
+            onPress={() => handleSearchChange('')}
             activeOpacity={0.85}
             hitSlop={8}>
             <X size={18} color={AnimoColors.objectLowEmphasis} />
@@ -209,6 +230,92 @@ export default function FarmerTransactionsScreen() {
   );
 }
 
+function PaginationControls({
+  currentPage,
+  totalPages,
+  totalItems,
+  pageSize,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+
+  const startItem = (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalItems);
+
+  return (
+    <View style={styles.paginationWrap}>
+      <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.paginationSummary}>
+        Ipinapakita ang {startItem}-{endItem} ng {totalItems} na transaksyon
+      </AnimoText>
+
+      <View style={styles.paginationRow}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Nakaraang pahina"
+          disabled={currentPage <= 1}
+          onPress={() => onPageChange(currentPage - 1)}
+          activeOpacity={0.8}
+          style={[styles.pageNavBtn, currentPage <= 1 && styles.pageNavBtnDisabled]}>
+          <ChevronLeft
+            size={16}
+            color={currentPage <= 1 ? AnimoColors.textDisabled : AnimoColors.textHighEmphasis}
+          />
+          <AnimoText
+            variant="bodyEmphasis"
+            color={currentPage <= 1 ? AnimoColors.textDisabled : AnimoColors.textHighEmphasis}>
+            Nakaraan
+          </AnimoText>
+        </TouchableOpacity>
+
+        <View style={styles.pageNumbersRow}>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+            const isActive = pageNum === currentPage;
+            return (
+              <TouchableOpacity
+                key={pageNum}
+                accessibilityRole="button"
+                accessibilityLabel={`Pahina ${pageNum}`}
+                onPress={() => onPageChange(pageNum)}
+                activeOpacity={0.8}
+                style={[styles.pageNumberBtn, isActive && styles.pageNumberBtnActive]}>
+                <AnimoText
+                  variant="bodyEmphasis"
+                  color={isActive ? AnimoColors.white : AnimoColors.textHighEmphasis}>
+                  {pageNum}
+                </AnimoText>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Susunod na pahina"
+          disabled={currentPage >= totalPages}
+          onPress={() => onPageChange(currentPage + 1)}
+          activeOpacity={0.8}
+          style={[styles.pageNavBtn, currentPage >= totalPages && styles.pageNavBtnDisabled]}>
+          <AnimoText
+            variant="bodyEmphasis"
+            color={currentPage >= totalPages ? AnimoColors.textDisabled : AnimoColors.textHighEmphasis}>
+            Susunod
+          </AnimoText>
+          <ChevronRight
+            size={16}
+            color={currentPage >= totalPages ? AnimoColors.textDisabled : AnimoColors.textHighEmphasis}
+          />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 function SearchEmptyState({ query, onClear }: { query: string; onClear: () => void }) {
   return (
     <View style={styles.empty}>
@@ -264,21 +371,17 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.surfacePrimary,
     borderWidth: 1,
     borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
+    borderRadius: AnimoRadius.md,
     paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: AnimoSpacing.sm,
+    height: 50,
     gap: AnimoSpacing.sm,
-    shadowColor: AnimoColors.darkBackground,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   searchInput: {
     flex: 1,
+    height: '100%',
     ...AnimoType.body,
     color: AnimoColors.textHighEmphasis,
-    padding: 0,
+    paddingVertical: 0,
   },
   filterScroll: {
     marginHorizontal: -SCREEN_PADDING,
@@ -331,5 +434,54 @@ const styles = StyleSheet.create({
     paddingHorizontal: AnimoSpacing.xl,
     paddingVertical: AnimoSpacing.md,
     marginTop: AnimoSpacing.xl,
+  },
+  paginationWrap: {
+    marginTop: AnimoSpacing.sm,
+    marginBottom: AnimoSpacing.xl,
+    alignItems: 'center',
+    gap: AnimoSpacing.md,
+  },
+  paginationSummary: {
+    textAlign: 'center',
+  },
+  paginationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  pageNavBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: AnimoSpacing.md,
+    paddingVertical: 8,
+    borderRadius: AnimoRadius.md,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    backgroundColor: AnimoColors.surfacePrimary,
+  },
+  pageNavBtnDisabled: {
+    backgroundColor: AnimoColors.surfaceSecondary,
+    opacity: 0.5,
+  },
+  pageNumbersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pageNumberBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: AnimoRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    backgroundColor: AnimoColors.surfacePrimary,
+  },
+  pageNumberBtnActive: {
+    backgroundColor: AnimoColors.accentPrimary,
+    borderColor: AnimoColors.accentPrimary,
   },
 });

@@ -278,18 +278,33 @@ export default function ListingDetailScreen() {
             {listing.remainingQuantityKg} kg na available
           </AnimoText>
 
-          <View style={styles.priceCard}>
+          <View style={styles.priceBlock}>
+            <AnimoText
+              variant="caption"
+              color={AnimoColors.textHighEmphasisInverse}
+              style={styles.priceLabel}>
+              Patas na Presyo
+            </AnimoText>
             <View style={styles.priceRow}>
-              <AnimoText variant="price" color={AnimoColors.accentPrimary}>
-                {formatPeso(listing.pricePerKg ?? 0)}
+              <AnimoText variant="display" color={AnimoColors.textHighEmphasisInverse}>
+                {listing.pricePerKg !== null ? formatPeso(listing.pricePerKg) : '—'}
               </AnimoText>
-              <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+              <AnimoText
+                variant="body"
+                color={AnimoColors.textHighEmphasisInverse}
+                style={styles.priceUnit}>
                 {' '}
                 bawat kilo
               </AnimoText>
             </View>
-            <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-              Nakatakda ang presyo ng sistema — hindi na ito maaaring tawaran.
+            <AnimoText
+              variant="caption"
+              color={AnimoColors.textHighEmphasisInverse}
+              style={styles.priceTotal}>
+              Kabuuan na halaga ({listing.remainingQuantityKg}kg):{' '}
+              {listing.pricePerKg !== null
+                ? formatPeso(listing.pricePerKg * listing.remainingQuantityKg)
+                : '—'}
             </AnimoText>
           </View>
 
@@ -604,17 +619,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  priceCard: {
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
+  priceBlock: {
+    backgroundColor: AnimoColors.accentPrimary,
     borderRadius: AnimoRadius.md,
     padding: AnimoSpacing.md,
-    gap: 4,
-    backgroundColor: AnimoColors.surfaceSecondary,
+  },
+  priceLabel: {
+    opacity: 0.85,
   },
   priceRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'flex-end',
+    marginTop: AnimoSpacing.sm,
+  },
+  priceUnit: {
+    opacity: 0.85,
+    marginBottom: AnimoSpacing.xs,
+  },
+  priceTotal: {
+    opacity: 0.8,
+    marginTop: AnimoSpacing.xs,
   },
   section: {
     gap: AnimoSpacing.md,

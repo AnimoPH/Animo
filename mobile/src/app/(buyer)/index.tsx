@@ -24,6 +24,8 @@ import {
 import { fetchMarketplaceListings } from '@/services/marketplace-service';
 import type { RankedListing } from '@/types/marketplace-filter';
 
+const TrendingOrange = '#F57C00';
+
 /** Curated popular rice varieties in the market. */
 const POPULAR_VARIETIES = [
   { id: '1', name: 'RC 222', tag: 'Mataas ang Ani', avgPrice: 22.5 },
@@ -46,7 +48,7 @@ export default function BuyerHomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <AppHeader />
+      <AppHeader onPressBell={() => router.push('/(buyer)/notipikasyon')} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Welcome Greeting */}
@@ -59,28 +61,33 @@ export default function BuyerHomeScreen() {
           </AnimoText>
         </View>
 
-        {/* Market Insights & Popularity Card */}
+        {/* Market Insights & Popularity Card (Vibrant Green with Trending Orange Badge) */}
         {insights ? (
-          <View style={styles.insightCard}>
-            <View style={styles.insightHeaderRow}>
-              <View style={styles.insightTitleLeft}>
-                <Flame size={18} color="#D97706" />
-                <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                  Patok sa Merkado Ngayong Buwan
+          <View style={styles.marketInsightCard}>
+            <View style={styles.marketInsightTopRow}>
+              <View style={styles.marketInsightTopLeft}>
+                <Flame size={18} color={AnimoColors.white} />
+                <AnimoText variant="h3" color={AnimoColors.white}>
+                  Patok sa Merkado
+                </AnimoText>
+              </View>
+              <View style={styles.trendingBadge}>
+                <AnimoText variant="tag" color={AnimoColors.white} style={styles.trendingBadgeText}>
+                  TRENDING
                 </AnimoText>
               </View>
             </View>
 
-            <View style={styles.insightGrid}>
+            <View style={styles.marketInsightInner}>
               <View style={styles.insightBox}>
                 <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
                   Pinakasikat na Uri
                 </AnimoText>
-                <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.insightVarietyValue}>
+                <AnimoText
+                  variant="h1"
+                  color={AnimoColors.accentPrimary}
+                  style={styles.insightVarietyValueLarge}>
                   {insights.topVariety}
-                </AnimoText>
-                <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.insightShareText}>
-                  {insights.topVarietyShare}
                 </AnimoText>
               </View>
 
@@ -89,10 +96,16 @@ export default function BuyerHomeScreen() {
                   Average na Presyo
                 </AnimoText>
                 <View style={styles.priceRowHighlight}>
-                  <AnimoText variant="h1" color={AnimoColors.accentPrimary} style={styles.insightPriceValue}>
+                  <AnimoText
+                    variant="h1"
+                    color={AnimoColors.accentPrimary}
+                    style={styles.insightPriceValue}>
                     ₱{insights.averagePricePerKg.toFixed(2)}
                   </AnimoText>
-                  <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.perKgText}>
+                  <AnimoText
+                    variant="body"
+                    color={AnimoColors.textMediumEmphasis}
+                    style={styles.perKgText}>
                     / kg
                   </AnimoText>
                 </View>
@@ -107,18 +120,18 @@ export default function BuyerHomeScreen() {
           </View>
         ) : null}
 
-        {/* Quick Actions */}
+        {/* Colored Quick Actions */}
         <View style={styles.actions}>
           <QuickAction
-            icon={<ShoppingBag size={22} color={AnimoColors.green} />}
+            icon={<ShoppingBag size={22} color={AnimoColors.accentPrimary} />}
             label="Palengke at Direktoryo"
             hint="Mag-browse ng palay at mga magsasaka"
             onPress={() => router.push('/(buyer)/palengke')}
           />
           <QuickAction
-            icon={<ReceiptText size={22} color={AnimoColors.green} />}
+            icon={<ReceiptText size={22} color={AnimoColors.accentPrimary} />}
             label="Transaksyon"
-            hint="Bantayan ang mga order"
+            hint="Bantayan ang mga order at bayarin"
             onPress={() => router.push('/(buyer)/transaksyon')}
           />
         </View>
@@ -158,12 +171,18 @@ export default function BuyerHomeScreen() {
                   <Wheat size={22} color={AnimoColors.accentPrimary} />
                 </View>
 
-                <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.varietyName}>
+                <AnimoText
+                  variant="h3"
+                  color={AnimoColors.textHighEmphasis}
+                  style={styles.varietyName}>
                   {item.name}
                 </AnimoText>
 
                 <View style={styles.varietyTagBadge}>
-                  <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.varietyTagText}>
+                  <AnimoText
+                    variant="caption"
+                    color={AnimoColors.accentPrimary}
+                    style={styles.varietyTagText}>
                     {item.tag}
                   </AnimoText>
                 </View>
@@ -173,10 +192,16 @@ export default function BuyerHomeScreen() {
                     Karaniwang Presyo
                   </AnimoText>
                   <View style={styles.varietyPriceRow}>
-                    <AnimoText variant="h2" color={AnimoColors.accentPrimary} style={styles.varietyPriceLarge}>
+                    <AnimoText
+                      variant="h2"
+                      color={AnimoColors.accentPrimary}
+                      style={styles.varietyPriceLarge}>
                       ₱{item.avgPrice.toFixed(2)}
                     </AnimoText>
-                    <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.varietyPerKgText}>
+                    <AnimoText
+                      variant="caption"
+                      color={AnimoColors.textMediumEmphasis}
+                      style={styles.varietyPerKgText}>
                       /kg
                     </AnimoText>
                   </View>
@@ -242,11 +267,11 @@ function QuickAction({
         <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
           {label}
         </AnimoText>
-        <AnimoText variant="caption" color={AnimoColors.muted}>
+        <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
           {hint}
         </AnimoText>
       </View>
-      <ChevronRight size={18} color={AnimoColors.muted} />
+      <ChevronRight size={18} color={AnimoColors.accentPrimary} />
     </Pressable>
   );
 }
@@ -268,27 +293,42 @@ const styles = StyleSheet.create({
   hero: {
     gap: AnimoSpacing.sm,
   },
-  insightCard: {
-    backgroundColor: AnimoColors.white,
+  marketInsightCard: {
+    backgroundColor: AnimoColors.green,
     borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
+    padding: AnimoSpacing.md,
     gap: AnimoSpacing.md,
   },
-  insightHeaderRow: {
+  marketInsightTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  insightTitleLeft: {
+  marketInsightTopLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: AnimoSpacing.sm,
   },
-  insightGrid: {
+  trendingBadge: {
+    backgroundColor: TrendingOrange,
+    borderRadius: AnimoRadius.pill,
+    paddingHorizontal: AnimoSpacing.sm,
+    paddingVertical: AnimoSpacing.xs,
+  },
+  trendingBadgeText: {
+    letterSpacing: 0.5,
+  },
+  marketInsightInner: {
     flexDirection: 'row',
+    backgroundColor: AnimoColors.white,
+    borderRadius: AnimoRadius.md,
+    padding: AnimoSpacing.md,
     gap: AnimoSpacing.md,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   insightBox: {
     flex: 1,
@@ -307,23 +347,19 @@ const styles = StyleSheet.create({
     marginVertical: 1,
   },
   insightPriceValue: {
-    fontSize: 28,
+    fontSize: 26,
     fontFamily: 'PlusJakartaSans_700Bold',
-    lineHeight: 32,
+    lineHeight: 30,
   },
-  insightVarietyValue: {
-    fontSize: 18,
+  insightVarietyValueLarge: {
+    fontSize: 24,
     fontFamily: 'PlusJakartaSans_700Bold',
-    lineHeight: 24,
-    marginVertical: 1,
+    lineHeight: 30,
+    marginVertical: 4,
   },
   perKgText: {
     fontSize: 14,
     color: AnimoColors.textMediumEmphasis,
-  },
-  insightShareText: {
-    fontSize: 12.5,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
   },
   trendRow: {
     flexDirection: 'row',
@@ -338,21 +374,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: AnimoSpacing.md,
     borderWidth: 1,
-    borderColor: AnimoColors.border,
+    borderColor: 'rgba(46, 125, 50, 0.2)',
     borderRadius: AnimoRadius.lg,
     padding: AnimoSpacing.lg,
-    backgroundColor: AnimoColors.white,
+    backgroundColor: AnimoColors.greenTint,
   },
   pressed: {
-    opacity: 0.95,
+    opacity: 0.9,
   },
   actionIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: AnimoColors.greenTint,
+    backgroundColor: AnimoColors.white,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   varietiesSection: {
     gap: AnimoSpacing.md,

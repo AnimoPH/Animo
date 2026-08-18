@@ -25,11 +25,14 @@ import {
 
 type Filter = 'lahat' | 'aktibo' | 'tapos' | 'cancelled';
 
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: 'lahat', label: 'Lahat' },
-  { value: 'aktibo', label: 'Aktibo' },
-  { value: 'tapos', label: 'Tapos' },
-  { value: 'cancelled', label: 'Nakansela' },
+type FilterValue = 'Lahat' | 'Kailangan ng Aksyon' | 'Naghihintay' | 'Kumpleto' | 'Nabigo';
+
+const FILTERS: FilterValue[] = [
+  'Lahat',
+  'Kailangan ng Aksyon',
+  'Naghihintay',
+  'Kumpleto',
+  'Nabigo',
 ];
 
 const ONGOING_STAGES: DisplayStage[] = [
@@ -103,11 +106,7 @@ export default function TransactionsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <AppHeader title="Mga Transaksyon" />
-
-      <View style={styles.filters}>
-        <FilterChips options={FILTERS} value={filter} onChange={setFilter} />
-      </View>
+      <AppHeader onPressBell={() => router.push('/(buyer)/notipikasyon')} />
 
       {loading ? (
         <View style={styles.centerFill}>
@@ -184,19 +183,61 @@ function OutcomeRow({ outcome, listing }: { outcome: PurchaseOutcome; listing: C
         <AnimoText variant="caption" color={AnimoColors.muted}>
           {quantityKg} kg · {formatPeso(total)}
         </AnimoText>
-      </View>
-      <ChevronRight size={20} color={AnimoColors.muted} />
-    </Pressable>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: AnimoColors.background,
+    backgroundColor: AnimoColors.appBackground,
+  },
+  scroll: {
+    flex: 1,
+    backgroundColor: AnimoColors.appBackground,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: SCREEN_PADDING,
+    marginTop: AnimoSpacing.md,
+    marginBottom: AnimoSpacing.sm,
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    borderRadius: AnimoRadius.md,
+    paddingHorizontal: AnimoSpacing.md,
+    height: 50,
+    gap: AnimoSpacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    ...AnimoType.body,
+    color: AnimoColors.textHighEmphasis,
+    paddingVertical: 0,
+  },
+  filterScroll: {
+    marginHorizontal: -SCREEN_PADDING,
+    marginBottom: AnimoSpacing.md,
   },
   filters: {
-    paddingVertical: AnimoSpacing.md,
+    paddingHorizontal: SCREEN_PADDING,
+  },
+  pill: {
+    borderRadius: AnimoRadius.pill,
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingVertical: AnimoSpacing.sm,
+    marginRight: AnimoSpacing.sm,
+  },
+  pillActive: {
+    backgroundColor: AnimoColors.accentPrimary,
+  },
+  pillInactive: {
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderWidth: 1.5,
+    borderColor: AnimoColors.borderLowEmphasis,
   },
   centerFill: {
     flex: 1,
@@ -204,12 +245,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   list: {
-    paddingHorizontal: AnimoSpacing.xl,
+    paddingHorizontal: SCREEN_PADDING,
     paddingBottom: AnimoSpacing.xxl,
-    gap: AnimoSpacing.md,
   },
-  sectionGap: {
+  empty: {
+    alignItems: 'center',
+    marginTop: AnimoSpacing.xxl,
+  },
+  emptyTitle: {
+    textAlign: 'center',
+    marginTop: AnimoSpacing.lg,
+  },
+  emptyBody: {
+    textAlign: 'center',
     marginTop: AnimoSpacing.sm,
+    paddingHorizontal: AnimoSpacing.xxl,
   },
   emptyText: {
     textAlign: 'center',
@@ -219,20 +269,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: AnimoSpacing.md,
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    backgroundColor: AnimoColors.white,
   },
-  rowText: {
-    flex: 1,
-    gap: 3,
+  paginationSummary: {
+    textAlign: 'center',
   },
-  rowTop: {
+  paginationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: AnimoSpacing.sm,
+    width: '100%',
+  },
+  pageNavBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: AnimoSpacing.md,
+    paddingVertical: 8,
+    borderRadius: AnimoRadius.md,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    backgroundColor: AnimoColors.surfacePrimary,
+  },
+  pageNavBtnDisabled: {
+    backgroundColor: AnimoColors.surfaceSecondary,
+    opacity: 0.5,
+  },
+  pageNumbersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pageNumberBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: AnimoRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    backgroundColor: AnimoColors.surfacePrimary,
+  },
+  pageNumberBtnActive: {
+    backgroundColor: AnimoColors.accentPrimary,
+    borderColor: AnimoColors.accentPrimary,
   },
 });
