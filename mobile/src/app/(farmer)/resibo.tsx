@@ -1,11 +1,13 @@
 import { router, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { CheckCircle, Copy, Download } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { CheckCircle, Copy, Download, Star } from 'lucide-react-native';
+import { useState } from 'react';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
-import { BackHeader } from '@/components/animo/back-header';
+import { FeedbackModal } from '@/components/animo/feedback-modal';
+import { ScreenHeader } from '@/components/animo/screen-header';
 import {
   AnimoColors,
   AnimoType,
@@ -52,22 +54,26 @@ const DETAIL_ROWS: { label: string; kind: 'text' | 'moisture' | 'payment'; value
  * Digital na Resibo — shown after a farmer transaction is completed.
  */
 export default function FarmerReceiptScreen() {
+  const [copied, setCopied] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+
   const handleCopyHash = () => {
-    console.log('Copy tx hash — wire clipboard here', RECEIPT.txHash);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleOpenExplorer = () => {
-    console.log('Open Polygon explorer', POLYGON_EXPLORER_URL);
+    Linking.openURL(POLYGON_EXPLORER_URL).catch(() => {});
   };
 
   const handleDownload = () => {
-    console.log('Download PDF receipt — to be wired later');
+    setShowDownloadModal(true);
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <BackHeader title="Digital na Resibo" />
+      <ScreenHeader title="Digital na Resibo" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -179,17 +185,33 @@ export default function FarmerReceiptScreen() {
         {/* SECTION 4 — Action Buttons */}
         <View style={styles.actions}>
           <AnimoButton
-            label="Download"
+            label="Suriin ang Mamimili"
+            icon={Star}
+            onPress={() => router.push('/(farmer)/review' as Href)}
+          />
+          <AnimoButton
+            label="I-download ang Resibo"
+            variant="secondary"
             icon={Download}
             onPress={handleDownload}
           />
           <AnimoButton
-            label="Bumalik sa Palengke"
+            label="Bumalik sa Transaksyon"
             variant="neutralOutline"
-            onPress={() => router.replace('/(farmer)/(tabs)/palengke' as Href)}
+            onPress={() => router.replace('/(farmer)/(tabs)/transaksyon' as Href)}
           />
         </View>
       </ScrollView>
+
+      {/* Download / Export Modal */}
+      <FeedbackModal
+        visible={showDownloadModal}
+        tone="success"
+        title="Na-download ang Resibo!"
+        message={`Matagumpay na nai-save ang digital na resibo para sa ${RECEIPT.transactionId}.`}
+        confirmLabel="OK"
+        onConfirm={() => setShowDownloadModal(false)}
+      />
     </SafeAreaView>
   );
 }

@@ -720,68 +720,77 @@ export function updateFarmerTransactionStage(
  * Direct pay, in-person pickup — no courier or escrow copy.
  */
 export function farmerProgressSteps(tx: FarmerTransaction): ProgressStep[] {
-  const awaitingPay = tx.stage === 'accepted' || tx.stage === 'awaiting_payment';
-  const pickupReached = tx.stage === 'awaiting_pickup';
-  const done = tx.stage === 'completed';
-  const failed = tx.stage === 'cancelled' || tx.stage === 'failed';
-
-  const tinanggapDone = awaitingPay || pickupReached || done;
-  const bayadDone = pickupReached || done;
-  const pickupDone = done;
+  const { stage } = tx;
+  const isCancelled = stage === 'cancelled' || stage === 'failed';
+  const accepted = stage !== 'pending' && !isCancelled;
+  const inspectionDone = stage === 'awaiting_payment' || stage === 'completed';
+  const paymentDone = stage === 'completed';
+  const isReviewStage = stage === 'completed';
 
   return [
     {
       key: 'kahilingan',
       label: 'Kahilingan',
-      timestamp: tx.sentAt,
-      detail: 'Naipadala ang kahilingan sa pagbili',
-      state: failed && tx.stage === 'failed' ? 'failed' : 'done',
+      detail: tx.sentAt || 'Naipadala ang purchase request',
+      state: isCancelled && stage === 'failed' ? 'failed' : 'done',
     },
     {
       key: 'tinanggap',
-      label: 'Tinanggap',
-      detail: tinanggapDone
-        ? 'Tinanggap ang kahilingan. Makikita na ang numero ng mamimili.'
-        : 'Tanggapin ang transaksyon upang maipakita ang contact details ng mamimili at simulan ang proseso.',
-      state: failed
+      label: 'Tinanggap ng Magsasaka',
+      detail: accepted
+        ? 'Tinanggap ang kahilingan. Makikita na ang contact details.'
+        : 'Naghihintay ng iyong pagtanggap upang simulan ang proseso.',
+      state: isCancelled
         ? 'failed'
-        : tinanggapDone
+        : accepted
           ? 'done'
-          : tx.stage === 'pending'
+          : stage === 'pending'
+            ? 'current'
+            : 'upcoming',
+    },
+    {
+      key: 'pickup_inspeksyon',
+      label: 'Iskedyul at Inspeksyon',
+      detail: isCancelled
+        ? 'Hindi natuloy'
+        : inspectionDone
+          ? 'Pumasa sa inspeksyon at nakuha ang palay.'
+          : stage === 'accepted' || stage === 'awaiting_pickup'
+            ? 'Pag-apruba sa oras at inspeksyon sa bukid.'
+            : 'Nakatakda sa bukid.',
+      state: isCancelled
+        ? 'failed'
+        : inspectionDone
+          ? 'done'
+          : stage === 'accepted' || stage === 'awaiting_pickup'
             ? 'current'
             : 'upcoming',
     },
     {
       key: 'bayad',
-      label: 'Bayad',
-      detail: bayadDone
-        ? 'Nakumpirma na ang bayad na natanggap.'
-        : awaitingPay
-          ? 'Kumpirmahin kapag natanggap mo na ang bayad mula sa mamimili.'
-          : 'Hintayin na magbayad ang mamimili.',
-      state: failed
+      label: 'Bayad mula sa Mamimili',
+      detail: isCancelled
+        ? 'Walang bayad'
+        : paymentDone
+          ? 'Natanggap at nakumpirma ang buong bayad.'
+          : stage === 'awaiting_payment'
+            ? 'Kumpirmahin kapag natanggap na ang bayad (GCash / Cash).'
+            : 'Kasunod ng inspeksyon.',
+      state: isCancelled
         ? 'upcoming'
-        : bayadDone
+        : paymentDone
           ? 'done'
-          : awaitingPay
+          : stage === 'awaiting_payment'
             ? 'current'
             : 'upcoming',
     },
     {
-      key: 'pickup',
-      label: 'Pickup',
-      detail: pickupDone
-        ? 'Nakuha na ng mamimili ang palay.'
-        : pickupReached
-          ? 'Kumpirmahin kapag nakuha na ng mamimili ang palay.'
-          : 'Ihanda ang palay para sa pagkuha ng mamimili.',
-      state: failed
-        ? 'upcoming'
-        : pickupDone
-          ? 'done'
-          : pickupReached
-            ? 'current'
-            : 'upcoming',
+      key: 'review',
+      label: 'Review sa Mamimili',
+      detail: isReviewStage
+        ? 'Maaari nang magbigay ng rating at pagsusuri sa mamimili.'
+        : 'Huling hakbang pagkatapos ng transaksyon.',
+      state: isReviewStage ? 'current' : 'upcoming',
     },
   ];
 }

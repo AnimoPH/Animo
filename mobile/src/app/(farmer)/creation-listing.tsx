@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { Image } from "expo-image";
-import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { Camera, X } from "lucide-react-native";
 import { useState } from "react";
@@ -9,7 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AnimoButton } from "@/components/animo/animo-button";
 import { AnimoText } from "@/components/animo/animo-text";
-import { BackHeader } from "@/components/animo/back-header";
+import { ScreenHeader } from "@/components/animo/screen-header";
 import { PhotoSourceSheet } from "@/components/animo/photo-source-sheet";
 import { ProgressSteps } from "@/components/animo/farmer/progress-steps";
 
@@ -32,10 +32,17 @@ import {
 
 /** Re-encodes a picked photo to a size-capped JPEG before it's held in state / uploaded. */
 async function toUploadableJpeg(uri: string): Promise<string> {
-  const context = ImageManipulator.manipulate(uri).resize({ width: 1440 });
-  const rendered = await context.renderAsync();
-  const saved = await rendered.saveAsync({ compress: 0.7, format: SaveFormat.JPEG });
-  return saved.uri;
+  try {
+    const manipResult = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: 1440 } }],
+      { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG }
+    );
+    return manipResult.uri;
+  } catch {
+    // If manipulation fails, fallback to original picked uri
+    return uri;
+  }
 }
 
 /** Gumawa ng Listing — farmer creates a new palay listing: photo, quality, weight. */
@@ -98,7 +105,10 @@ export default function PalayListingScreen() {
       return;
     }
 
-    const pickerOptions: ImagePicker.ImagePickerOptions = { mediaTypes: "images", quality: 0.7 };
+    const pickerOptions: ImagePicker.ImagePickerOptions = {
+      mediaTypes: ['images'],
+      quality: 0.8,
+    };
     const result =
       source === "camera"
         ? await ImagePicker.launchCameraAsync(pickerOptions)
@@ -178,7 +188,7 @@ export default function PalayListingScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-      <BackHeader title="Gumawa ng Listing" />
+      <ScreenHeader title="Gumawa ng Listing" />
 
       {/* Progress Bar */}
       <ProgressSteps />

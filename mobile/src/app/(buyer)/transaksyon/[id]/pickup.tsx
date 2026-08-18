@@ -5,14 +5,17 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   CalendarDays,
+  Check,
   ChevronRight,
   Clock,
   Edit2,
+  HelpCircle,
   Map,
   MapPin,
   Phone,
   PlusCircle,
   TriangleAlert,
+  User,
   X,
 } from 'lucide-react-native';
 import { useState } from 'react';
@@ -96,6 +99,7 @@ export default function PickupScreen() {
 
   // Action Feedback Modals
   const [showScheduleSetModal, setShowScheduleSetModal] = useState(false);
+  const [showInspectionConfirmPrompt, setShowInspectionConfirmPrompt] = useState(false);
   const [showInspectionSuccessModal, setShowInspectionSuccessModal] = useState(false);
   const [showCancelledSuccessModal, setShowCancelledSuccessModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -154,7 +158,7 @@ export default function PickupScreen() {
       handleOpenPicker();
       return;
     }
-    setShowInspectionSuccessModal(true);
+    setShowInspectionConfirmPrompt(true);
   };
 
   const onDateChange = (_event: DateTimePickerEvent, date?: Date) => {
@@ -312,29 +316,44 @@ export default function PickupScreen() {
           </Pressable>
         </View>
 
-        {/* Farmer Contact Card */}
-        <View style={styles.card}>
-          <View style={styles.farmerRow}>
-            <View style={styles.avatar}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
-                {farmer.initials}
-              </AnimoText>
+        {/* Farmer Contact & Party Card */}
+        <View style={styles.partyCard}>
+          <View style={styles.partyHeaderRow}>
+            <View style={styles.partyAvatar}>
+              <User size={20} color={AnimoColors.accentPrimary} />
             </View>
-            <View style={styles.farmerText}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+            <View style={styles.flex}>
+              <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
                 {farmer.name}
               </AnimoText>
-              <AnimoText variant="caption" color={AnimoColors.muted}>
-                {farmer.phone}
+              <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                Magsasaka · Rehistrado sa RSBSA
               </AnimoText>
             </View>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Tawagan si ${farmer.name}`}
               onPress={() => Linking.openURL(`tel:${farmer.phone.replace(/\s/g, '')}`)}
-              hitSlop={8}
-              style={styles.callButton}>
-              <Phone size={18} color={AnimoColors.green} />
+              style={({ pressed }) => [styles.callBtn, pressed && styles.pressed]}>
+              <Phone size={15} color={AnimoColors.accentPrimary} />
+              <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.callBtnText}>
+                Tawagan
+              </AnimoText>
             </Pressable>
           </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.partyContactRow}>
+            <Phone size={15} color={AnimoColors.textMediumEmphasis} />
+            <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+              {farmer.phone}
+            </AnimoText>
+          </View>
+
+          <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+            Makipag-ugnayan sa magsasaka gamit ang telepono para sa koordinasyon ng pickup at inspeksyon.
+          </AnimoText>
         </View>
 
         {/* Transaction Progress Tracker */}
@@ -351,12 +370,14 @@ export default function PickupScreen() {
       <View style={styles.footerStack}>
         <AnimoButton
           label="Kumpirmahin ang Inspeksyon"
+          icon={Check}
           onPress={handleConfirmInspectionPress}
         />
         {/* Red Cancel Button */}
         <AnimoButton
           label="Kanselahin ang Transaksyon"
           variant="dangerOutline"
+          icon={X}
           onPress={() => setCancelling(true)}
         />
       </View>
@@ -455,6 +476,7 @@ export default function PickupScreen() {
 
             <AnimoButton
               label="I-save ang Iskedyul"
+              icon={Check}
               onPress={handleSaveSchedule}
             />
           </View>
@@ -470,6 +492,54 @@ export default function PickupScreen() {
         confirmLabel="OK"
         onConfirm={() => setShowScheduleSetModal(false)}
       />
+
+      {/* Inspection Confirmation Prompt Modal */}
+      <Modal
+        visible={showInspectionConfirmPrompt}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowInspectionConfirmPrompt(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowInspectionConfirmPrompt(false)}>
+          <Pressable style={styles.confirmPromptCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.confirmPromptIconCircle}>
+              <HelpCircle size={28} color={AnimoColors.accentPrimary} />
+            </View>
+
+            <View style={styles.confirmPromptHeaderGroup}>
+              <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.textCenter}>
+                Kumpirmahin ang Inspeksyon?
+              </AnimoText>
+              <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
+                Sigurado ka bang pumasa ang palay sa kalidad at timbang at nais mo nang magpatuloy sa pagbabayad?
+              </AnimoText>
+            </View>
+
+            <View style={styles.modalActionStack}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setShowInspectionConfirmPrompt(false);
+                  setShowInspectionSuccessModal(true);
+                }}
+                style={({ pressed }) => [styles.confirmPromptBtn, pressed && styles.pressed]}>
+                <Check size={18} color={AnimoColors.white} />
+                <AnimoText variant="button" color={AnimoColors.white}>
+                  Oo, Kumpirmahin (Magbayad)
+                </AnimoText>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setShowInspectionConfirmPrompt(false)}
+                style={({ pressed }) => [styles.cancelPromptBtn, pressed && styles.pressed]}>
+                <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
+                  Huwag Muna
+                </AnimoText>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Inspection Confirmed Notification Modal */}
       <FeedbackModal
@@ -606,30 +676,44 @@ const styles = StyleSheet.create({
     paddingVertical: AnimoSpacing.md,
     marginTop: AnimoSpacing.xs,
   },
-  farmerRow: {
+  partyCard: {
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    borderRadius: AnimoRadius.lg,
+    padding: AnimoSpacing.lg,
+    backgroundColor: AnimoColors.surfacePrimary,
+    gap: AnimoSpacing.sm,
+  },
+  partyHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: AnimoSpacing.md,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: AnimoColors.greenTint,
+  partyAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: AnimoRadius.pill,
+    backgroundColor: AnimoColors.accentPrimaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  farmerText: {
-    flex: 1,
-    gap: 1,
-  },
-  callButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: AnimoColors.greenTint,
+  callBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: AnimoColors.accentPrimaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: AnimoRadius.pill,
+  },
+  callBtnText: {
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+  },
+  partyContactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 2,
   },
   footerStack: {
     paddingHorizontal: AnimoSpacing.xl,
@@ -666,8 +750,62 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.surface,
     borderRadius: AnimoRadius.md,
     borderWidth: 1,
-    borderColor: AnimoColors.border,
     paddingHorizontal: AnimoSpacing.md,
     paddingVertical: AnimoSpacing.md,
+  },
+  confirmPromptCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderRadius: AnimoRadius.lg,
+    padding: AnimoSpacing.xl,
+    gap: AnimoSpacing.md,
+    alignItems: 'center',
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  confirmPromptIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: AnimoColors.accentPrimaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmPromptHeaderGroup: {
+    alignItems: 'center',
+    gap: AnimoSpacing.xs,
+  },
+  textCenter: {
+    textAlign: 'center',
+  },
+  modalActionStack: {
+    width: '100%',
+    gap: AnimoSpacing.sm,
+    marginTop: 4,
+  },
+  confirmPromptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: AnimoSpacing.sm,
+    width: '100%',
+    height: 50,
+    borderRadius: AnimoRadius.pill,
+    backgroundColor: AnimoColors.accentPrimary,
+  },
+  cancelPromptBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: 48,
+    borderRadius: AnimoRadius.pill,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    backgroundColor: AnimoColors.surfacePrimary,
   },
 });

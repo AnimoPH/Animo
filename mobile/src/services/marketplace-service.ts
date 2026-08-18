@@ -88,8 +88,13 @@ export async function fetchMarketplaceListings(
     query = query.lte('computed_price_per_kg', filters.maxPricePerKg);
   }
 
-  // Variety and moisture are deliberately NOT predicates here — they are
-  // ranking preferences, so a mismatch is downgraded by the WPM score instead.
+  if (filters.variety !== undefined) {
+    query = query.eq('declared_variety', filters.variety);
+  }
+
+  if (filters.moisture !== undefined) {
+    query = query.eq('declared_moisture', filters.moisture);
+  }
 
   // Oldest first, which `rankListings` relies on for its stable tiebreak;
   // listing_id is a deterministic last resort for identical timestamps.

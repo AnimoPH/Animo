@@ -37,6 +37,8 @@ import { fetchMarketplaceListings } from '@/services/marketplace-service';
 import {
   MOISTURE_OPTIONS,
   VARIETY_OPTIONS,
+  moistureLabel,
+  purityLabel,
   varietyLabel,
   type DeclaredVariety,
   type MoistureType,
@@ -157,20 +159,43 @@ export default function MarketplaceScreen() {
     [filters],
   );
 
-  // Filter listings by search query (variety label, custom variety, etc.)
+  // Filter listings by search query (variety label, custom variety, moisture, purity, etc.)
   const displayedListings = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return ranked;
 
+    const terms = query
+      .split(/\s+/)
+      .filter((t) => t.length > 0 && !['ng', 'ang', 'mga', 'sa'].includes(t));
+
+    if (terms.length === 0) return ranked;
+
     return ranked.filter((item) => {
-      const vLabel = varietyLabel(item.listing).toLowerCase();
-      const rawVariety = item.listing.declaredVariety.toLowerCase();
-      const custom = item.listing.declaredVarietyCustom?.toLowerCase() || '';
-      return (
-        vLabel.includes(query) ||
-        rawVariety.includes(query) ||
-        custom.includes(query)
-      );
+      const l = item.listing;
+      const vLabel = varietyLabel(l).toLowerCase();
+      const rawVariety = l.declaredVariety.toLowerCase();
+      const custom = l.declaredVarietyCustom?.toLowerCase() || '';
+      const moisture = l.declaredMoisture.toLowerCase(); // 'dry' or 'wet'
+      const mLabel = moistureLabel(l.declaredMoisture).toLowerCase(); // 'tuyo (dry)' or 'basa (wet)'
+      const purity = purityLabel(l.declaredPurityGrade).toLowerCase();
+
+      return terms.every((term) => {
+        if (term === 'palay') return true;
+        if (term === 'dry' || term === 'tuyo' || term === 'tuyong') {
+          return l.declaredMoisture === 'Dry';
+        }
+        if (term === 'wet' || term === 'basa' || term === 'basang') {
+          return l.declaredMoisture === 'Wet';
+        }
+        return (
+          vLabel.includes(term) ||
+          rawVariety.includes(term) ||
+          custom.includes(term) ||
+          moisture.includes(term) ||
+          mLabel.includes(term) ||
+          purity.includes(term)
+        );
+      });
     });
   }, [ranked, searchQuery]);
 
@@ -328,23 +353,23 @@ export default function MarketplaceScreen() {
                 <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
                   Presyo bawat Kilo (₱)
                 </AnimoText>
-                <View style={styles.priceRow}>
-                  <View style={styles.priceField}>
+                <View style={styles.modalPriceRow}>
+                  <View style={styles.modalPriceField}>
                     <LabeledInput
                       label="Pinakamababa"
                       keyboardType="numeric"
                       prefixText="₱"
-                      placeholder="Halimbawa: 15"
+                      placeholder="Hal: 15"
                       value={minPriceText}
                       onChangeText={setMinPriceText}
                     />
                   </View>
-                  <View style={styles.priceField}>
+                  <View style={styles.modalPriceField}>
                     <LabeledInput
                       label="Pinakamataas"
                       keyboardType="numeric"
                       prefixText="₱"
-                      placeholder="Halimbawa: 25"
+                      placeholder="Hal: 25"
                       value={maxPriceText}
                       onChangeText={setMaxPriceText}
                     />
@@ -747,11 +772,13 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans_600SemiBold',
     color: AnimoColors.accentPrimary,
   },
-  priceRow: {
+  modalPriceRow: {
     flexDirection: 'row',
     gap: AnimoSpacing.md,
+    alignItems: 'flex-start',
+    marginTop: 2,
   },
-  priceField: {
+  modalPriceField: {
     flex: 1,
   },
   modalFooter: {

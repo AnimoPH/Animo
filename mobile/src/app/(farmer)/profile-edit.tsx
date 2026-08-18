@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { BackHeader } from '@/components/animo/back-header';
+import { ScreenHeader } from '@/components/animo/screen-header';
 import { FormCard } from '@/components/animo/form-card';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { SelectField } from '@/components/animo/select-field';
@@ -63,7 +63,7 @@ export default function ProfileEditScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <BackHeader title="Personal na Impormasyon" />
+      <ScreenHeader title="Personal na Impormasyon" />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

@@ -1,8 +1,10 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
+  Check,
   Clock,
   Info,
+  X,
   XCircle,
 } from 'lucide-react-native';
 import { useState } from 'react';
@@ -224,6 +226,7 @@ function StageFooter({
       <View style={styles.footerStack}>
         <AnimoButton
           label="Mag-browse ng Ibang Listing"
+          icon={Check}
           onPress={() => router.replace('/(buyer)/palengke')}
         />
         <AnimoButton
@@ -241,6 +244,7 @@ function StageFooter({
         <AnimoButton
           label={policy.triggerLabel}
           variant="dangerOutline"
+          icon={X}
           onPress={onCancel}
         />
       ) : null}

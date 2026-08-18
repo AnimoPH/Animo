@@ -32,26 +32,16 @@ export default function SignOutModal({
   onConfirm,
   onCancel,
 }: SignOutModalProps) {
-  const slideAnim = useRef(new Animated.Value(40)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          useNativeDriver: true,
-          tension: 65,
-          friction: 10,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
     } else {
-      slideAnim.setValue(40);
       fadeAnim.setValue(0);
     }
   }, [visible]);
@@ -72,7 +62,6 @@ export default function SignOutModal({
           style={[
             styles.card,
             {
-              transform: [{ translateY: slideAnim }],
               opacity: fadeAnim,
             },
           ]}>
@@ -121,6 +110,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: AnimoColors.surfacePrimary,
     borderRadius: AnimoRadius.lg,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
     marginHorizontal: AnimoSpacing.xxl,
     padding: AnimoSpacing.xl,
     alignItems: 'center',
