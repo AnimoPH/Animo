@@ -154,6 +154,7 @@ export default function FarmerTransactionDetailScreen() {
 
   // Only show payment method if in payment stage or completed
   const showPaymentMethod = isPaymentStage || isCompleted;
+  const headerTitle = farmerHeaderTitle(transaction.stage);
 
   // Build payment breakdown rows conditionally
   const paymentRows = [
@@ -167,7 +168,7 @@ export default function FarmerTransactionDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Detalye ng Transaksyon" />
+      <ScreenHeader title={headerTitle} />
 
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -825,6 +826,23 @@ function FooterActions({
       <AnimoButton label="Bumalik sa Transaksyon" variant="secondary" onPress={() => router.back()} />
     </View>
   );
+}
+
+function farmerHeaderTitle(stage: FarmerTransactionStage): string {
+  switch (stage) {
+    case 'pending':
+      return 'Katayuan ng Transaksyon';
+    case 'accepted':
+    case 'awaiting_pickup':
+      return 'Pickup at Inspeksyon';
+    case 'awaiting_payment':
+      return 'Pagbabayad';
+    case 'completed':
+      return 'Detalye ng Transaksyon';
+    case 'cancelled':
+    case 'failed':
+      return 'Katayuan ng Transaksyon';
+  }
 }
 
 function confirmTitle(kind: ConfirmKind): string {
