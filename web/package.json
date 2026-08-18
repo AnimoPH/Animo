@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@fontsource/plus-jakarta-sans": "^5.1.0",
+    "@supabase/supabase-js": "^2.112.3",
     "lucide-react": "^0.468.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

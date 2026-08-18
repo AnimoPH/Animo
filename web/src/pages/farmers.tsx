@@ -1,54 +1,95 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   Search,
-  UserPlus,
   X,
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
-import { FARMERS, type Farmer } from '@/constants/dashboard';
+import type { Farmer } from '@/constants/dashboard';
+import {
+  fetchLguFarmerRegistry,
+  formatRegisteredDate,
+  type LguFarmerRow,
+} from '@/services/lgu-console-service';
 
 export type FarmersPageProps = {
   onSignOut: () => void;
 };
 
-const BARANGAY_OPTIONS = [
-  'Lahat',
-  'Brgy. San Jose',
-  'Brgy. Concepcion',
-  'Brgy. Sta. Cruz',
-  'Brgy. Tibag',
-  'Brgy. Pagala',
-  'Brgy. Makinabang',
-];
+const STATUS_OPTIONS = ['Lahat', 'Aktibo', 'Hindi aktibo'];
 
-const STATUS_OPTIONS = ['Lahat', 'Aktibo', 'Hindi aktibo', 'Suspendido'];
+function toDisplayFarmer(row: LguFarmerRow): Farmer {
+  const initials = row.name
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
-/** Registry of farmers with search, filtering, registration modal, and account review links. */
+  return {
+    id: row.farmerId,
+    name: row.name,
+    initials: initials || '—',
+    barangay: row.barangay,
+    phone: '—',
+    farmSize: `${row.activeListings} aktibo / ${row.totalListings} kabuuan`,
+    registeredDate: formatRegisteredDate(row.dateRegistered),
+    status: row.activeListings > 0 ? 'active' : 'inactive',
+    rating: 0,
+    totalTransactions: 0,
+    reviews: [],
+    reports: [],
+    transactions: [],
+  };
+}
+
+/** Registry of farmers with search, filtering, and account review links (live Supabase read). */
 export function FarmersPage({ onSignOut }: FarmersPageProps) {
   const navigate = useNavigate();
-  const [farmersList, setFarmersList] = useState<Farmer[]>(FARMERS);
+  const [farmersList, setFarmersList] = useState<Farmer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBarangay, setSelectedBarangay] = useState('Lahat');
   const [selectedStatus, setSelectedStatus] = useState('Lahat');
 
-  // Add Farmer Modal state
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newBarangay, setNewBarangay] = useState('Brgy. San Jose');
-  const [newPhone, setNewPhone] = useState('');
-  const [newFarmSize, setNewFarmSize] = useState('1.0 ha');
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+
+    fetchLguFarmerRegistry()
+      .then((rows) => {
+        if (!cancelled) setFarmersList(rows.map(toDisplayFarmer));
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : 'Hindi ma-load ang registry.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const barangayOptions = useMemo(() => {
+    const unique = [...new Set(farmersList.map((f) => f.barangay))].sort();
+    return ['Lahat', ...unique];
+  }, [farmersList]);
 
   const filteredFarmers = useMemo(() => {
     return farmersList.filter((f) => {
       const matchesSearch =
         f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.phone.includes(searchQuery);
+        f.id.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesBarangay =
         selectedBarangay === 'Lahat' || f.barangay === selectedBarangay;
@@ -56,51 +97,14 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
       const matchesStatus =
         selectedStatus === 'Lahat' ||
         (selectedStatus === 'Aktibo' && f.status === 'active') ||
-        (selectedStatus === 'Hindi aktibo' && f.status === 'inactive') ||
-        (selectedStatus === 'Suspendido' && f.status === 'suspended');
+        (selectedStatus === 'Hindi aktibo' && f.status === 'inactive');
 
       return matchesSearch && matchesBarangay && matchesStatus;
     });
   }, [farmersList, searchQuery, selectedBarangay, selectedStatus]);
 
   const activeCount = farmersList.filter((f) => f.status === 'active').length;
-  const suspendedCount = farmersList.filter((f) => f.status === 'suspended').length;
   const barangaysCount = new Set(farmersList.map((f) => f.barangay)).size;
-
-  const handleAddFarmer = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newName.trim() || !newPhone.trim()) return;
-
-    const initials = newName
-      .split(' ')
-      .map((p) => p[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-
-    const newId = `FRM-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const newFarmer: Farmer = {
-      id: newId,
-      name: newName,
-      initials: initials || 'JD',
-      barangay: newBarangay,
-      phone: newPhone,
-      farmSize: newFarmSize,
-      registeredDate: 'Ngayong araw',
-      status: 'active',
-      rating: 5.0,
-      totalTransactions: 0,
-      reviews: [],
-      reports: [],
-      transactions: [],
-    };
-
-    setFarmersList([newFarmer, ...farmersList]);
-    setShowAddModal(false);
-    setNewName('');
-    setNewPhone('');
-  };
 
   return (
     <ConsoleLayout
@@ -110,10 +114,12 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
       {/* Metric summary row */}
       <section style={styles.summaryRow}>
         <SummaryCard label="Kabuuang Nakarehistro" value={String(farmersList.length)} unit="magsasaka" />
-        <SummaryCard label="Aktibo" value={String(activeCount)} unit="tumatanggap ng payo" />
-        <SummaryCard label="Suspendido" value={String(suspendedCount)} unit="may paglabag" unitColor="var(--animo-danger)" />
+        <SummaryCard label="Aktibo" value={String(activeCount)} unit="may available na listing" />
         <SummaryCard label="Saklaw" value={String(barangaysCount)} unit="barangay" />
       </section>
+
+      {loading ? <p style={styles.loadNotice}>Naglo-load ng registry mula sa Supabase…</p> : null}
+      {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
 
       {/* Main Table Card */}
       <article className="animo-card" style={styles.panel}>
@@ -127,8 +133,9 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
 
           <button
             type="button"
-            onClick={() => setShowAddModal(true)}
-            style={styles.addFarmerBtn}>
+            disabled
+            title="Kailangan ng LGU auth bago magrehistro ng bagong magsasaka"
+            style={{ ...styles.addFarmerBtn, opacity: 0.5, cursor: 'not-allowed' }}>
             <Plus size={18} />
             Magrehistro ng Magsasaka
           </button>
@@ -162,7 +169,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
                 value={selectedBarangay}
                 onChange={(e) => setSelectedBarangay(e.target.value)}
                 style={styles.filterSelect}>
-                {BARANGAY_OPTIONS.map((b) => (
+                {barangayOptions.map((b) => (
                   <option key={b} value={b}>
                     {b}
                   </option>
@@ -191,7 +198,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
           <table style={styles.table}>
             <thead>
               <tr>
-                {['Farmer ID', 'Magsasaka', 'Barangay', 'Numero', 'Laki ng Sakahan', 'Katayuan', 'Aksyon'].map(
+                {['Farmer ID', 'Magsasaka', 'Barangay', 'Numero', 'Mga Listing', 'Katayuan', 'Aksyon'].map(
                   (heading) => (
                     <th key={heading} style={styles.th}>
                       {heading.toUpperCase()}
@@ -220,96 +227,6 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
           </table>
         </div>
       </article>
-
-      {/* Add Farmer Modal */}
-      {showAddModal && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalCard}>
-            <div style={styles.modalHead}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={styles.modalIconWrap}>
-                  <UserPlus size={22} color="var(--animo-green)" />
-                </span>
-                <div>
-                  <h2 style={styles.modalTitle}>Magrehistro ng Bagong Magsasaka</h2>
-                  <p style={styles.modalSubtitle}>Magdagdag sa LGU Registry</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                style={styles.closeBtn}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddFarmer} style={styles.modalForm}>
-              <div>
-                <label style={styles.fieldLabel}>Buong Pangalan ng Magsasaka *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Hal. Juan Dela Cruz"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  style={styles.inputField}
-                />
-              </div>
-
-              <div style={styles.formRow}>
-                <div style={{ flex: 1 }}>
-                  <label style={styles.fieldLabel}>Barangay *</label>
-                  <select
-                    value={newBarangay}
-                    onChange={(e) => setNewBarangay(e.target.value)}
-                    style={styles.selectField}>
-                    {BARANGAY_OPTIONS.filter((b) => b !== 'Lahat').map((b) => (
-                      <option key={b} value={b}>
-                        {b}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={styles.fieldLabel}>Numero ng Telepono *</label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="0917 XXX XXXX"
-                    value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value)}
-                    style={styles.inputField}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={styles.fieldLabel}>Laki ng Sakahan (Hectares)</label>
-                <input
-                  type="text"
-                  placeholder="Hal. 1.5 ha"
-                  value={newFarmSize}
-                  onChange={(e) => setNewFarmSize(e.target.value)}
-                  style={styles.inputField}
-                />
-              </div>
-
-              <div style={styles.modalFooter}>
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  style={styles.cancelBtn}>
-                  Kanselahin
-                </button>
-                <button type="submit" style={styles.submitBtn}>
-                  <UserPlus size={18} />
-                  I-rehistro ang Magsasaka
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </ConsoleLayout>
   );
 }
@@ -347,8 +264,8 @@ function FarmerRow({
   return (
     <tr>
       {/* Farmer ID (First Column) */}
-      <td style={{ ...styles.td, fontWeight: 700, color: 'var(--animo-green)' }}>
-        {farmer.id}
+      <td style={{ ...styles.td, fontWeight: 700, color: 'var(--animo-green)', fontSize: 12 }}>
+        {farmer.id.slice(0, 8).toUpperCase()}
       </td>
       <td style={styles.td}>
         <span style={styles.identity}>
@@ -406,6 +323,16 @@ const styles: Record<string, React.CSSProperties> = {
   summaryLabel: { fontSize: 14, fontWeight: 600, color: 'var(--animo-black-secondary)' },
   summaryValue: { fontSize: 32, fontWeight: 800, lineHeight: '38px' },
   summaryUnit: { fontSize: 13, color: 'var(--animo-muted)' },
+  loadNotice: {
+    margin: '0 0 12px',
+    color: 'var(--animo-black-secondary)',
+    fontSize: 14,
+  },
+  errorNotice: {
+    margin: '0 0 12px',
+    color: 'var(--animo-danger)',
+    fontSize: 14,
+  },
   panel: { display: 'flex', flexDirection: 'column', gap: 18, padding: 24 },
   panelHead: {
     display: 'flex',

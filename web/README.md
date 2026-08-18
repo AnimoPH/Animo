@@ -11,9 +11,14 @@ React 19 · TypeScript · Vite · React Router · Lucide icons · Plus Jakarta S
 
 ```bash
 npm install
-npm run dev     # http://localhost:5173
-npm run build   # typecheck + production bundle into dist/
+cp .env.example .env   # same Supabase project as ../mobile
+npm run dev            # http://localhost:5173
+npm run build          # typecheck + production bundle into dist/
 ```
+
+Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in `.env` (mirror the mobile
+project’s `EXPO_PUBLIC_SUPABASE_*` values). The console reads public tables only;
+stub login in `App.tsx` is unchanged.
 
 ## Layout
 
@@ -75,9 +80,10 @@ step. Prefer the `--animo-*` variables over literal hex values in new styles.
 - **Auth is stubbed.** `App.tsx` holds `signedIn` in local state; submitting the
   login form flips it and routes to `/dashboard`. Swap for the real session hook
   when the API lands.
-- **All page data is static**, in `src/constants/dashboard.ts`. The shapes match
-  what the monitoring API is expected to return, so wiring the endpoints should
-  be a swap of that module rather than a page rewrite.
+- **Dashboard and farmers pages read live Supabase data** via `src/services/lgu-console-service.ts`
+  (`marketpricefeed`, `palay_price_history`, `nfa_intervention_window`, `lgu_farmer_registry`).
+  PSA sync, NFA toggle, and farmer registration stay disabled until LGU auth exists.
+  Other pages still use placeholder data in `src/constants/dashboard.ts`.
 - **Farmer-action reporting is deliberately out of scope.** Advance cut, delayed
   harvest and no-action figures — and the panels that summarize them — are
   omitted throughout; advisory tracking covers issuance and delivery only.
