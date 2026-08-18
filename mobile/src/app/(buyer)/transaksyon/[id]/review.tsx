@@ -21,7 +21,9 @@ import { NoticeBanner } from '@/components/animo/notice-banner';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
+import { fetchOwnRatingForTransaction, submitRating } from '@/services/rating-service';
 import { fetchTransactionByRequestId, fetchTransactionCounterpart } from '@/services/transaction-service';
+import type { Rating } from '@/types/rating';
 import type { PurchaseOutcome, TransactionCounterpart } from '@/types/transaction';
 
 const RATING_MOODS: Record<number, string> = {
@@ -36,10 +38,8 @@ const RATING_MOODS: Record<number, string> = {
 const STAR_GOLD = '#F5A623';
 
 /**
- * Suriin ang Magsasaka. Reads the real transaction/farmer for display; the
- * `rating` table write is not part of this task's scope (no rating RPC was
- * added), so submitting stays a client-only success state.
- * TODO(ratings): insert into public.rating once that task lands.
+ * Suriin ang Magsasaka. Persists one 1–5 `score` plus optional comment on
+ * `rating` (0001 + 0017). Detail-star rows below are UX only.
  */
 export default function ReviewFarmerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -55,6 +55,9 @@ export default function ReviewFarmerScreen() {
   const [communicationRating, setCommunicationRating] = useState(5);
   const [timelinessRating, setTimelinessRating] = useState(5);
   const [comment, setComment] = useState('');
+  const [existing, setExisting] = useState<Rating | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const load = useCallback(async () => {
@@ -70,6 +73,12 @@ export default function ReviewFarmerScreen() {
       }
       setOutcome({ kind: 'matched', request, transaction });
       setCounterpart(await fetchTransactionCounterpart(transaction.farmerId));
+      const already = await fetchOwnRatingForTransaction(transaction.id);
+      setExisting(already);
+      if (already) {
+        setOverallRating(already.score);
+        setComment(already.comment ?? '');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Hindi ma-load ang transaksyon.');
     } finally {
@@ -107,10 +116,23 @@ export default function ReviewFarmerScreen() {
 
   const farmerName = counterpart?.name ?? 'Magsasaka';
 
-  const handleSubmit = () => {
-    // TODO(ratings): insert into public.rating once that task lands — for
-    // now this is a client-only acknowledgement, nothing is persisted.
-    setShowSuccessModal(true);
+  const handleSubmit = async () => {
+    if (existing || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await submitRating({
+        transactionId: outcome.transaction.id,
+        ratedId: outcome.transaction.farmerId,
+        score: overallRating,
+        comment,
+      });
+      setShowSuccessModal(true);
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : 'Hindi naisumite ang review.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSkip = () => {
@@ -156,7 +178,7 @@ export default function ReviewFarmerScreen() {
 
             <View style={styles.starRowBig}>
               {[1, 2, 3, 4, 5].map((star) => (
-                <Pressable key={star} hitSlop={8} onPress={() => setOverallRating(star)} style={styles.starTouch}>
+                <Pressable key={star} hitSlop={8} onPress={() => !existing && setOverallRating(star)} style={styles.starTouch}>
                   <Star size={36} color={star <= overallRating ? STAR_GOLD : AnimoColors.border} fill={star <= overallRating ? STAR_GOLD : 'transparent'} />
                 </Pressable>
               ))}
@@ -167,10 +189,10 @@ export default function ReviewFarmerScreen() {
             <AnimoText variant="h3" color={AnimoColors.black}>
               Detalyadong Marka
             </AnimoText>
-            <StarCriterionRow label="Kalidad ng palay" value={qualityRating} onChange={setQualityRating} />
-            <StarCriterionRow label="Tugma ang timbang" value={weightRating} onChange={setWeightRating} />
-            <StarCriterionRow label="Komunikasyon" value={communicationRating} onChange={setCommunicationRating} />
-            <StarCriterionRow label="Pagiging maagap" value={timelinessRating} onChange={setTimelinessRating} />
+            <StarCriterionRow label="Kalidad ng palay" value={qualityRating} onChange={setQualityRating} disabled={!!existing} />
+            <StarCriterionRow label="Tugma ang timbang" value={weightRating} onChange={setWeightRating} disabled={!!existing} />
+            <StarCriterionRow label="Komunikasyon" value={communicationRating} onChange={setCommunicationRating} disabled={!!existing} />
+            <StarCriterionRow label="Pagiging maagap" value={timelinessRating} onChange={setTimelinessRating} disabled={!!existing} />
           </View>
 
           <View style={styles.card}>
@@ -187,7 +209,7 @@ export default function ReviewFarmerScreen() {
                 maxLength={500}
                 value={comment}
                 onChangeText={setComment}
-                textAlignVertical="top"
+                editable={!existing}
               />
               <AnimoText variant="tag" color={AnimoColors.muted} style={styles.counter}>
                 {comment.length}/500
@@ -196,13 +218,32 @@ export default function ReviewFarmerScreen() {
           </View>
 
           <NoticeBanner tone="info" icon={<Lock size={16} color="#2563A8" />}>
-            Makikita ng ibang mamimili ang review na ito sa profile ng magsasaka.
+            {existing
+              ? 'Naisumite mo na ang review para sa transaksyong ito.'
+              : 'Makikita ng ibang mamimili ang review na ito sa profile ng magsasaka.'}
           </NoticeBanner>
         </ScrollView>
 
         <View style={styles.footerStack}>
-          <AnimoButton label="Isumite ang Review" icon={Check} onPress={handleSubmit} />
-          <AnimoButton label="Laktawan Muna" variant="secondary" icon={X} onPress={handleSkip} />
+          {submitError ? (
+            <AnimoText variant="caption" color={AnimoColors.danger}>
+              {submitError}
+            </AnimoText>
+          ) : null}
+          {existing ? (
+            <AnimoButton label="Bumalik sa Transaksyon" icon={Check} onPress={handleSkip} />
+          ) : (
+            <>
+              <AnimoButton
+                label="Isumite ang Review"
+                icon={Check}
+                onPress={handleSubmit}
+                loading={submitting}
+                disabled={submitting}
+              />
+              <AnimoButton label="Laktawan Muna" variant="secondary" icon={X} onPress={handleSkip} />
+            </>
+          )}
         </View>
       </KeyboardAvoidingView>
 
@@ -221,7 +262,17 @@ export default function ReviewFarmerScreen() {
   );
 }
 
-function StarCriterionRow({ label, value, onChange }: { label: string; value: number; onChange: (val: number) => void }) {
+function StarCriterionRow({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: number;
+  onChange: (val: number) => void;
+  disabled?: boolean;
+}) {
   return (
     <View style={styles.criterionRow}>
       <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.flex}>
@@ -229,7 +280,7 @@ function StarCriterionRow({ label, value, onChange }: { label: string; value: nu
       </AnimoText>
       <View style={styles.starRowMedium}>
         {[1, 2, 3, 4, 5].map((star) => (
-          <Pressable key={star} onPress={() => onChange(star)} hitSlop={8} style={styles.starMediumTouch}>
+          <Pressable key={star} onPress={() => !disabled && onChange(star)} hitSlop={8} style={styles.starMediumTouch}>
             <Star size={24} color={star <= value ? STAR_GOLD : AnimoColors.border} fill={star <= value ? STAR_GOLD : 'transparent'} />
           </Pressable>
         ))}

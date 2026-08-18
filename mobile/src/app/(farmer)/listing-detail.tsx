@@ -16,13 +16,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AnimoText } from "@/components/animo/animo-text";
 import { BackHeader } from "@/components/animo/back-header";
 import { FeedbackModal } from "@/components/animo/feedback-modal";
+import { BuyerTrustStatsCard } from "@/components/animo/farmer/buyer-trust-stats-card";
 import { ListingDetailContent } from "@/components/animo/farmer/listing-detail-content";
 import { StatusBadge } from "@/components/animo/status-badge";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
 import { formatPeso } from "@/constants/marketplace";
 import { useSession } from "@/hooks/use-session";
 import { fetchCropListing, fetchListingPhotos } from "@/services/crop-listing-service";
-import { fetchBuyerTrustStatsBatch } from "@/services/farmer-public-profile";
+import { fetchBuyerTrustStatsBatch, type BuyerTrustStats } from "@/services/farmer-public-profile";
 import { rankPurchaseRequests, type RankedPurchaseRequest } from "@/services/marketplace-ranking";
 import {
   acceptPurchaseRequest,
@@ -55,6 +56,7 @@ export default function ListingDetailScreen() {
   // request list or trust stats change; accepted/rejected rows drop off the
   // list entirely once acted on (they show up in the Transaksyon tab instead).
   const [ranked, setRanked] = useState<RankedPurchaseRequest[]>([]);
+  const [trustByBuyer, setTrustByBuyer] = useState<Map<string, BuyerTrustStats>>(new Map());
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState<string | undefined>();
 
@@ -102,7 +104,13 @@ export default function ListingDetailScreen() {
     try {
       const requests = await fetchListingPurchaseRequests(id);
       const pending = requests.filter((r) => r.status === "Pending");
+      if (pending.length === 0) {
+        setTrustByBuyer(new Map());
+        setRanked([]);
+        return;
+      }
       const trustByBuyer = await fetchBuyerTrustStatsBatch(pending.map((r) => r.buyerId));
+      setTrustByBuyer(trustByBuyer);
       setRanked(
         rankPurchaseRequests(
           pending.map((request) => ({
@@ -271,6 +279,7 @@ export default function ListingDetailScreen() {
                     key={request.id}
                     request={request}
                     pricePerKg={listing.pricePerKg ?? 0}
+                    trustStats={trustByBuyer.get(request.buyerId)}
                     onAccept={() => openAcceptModal(request)}
                     onReject={() => handleOpenReject(request)}
                   />
@@ -464,11 +473,13 @@ function OrdersEmptyState() {
 function PurchaseRequestCard({
   request,
   pricePerKg,
+  trustStats,
   onAccept,
   onReject,
 }: {
   request: PurchaseRequest;
   pricePerKg: number;
+  trustStats?: BuyerTrustStats;
   onAccept: () => void;
   onReject: () => void;
 }) {
@@ -498,7 +509,7 @@ function PurchaseRequestCard({
           <View style={styles.requestInfoTop}>
             <Pressable accessibilityRole="button" hitSlop={8} onPress={openBuyerProfile}>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                Tingnan ang Mamimili
+                Kahilingan mula sa Mamimili
               </AnimoText>
             </Pressable>
             <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
@@ -513,6 +524,10 @@ function PurchaseRequestCard({
           </View>
         </View>
       </View>
+
+      {trustStats ? (
+        <BuyerTrustStatsCard stats={trustStats} onPressProfile={openBuyerProfile} />
+      ) : null}
 
       {request.status === "Pending" ? (
         <View style={styles.requestActions}>

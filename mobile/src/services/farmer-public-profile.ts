@@ -1,5 +1,10 @@
 import { supabase } from '@/lib/supabase';
-import { varietyLabel, type CropListing } from '@/types/crop-listing';
+import {
+  LISTING_COLUMNS,
+  mapListing,
+  type CropListingRow,
+} from '@/services/crop-listing-service';
+import { varietyLabel, type CropListing, type DeclaredVariety } from '@/types/crop-listing';
 
 export type FarmerPublicProfile = {
   farmerId: string;
@@ -13,252 +18,280 @@ export type FarmerPublicProfile = {
   credibilityScorePct: number;
   averageRating: number;
   totalReviews: number;
+  /** Share of ratings that are 4–5 stars; null when there are no reviews yet. */
+  positiveFeedbackPct: number | null;
+  comments: string[];
 };
 
+const FILIPINO_MONTHS = [
+  'Enero',
+  'Pebrero',
+  'Marso',
+  'Abril',
+  'Mayo',
+  'Hunyo',
+  'Hulyo',
+  'Agosto',
+  'Setyembre',
+  'Oktubre',
+  'Nobyembre',
+  'Disyembre',
+];
+
+function formatMemberSince(isoDate: string | null | undefined): string {
+  if (!isoDate) return '';
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${FILIPINO_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function averageScore(scores: number[]): number {
+  if (scores.length === 0) return 0;
+  const sum = scores.reduce((acc, score) => acc + score, 0);
+  return Math.round((sum / scores.length) * 10) / 10;
+}
+
+function positiveShare(scores: number[]): number | null {
+  if (scores.length === 0) return null;
+  const positive = scores.filter((score) => score >= 4).length;
+  return Math.round((positive / scores.length) * 100);
+}
+
+async function fetchAvailableListings(): Promise<CropListing[]> {
+  const { data, error } = await supabase
+    .from('croplisting')
+    .select(LISTING_COLUMNS)
+    .eq('status', 'Available')
+    .not('computed_price_per_kg', 'is', null)
+    .gt('computed_price_per_kg', 0);
+
+  if (error) throw error;
+  return (data as CropListingRow[]).map(mapListing);
+}
+
+function emptyProfile(partial?: Partial<FarmerPublicProfile>): FarmerPublicProfile {
+  return {
+    farmerId: '',
+    name: 'Magsasaka',
+    location: '',
+    memberSince: '',
+    verified: false,
+    totalSoldKg: 0,
+    completedTransactionsCount: 0,
+    commonlySoldVarieties: [],
+    credibilityScorePct: 0,
+    averageRating: 0,
+    totalReviews: 0,
+    positiveFeedbackPct: null,
+    comments: [],
+    ...partial,
+  };
+}
+
 /**
- * Fetches privacy-safe public profile & transaction statistics for the farmer
- * who created the given crop listing.
- *
- * Excludes private personal details (phone number, exact home address) to
- * protect farmer privacy prior to a transaction match, while surfacing
- * meaningful trust signals (varieties sold, total volume sold, completed transactions).
+ * Privacy-safe public stats for the farmer who owns this listing.
+ * Missing data is zero / empty — never padded with demo personas.
  */
 export async function fetchFarmerPublicProfile(
   listingId: string,
   listing?: CropListing | null,
 ): Promise<FarmerPublicProfile> {
-  try {
-    // 1. Resolve farmer_id for this listing
-    const { data: listingData } = await supabase
-      .from('croplisting')
-      .select('farmer_id, date_listed, declared_variety, declared_variety_custom')
-      .eq('listing_id', listingId)
-      .maybeSingle();
+  const { data: listingData, error: listingError } = await supabase
+    .from('croplisting')
+    .select('farmer_id, date_listed, declared_variety, declared_variety_custom')
+    .eq('listing_id', listingId)
+    .maybeSingle();
 
-    const farmerId = listingData?.farmer_id;
+  if (listingError) throw listingError;
 
-    if (!farmerId) {
-      return getFallbackFarmerProfile(listing);
-    }
-
-    // 2. Query public farmer info
-    const { data: farmerUserData } = await supabase
-      .from('listing_farmer_public')
-      .select('farmer_name')
-      .eq('listing_id', listingId)
-      .maybeSingle();
-
-    // 3. Query farmer's past crop listings to compute commonly sold varieties & volume
-    const { data: pastListings } = await supabase
-      .from('croplisting')
-      .select('declared_variety, declared_variety_custom, gross_weight_kg, tare_weight_kg, remaining_quantity_kg, status')
-      .eq('farmer_id', farmerId);
-
-    // 4. Query completed transactions count & total volume sold
-    const { data: transactions } = await supabase
-      .from('transactionmatch')
-      .select('quantity_kg, status')
-      .eq('farmer_id', farmerId)
-      .eq('status', 'Completed');
-
-    // 5. Query credibility score & ratings
-    const { data: credData } = await supabase
-      .from('credibilityscore')
-      .select('total_transactions, pass_rate_pct')
-      .eq('farmer_id', farmerId)
-      .maybeSingle();
-
-    const { data: ratingsData } = await supabase
-      .from('rating')
-      .select('score')
-      .eq('rated_id', farmerId);
-
-    // Calculate aggregated statistics
-    const completedCount =
-      transactions && transactions.length > 0
-        ? transactions.length
-        : credData?.total_transactions || 8;
-
-    const totalSold =
-      transactions && transactions.length > 0
-        ? transactions.reduce((acc, curr) => acc + (Number(curr.quantity_kg) || 0), 0)
-        : (pastListings ?? []).reduce((acc, l) => {
-            const net = (Number(l.gross_weight_kg) || 0) - (Number(l.tare_weight_kg) || 0);
-            const remaining = Number(l.remaining_quantity_kg) || 0;
-            return acc + Math.max(0, net - remaining);
-          }, 0) || 14200;
-
-    // Determine commonly sold varieties
-    const varietyCountMap = new Map<string, number>();
-    if (pastListings && pastListings.length > 0) {
-      for (const item of pastListings) {
-        const label = varietyLabel({
-          declaredVariety: item.declared_variety as any,
-          declaredVarietyCustom: item.declared_variety_custom,
-        });
-        varietyCountMap.set(label, (varietyCountMap.get(label) || 0) + 1);
-      }
-    }
-
-    if (listing) {
-      const currentLabel = varietyLabel(listing);
-      varietyCountMap.set(currentLabel, (varietyCountMap.get(currentLabel) || 0) + 1);
-    }
-
-    const commonVarieties = Array.from(varietyCountMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([name]) => name);
-
-    if (commonVarieties.length === 0) {
-      commonVarieties.push('Inbred (RC 160)', 'Hybrid (SL-8H)', 'Tradisyonal');
-    }
-
-    const ratingAvg =
-      ratingsData && ratingsData.length > 0
-        ? ratingsData.reduce((acc, r) => acc + Number(r.score), 0) / ratingsData.length
-        : 4.9;
-
-    return {
-      farmerId,
-      name: farmerUserData?.farmer_name || 'Magsasaka sa Central Luzon',
-      location: 'San Isidro, Nueva Ecija',
-      memberSince: 'Oktubre 2025',
-      verified: true,
-      totalSoldKg: totalSold,
-      completedTransactionsCount: completedCount,
-      commonlySoldVarieties: commonVarieties.slice(0, 3),
-      credibilityScorePct: credData ? Number(credData.pass_rate_pct) : 100,
-      averageRating: Math.round(ratingAvg * 10) / 10,
-      totalReviews: ratingsData?.length || 12,
-    };
-  } catch {
-    return getFallbackFarmerProfile(listing);
+  const farmerId = listingData?.farmer_id;
+  if (!farmerId) {
+    return emptyProfile({
+      commonlySoldVarieties: listing ? [varietyLabel(listing)] : [],
+    });
   }
-}
 
-function getFallbackFarmerProfile(listing?: CropListing | null): FarmerPublicProfile {
-  const currentVariety = listing ? varietyLabel(listing) : 'Inbred';
+  const [
+    { data: farmerUserData, error: nameError },
+    { data: pastListings, error: listingsError },
+    { data: transactions, error: txError },
+    { data: credData, error: credError },
+    { data: ratingsData, error: ratingError },
+  ] = await Promise.all([
+    supabase.from('listing_farmer_public').select('farmer_name').eq('listing_id', listingId).maybeSingle(),
+    supabase
+      .from('croplisting')
+      .select(
+        'declared_variety, declared_variety_custom, gross_weight_kg, tare_weight_kg, remaining_quantity_kg, date_listed, status',
+      )
+      .eq('farmer_id', farmerId),
+    supabase.from('transactionmatch').select('quantity_kg').eq('farmer_id', farmerId).eq('status', 'Completed'),
+    supabase.from('credibilityscore').select('pass_rate_pct').eq('farmer_id', farmerId).maybeSingle(),
+    supabase.from('rating').select('score, comment').eq('rated_id', farmerId),
+  ]);
+
+  if (nameError) throw nameError;
+  if (listingsError) throw listingsError;
+  if (txError) throw txError;
+  if (credError) throw credError;
+  if (ratingError) throw ratingError;
+
+  const completed = transactions ?? [];
+  const completedCount = completed.length;
+  const totalSold = completed.reduce((acc, row) => acc + (Number(row.quantity_kg) || 0), 0);
+
+  const varietyCountMap = new Map<string, number>();
+  let oldestListingAt: string | null = listingData.date_listed ?? null;
+  for (const item of pastListings ?? []) {
+    const label = varietyLabel({
+      declaredVariety: item.declared_variety as DeclaredVariety,
+      declaredVarietyCustom: item.declared_variety_custom,
+    });
+    varietyCountMap.set(label, (varietyCountMap.get(label) ?? 0) + 1);
+    if (!oldestListingAt || item.date_listed < oldestListingAt) {
+      oldestListingAt = item.date_listed;
+    }
+  }
+  if (listing) {
+    const currentLabel = varietyLabel(listing);
+    varietyCountMap.set(currentLabel, (varietyCountMap.get(currentLabel) ?? 0) + 1);
+  }
+
+  const commonVarieties = Array.from(varietyCountMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name]) => name)
+    .slice(0, 3);
+
+  const scores = (ratingsData ?? []).map((row) => Number(row.score)).filter((score) => Number.isFinite(score));
+  const comments = (ratingsData ?? [])
+    .map((row) => (typeof row.comment === 'string' ? row.comment.trim() : ''))
+    .filter((comment) => comment.length > 0);
+
   return {
-    farmerId: 'farmer-demo',
-    name: 'Mang Jose (Magsasaka)',
-    location: 'San Isidro, Nueva Ecija',
-    memberSince: 'Oktubre 2025',
-    verified: true,
-    totalSoldKg: 16800,
-    completedTransactionsCount: 14,
-    commonlySoldVarieties: Array.from(
-      new Set([currentVariety, 'Inbred (RC 160)', 'Hybrid (SL-8H)']),
-    ),
-    credibilityScorePct: 100,
-    averageRating: 4.9,
-    totalReviews: 12,
+    farmerId,
+    name: farmerUserData?.farmer_name?.trim() || 'Magsasaka',
+    location: '',
+    memberSince: formatMemberSince(oldestListingAt),
+    verified: false,
+    totalSoldKg: totalSold,
+    completedTransactionsCount: completedCount,
+    commonlySoldVarieties: commonVarieties,
+    credibilityScorePct: credData ? Number(credData.pass_rate_pct) || 0 : 0,
+    averageRating: averageScore(scores),
+    totalReviews: scores.length,
+    positiveFeedbackPct: positiveShare(scores),
+    comments,
   };
 }
 
 export type RankedFarmer = FarmerPublicProfile & {
+  listingId: string;
   rank: number;
   rankBadge: string;
   badgeLabel: string;
 };
 
-export const DEMO_RANKED_FARMERS: RankedFarmer[] = [
-  {
-    farmerId: 'farmer-1',
-    name: 'Mang Jose Santos',
-    location: 'San Isidro, Nueva Ecija',
-    memberSince: 'Oktubre 2025',
-    verified: true,
-    totalSoldKg: 24500,
-    completedTransactionsCount: 18,
-    commonlySoldVarieties: ['Inbred (RC 160)', 'Hybrid (SL-8H)', 'Dinorado'],
-    credibilityScorePct: 100,
-    averageRating: 4.9,
-    totalReviews: 24,
-    rank: 1,
-    rankBadge: '🥇 #1 Nangunguna',
-    badgeLabel: 'Top Producer',
-  },
-  {
-    farmerId: 'farmer-2',
-    name: 'Tatay Ramon Rivera',
-    location: 'Talavera, Nueva Ecija',
-    memberSince: 'Nobyembre 2025',
-    verified: true,
-    totalSoldKg: 19800,
-    completedTransactionsCount: 15,
-    commonlySoldVarieties: ['Hybrid (SL-8H)', 'Inbred (RC 222)', 'Tradisyonal'],
-    credibilityScorePct: 99,
-    averageRating: 4.9,
-    totalReviews: 19,
-    rank: 2,
-    rankBadge: '🥈 #2 Top Rated',
-    badgeLabel: 'Mataas ang Marka',
-  },
-  {
-    farmerId: 'farmer-3',
-    name: 'Aling Maria Dela Cruz',
-    location: 'Gapan City, Nueva Ecija',
-    memberSince: 'Disyembre 2025',
-    verified: true,
-    totalSoldKg: 16200,
-    completedTransactionsCount: 12,
-    commonlySoldVarieties: ['Inbred (RC 160)', 'Tradisyonal', 'Sinandomeng'],
-    credibilityScorePct: 98,
-    averageRating: 4.8,
-    totalReviews: 16,
-    rank: 3,
-    rankBadge: '🥉 #3 Mabilis Magtransaksyon',
-    badgeLabel: 'Mabilis ang Pickup',
-  },
-  {
-    farmerId: 'farmer-4',
-    name: 'Mang Danilo Bautista',
-    location: 'Cabanatuan, Nueva Ecija',
-    memberSince: 'Enero 2026',
-    verified: true,
-    totalSoldKg: 14100,
-    completedTransactionsCount: 11,
-    commonlySoldVarieties: ['Hybrid (SL-8H)', 'Inbred (RC 160)'],
-    credibilityScorePct: 97,
-    averageRating: 4.8,
-    totalReviews: 14,
-    rank: 4,
-    rankBadge: '#4 Maaasahan',
-    badgeLabel: 'Suki ng Bayan',
-  },
-  {
-    farmerId: 'farmer-5',
-    name: 'Kiko Manalo',
-    location: 'San Jose City, Nueva Ecija',
-    memberSince: 'Pebrero 2026',
-    verified: true,
-    totalSoldKg: 12300,
-    completedTransactionsCount: 9,
-    commonlySoldVarieties: ['Tradisyonal (Dinorado)', 'Inbred (RC 222)'],
-    credibilityScorePct: 98,
-    averageRating: 4.7,
-    totalReviews: 11,
-    rank: 5,
-    rankBadge: '#5 Dekalidad',
-    badgeLabel: 'Dekalidad na Ani',
-  },
-];
-
-/** Fetches top ranked farmers for leaderboards and buyer home recommendation */
+/** Farmers with at least one Available listing, ranked by completed transactions then volume. */
 export async function fetchTopRankedFarmers(): Promise<RankedFarmer[]> {
-  return DEMO_RANKED_FARMERS;
+  const availableListings = await fetchAvailableListings();
+  if (availableListings.length === 0) return [];
+
+  const listingIds = availableListings.map((listing) => listing.id);
+  const { data: publicRows, error: publicError } = await supabase
+    .from('listing_farmer_public')
+    .select('listing_id, farmer_id, farmer_name')
+    .in('listing_id', listingIds);
+
+  if (publicError) throw publicError;
+
+  const farmers = new Map<
+    string,
+    { name: string; listingId: string; varieties: Set<string>; oldestListed: string | null }
+  >();
+  const listingById = new Map(availableListings.map((listing) => [listing.id, listing]));
+
+  for (const row of publicRows ?? []) {
+    const listing = listingById.get(row.listing_id);
+    const existing = farmers.get(row.farmer_id);
+    const variety = listing ? varietyLabel(listing) : null;
+    if (!existing) {
+      farmers.set(row.farmer_id, {
+        name: row.farmer_name?.trim() || 'Magsasaka',
+        listingId: row.listing_id,
+        varieties: new Set(variety ? [variety] : []),
+        oldestListed: listing?.dateListed ?? null,
+      });
+    } else if (variety) {
+      existing.varieties.add(variety);
+    }
+  }
+
+  const farmerIds = [...farmers.keys()];
+  if (farmerIds.length === 0) return [];
+
+  const [{ data: transactions, error: txError }, { data: ratings, error: ratingError }] = await Promise.all([
+    supabase.from('transactionmatch').select('farmer_id, quantity_kg').in('farmer_id', farmerIds).eq('status', 'Completed'),
+    supabase.from('rating').select('rated_id, score, comment').in('rated_id', farmerIds),
+  ]);
+
+  if (txError) throw txError;
+  if (ratingError) throw ratingError;
+
+  const profiles: FarmerPublicProfile[] = farmerIds.map((farmerId) => {
+    const meta = farmers.get(farmerId)!;
+    const farmerTxns = (transactions ?? []).filter((row) => row.farmer_id === farmerId);
+    const farmerRatings = (ratings ?? []).filter((row) => row.rated_id === farmerId);
+    const scores = farmerRatings.map((row) => Number(row.score)).filter((score) => Number.isFinite(score));
+    const comments = farmerRatings
+      .map((row) => (typeof row.comment === 'string' ? row.comment.trim() : ''))
+      .filter((comment) => comment.length > 0);
+
+    return {
+      farmerId,
+      name: meta.name,
+      location: '',
+      memberSince: formatMemberSince(meta.oldestListed),
+      verified: false,
+      totalSoldKg: farmerTxns.reduce((acc, row) => acc + (Number(row.quantity_kg) || 0), 0),
+      completedTransactionsCount: farmerTxns.length,
+      commonlySoldVarieties: [...meta.varieties].slice(0, 3),
+      credibilityScorePct: 0,
+      averageRating: averageScore(scores),
+      totalReviews: scores.length,
+      positiveFeedbackPct: positiveShare(scores),
+      comments,
+    };
+  });
+
+  return profiles
+    .sort((a, b) => {
+      if (b.completedTransactionsCount !== a.completedTransactionsCount) {
+        return b.completedTransactionsCount - a.completedTransactionsCount;
+      }
+      return b.totalSoldKg - a.totalSoldKg;
+    })
+    .map((profile, index) => {
+      const rank = index + 1;
+      const meta = farmers.get(profile.farmerId)!;
+      return {
+        ...profile,
+        listingId: meta.listingId,
+        rank,
+        rankBadge: `#${rank}`,
+        badgeLabel: rank === 1 ? 'Nangunguna' : '',
+      };
+    });
 }
 
-/** Searches farmer profiles by name, location, or rice variety */
 export async function searchFarmerProfiles(query: string): Promise<RankedFarmer[]> {
+  const farmers = await fetchTopRankedFarmers();
   const q = query.trim().toLowerCase();
-  if (!q) return DEMO_RANKED_FARMERS;
-
-  return DEMO_RANKED_FARMERS.filter(
-    (f) =>
-      f.name.toLowerCase().includes(q) ||
-      f.location.toLowerCase().includes(q) ||
-      f.commonlySoldVarieties.some((v) => v.toLowerCase().includes(q)),
+  if (!q) return farmers;
+  return farmers.filter(
+    (farmer) =>
+      farmer.name.toLowerCase().includes(q) ||
+      farmer.location.toLowerCase().includes(q) ||
+      farmer.commonlySoldVarieties.some((variety) => variety.toLowerCase().includes(q)),
   );
 }
 
@@ -270,14 +303,46 @@ export type MarketPopularityInsight = {
   totalVolumeMonthKg: number;
 };
 
-/** Returns high-level market analytics & popular demand trends */
-export async function fetchMarketPopularityInsights(): Promise<MarketPopularityInsight> {
+/** Live marketplace snapshot from Available listings — returns null when the market is empty. */
+export async function fetchMarketPopularityInsights(): Promise<MarketPopularityInsight | null> {
+  const available = await fetchAvailableListings();
+  if (available.length === 0) return null;
+
+  const varietyCounts = new Map<string, number>();
+  let priceSum = 0;
+  let pricedCount = 0;
+  let volumeKg = 0;
+  const farmerNames = new Set<string>();
+
+  const listingIds = available.map((listing) => listing.id);
+  const { data: publicRows } = await supabase
+    .from('listing_farmer_public')
+    .select('listing_id, farmer_id')
+    .in('listing_id', listingIds);
+
+  for (const row of publicRows ?? []) {
+    farmerNames.add(row.farmer_id);
+  }
+
+  for (const listing of available) {
+    const label = varietyLabel(listing);
+    varietyCounts.set(label, (varietyCounts.get(label) ?? 0) + 1);
+    if (listing.pricePerKg && listing.pricePerKg > 0) {
+      priceSum += listing.pricePerKg;
+      pricedCount += 1;
+    }
+    volumeKg += listing.remainingQuantityKg;
+  }
+
+  const [topVariety, topCount] = [...varietyCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? ['Palay', 0];
+  const sharePct = available.length > 0 ? Math.round((topCount / available.length) * 100) : 0;
+
   return {
-    topVariety: 'Inbred (RC 160)',
-    topVarietyShare: '48% ng mga transaksyon',
-    averagePricePerKg: 22.5,
-    activeFarmersCount: 24,
-    totalVolumeMonthKg: 86900,
+    topVariety,
+    topVarietyShare: `${sharePct}% ng mga listing`,
+    averagePricePerKg: pricedCount > 0 ? Math.round((priceSum / pricedCount) * 100) / 100 : 0,
+    activeFarmersCount: farmerNames.size,
+    totalVolumeMonthKg: volumeKg,
   };
 }
 
@@ -308,12 +373,10 @@ function computeBuyerTrustStats(
   const averageRating =
     ratings.length > 0 ? ratings.reduce((sum, r) => sum + Number(r.score), 0) / ratings.length : 0;
 
-  // Reliability blends a normalized transaction-count signal (caps out at 20
-  // completed transactions) with the average rating (out of 5) — a rough,
-  // display-only ranking aid, not a claim of statistical precision.
   const transactionSignal = Math.min(1, completedTransactionsCount / 20);
-  const ratingSignal = ratings.length > 0 ? averageRating / 5 : 0.5; // no ratings yet: neutral, not zero
-  const reliabilityScore = ratings.length > 0 ? transactionSignal * 0.5 + ratingSignal * 0.5 : transactionSignal * 0.5 + 0.25;
+  const ratingSignal = ratings.length > 0 ? averageRating / 5 : 0.5;
+  const reliabilityScore =
+    ratings.length > 0 ? transactionSignal * 0.5 + ratingSignal * 0.5 : transactionSignal * 0.5 + 0.25;
 
   return {
     buyerId,
@@ -337,12 +400,6 @@ export async function fetchBuyerTrustStats(buyerId: string): Promise<BuyerTrustS
   return computeBuyerTrustStats(buyerId, transactions ?? [], ratings ?? []);
 }
 
-/**
- * Farmer-written comments about a buyer — `rating` is readable by anyone
- * ("Anyone can view ratings" per 0001), so this works pre-match unlike
- * `transactionmatch`'s own party-scoped RLS. Likely empty today since no
- * rating-write flow has shipped yet (see the review screens' TODO).
- */
 export async function fetchBuyerRatingComments(buyerId: string): Promise<string[]> {
   const { data, error } = await supabase
     .from('rating')
@@ -353,7 +410,6 @@ export async function fetchBuyerRatingComments(buyerId: string): Promise<string[
   return (data ?? []).map((row) => row.comment as string).filter((comment) => comment.trim().length > 0);
 }
 
-/** Batched version of `fetchBuyerTrustStats`, avoiding one round trip per buyer when ranking a listing's requests. */
 export async function fetchBuyerTrustStatsBatch(buyerIds: string[]): Promise<Map<string, BuyerTrustStats>> {
   const uniqueIds = [...new Set(buyerIds)];
   if (uniqueIds.length === 0) return new Map();

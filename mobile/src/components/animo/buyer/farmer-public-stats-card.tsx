@@ -44,12 +44,14 @@ export function FarmerPublicStatsCard({ profile }: FarmerPublicStatsCardProps) {
             </AnimoText>
           </View>
 
-          <View style={styles.locationRow}>
-            <MapPin size={14} color={AnimoColors.accentPrimary} />
-            <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-              {profile.location}
-            </AnimoText>
-          </View>
+          {profile.location ? (
+            <View style={styles.locationRow}>
+              <MapPin size={14} color={AnimoColors.accentPrimary} />
+              <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                {profile.location}
+              </AnimoText>
+            </View>
+          ) : null}
         </View>
       </View>
 
@@ -105,23 +107,32 @@ export function FarmerPublicStatsCard({ profile }: FarmerPublicStatsCardProps) {
           </AnimoText>
         </View>
         <View style={styles.varietyChips}>
-          {profile.commonlySoldVarieties.map((variety) => (
-            <View key={variety} style={styles.varietyChip}>
-              <AnimoText variant="caption" color={AnimoColors.textHighEmphasis}>
-                {variety}
-              </AnimoText>
-            </View>
-          ))}
+          {profile.commonlySoldVarieties.length > 0 ? (
+            profile.commonlySoldVarieties.map((variety) => (
+              <View key={variety} style={styles.varietyChip}>
+                <AnimoText variant="caption" color={AnimoColors.textHighEmphasis}>
+                  {variety}
+                </AnimoText>
+              </View>
+            ))
+          ) : (
+            <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+              Wala pang talaan
+            </AnimoText>
+          )}
         </View>
       </View>
 
-      {/* Metric 4: Prominent & Bigger Reviews Section */}
       <View style={styles.reviewContainer}>
         <View style={styles.reviewHeaderRow}>
           <View style={styles.bigRatingBadge}>
-            <Star size={26} color="#F59E0B" fill="#F59E0B" />
+            <Star
+              size={26}
+              color="#F59E0B"
+              fill={profile.totalReviews > 0 ? '#F59E0B' : 'transparent'}
+            />
             <AnimoText variant="h1" color={AnimoColors.textHighEmphasis} style={styles.ratingNumber}>
-              {profile.averageRating}
+              {profile.totalReviews > 0 ? profile.averageRating : '—'}
             </AnimoText>
           </View>
 
@@ -132,47 +143,48 @@ export function FarmerPublicStatsCard({ profile }: FarmerPublicStatsCardProps) {
                   key={star}
                   size={16}
                   color="#F59E0B"
-                  fill={star <= Math.round(profile.averageRating) ? '#F59E0B' : 'transparent'}
+                  fill={
+                    profile.totalReviews > 0 && star <= Math.round(profile.averageRating)
+                      ? '#F59E0B'
+                      : 'transparent'
+                  }
                 />
               ))}
             </View>
             <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
               {profile.totalReviews} mga review ng mamimili
             </AnimoText>
-            <View style={styles.satisfactionRow}>
-              <ThumbsUp size={12} color={AnimoColors.accentPrimary} />
-              <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
-                98% Positibong Feedback
-              </AnimoText>
-            </View>
+            {profile.positiveFeedbackPct != null ? (
+              <View style={styles.satisfactionRow}>
+                <ThumbsUp size={12} color={AnimoColors.accentPrimary} />
+                <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
+                  {profile.positiveFeedbackPct}% Positibong Feedback
+                </AnimoText>
+              </View>
+            ) : null}
           </View>
         </View>
 
-        {/* Sample Buyer Testimonials */}
         <View style={styles.testimonialList}>
-          <View style={styles.testimonialCard}>
-            <View style={styles.testimonialHeader}>
-              <MessageSquareQuote size={14} color={AnimoColors.accentPrimary} />
-              <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                Mamimili · Na-verify
-              </AnimoText>
-            </View>
-            <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.testimonialQuote}>
-              &quot;Napakaganda ng kalidad ng palay, malinis at eksakto ang timbang sa pickup. Maayos kausap ang magsasaka.&quot;
+          {profile.comments.length === 0 ? (
+            <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+              Wala pang komento mula sa mga mamimili.
             </AnimoText>
-          </View>
-
-          <View style={styles.testimonialCard}>
-            <View style={styles.testimonialHeader}>
-              <MessageSquareQuote size={14} color={AnimoColors.accentPrimary} />
-              <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                Mamimili · Na-verify
-              </AnimoText>
-            </View>
-            <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.testimonialQuote}>
-              &quot;Mabilis at walang aberya ang transaksyon. Tugma ang moisture sa nakasaad sa listing.&quot;
-            </AnimoText>
-          </View>
+          ) : (
+            profile.comments.map((comment, index) => (
+              <View key={`${comment}-${index}`} style={styles.testimonialCard}>
+                <View style={styles.testimonialHeader}>
+                  <MessageSquareQuote size={14} color={AnimoColors.accentPrimary} />
+                  <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                    Mamimili
+                  </AnimoText>
+                </View>
+                <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.testimonialQuote}>
+                  &quot;{comment}&quot;
+                </AnimoText>
+              </View>
+            ))
+          )}
         </View>
       </View>
 

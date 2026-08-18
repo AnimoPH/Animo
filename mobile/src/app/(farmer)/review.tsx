@@ -20,8 +20,10 @@ import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { fetchOwnRatingForTransaction, submitRating } from '@/services/rating-service';
 import { fetchTransaction, fetchTransactionCounterpart } from '@/services/transaction-service';
-import type { TransactionCounterpart } from '@/types/transaction';
+import type { Rating } from '@/types/rating';
+import type { TransactionCounterpart, TransactionMatch } from '@/types/transaction';
 
 const RATING_MOODS: Record<number, string> = {
   5: 'Napakahusay!',
@@ -35,15 +37,14 @@ const RATING_MOODS: Record<number, string> = {
 const STAR_GOLD = '#F5A623';
 
 /**
- * Suriin ang Mamimili. Reads the real transaction/buyer for display; the
- * `rating` table write is not part of this task's scope (no rating RPC was
- * added), so submitting stays a client-only success state.
- * TODO(ratings): insert into public.rating once that task lands.
+ * Suriin ang Mamimili. Persists one 1–5 `score` plus optional comment on
+ * `rating` (0001 + 0017). Detail-star rows below are UX only.
  */
 export default function ReviewBuyerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [buyer, setBuyer] = useState<TransactionCounterpart | null>(null);
+  const [transaction, setTransaction] = useState<TransactionMatch | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,6 +54,9 @@ export default function ReviewBuyerScreen() {
   const [punctualityRating, setPunctualityRating] = useState(5);
   const [conductRating, setConductRating] = useState(5);
   const [comment, setComment] = useState('');
+  const [existing, setExisting] = useState<Rating | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const load = useCallback(async () => {
@@ -63,9 +67,17 @@ export default function ReviewBuyerScreen() {
       const tx = await fetchTransaction(id);
       if (!tx) {
         setBuyer(null);
+        setTransaction(null);
         return;
       }
+      setTransaction(tx);
       setBuyer(await fetchTransactionCounterpart(tx.buyerId));
+      const already = await fetchOwnRatingForTransaction(tx.id);
+      setExisting(already);
+      if (already) {
+        setOverallRating(already.score);
+        setComment(already.comment ?? '');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Hindi ma-load ang transaksyon.');
     } finally {
@@ -90,10 +102,23 @@ export default function ReviewBuyerScreen() {
 
   const buyerName = buyer?.name ?? 'Mamimili';
 
-  const handleSubmit = () => {
-    // TODO(ratings): insert into public.rating once that task lands — for
-    // now this is a client-only acknowledgement, nothing is persisted.
-    setShowSuccessModal(true);
+  const handleSubmit = async () => {
+    if (!transaction || existing || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await submitRating({
+        transactionId: transaction.id,
+        ratedId: transaction.buyerId,
+        score: overallRating,
+        comment,
+      });
+      setShowSuccessModal(true);
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : 'Hindi naisumite ang review.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSkip = () => {
@@ -139,7 +164,7 @@ export default function ReviewBuyerScreen() {
 
             <View style={styles.starRowBig}>
               {[1, 2, 3, 4, 5].map((star) => (
-                <Pressable key={star} hitSlop={8} onPress={() => setOverallRating(star)} style={styles.starTouch}>
+                <Pressable key={star} hitSlop={8} onPress={() => !existing && setOverallRating(star)} style={styles.starTouch}>
                   <Star size={36} color={star <= overallRating ? STAR_GOLD : AnimoColors.borderLowEmphasis} fill={star <= overallRating ? STAR_GOLD : 'transparent'} />
                 </Pressable>
               ))}
@@ -150,10 +175,10 @@ export default function ReviewBuyerScreen() {
             <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
               Detalyadong Marka
             </AnimoText>
-            <StarCriterionRow label="Pagbabayad sa tamang oras" value={paymentRating} onChange={setPaymentRating} />
-            <StarCriterionRow label="Komunikasyon" value={communicationRating} onChange={setCommunicationRating} />
-            <StarCriterionRow label="Pagsunod sa oras" value={punctualityRating} onChange={setPunctualityRating} />
-            <StarCriterionRow label="Pakikitungo sa transaksyon" value={conductRating} onChange={setConductRating} />
+            <StarCriterionRow label="Pagbabayad sa tamang oras" value={paymentRating} onChange={setPaymentRating} disabled={!!existing} />
+            <StarCriterionRow label="Komunikasyon" value={communicationRating} onChange={setCommunicationRating} disabled={!!existing} />
+            <StarCriterionRow label="Pagsunod sa oras" value={punctualityRating} onChange={setPunctualityRating} disabled={!!existing} />
+            <StarCriterionRow label="Pakikitungo sa transaksyon" value={conductRating} onChange={setConductRating} disabled={!!existing} />
           </View>
 
           <View style={styles.card}>
@@ -170,6 +195,7 @@ export default function ReviewBuyerScreen() {
                 maxLength={500}
                 value={comment}
                 onChangeText={setComment}
+                editable={!existing}
                 textAlignVertical="top"
               />
               <AnimoText variant="tag" color={AnimoColors.textLowEmphasis} style={styles.counter}>
@@ -179,13 +205,32 @@ export default function ReviewBuyerScreen() {
           </View>
 
           <NoticeBanner tone="info" icon={<Lock size={16} color="#2563A8" />}>
-            Makikita ng ibang magsasaka ang review na ito sa profile ng mamimili.
+            {existing
+              ? 'Naisumite mo na ang review para sa transaksyong ito.'
+              : 'Makikita ng ibang magsasaka ang review na ito sa profile ng mamimili.'}
           </NoticeBanner>
         </ScrollView>
 
         <View style={styles.footerStack}>
-          <AnimoButton label="Isumite ang Review" icon={Check} onPress={handleSubmit} />
-          <AnimoButton label="Laktawan Muna" variant="secondary" icon={X} onPress={handleSkip} />
+          {submitError ? (
+            <AnimoText variant="caption" color={AnimoColors.danger}>
+              {submitError}
+            </AnimoText>
+          ) : null}
+          {existing ? (
+            <AnimoButton label="Bumalik sa Transaksyon" icon={Check} onPress={handleSkip} />
+          ) : (
+            <>
+              <AnimoButton
+                label="Isumite ang Review"
+                icon={Check}
+                onPress={handleSubmit}
+                loading={submitting}
+                disabled={submitting || !transaction}
+              />
+              <AnimoButton label="Laktawan Muna" variant="secondary" icon={X} onPress={handleSkip} />
+            </>
+          )}
         </View>
       </KeyboardAvoidingView>
 
@@ -204,7 +249,17 @@ export default function ReviewBuyerScreen() {
   );
 }
 
-function StarCriterionRow({ label, value, onChange }: { label: string; value: number; onChange: (val: number) => void }) {
+function StarCriterionRow({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: number;
+  onChange: (val: number) => void;
+  disabled?: boolean;
+}) {
   return (
     <View style={styles.criterionRow}>
       <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.flex}>
@@ -212,7 +267,7 @@ function StarCriterionRow({ label, value, onChange }: { label: string; value: nu
       </AnimoText>
       <View style={styles.starRowMedium}>
         {[1, 2, 3, 4, 5].map((star) => (
-          <Pressable key={star} onPress={() => onChange(star)} hitSlop={8} style={styles.starMediumTouch}>
+          <Pressable key={star} onPress={() => !disabled && onChange(star)} hitSlop={8} style={styles.starMediumTouch}>
             <Star size={24} color={star <= value ? STAR_GOLD : AnimoColors.borderLowEmphasis} fill={star <= value ? STAR_GOLD : 'transparent'} />
           </Pressable>
         ))}
