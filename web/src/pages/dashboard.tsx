@@ -1,17 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  CheckCircle2,
   Coins,
   Database,
   Gavel,
+  PauseCircle,
   RefreshCw,
   TrendingUp,
+  TriangleAlert,
+  X,
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { useAuth } from '@/lib/auth-context';
 import {
+  activateNfaInterventionWindow,
+  deactivateNfaInterventionWindows,
   fetchMarketPriceFeed,
   fetchNfaInterventionWindows,
   fetchRizalPriceHistory,
+  syncPsaPrices,
   formatPeso,
   formatSyncTimestamp,
   isNfaWindowActiveToday,
@@ -27,37 +35,85 @@ export type DashboardPageProps = {
 
 /** LGU monitoring dashboard — live price feed and PSA history from Supabase (auth stub unchanged). */
 export function DashboardPage({ onSignOut }: DashboardPageProps) {
+  const { session } = useAuth();
   const [priceFeed, setPriceFeed] = useState<MarketPriceFeed | null>(null);
   const [priceHistory, setPriceHistory] = useState<PriceHistoryPoint[]>([]);
   const [nfaActive, setNfaActive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [showNfaModal, setShowNfaModal] = useState(false);
+  const [showNfaSuccessModal, setShowNfaSuccessModal] = useState(false);
+  const [lastNfaAction, setLastNfaAction] = useState<'activated' | 'disabled'>('activated');
+  const [togglingNfa, setTogglingNfa] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  function loadDashboard() {
     setLoading(true);
     setLoadError(null);
 
-    Promise.all([fetchMarketPriceFeed(), fetchRizalPriceHistory(12), fetchNfaInterventionWindows()])
+    return Promise.all([fetchMarketPriceFeed(), fetchRizalPriceHistory(12), fetchNfaInterventionWindows()])
       .then(([feed, history, windows]) => {
-        if (cancelled) return;
         setPriceFeed(feed);
         setPriceHistory(history);
         setNfaActive(isNfaWindowActiveToday(windows));
       })
       .catch((error) => {
-        if (!cancelled) {
-          setLoadError(error instanceof Error ? error.message : 'Hindi ma-load ang dashboard data.');
-        }
+        setLoadError(error instanceof Error ? error.message : 'Hindi ma-load ang dashboard data.');
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       });
+  }
 
-    return () => {
-      cancelled = true;
-    };
+  useEffect(() => {
+    void loadDashboard();
   }, []);
+
+  async function handlePsaSync() {
+    setSyncing(true);
+    setSyncNotice(null);
+    try {
+      const result = await syncPsaPrices();
+      await loadDashboard();
+      const dryNote = result.dryBaseRefreshed
+        ? 'Na-refresh din ang model dry base.'
+        : 'Na-save ang PSA history; dry base nanatili (walang pricing service o kulang ang 12 buwan).';
+      setSyncNotice(`Na-sync ang ${result.syncedMonths} buwan mula sa PSA. ${dryNote}`);
+    } catch (error) {
+      setSyncNotice(error instanceof Error ? error.message : 'Hindi natapos ang PSA sync.');
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function handleToggleNfaConfirm() {
+    const userId = session?.user.id;
+    if (!userId) {
+      setLoadError('Kailangan ng LGU login para i-toggle ang NFA window.');
+      setShowNfaModal(false);
+      return;
+    }
+
+    setTogglingNfa(true);
+    try {
+      if (nfaActive) {
+        await deactivateNfaInterventionWindows();
+        setLastNfaAction('disabled');
+      } else {
+        await activateNfaInterventionWindow(userId);
+        setLastNfaAction('activated');
+      }
+      await loadDashboard();
+      setShowNfaModal(false);
+      setShowNfaSuccessModal(true);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Hindi ma-update ang NFA window.');
+      setShowNfaModal(false);
+    } finally {
+      setTogglingNfa(false);
+    }
+  }
 
   const weeklyBars = useMemo(() => toWeeklyBars(priceHistory, 7), [priceHistory]);
   const latestHistory = priceHistory.at(-1);
@@ -162,19 +218,40 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           </div>
 
           <p style={styles.actionCardDesc}>
-            Binabasa mula sa nfa_intervention_window. Ang pag-edit ay nangangailangan ng LGU login (paparating).
+            Minsan ay biglaang nagbabago ang presyo ng NFA at hindi ito agad nadidiskubre ng sistema.
+            Gamitin ang fallback na ito upang abisuhan ang algorithm na mataas ang volatility sa merkado.
           </p>
 
           <div style={styles.actionCardStatusRow}>
-            <span style={styles.actionStatusLabel}>Katayuan ngayon:</span>
+            <span style={styles.actionStatusLabel}>Katayuan ng Alerto:</span>
             <span
               style={{
                 ...styles.actionStatusValue,
                 color: nfaActive ? 'var(--animo-green)' : 'var(--animo-muted)',
               }}>
-              {nfaActive ? '● May aktibong window' : '○ Walang aktibong window'}
+              {nfaActive ? '● Aktibo ang Safeguards' : '○ Standby (Hindi Aktibo)'}
             </span>
           </div>
+
+          {nfaActive ? (
+            <button
+              type="button"
+              onClick={() => setShowNfaModal(true)}
+              disabled={togglingNfa}
+              style={styles.actionButtonDisable}>
+              <PauseCircle size={18} />
+              I-disable ang NFA Volatility Alert
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowNfaModal(true)}
+              disabled={togglingNfa}
+              style={styles.actionButtonGreen}>
+              <Gavel size={18} />
+              I-activate ang NFA Volatility Alert
+            </button>
+          )}
         </article>
 
         {/* Sync Market Prices from PSA Card */}
@@ -190,7 +267,8 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           </div>
 
           <p style={styles.actionCardDesc}>
-            Huling buwan sa palay_price_history. Ang sync-psa-prices edge function ay ops/LGU auth — hindi pa naka-wire dito.
+            Hinahatak ang Rizal farmgate prices mula sa PSA OpenSTAT papunta sa palay_price_history.
+            Pagkatapos, sinusubukang i-refresh ang model dry base.
           </p>
 
           <div style={styles.actionCardStatusRow}>
@@ -198,9 +276,18 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
             <span style={styles.actionStatusValue}>{lastSyncTime}</span>
           </div>
 
-          <button type="button" disabled style={{ ...styles.actionButtonPsa, opacity: 0.55, cursor: 'not-allowed' }}>
+          {syncNotice ? <p style={styles.loadNotice}>{syncNotice}</p> : null}
+
+          <button
+            type="button"
+            onClick={() => void handlePsaSync()}
+            disabled={syncing}
+            style={{
+              ...styles.actionButtonPsa,
+              ...(syncing ? { opacity: 0.7, cursor: 'wait' } : null),
+            }}>
             <RefreshCw size={18} />
-            I-sync mula sa PSA (kailangan ng auth)
+            {syncing ? 'Sini-sync…' : 'I-sync mula sa PSA'}
           </button>
         </article>
       </section>
@@ -213,6 +300,109 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
         />
         <PricingConfidenceCard nfaActive={nfaActive} />
       </section>
+
+      {showNfaModal ? (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalCard}>
+            <div style={styles.modalHead}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={nfaActive ? styles.actionIconCircleDisable : styles.actionIconCircleActive}>
+                  {nfaActive ? (
+                    <PauseCircle size={24} color="var(--animo-danger)" />
+                  ) : (
+                    <Gavel size={24} color="var(--animo-green)" />
+                  )}
+                </span>
+                <div>
+                  <h2 style={styles.modalTitle}>
+                    {nfaActive
+                      ? 'I-disable ang NFA Volatility Alert?'
+                      : 'I-activate ang NFA Volatility Alert?'}
+                  </h2>
+                  <p style={styles.modalSubtitle}>NFA Price Fallback Protocol</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setShowNfaModal(false)} style={styles.closeBtn}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={styles.modalBody}>
+              <p style={styles.modalText}>
+                {nfaActive
+                  ? 'Sigurado ka bang nais mong i-disable ang NFA Volatility Safeguard? Ibabalik ang karaniwang pricing algorithm sa platform.'
+                  : 'Sigurado ka bang nais mong ipaalam sa sistema na may biglaang pagbabago sa presyo ng NFA? Awtomatikong ia-activate ng algorithm ang price stabilization at volatility clamps para sa proteksyon ng merkado.'}
+              </p>
+
+              <div style={nfaActive ? styles.calloutInfoBox : styles.calloutWarningBox}>
+                <TriangleAlert
+                  size={20}
+                  color={nfaActive ? '#2563EB' : 'var(--animo-warning)'}
+                  style={{ flexShrink: 0 }}
+                />
+                <span>
+                  {nfaActive
+                    ? 'Mananatiling sinusubaybayan ng sistema ang live PSA benchmarks kahit naka-disable ang emergency fallback.'
+                    : 'Awtomatikong magpapatupad ang ANIMO ng price clamps (Tier 2/3) upang protektahan ang mga magsasaka laban sa abnormal na pagbagsak o pagtaas ng presyo.'}
+                </span>
+              </div>
+            </div>
+
+            <div style={styles.modalFooter}>
+              <button type="button" onClick={() => setShowNfaModal(false)} style={styles.cancelButton}>
+                Huwag Ituloy
+              </button>
+              {nfaActive ? (
+                <button
+                  type="button"
+                  onClick={() => void handleToggleNfaConfirm()}
+                  disabled={togglingNfa}
+                  style={styles.confirmButtonDisable}>
+                  <PauseCircle size={18} />
+                  Oo, I-disable ang Alerto
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void handleToggleNfaConfirm()}
+                  disabled={togglingNfa}
+                  style={styles.confirmButtonGreen}>
+                  <Gavel size={18} />
+                  Oo, I-activate ang Alerto
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showNfaSuccessModal ? (
+        <div style={styles.modalOverlay}>
+          <div style={{ ...styles.modalCard, maxWidth: 480, textAlign: 'center' }}>
+            <div style={styles.successIconBig}>
+              <CheckCircle2 size={46} color="var(--animo-green)" />
+            </div>
+
+            <h2 style={{ ...styles.modalTitle, marginTop: 14 }}>
+              {lastNfaAction === 'activated'
+                ? 'Matagumpay na Naitakda ang NFA Alert!'
+                : 'Na-disable na ang NFA Volatility Alert'}
+            </h2>
+            <p style={{ ...styles.modalText, margin: '8px 0 22px' }}>
+              {lastNfaAction === 'activated'
+                ? 'Naabisuhan na ang sistema ukol sa mataas na volatility mula sa NFA. Aktibo na ang safeguards at price clamps para sa lahat ng transaksyon.'
+                : 'Ibinalik na ang karaniwang pricing mode. Mananatiling sinusubaybayan ang PSA benchmarks.'}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setShowNfaSuccessModal(false)}
+              style={styles.submitButtonGreenFull}>
+              Naintindihan
+            </button>
+          </div>
+        </div>
+      ) : null}
     </ConsoleLayout>
   );
 }
@@ -291,7 +481,7 @@ function PricingConfidenceCard({ nfaActive }: { nfaActive: boolean }) {
           label="Kasalukuyang katayuan"
           value={nfaActive ? 'May aktibong NFA window' : 'Normal — walang aktibong window'}
         />
-        <StatRow label="Pinagmulan" value="nfa_intervention_window (read-only)" />
+        <StatRow label="Pinagmulan" value="nfa_intervention_window (LGU toggle)" />
       </dl>
     </article>
   );

@@ -12,9 +12,14 @@ export type PriceHistoryPoint = {
 };
 
 export type NfaWindow = {
+  windowId: string;
   startDate: string;
   endDate: string | null;
 };
+
+function todayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export type LguFarmerRow = {
   farmerId: string;
@@ -177,18 +182,64 @@ export async function fetchRizalPriceHistory(limit = 12): Promise<PriceHistoryPo
     .reverse();
 }
 
+export async function syncPsaPrices(): Promise<{
+  syncedMonths: number;
+  latest: string | null;
+  dryBaseRefreshed: boolean;
+}> {
+  const { data, error } = await supabase.functions.invoke('sync-psa-prices', { method: 'POST' });
+  if (error) {
+    const message = error.message ?? 'Hindi natapos ang PSA sync.';
+    if (/non-2xx|404|not found|failed to send/i.test(message)) {
+      throw new Error(
+        'Hindi naka-deploy ang sync-psa-prices sa hosted Supabase. Run mula sa mobile/: npx supabase functions deploy sync-psa-prices (at refresh-dry-base kung gusto mo ng model dry base refresh).',
+      );
+    }
+    throw new Error(message);
+  }
+  if (data?.error) throw new Error(data.error as string);
+
+  return {
+    syncedMonths: Number(data?.synced_months) || 0,
+    latest: (data?.latest as string | null) ?? null,
+    dryBaseRefreshed: Boolean(data?.dry_base_refreshed),
+  };
+}
+
 export async function fetchNfaInterventionWindows(): Promise<NfaWindow[]> {
   const { data, error } = await supabase
     .from('nfa_intervention_window')
-    .select('start_date, end_date')
+    .select('window_id, start_date, end_date')
     .order('start_date', { ascending: false });
 
   if (error) throw error;
 
   return (data ?? []).map((row) => ({
+    windowId: row.window_id as string,
     startDate: row.start_date as string,
     endDate: (row.end_date as string | null) ?? null,
   }));
+}
+
+export async function activateNfaInterventionWindow(userId: string): Promise<void> {
+  const { error } = await supabase.from('nfa_intervention_window').insert({
+    start_date: todayIsoDate(),
+    end_date: null,
+    toggled_by: userId,
+  });
+  if (error) throw error;
+}
+
+export async function deactivateNfaInterventionWindows(): Promise<void> {
+  const windows = await fetchNfaInterventionWindows();
+  const activeIds = windows.filter((window) => isNfaWindowActiveToday([window])).map((window) => window.windowId);
+  if (activeIds.length === 0) return;
+
+  const { error } = await supabase
+    .from('nfa_intervention_window')
+    .update({ end_date: todayIsoDate() })
+    .in('window_id', activeIds);
+  if (error) throw error;
 }
 
 export async function fetchLguBarangayCoverage(): Promise<string[]> {
