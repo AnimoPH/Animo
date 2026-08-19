@@ -268,7 +268,7 @@ export default function ListingDetailScreen() {
               <>
                 <View style={styles.ordersHeaderRow}>
                   <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-                    Mga Kahilingan mula sa Mamimili
+                    Order Requests
                   </AnimoText>
                   <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
                     {ranked.length} kabuuan
@@ -509,7 +509,7 @@ function PurchaseRequestCard({
           <View style={styles.requestInfoTop}>
             <Pressable accessibilityRole="button" hitSlop={8} onPress={openBuyerProfile}>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                Kahilingan mula sa Mamimili
+                Kahilingan ng Mamimili
               </AnimoText>
             </Pressable>
             <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
@@ -678,7 +678,7 @@ const styles = StyleSheet.create({
   radioInnerDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: AnimoColors.accentPrimary },
   flex: { flex: 1 },
   customInputWrap: { width: "100%", borderWidth: 1, borderColor: AnimoColors.borderLowEmphasis, borderRadius: AnimoRadius.md, padding: AnimoSpacing.sm, backgroundColor: AnimoColors.surfaceSecondary },
-  customInput: { fontSize: 14, fontFamily: "PlusJakartaSans_400Regular", color: AnimoColors.textHighEmphasis, textAlignVertical: "top", minHeight: 60 },
+  customInput: { fontSize: 14, fontFamily: "PlusJakartaSans_400Regular", color: AnimoColors.textHighEmphasis, textAlignVertical: "top", },
   modalActions: { width: "100%", gap: AnimoSpacing.sm, marginTop: 6 },
   confirmRejectBtn: {
     flexDirection: "row",
