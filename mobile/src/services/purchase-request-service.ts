@@ -42,8 +42,10 @@ export function mapPurchaseRequest(row: PurchaseRequestRow): PurchaseRequest {
  * requests") pins buyer_id to the caller and forces status='Pending'; the
  * purchaserequest_validate_availability trigger (0009) rejects requests
  * against a non-Available listing or a quantity beyond what remains, and
- * the purchaserequest_one_active_per_buyer_listing unique index (0010)
- * rejects a second active request from the same buyer on the same listing.
+ * the purchaserequest_one_active_per_buyer_listing unique index (0010,
+ * narrowed in 0021 to Pending only) rejects a second unanswered request
+ * from the same buyer on the same listing. An in-flight match still blocks
+ * via purchaserequest_validate_availability (0021).
  */
 export async function submitPurchaseRequest(input: SubmitPurchaseRequestInput): Promise<PurchaseRequest> {
   const buyerId = await requireAuthUserId();
@@ -63,9 +65,12 @@ export async function submitPurchaseRequest(input: SubmitPurchaseRequestInput): 
     .single();
 
   if (error) {
-    // Postgres unique_violation on purchaserequest_one_active_per_buyer_listing.
+    // Unique_violation: a Pending request already exists (0010/0021).
     if (error.code === '23505') {
       throw new Error('May aktibo ka nang request sa listing na ito. Hintayin munang sagutin o kanselahin ito bago mag-request muli.');
+    }
+    if (error.message?.includes('in-flight transaction')) {
+      throw new Error('May transaksyon ka pang hindi tapos sa listing na ito. Hintayin munang matapos ito bago mag-request muli.');
     }
     throw error;
   }
@@ -87,24 +92,37 @@ export async function fetchBuyerPurchaseRequests(): Promise<PurchaseRequest[]> {
 }
 
 /**
- * The signed-in buyer's active (Pending/Accepted/Partially_Accepted) request
- * on a given listing, if any — mirrors the
- * purchaserequest_one_active_per_buyer_listing unique index (0010) so the UI
- * can grey out "Bumili" before the buyer ever taps it.
+ * The signed-in buyer's *open* request on a listing, if any — a Pending
+ * request, or an Accepted/Partially_Accepted one whose transaction is still
+ * in-flight. Completed/Cancelled/Failed matches do not count (0021), so
+ * leftover stock on the same listing can be bought again.
  */
 export async function fetchMyActiveRequestForListing(listingId: string): Promise<PurchaseRequest | null> {
   const buyerId = await requireAuthUserId();
 
-  const { data, error } = await supabase
+  const { data: pending, error: pendingError } = await supabase
     .from('purchaserequest')
     .select(PURCHASE_REQUEST_COLUMNS)
     .eq('listing_id', listingId)
     .eq('buyer_id', buyerId)
-    .in('status', ['Pending', 'Accepted', 'Partially_Accepted'])
+    .eq('status', 'Pending')
     .maybeSingle();
 
-  if (error) throw error;
-  return data ? mapPurchaseRequest(data as PurchaseRequestRow) : null;
+  if (pendingError) throw pendingError;
+  if (pending) return mapPurchaseRequest(pending as PurchaseRequestRow);
+
+  const { data: openTx, error: openTxError } = await supabase
+    .from('transactionmatch')
+    .select('request_id')
+    .eq('listing_id', listingId)
+    .eq('buyer_id', buyerId)
+    .in('status', ['Pending_Payment', 'Payment_Confirmed', 'Delivered'])
+    .maybeSingle();
+
+  if (openTxError) throw openTxError;
+  if (!openTx?.request_id) return null;
+
+  return fetchPurchaseRequest(openTx.request_id);
 }
 
 /** One request by id — RLS restricts this to the buyer who sent it or the farmer who owns the listing. */
