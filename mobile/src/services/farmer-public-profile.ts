@@ -295,20 +295,31 @@ export async function searchFarmerProfiles(query: string): Promise<RankedFarmer[
   );
 }
 
+export type PopularVariety = {
+  name: string;
+  avgPricePerKg: number;
+  listingCount: number;
+};
+
 export type MarketPopularityInsight = {
   topVariety: string;
   topVarietyShare: string;
   averagePricePerKg: number;
   activeFarmersCount: number;
   totalVolumeMonthKg: number;
+  popularVarieties: PopularVariety[];
 };
+
+function roundPrice(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
 /** Live marketplace snapshot from Available listings — returns null when the market is empty. */
 export async function fetchMarketPopularityInsights(): Promise<MarketPopularityInsight | null> {
   const available = await fetchAvailableListings();
   if (available.length === 0) return null;
 
-  const varietyCounts = new Map<string, number>();
+  const varietyAgg = new Map<string, { priceSum: number; pricedCount: number; listingCount: number }>();
   let priceSum = 0;
   let pricedCount = 0;
   let volumeKg = 0;
@@ -326,23 +337,39 @@ export async function fetchMarketPopularityInsights(): Promise<MarketPopularityI
 
   for (const listing of available) {
     const label = varietyLabel(listing);
-    varietyCounts.set(label, (varietyCounts.get(label) ?? 0) + 1);
+    const agg = varietyAgg.get(label) ?? { priceSum: 0, pricedCount: 0, listingCount: 0 };
+    agg.listingCount += 1;
     if (listing.pricePerKg && listing.pricePerKg > 0) {
+      agg.priceSum += listing.pricePerKg;
+      agg.pricedCount += 1;
       priceSum += listing.pricePerKg;
       pricedCount += 1;
     }
+    varietyAgg.set(label, agg);
     volumeKg += listing.remainingQuantityKg;
   }
 
-  const [topVariety, topCount] = [...varietyCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? ['Palay', 0];
-  const sharePct = available.length > 0 ? Math.round((topCount / available.length) * 100) : 0;
+  const popularVarieties = [...varietyAgg.entries()]
+    .map(([name, agg]) => ({
+      name,
+      avgPricePerKg: agg.pricedCount > 0 ? roundPrice(agg.priceSum / agg.pricedCount) : 0,
+      listingCount: agg.listingCount,
+    }))
+    .filter((variety) => variety.avgPricePerKg > 0)
+    .sort((a, b) => b.listingCount - a.listingCount || a.name.localeCompare(b.name))
+    .slice(0, 5);
+
+  const topEntry = [...varietyAgg.entries()].sort((a, b) => b[1].listingCount - a[1].listingCount)[0];
+  const topVariety = topEntry?.[0] ?? 'Palay';
+  const sharePct = topEntry ? Math.round((topEntry[1].listingCount / available.length) * 100) : 0;
 
   return {
     topVariety,
     topVarietyShare: `${sharePct}% ng mga listing`,
-    averagePricePerKg: pricedCount > 0 ? Math.round((priceSum / pricedCount) * 100) / 100 : 0,
+    averagePricePerKg: pricedCount > 0 ? roundPrice(priceSum / pricedCount) : 0,
     activeFarmersCount: farmerNames.size,
     totalVolumeMonthKg: volumeKg,
+    popularVarieties,
   };
 }
 

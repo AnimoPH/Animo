@@ -27,15 +27,6 @@ import type { RankedListing } from '@/types/marketplace-filter';
 
 const TrendingOrange = '#F57C00';
 
-/** Curated popular rice varieties in the market. */
-const POPULAR_VARIETIES = [
-  { id: '1', name: 'RC 222', tag: 'Mataas ang Ani', avgPrice: 22.5 },
-  { id: '2', name: 'Dinorado', tag: 'Mabango at Malambot', avgPrice: 25.0 },
-  { id: '3', name: 'NSIC Rc 160', tag: 'De-kalidad na Butil', avgPrice: 23.0 },
-  { id: '4', name: 'Sinandomeng', tag: 'Tradisyonal na Paborito', avgPrice: 21.5 },
-  { id: '5', name: 'Inbred (Tuyo)', tag: 'Mabilis Maibenta', avgPrice: 20.0 },
-];
-
 /** Tahanan — buyer home: welcome, market analytics, trending varieties, and fresh harvest recommendations. */
 export default function BuyerHomeScreen() {
   const [featured, setFeatured] = useState<RankedListing[]>([]);
@@ -152,7 +143,8 @@ export default function BuyerHomeScreen() {
           />
         </View>
 
-        {/* Patok na Uri ng Palay (Trending Rice Varieties) */}
+        {/* Patok na Uri ng Palay — live avg of Available listings per variety */}
+        {insights && insights.popularVarieties.length > 0 ? (
         <View style={styles.varietiesSection}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
@@ -176,9 +168,9 @@ export default function BuyerHomeScreen() {
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.varietiesCarousel}>
-            {POPULAR_VARIETIES.map((item) => (
+            {insights.popularVarieties.map((item) => (
               <Pressable
-                key={item.id}
+                key={item.name}
                 accessibilityRole="button"
                 accessibilityLabel={`Tingnan ang mga listing ng ${item.name}`}
                 onPress={() => router.push('/(buyer)/palengke')}
@@ -199,7 +191,7 @@ export default function BuyerHomeScreen() {
                     variant="caption"
                     color={AnimoColors.accentPrimary}
                     style={styles.varietyTagText}>
-                    {item.tag}
+                    {item.listingCount} {item.listingCount === 1 ? 'listing' : 'listings'}
                   </AnimoText>
                 </View>
 
@@ -212,7 +204,7 @@ export default function BuyerHomeScreen() {
                       variant="h2"
                       color={AnimoColors.accentPrimary}
                       style={styles.varietyPriceLarge}>
-                      ₱{item.avgPrice.toFixed(2)}
+                      ₱{item.avgPricePerKg.toFixed(2)}
                     </AnimoText>
                     <AnimoText
                       variant="body"
@@ -226,6 +218,7 @@ export default function BuyerHomeScreen() {
             ))}
           </ScrollView>
         </View>
+        ) : null}
 
         {/* Mga Rekomendasyon Section */}
         <View style={styles.recommendationsSection}>
