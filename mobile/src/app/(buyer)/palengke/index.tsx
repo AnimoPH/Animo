@@ -67,6 +67,16 @@ function parseNumber(text: string): number | undefined {
   return Number.isFinite(value) ? value : undefined;
 }
 
+/** Palengke browse is recency-first so a newly posted listing is on top. */
+function newestListingsFirst(items: RankedListing[]): RankedListing[] {
+  return [...items].sort((a, b) => {
+    if (a.listing.dateListed !== b.listing.dateListed) {
+      return a.listing.dateListed < b.listing.dateListed ? 1 : -1;
+    }
+    return a.listing.id < b.listing.id ? 1 : -1;
+  });
+}
+
 /**
  * Palengke — the buyer's marketplace and farmer directory.
  *
@@ -100,7 +110,7 @@ export default function MarketplaceScreen() {
     try {
       const result = await fetchMarketplaceListings(filters);
       if (latestRequestId.current !== requestId) return;
-      setRanked(result);
+      setRanked(newestListingsFirst(result));
 
       try {
         const farmerResult = await fetchTopRankedFarmers();
