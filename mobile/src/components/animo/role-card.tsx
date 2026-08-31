@@ -11,10 +11,20 @@ export type RoleCardProps = {
   onPress: () => void;
 };
 
+/** Convert a hex color to rgba so only the fill fades, not the card content. */
+function withAlpha(hex: string, alpha: number): string {
+  const h = hex.replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 /**
  * A selectable role option on the "Sino ka?" screen: illustration on a colored
- * tile, with a title and description. The whole card highlights (green tint +
- * green border) when selected.
+ * tile, with a title and description. The whole card highlights with the role
+ * accent fill and a green border when selected.
  */
 export function RoleCard({ role, selected, onPress }: RoleCardProps) {
   return (
@@ -25,7 +35,7 @@ export function RoleCard({ role, selected, onPress }: RoleCardProps) {
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: selected ? AnimoColors.greenTint : AnimoColors.white },
+        { backgroundColor: selected ? withAlpha(role.accent, 0.5) : AnimoColors.white },
         selected ? styles.cardSelected : styles.cardDefault,
         pressed && styles.pressed,
       ]}>
@@ -36,7 +46,7 @@ export function RoleCard({ role, selected, onPress }: RoleCardProps) {
         <AnimoText variant="h3" color={AnimoColors.black}>
           {role.title}
         </AnimoText>
-        <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.description}>
+        <AnimoText variant="caption" color={AnimoColors.blackSecondary} style={styles.description}>
           {role.description}
         </AnimoText>
       </View>
@@ -57,27 +67,27 @@ const styles = StyleSheet.create({
     borderColor: AnimoColors.border,
   },
   cardSelected: {
-    borderWidth: 1.5,
-    borderColor: AnimoColors.borderSelected,
+    // borderWidth: 1,
+    // borderColor: AnimoColors.borderSelected,
   },
   pressed: {
-    opacity: 0.9,
+    opacity: 0.8,
   },
   imageTile: {
-    width: 72,
-    height: 72,
+    width: 90,
+    height: 90,
     borderRadius: AnimoRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   image: {
-    width: 60,
-    height: 60,
+    width: 90,
+    height: 90,
   },
   textCol: {
     flex: 1,
-    gap: 2,
+    gap: 6,
   },
   description: {
     flexShrink: 1,

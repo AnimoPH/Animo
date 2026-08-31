@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { DevLoginBar } from '@/components/animo/dev-login-bar';
-import { LabeledInput } from '@/components/animo/labeled-input';
+import { LoginPhoneInput } from '@/components/animo/login-phone-input';
 import { OtpVerification } from '@/components/animo/otp-verification';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { homeRouteForRole, type RoleId } from '@/constants/roles';
@@ -252,34 +252,25 @@ function PhoneStep({
       </View>
 
       <View style={styles.card}>
+        {/* Card Header */}
         <View style={styles.cardHeader}>
-          <AnimoText variant="h3" color={AnimoColors.black}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
             Numero ng Telepono
           </AnimoText>
           <Pressable onPress={() => onChangePhone('')} hitSlop={8}>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.green} style={styles.link}>
+            <AnimoText variant="tag" color={AnimoColors.green} style={styles.link}>
               Ibang account?
             </AnimoText>
           </Pressable>
         </View>
-        <LabeledInput
-          placeholder="9XX XXX XXXX"
-          keyboardType="phone-pad"
+        {/* Phone Input */}
+        <LoginPhoneInput
           value={phone}
           onChangeText={onChangePhone}
-          maxLength={13}
           hint="Padadalhan namin ng OTP sa numerong ito."
-          prefix={
-            <View style={styles.phonePrefix}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.blackSecondary}>
-                PH
-              </AnimoText>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                +63
-              </AnimoText>
-            </View>
-          }
+          error={Boolean(errorMessage)}
         />
+        {/* Error Message */}
         {errorMessage && (
           <AnimoText variant="body" color={AnimoColors.danger}>
             {errorMessage}
@@ -346,20 +337,12 @@ const styles = StyleSheet.create({
     borderColor: AnimoColors.border,
     borderRadius: AnimoRadius.lg,
     padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.sm,
+    gap: AnimoSpacing.lg,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  phonePrefix: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    height: '100%',
-    paddingHorizontal: AnimoSpacing.lg,
-    backgroundColor: AnimoColors.border,
   },
   footer: {
     paddingHorizontal: AnimoSpacing.xl,

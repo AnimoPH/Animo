@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { LabeledInput } from '@/components/animo/labeled-input';
+import { LoginPhoneInput } from '@/components/animo/login-phone-input';
 import { OtpVerification } from '@/components/animo/otp-verification';
 import { ProfileForm, type ProfileValues, isProfileComplete } from '@/components/animo/profile-form';
 import { StepIndicator, type Step } from '@/components/animo/step-indicator';
@@ -24,6 +24,7 @@ import { getRole, homeRouteForRole, type RoleId } from '@/constants/roles';
 import { completeRegistration, sendOtp, verifyOtp } from '@/services/auth-service';
 import { useSession } from '@/hooks/use-session';
 import type { CompleteRegistrationInput } from '@/types/auth';
+import { BackHeader } from '@/components/animo/back-header';
 
 const STEPS: Step[] = [{ label: 'Numero' }, { label: 'OTP' }, { label: 'Profile' }];
 const OTP_LENGTH = 6;
@@ -185,15 +186,7 @@ export default function RegisterScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* Header: back + title */}
-        <View style={styles.headerBar}>
-          <Pressable onPress={goBack} hitSlop={12} style={styles.backButton}>
-            <ChevronLeft size={26} color={AnimoColors.black} />
-          </Pressable>
-          <AnimoText variant="h1" color={AnimoColors.green} style={styles.headerTitle}>
-            Rehistro
-          </AnimoText>
-          <View style={styles.backButton} />
-        </View>
+        <BackHeader title="Rehistro" />
 
         <View style={styles.stepIndicatorWrap}>
           <StepIndicator steps={STEPS} current={step} />
@@ -303,24 +296,12 @@ function StepNumero({
         </AnimoText>
       </View>
 
-      <LabeledInput
+      <LoginPhoneInput
         label="Numero ng Telepono"
-        placeholder="9XX XXX XXXX"
-        keyboardType="phone-pad"
         value={phone}
         onChangeText={onChangePhone}
-        maxLength={13}
         hint="10-digit mobile number lamang."
-        prefix={
-          <View style={styles.phonePrefix}>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.blackSecondary}>
-              PH
-            </AnimoText>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-              +63
-            </AnimoText>
-          </View>
-        }
+        error={Boolean(errorMessage)}
       />
       {errorMessage && (
         <AnimoText variant="body" color={AnimoColors.danger}>
@@ -358,12 +339,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   stepIndicatorWrap: {
-    paddingHorizontal: AnimoSpacing.xxl,
-    paddingBottom: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingBottom: AnimoSpacing.lg,
   },
   scrollContent: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingBottom: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
+    // paddingBottom: AnimoSpacing.xl,
   },
   stepBody: {
     gap: AnimoSpacing.xl,
@@ -371,18 +352,10 @@ const styles = StyleSheet.create({
   stepIntro: {
     gap: AnimoSpacing.sm,
   },
-  phonePrefix: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    height: '100%',
-    paddingHorizontal: AnimoSpacing.lg,
-    backgroundColor: AnimoColors.border,
-  },
   footer: {
-    paddingHorizontal: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.md,
-    paddingBottom: AnimoSpacing.md,
+    paddingBottom: AnimoSpacing.lg,
     gap: AnimoSpacing.md,
   },
   terms: {

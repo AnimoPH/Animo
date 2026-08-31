@@ -26,16 +26,16 @@ export const ROLES: Role[] = [
   {
     id: 'magsasaka',
     title: 'Magsasaka',
-    description: 'Nagbebenta ng palay at humihiling ng tulong pagkatapos ng bagyo.',
+    description: 'Nagbebenta ng palay at humihiling ng payo sa pagsasaka.',
     image: require('@/assets/images/animo/role-magsasaka.png'),
-    accent: AnimoColors.roleFarmer,
+    accent: "#b8e7b8",
   },
   {
     id: 'mamimili',
     title: 'Mamimili',
-    description: 'Bumibili ng palay mula sa mga verified na magsasaka.',
+    description: 'Bumibili ng palay nang direkta mula sa mga magsasaka.',
     image: require('@/assets/images/animo/role-mamimili.png'),
-    accent: AnimoColors.roleBuyer,
+    accent: "#ffe5be",
   },
 ];
 
