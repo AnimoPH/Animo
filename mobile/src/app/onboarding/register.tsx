@@ -19,7 +19,7 @@ import { LoginPhoneInput } from '@/components/animo/login-phone-input';
 import { OtpVerification } from '@/components/animo/otp-verification';
 import { ProfileForm, type ProfileValues, isProfileComplete } from '@/components/animo/profile-form';
 import { StepIndicator, type Step } from '@/components/animo/step-indicator';
-import { AnimoColors, AnimoSpacing } from '@/constants/animo';
+import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { getRole, homeRouteForRole, type RoleId } from '@/constants/roles';
 import { completeRegistration, sendOtp, verifyOtp } from '@/services/auth-service';
 import { useSession } from '@/hooks/use-session';
@@ -262,6 +262,7 @@ export default function RegisterScreen() {
               {phoneError}
             </AnimoText>
           )}
+          <DevStepNav current={step} onSelect={setStep} />
           <AnimoButton
             label={primaryLabel}
             onPress={handlePrimary}
@@ -308,6 +309,57 @@ function StepNumero({
           {errorMessage}
         </AnimoText>
       )}
+    </View>
+  );
+}
+
+/** Temporary __DEV__ jumper — skip OTP auth while polishing step UI. Remove when done. */
+function DevStepNav({
+  current,
+  onSelect,
+}: {
+  current: number;
+  onSelect: (step: number) => void;
+}) {
+  if (!__DEV__) return null;
+
+  const chips = [
+    { label: 'Numero', step: 0 },
+    { label: 'OTP', step: 1 },
+    { label: 'Profile', step: 2 },
+  ] as const;
+
+  return (
+    <View style={styles.devNav}>
+      <View style={styles.devRule} />
+      <AnimoText variant="tag" color={AnimoColors.textLowEmphasis} style={styles.devLabel}>
+        Development - UI Preview
+      </AnimoText>
+      <View style={styles.devRow}>
+        {chips.map((chip) => {
+          const active = current === chip.step;
+          return (
+            <Pressable
+              key={chip.step}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`Preview ${chip.label} step`}
+              onPress={() => onSelect(chip.step)}
+              style={({ pressed }) => [
+                styles.devChip,
+                active ? styles.devChipActive : styles.devChipIdle,
+                pressed && styles.devChipPressed,
+              ]}>
+              <AnimoText
+                variant="caption"
+                color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}
+                style={styles.devChipLabel}>
+                {chip.label}
+              </AnimoText>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -360,5 +412,45 @@ const styles = StyleSheet.create({
   },
   terms: {
     textAlign: 'center',
+  },
+  devNav: {
+    gap: AnimoSpacing.sm,
+    paddingTop: AnimoSpacing.sm,
+  },
+  devRule: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: AnimoColors.borderLowEmphasis,
+    marginBottom: AnimoSpacing.xs,
+  },
+  devLabel: {
+    textAlign: 'center',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  devRow: {
+    flexDirection: 'row',
+    gap: AnimoSpacing.sm,
+  },
+  devChip: {
+    flex: 1,
+    height: 40,
+    borderRadius: AnimoRadius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+  },
+  devChipActive: {
+    backgroundColor: AnimoColors.green,
+    borderColor: AnimoColors.green,
+  },
+  devChipIdle: {
+    backgroundColor: AnimoColors.surfaceTertiary,
+    borderColor: AnimoColors.borderLowEmphasis,
+  },
+  devChipPressed: {
+    opacity: 0.85,
+  },
+  devChipLabel: {
+    fontFamily: 'PlusJakartaSans_600SemiBold',
   },
 });

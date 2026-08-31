@@ -7,7 +7,7 @@ import { OtpInput } from '@/components/animo/otp-input';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 
 const OTP_LENGTH = 6;
-const RESEND_SECONDS = 45;
+const RESEND_SECONDS = 300;
 
 export type OtpVerificationProps = {
   /** Phone number to show in the copy (e.g. "912 XXX 6789"). */
@@ -60,6 +60,7 @@ export function OtpVerification({
 
   return (
     <View style={styles.body}>
+      {/* Intro */}
       <View style={styles.intro}>
         <AnimoText variant="h2" color={AnimoColors.black}>
           Ilagay ang OTP
@@ -78,21 +79,34 @@ export function OtpVerification({
         </Pressable>
       </View>
 
-      <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.countdown}>
+      <View style={styles.otpSection}>
+        {/* Countdown for resend */}
+      <View style={styles.countdown}>
         {canResend ? (
-          'Maaari nang humiling ng bagong OTP.'
-        ) : (
           <>
-            Makakatanggap ng bagong OTP sa loob ng{' '}
+            <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+              Walang OTP?
+            </AnimoText>
+            <Pressable onPress={handleResend} hitSlop={8}>
+              <AnimoText variant="bodyEmphasis" color={AnimoColors.green} style={styles.resend}>
+                Resend OTP
+              </AnimoText>
+            </Pressable>
+          </>
+        ) : (
+          <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+            Humiling ng bagong OTP: {' '}
             <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
               {formatCountdown(secondsLeft)}
             </AnimoText>
-          </>
+          </AnimoText>
         )}
-      </AnimoText>
+      </View>
 
+      {/* OTP input */}
       <OtpInput value={value} onChange={onChange} length={OTP_LENGTH} error={error} />
-
+      
+      {/* Error banner */}
       {error && (
         <View style={styles.errorBanner}>
           <CircleAlert size={18} color={AnimoColors.danger} />
@@ -102,29 +116,29 @@ export function OtpVerification({
         </View>
       )}
 
-      {canResend && (
-        <Pressable onPress={handleResend} hitSlop={8}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.green} style={styles.resend}>
-            Ipadala muli ang code
-          </AnimoText>
-        </Pressable>
-      )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   body: {
-    gap: AnimoSpacing.lg,
+    gap: AnimoSpacing.xl,
   },
   intro: {
+    gap: AnimoSpacing.sm,
+  },
+  otpSection: {
     gap: AnimoSpacing.sm,
   },
   changeNumber: {
     textDecorationLine: 'underline',
   },
   countdown: {
-    textAlign: 'center',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: AnimoSpacing.xs,
   },
   errorBanner: {
     flexDirection: 'row',
@@ -138,6 +152,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   resend: {
-    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
 });

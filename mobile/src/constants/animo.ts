@@ -162,12 +162,12 @@ export const AnimoType = {
   display: { fontSize: 34, lineHeight: 42, fontFamily: 'PlusJakartaSans_700Bold' },
   h1: { fontSize: 26, lineHeight: 34, fontFamily: 'PlusJakartaSans_700Bold' },
   h2: { fontSize: 20, lineHeight: 28, fontFamily: 'PlusJakartaSans_700Bold' },
-  h3: { fontSize: 17.5, lineHeight: 24, fontFamily: 'PlusJakartaSans_600SemiBold' },
-  body: { fontSize: 16, lineHeight: 24, fontFamily: 'PlusJakartaSans_400Regular' },
-  bodyEmphasis: { fontSize: 16, lineHeight: 24, fontFamily: 'PlusJakartaSans_600SemiBold' },
-  button: { fontSize: 17, lineHeight: 24, fontFamily: 'PlusJakartaSans_700Bold' },
+  h3: { fontSize: 18, lineHeight: 24, fontFamily: 'PlusJakartaSans_600SemiBold' },
+  body: { fontSize: 15, lineHeight: 24, fontFamily: 'PlusJakartaSans_400Regular' },
+  bodyEmphasis: { fontSize: 15, lineHeight: 24, fontFamily: 'PlusJakartaSans_600SemiBold' },
+  button: { fontSize: 16, lineHeight: 24, fontFamily: 'PlusJakartaSans_700Bold' },
   price: { fontSize: 22, lineHeight: 28, fontFamily: 'PlusJakartaSans_700Bold' },
-  caption: { fontSize: 13.5, lineHeight: 18, fontFamily: 'PlusJakartaSans_400Regular' },
+  caption: { fontSize: 14, lineHeight: 18, fontFamily: 'PlusJakartaSans_400Regular' },
   tag: { fontSize: 12, lineHeight: 16, fontFamily: 'PlusJakartaSans_600SemiBold' },
 } as const;
 
