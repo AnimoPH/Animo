@@ -21,10 +21,11 @@ import { ProfileForm, type ProfileValues, isProfileComplete } from '@/components
 import { StepIndicator, type Step } from '@/components/animo/step-indicator';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { getRole, homeRouteForRole, type RoleId } from '@/constants/roles';
-import { completeRegistration, sendOtp, verifyOtp } from '@/services/auth-service';
+import { completeRegistration, sendOtp, toLocalPhone, verifyOtp } from '@/services/auth-service';
 import { useSession } from '@/hooks/use-session';
 import type { CompleteRegistrationInput } from '@/types/auth';
 import { BackHeader } from '@/components/animo/back-header';
+import { supabase } from '@/lib/supabase';
 
 const STEPS: Step[] = [{ label: 'Numero' }, { label: 'OTP' }, { label: 'Profile' }];
 const OTP_LENGTH = 6;
@@ -33,23 +34,16 @@ const PENDING_ROLE_KEY = 'animo.registration.pendingRole';
 
 const emptyProfile: ProfileValues = {
   fullName: '',
-  age: '',
-  gender: null,
-  municipality: null,
   barangay: null,
   farmSize: null,
-  experience: null,
-  household: null,
-  stormDamage: null,
-  businessName: '',
+  riceVariety: null,
+  gcashNumber: '',
 };
 
 /**
  * Trims the rich `ProfileValues` the form collects down to what `user` +
  * the farmer/buyer extension row (ANIMO Data Dictionary §1/§1a/§1b) actually
- * persist — just fullName + barangay (farmer-only). Age/gender/farm
- * experience/household size/storm damage/business name are still collected
- * by `ProfileForm` but are no longer sent; see
+ * persist — just fullName + barangay (farmer-only). See
  * supabase/functions/complete-registration.
  */
 function buildRegistrationInput(role: RoleId, profile: ProfileValues): CompleteRegistrationInput {
@@ -100,6 +94,16 @@ export default function RegisterScreen() {
       });
     }
   }, [params.role, isResuming]);
+
+  // Resume / dev-jump to Profile can skip step 0 while the verified number lives on the session.
+  useEffect(() => {
+    if (phone) return;
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user?.phone) return;
+      setPhone(toLocalPhone(user.phone));
+    });
+  }, [phone, step, isResuming]);
 
   const phoneValid = phone.replace(/\D/g, '').length === 10;
   const otpFilled = otp.length === OTP_LENGTH;
@@ -232,6 +236,7 @@ export default function RegisterScreen() {
             <ProfileForm
               roleTitle={role?.title}
               showFarmerFields={isFarmer}
+              phoneNumber={phone}
               values={profile}
               onChange={setProfile}
             />

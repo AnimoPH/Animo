@@ -3,66 +3,54 @@ import { StyleSheet, View } from 'react-native';
 import { AnimoText } from '@/components/animo/animo-text';
 import { FormCard } from '@/components/animo/form-card';
 import { LabeledInput } from '@/components/animo/labeled-input';
-import { SegmentedChoice } from '@/components/animo/segmented-choice';
 import { SelectField } from '@/components/animo/select-field';
 import { AnimoColors, AnimoSpacing } from '@/constants/animo';
-import {
-  BARANGAYS,
-  EXPERIENCE_YEARS,
-  FARM_SIZES,
-  HOUSEHOLD_SIZES,
-  MUNICIPALITIES,
-} from '@/constants/profile-options';
+import { BARANGAYS, FARM_SIZES, PALAY_VARIETIES } from '@/constants/profile-options';
 
-export type Gender = 'lalaki' | 'babae';
-export type YesNo = 'oo' | 'hindi';
+function formatPhoneDisplay(local: string): string {
+  return local ? `+63 ${local}` : '';
+}
 
 export type ProfileValues = {
   fullName: string;
-  age: string;
-  gender: Gender | null;
-  municipality: string | null;
   barangay: string | null;
   farmSize: string | null;
-  experience: string | null;
-  household: string | null;
-  stormDamage: YesNo | null;
-  /** Mamimili-only — no location field is collected for buyers. */
-  businessName: string;
+  riceVariety: string | null;
+  gcashNumber: string;
 };
 
 export type ProfileFormProps = {
   roleTitle?: string;
-  /** Farm location / details / recovery only apply to Magsasaka. */
+  /** Farm location / details only apply to Magsasaka. */
   showFarmerFields: boolean;
+  /** Verified phone from the Numero/OTP steps — read-only display only. */
+  phoneNumber: string;
   values: ProfileValues;
   onChange: (values: ProfileValues) => void;
 };
 
 /** Returns true when every required field for the given role is filled. */
 export function isProfileComplete(v: ProfileValues, isFarmer: boolean): boolean {
-  const personalDone =
-    v.fullName.trim().length >= 2 && v.age.trim().length > 0 && v.gender !== null;
-  if (!isFarmer) return personalDone && v.businessName.trim().length >= 2;
+  const sharedDone =
+    v.fullName.trim().length >= 2 && /^\d{11}$/.test(v.gcashNumber);
+  if (!isFarmer) return sharedDone;
 
-  return (
-    personalDone &&
-    v.municipality !== null &&
-    v.barangay !== null &&
-    v.farmSize !== null &&
-    v.experience !== null &&
-    v.household !== null &&
-    v.stormDamage !== null
-  );
+  return sharedDone && v.barangay !== null;
 }
 
 /**
  * Registration step 3 — profile details.
  *
- * Everyone fills "Personal na Impormasyon". Magsasaka additionally fills farm
- * location, farm details and recovery info.
+ * Everyone fills "Personal na Impormasyon" and "Bayad". Magsasaka additionally
+ * fills farm location and farm details.
  */
-export function ProfileForm({ roleTitle, showFarmerFields, values, onChange }: ProfileFormProps) {
+export function ProfileForm({
+  roleTitle,
+  showFarmerFields,
+  phoneNumber,
+  values,
+  onChange,
+}: ProfileFormProps) {
   // Small helper to update a single field immutably.
   const set = <K extends keyof ProfileValues>(key: K, value: ProfileValues[K]) =>
     onChange({ ...values, [key]: value });
@@ -89,48 +77,30 @@ export function ProfileForm({ roleTitle, showFarmerFields, values, onChange }: P
           onChangeText={(t) => set('fullName', t)}
           hint="Ito ang lalabas sa inyong mga listing at transaksyon."
         />
+      </FormCard>
+
+      <FormCard title="Bayad">
         <LabeledInput
-          label="Edad"
-          placeholder="45"
+          label="GCash Number"
+          placeholder="09XXXXXXXXX"
           keyboardType="number-pad"
-          maxLength={3}
-          value={values.age}
-          onChangeText={(t) => set('age', t.replace(/\D/g, ''))}
-        />
-        <SegmentedChoice<Gender>
-          label="Kasarian"
-          options={[
-            { value: 'lalaki', label: 'Lalaki' },
-            { value: 'babae', label: 'Babae' },
-          ]}
-          value={values.gender}
-          onChange={(g) => set('gender', g)}
+          maxLength={11}
+          value={values.gcashNumber}
+          onChangeText={(t) => set('gcashNumber', t.replace(/\D/g, ''))}
         />
       </FormCard>
 
-      {!showFarmerFields && (
-        <FormCard title="Negosyo">
-          <LabeledInput
-            label="Pangalan ng Negosyo o Kooperatiba"
-            placeholder="Hal. Dela Cruz Trading"
-            autoCapitalize="words"
-            value={values.businessName}
-            onChangeText={(t) => set('businessName', t)}
-            hint="Ito ang lalabas sa inyong mga transaksyon bilang mamimili."
-          />
-        </FormCard>
-      )}
+      <FormCard title="Contact Number">
+        <LabeledInput
+          label="Numero ng Telepono"
+          value={formatPhoneDisplay(phoneNumber)}
+          editable={false}
+        />
+      </FormCard>
 
       {showFarmerFields && (
         <>
           <FormCard title="Lokasyon ng Bukid">
-            <SelectField
-              label="Munisipalidad"
-              placeholder="Pumili ng munisipalidad"
-              options={MUNICIPALITIES}
-              value={values.municipality}
-              onChange={(v) => set('municipality', v)}
-            />
             <SelectField
               label="Barangay"
               placeholder="Pumili ng barangay"
@@ -149,30 +119,11 @@ export function ProfileForm({ roleTitle, showFarmerFields, values, onChange }: P
               onChange={(v) => set('farmSize', v)}
             />
             <SelectField
-              label="Taon ng Karanasan sa Pagsasaka"
-              placeholder="Pumili ng karanasan"
-              options={EXPERIENCE_YEARS}
-              value={values.experience}
-              onChange={(v) => set('experience', v)}
-            />
-          </FormCard>
-
-          <FormCard title="Impormasyon Pang-Recovery">
-            <SelectField
-              label="Bilang ng Miyembro ng Sambahayan"
-              placeholder="Pumili ng bilang"
-              options={HOUSEHOLD_SIZES}
-              value={values.household}
-              onChange={(v) => set('household', v)}
-            />
-            <SegmentedChoice<YesNo>
-              label="Naranasan ang pinsala mula sa bagyo noong nakaraang taon?"
-              options={[
-                { value: 'oo', label: 'Oo' },
-                { value: 'hindi', label: 'Hindi' },
-              ]}
-              value={values.stormDamage}
-              onChange={(v) => set('stormDamage', v)}
+              label="Uri ng Palay na Karaniwang Itinatanim"
+              placeholder="Pumili ng uri"
+              options={PALAY_VARIETIES}
+              value={values.riceVariety}
+              onChange={(v) => set('riceVariety', v)}
             />
           </FormCard>
         </>
