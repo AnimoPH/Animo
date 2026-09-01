@@ -196,6 +196,18 @@ export const AnimoRadius = {
   pill: 999,
 } as const;
 
+/**
+ * Login screen colors sampled from brand assets (Animo-Logo.png, login-banner.png).
+ * `brandGreen` is the dominant logo green (#1A6E1E). Page background uses the app
+ * neutral wash — banner art is illustrative and does not include the logo-area gray.
+ */
+export const AnimoLoginColors = {
+  brandGreen: '#1A6E1E',
+  pageBackground: '#FAFAFA',
+  linkOnGreen: '#FFFFFF',
+  linkOnWhite: '#1A6E1E',
+} as const;
+
 /** Fonts to load with `useFonts`. */
 export const AnimoFontMap = {
   PlusJakartaSans_400Regular: require('@expo-google-fonts/plus-jakarta-sans/400Regular/PlusJakartaSans_400Regular.ttf'),

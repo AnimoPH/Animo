@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   field: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    minHeight: 52,
+    minHeight: 56,
     borderRadius: AnimoRadius.sm,
     borderWidth: 1,
     borderColor: AnimoColors.border,
@@ -94,11 +94,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: AnimoSpacing.lg,
-    backgroundColor: AnimoColors.border,
+    backgroundColor: AnimoColors.surfaceSecondary,
   },
   input: {
     flex: 1,
-    minHeight: 50,
+    minHeight: 56,
     paddingVertical: AnimoSpacing.sm,
     paddingHorizontal: AnimoSpacing.md,
     color: AnimoColors.black,
