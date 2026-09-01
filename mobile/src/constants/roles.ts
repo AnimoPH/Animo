@@ -33,7 +33,7 @@ export const ROLES: Role[] = [
   {
     id: 'mamimili',
     title: 'Mamimili',
-    description: 'Bumibili ng palay nang direkta mula sa mga magsasaka.',
+    description: 'Bumibili ng palay mula sa mga magsasaka.',
     image: require('@/assets/images/animo/role-mamimili.png'),
     accent: "#ffe5be",
   },

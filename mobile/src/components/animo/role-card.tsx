@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: AnimoSpacing.lg,
-    padding: AnimoSpacing.md,
+    padding: AnimoSpacing.lg,
     borderRadius: AnimoRadius.lg,
   },
   cardDefault: {

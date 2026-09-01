@@ -8,10 +8,22 @@ import type { SelectOption } from '@/components/animo/select-field';
  */
 
 export const BARANGAYS: SelectOption[] = [
-  { value: 'brgy-1', label: 'Barangay 1' },
-  { value: 'brgy-2', label: 'Barangay 2' },
-  { value: 'brgy-3', label: 'Barangay 3' },
-  { value: 'brgy-4', label: 'Barangay 4' },
+  { value: 'bagong-nayon', label: 'Bagong Nayon' },
+  { value: 'beverly-hills', label: 'Beverly Hills' },
+  { value: 'calawis', label: 'Calawis' },
+  { value: 'cupang', label: 'Cupang' },
+  { value: 'dalig', label: 'Dalig' },
+  { value: 'dela-paz', label: 'Dela Paz' },
+  { value: 'inarawan', label: 'Inarawan' },
+  { value: 'mambugan', label: 'Mambugan' },
+  { value: 'mayamot', label: 'Mayamot' },
+  { value: 'muntingdilaw', label: 'Muntingdilaw' },
+  { value: 'san-isidro', label: 'San Isidro' },
+  { value: 'san-jose', label: 'San Jose' },
+  { value: 'san-juan', label: 'San Juan' },
+  { value: 'san-luis', label: 'San Luis' },
+  { value: 'san-roque', label: 'San Roque' },
+  { value: 'santa-cruz', label: 'Santa Cruz' },
 ];
 
 export const FARM_SIZES: SelectOption[] = [

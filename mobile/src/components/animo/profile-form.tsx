@@ -79,23 +79,22 @@ export function ProfileForm({
         />
       </FormCard>
 
-      <FormCard title="Bayad">
+      <FormCard title="Contact Information">
         <LabeledInput
-          label="GCash Number"
+          label="Numero ng Telepono"
+          value={formatPhoneDisplay(phoneNumber)}
+          editable={false}
+        />
+
+        <LabeledInput
+          label="GCash Account Number"
           placeholder="09XXXXXXXXX"
           keyboardType="number-pad"
           maxLength={11}
           value={values.gcashNumber}
           onChangeText={(t) => set('gcashNumber', t.replace(/\D/g, ''))}
         />
-      </FormCard>
 
-      <FormCard title="Contact Number">
-        <LabeledInput
-          label="Numero ng Telepono"
-          value={formatPhoneDisplay(phoneNumber)}
-          editable={false}
-        />
       </FormCard>
 
       {showFarmerFields && (
