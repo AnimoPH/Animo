@@ -162,12 +162,12 @@ export const AnimoType = {
   display: { fontSize: 34, lineHeight: 42, fontFamily: 'PlusJakartaSans_700Bold' },
   h1: { fontSize: 26, lineHeight: 34, fontFamily: 'PlusJakartaSans_700Bold' },
   h2: { fontSize: 20, lineHeight: 28, fontFamily: 'PlusJakartaSans_700Bold' },
-  h3: { fontSize: 17.5, lineHeight: 24, fontFamily: 'PlusJakartaSans_600SemiBold' },
-  body: { fontSize: 16, lineHeight: 24, fontFamily: 'PlusJakartaSans_400Regular' },
-  bodyEmphasis: { fontSize: 16, lineHeight: 24, fontFamily: 'PlusJakartaSans_600SemiBold' },
-  button: { fontSize: 17, lineHeight: 24, fontFamily: 'PlusJakartaSans_700Bold' },
+  h3: { fontSize: 18, lineHeight: 24, fontFamily: 'PlusJakartaSans_600SemiBold' },
+  body: { fontSize: 15, lineHeight: 24, fontFamily: 'PlusJakartaSans_400Regular' },
+  bodyEmphasis: { fontSize: 15, lineHeight: 24, fontFamily: 'PlusJakartaSans_600SemiBold' },
+  button: { fontSize: 16, lineHeight: 24, fontFamily: 'PlusJakartaSans_700Bold' },
   price: { fontSize: 22, lineHeight: 28, fontFamily: 'PlusJakartaSans_700Bold' },
-  caption: { fontSize: 13.5, lineHeight: 18, fontFamily: 'PlusJakartaSans_400Regular' },
+  caption: { fontSize: 14, lineHeight: 18, fontFamily: 'PlusJakartaSans_400Regular' },
   tag: { fontSize: 12, lineHeight: 16, fontFamily: 'PlusJakartaSans_600SemiBold' },
 } as const;
 
@@ -194,6 +194,20 @@ export const AnimoRadius = {
   md: 12,
   lg: 16,
   pill: 999,
+} as const;
+
+/**
+ * Login screen colors sampled from brand assets (Animo-Logo.png, login-banner.png).
+ * `brandGreen` is the dominant logo green (#1A6E1E). Page background uses the app
+ * neutral wash — banner art is illustrative and does not include the logo-area gray.
+ */
+export const AnimoLoginColors = {
+  brandGreen: '#1A6E1E',
+  pageBackground: '#FAFAFA',
+  linkOnGreen: '#FFFFFF',
+  linkOnWhite: '#1A6E1E',
+  /** Body/label/helper text sitting directly on the green form card. */
+  textOnGreen: '#FFFFFF',
 } as const;
 
 /** Fonts to load with `useFonts`. */

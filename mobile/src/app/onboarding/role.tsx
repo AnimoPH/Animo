@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
@@ -75,7 +75,7 @@ export default function RoleScreen() {
               key={role.id}
               role={role}
               selected={selected === role.id}
-              onPress={() => setSelected(role.id)}
+              onPress={() => setSelected((prev) => (prev === role.id ? null : role.id))}
             />
           ))}
         </View>
@@ -87,6 +87,16 @@ export default function RoleScreen() {
           onPress={handleContinue}
           disabled={!selected || submitting}
         />
+        <View style={styles.loginRow}>
+          <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+            Meron ng account?{' '}
+          </AnimoText>
+          <Pressable onPress={() => router.replace('/login')} hitSlop={8}>
+            <AnimoText variant="bodyEmphasis" color={AnimoColors.green} style={styles.link}>
+              Mag-login
+            </AnimoText>
+          </Pressable>
+        </View>
         <DevLoginBar
           onSelect={handleDevLogin}
           submitting={submitting}
@@ -104,10 +114,10 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.background,
   },
   scrollContent: {
-    paddingHorizontal: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.lg,
-    paddingBottom: AnimoSpacing.xl,
-    gap: AnimoSpacing.xl,
+    paddingBottom: AnimoSpacing.lg,
+    gap: AnimoSpacing.lg,
   },
   heading: {
     alignItems: 'center',
@@ -120,12 +130,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   cards: {
-    gap: AnimoSpacing.md,
+    gap: AnimoSpacing.lg,
   },
   footer: {
-    paddingHorizontal: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.md,
     paddingBottom: AnimoSpacing.md,
     gap: AnimoSpacing.md,
+  },
+  loginRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  link: {
+    textDecorationLine: 'underline',
   },
 });

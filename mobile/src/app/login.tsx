@@ -10,15 +10,16 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { DevLoginBar } from '@/components/animo/dev-login-bar';
-import { LabeledInput } from '@/components/animo/labeled-input';
+import { LoginFooterSection } from '@/components/animo/login/login-footer-section';
+import { LoginFormSection } from '@/components/animo/login/login-form-section';
+import { LoginHeroSection } from '@/components/animo/login/login-hero-section';
 import { OtpVerification } from '@/components/animo/otp-verification';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { AnimoColors, AnimoLoginColors, AnimoSpacing } from '@/constants/animo';
 import { homeRouteForRole, type RoleId } from '@/constants/roles';
 import { fetchMyProfile, sendOtp, signInDevAccount, verifyOtp } from '@/services/auth-service';
 import { useSession } from '@/hooks/use-session';
@@ -114,11 +115,13 @@ export default function LoginScreen() {
   const primaryVariant = step === 'otp' && otpError ? 'secondary' : 'primary';
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <StatusBar style="dark" />
+    <SafeAreaView
+      style={[styles.safeArea, step === 'phone' && styles.safeAreaPhone]}
+      edges={['top', 'bottom']}>
+      <StatusBar style={step === 'phone' ? 'dark' : 'dark'} />
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         {step === 'otp' && (
           <View style={styles.headerBar}>
             <Pressable
@@ -139,13 +142,44 @@ export default function LoginScreen() {
           </View>
         )}
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          {step === 'phone' ? (
-            <PhoneStep phone={phone} onChangePhone={setPhone} errorMessage={phoneError} />
-          ) : (
+        {step === 'phone' ? (
+          <ScrollView
+            style={styles.phoneStep}
+            contentContainerStyle={styles.phoneStepContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <LoginHeroSection />
+            <LoginFormSection
+              phone={phone}
+              onChangePhone={setPhone}
+              errorMessage={phoneError}
+              onClearAccount={() => setPhone('')}
+              primaryLabel={primaryLabel}
+              primaryDisabled={primaryDisabled}
+              submitting={submitting && devRole === null}
+              onPrimary={handlePrimary}
+              onRegister={() => router.replace('/onboarding/role')}
+              footer={<LoginFooterSection />}
+              // dev mode only
+              // devSlot={
+              //   __DEV__
+              //     ? (
+              //       <DevLoginBar
+              //         onSelect={handleDevLogin}
+              //         submitting={submitting}
+              //         activeRole={devRole}
+              //         error={devError}
+              //       />
+              //     )
+              //     : null
+              // }
+            />
+          </ScrollView>
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
             <OtpVerification
               phone={phone}
               value={otp}
@@ -171,122 +205,25 @@ export default function LoginScreen() {
                 sendOtp(phone, { isRegistration: false }).catch(() => {});
               }}
             />
-          )}
-        </ScrollView>
+          </ScrollView>
+        )}
 
-        <View style={styles.footer}>
-          {step === 'otp' && (
+        {step === 'otp' && (
+          <View style={styles.footer}>
             <AnimoText variant="caption" color={AnimoColors.muted} style={styles.centerText}>
               Hindi natanggap ang SMS? Suriin ang signal o humiling ng bagong OTP.
             </AnimoText>
-          )}
-          <AnimoButton
-            label={primaryLabel}
-            onPress={handlePrimary}
-            disabled={primaryDisabled || submitting}
-            loading={submitting && devRole === null}
-            variant={primaryVariant}
-          />
-          {step === 'phone' && (
-            <View style={styles.registerRow}>
-              <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                Wala pang account?{' '}
-              </AnimoText>
-              <Pressable onPress={() => router.replace('/onboarding/role')} hitSlop={8}>
-                <AnimoText variant="bodyEmphasis" color={AnimoColors.green} style={styles.link}>
-                  Mag-register
-                </AnimoText>
-              </Pressable>
-            </View>
-          )}
-          {step === 'phone' && (
-            <DevLoginBar
-              onSelect={handleDevLogin}
-              submitting={submitting}
-              activeRole={devRole}
-              error={devError}
+            <AnimoButton
+              label={primaryLabel}
+              onPress={handlePrimary}
+              disabled={primaryDisabled || submitting}
+              loading={submitting && devRole === null}
+              variant={primaryVariant}
             />
-          )}
-          {step === 'phone' && (
-            <AnimoText variant="caption" color={AnimoColors.muted} style={styles.centerText}>
-              Sa pagpatuloy, sumasang-ayon kayo sa aming{' '}
-              <AnimoText variant="caption" color={AnimoColors.green}>
-                Terms of Service
-              </AnimoText>{' '}
-              at{' '}
-              <AnimoText variant="caption" color={AnimoColors.green}>
-                Privacy Policy
-              </AnimoText>
-              .
-            </AnimoText>
-          )}
-        </View>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
-  );
-}
-
-/** Login step 1 — brand lockup + phone entry card. */
-function PhoneStep({
-  phone,
-  onChangePhone,
-  errorMessage,
-}: {
-  phone: string;
-  onChangePhone: (v: string) => void;
-  errorMessage?: string;
-}) {
-  return (
-    <View style={styles.phoneBody}>
-      <View style={styles.brand}>
-        <View style={styles.logoBadge}>
-          <Image
-            source={require('@/assets/images/animo/icon-green.png')}
-            style={styles.logo}
-            contentFit="contain"
-          />
-        </View>
-        <AnimoText variant="display" color={AnimoColors.green}>
-          Animo
-        </AnimoText>
-      </View>
-
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <AnimoText variant="h3" color={AnimoColors.black}>
-            Numero ng Telepono
-          </AnimoText>
-          <Pressable onPress={() => onChangePhone('')} hitSlop={8}>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.green} style={styles.link}>
-              Ibang account?
-            </AnimoText>
-          </Pressable>
-        </View>
-        <LabeledInput
-          placeholder="9XX XXX XXXX"
-          keyboardType="phone-pad"
-          value={phone}
-          onChangeText={onChangePhone}
-          maxLength={13}
-          hint="Padadalhan namin ng OTP sa numerong ito."
-          prefix={
-            <View style={styles.phonePrefix}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.blackSecondary}>
-                PH
-              </AnimoText>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                +63
-              </AnimoText>
-            </View>
-          }
-        />
-        {errorMessage && (
-          <AnimoText variant="body" color={AnimoColors.danger}>
-            {errorMessage}
-          </AnimoText>
-        )}
-      </View>
-    </View>
   );
 }
 
@@ -295,8 +232,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AnimoColors.background,
   },
+  safeAreaPhone: {
+    backgroundColor: AnimoLoginColors.pageBackground,
+  },
   flex: {
     flex: 1,
+  },
+  phoneStep: {
+    flex: 1,
+  },
+  phoneStepContent: {
+    flexGrow: 1,
   },
   headerBar: {
     flexDirection: 'row',
@@ -317,65 +263,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   scrollContent: {
-    paddingHorizontal: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.lg,
     paddingBottom: AnimoSpacing.xl,
   },
-  phoneBody: {
-    gap: AnimoSpacing.xxl,
-  },
-  brand: {
-    alignItems: 'center',
-    gap: AnimoSpacing.sm,
-    marginTop: AnimoSpacing.xl,
-  },
-  logoBadge: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: AnimoColors.greenTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logo: {
-    width: 48,
-    height: 48,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.sm,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  phonePrefix: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    height: '100%',
-    paddingHorizontal: AnimoSpacing.lg,
-    backgroundColor: AnimoColors.border,
-  },
   footer: {
-    paddingHorizontal: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.md,
     paddingBottom: AnimoSpacing.md,
     gap: AnimoSpacing.md,
   },
   centerText: {
     textAlign: 'center',
-  },
-  registerRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  link: {
-    textDecorationLine: 'underline',
   },
 });

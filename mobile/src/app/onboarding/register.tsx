@@ -15,15 +15,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { LabeledInput } from '@/components/animo/labeled-input';
+import { LoginPhoneInput } from '@/components/animo/login-phone-input';
 import { OtpVerification } from '@/components/animo/otp-verification';
 import { ProfileForm, type ProfileValues, isProfileComplete } from '@/components/animo/profile-form';
 import { StepIndicator, type Step } from '@/components/animo/step-indicator';
-import { AnimoColors, AnimoSpacing } from '@/constants/animo';
+import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { getRole, homeRouteForRole, type RoleId } from '@/constants/roles';
-import { completeRegistration, sendOtp, verifyOtp } from '@/services/auth-service';
+import { completeRegistration, sendOtp, toLocalPhone, verifyOtp } from '@/services/auth-service';
 import { useSession } from '@/hooks/use-session';
 import type { CompleteRegistrationInput } from '@/types/auth';
+import { BackHeader } from '@/components/animo/back-header';
+import { supabase } from '@/lib/supabase';
 
 const STEPS: Step[] = [{ label: 'Numero' }, { label: 'OTP' }, { label: 'Profile' }];
 const OTP_LENGTH = 6;
@@ -32,23 +34,16 @@ const PENDING_ROLE_KEY = 'animo.registration.pendingRole';
 
 const emptyProfile: ProfileValues = {
   fullName: '',
-  age: '',
-  gender: null,
-  municipality: null,
   barangay: null,
   farmSize: null,
-  experience: null,
-  household: null,
-  stormDamage: null,
-  businessName: '',
+  riceVariety: null,
+  gcashNumber: '',
 };
 
 /**
  * Trims the rich `ProfileValues` the form collects down to what `user` +
  * the farmer/buyer extension row (ANIMO Data Dictionary §1/§1a/§1b) actually
- * persist — just fullName + barangay (farmer-only). Age/gender/farm
- * experience/household size/storm damage/business name are still collected
- * by `ProfileForm` but are no longer sent; see
+ * persist — just fullName + barangay (farmer-only). See
  * supabase/functions/complete-registration.
  */
 function buildRegistrationInput(role: RoleId, profile: ProfileValues): CompleteRegistrationInput {
@@ -99,6 +94,16 @@ export default function RegisterScreen() {
       });
     }
   }, [params.role, isResuming]);
+
+  // Resume / dev-jump to Profile can skip step 0 while the verified number lives on the session.
+  useEffect(() => {
+    if (phone) return;
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user?.phone) return;
+      setPhone(toLocalPhone(user.phone));
+    });
+  }, [phone, step, isResuming]);
 
   const phoneValid = phone.replace(/\D/g, '').length === 10;
   const otpFilled = otp.length === OTP_LENGTH;
@@ -185,15 +190,7 @@ export default function RegisterScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* Header: back + title */}
-        <View style={styles.headerBar}>
-          <Pressable onPress={goBack} hitSlop={12} style={styles.backButton}>
-            <ChevronLeft size={26} color={AnimoColors.black} />
-          </Pressable>
-          <AnimoText variant="h1" color={AnimoColors.green} style={styles.headerTitle}>
-            Rehistro
-          </AnimoText>
-          <View style={styles.backButton} />
-        </View>
+        <BackHeader title="Rehistro" />
 
         <View style={styles.stepIndicatorWrap}>
           <StepIndicator steps={STEPS} current={step} />
@@ -239,6 +236,7 @@ export default function RegisterScreen() {
             <ProfileForm
               roleTitle={role?.title}
               showFarmerFields={isFarmer}
+              phoneNumber={phone}
               values={profile}
               onChange={setProfile}
             />
@@ -269,6 +267,7 @@ export default function RegisterScreen() {
               {phoneError}
             </AnimoText>
           )}
+          <DevStepNav current={step} onSelect={setStep} />
           <AnimoButton
             label={primaryLabel}
             onPress={handlePrimary}
@@ -303,30 +302,69 @@ function StepNumero({
         </AnimoText>
       </View>
 
-      <LabeledInput
+      <LoginPhoneInput
         label="Numero ng Telepono"
-        placeholder="9XX XXX XXXX"
-        keyboardType="phone-pad"
         value={phone}
         onChangeText={onChangePhone}
-        maxLength={13}
         hint="10-digit mobile number lamang."
-        prefix={
-          <View style={styles.phonePrefix}>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.blackSecondary}>
-              PH
-            </AnimoText>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-              +63
-            </AnimoText>
-          </View>
-        }
+        error={Boolean(errorMessage)}
       />
       {errorMessage && (
         <AnimoText variant="body" color={AnimoColors.danger}>
           {errorMessage}
         </AnimoText>
       )}
+    </View>
+  );
+}
+
+/** Temporary __DEV__ jumper — skip OTP auth while polishing step UI. Remove when done. */
+function DevStepNav({
+  current,
+  onSelect,
+}: {
+  current: number;
+  onSelect: (step: number) => void;
+}) {
+  if (!__DEV__) return null;
+
+  const chips = [
+    { label: 'Numero', step: 0 },
+    { label: 'OTP', step: 1 },
+    { label: 'Profile', step: 2 },
+  ] as const;
+
+  return (
+    <View style={styles.devNav}>
+      <View style={styles.devRule} />
+      <AnimoText variant="tag" color={AnimoColors.textLowEmphasis} style={styles.devLabel}>
+        Development - UI Preview
+      </AnimoText>
+      <View style={styles.devRow}>
+        {chips.map((chip) => {
+          const active = current === chip.step;
+          return (
+            <Pressable
+              key={chip.step}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`Preview ${chip.label} step`}
+              onPress={() => onSelect(chip.step)}
+              style={({ pressed }) => [
+                styles.devChip,
+                active ? styles.devChipActive : styles.devChipIdle,
+                pressed && styles.devChipPressed,
+              ]}>
+              <AnimoText
+                variant="caption"
+                color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}
+                style={styles.devChipLabel}>
+                {chip.label}
+              </AnimoText>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -358,12 +396,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   stepIndicatorWrap: {
-    paddingHorizontal: AnimoSpacing.xxl,
-    paddingBottom: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingBottom: AnimoSpacing.lg,
   },
   scrollContent: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingBottom: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
+    // paddingBottom: AnimoSpacing.xl,
   },
   stepBody: {
     gap: AnimoSpacing.xl,
@@ -371,21 +409,53 @@ const styles = StyleSheet.create({
   stepIntro: {
     gap: AnimoSpacing.sm,
   },
-  phonePrefix: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    height: '100%',
-    paddingHorizontal: AnimoSpacing.lg,
-    backgroundColor: AnimoColors.border,
-  },
   footer: {
-    paddingHorizontal: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.md,
-    paddingBottom: AnimoSpacing.md,
+    paddingBottom: AnimoSpacing.lg,
     gap: AnimoSpacing.md,
   },
   terms: {
     textAlign: 'center',
+  },
+  devNav: {
+    gap: AnimoSpacing.sm,
+    paddingTop: AnimoSpacing.sm,
+  },
+  devRule: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: AnimoColors.borderLowEmphasis,
+    marginBottom: AnimoSpacing.xs,
+  },
+  devLabel: {
+    textAlign: 'center',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  devRow: {
+    flexDirection: 'row',
+    gap: AnimoSpacing.sm,
+  },
+  devChip: {
+    flex: 1,
+    height: 40,
+    borderRadius: AnimoRadius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+  },
+  devChipActive: {
+    backgroundColor: AnimoColors.green,
+    borderColor: AnimoColors.green,
+  },
+  devChipIdle: {
+    backgroundColor: AnimoColors.surfaceTertiary,
+    borderColor: AnimoColors.borderLowEmphasis,
+  },
+  devChipPressed: {
+    opacity: 0.85,
+  },
+  devChipLabel: {
+    fontFamily: 'PlusJakartaSans_600SemiBold',
   },
 });

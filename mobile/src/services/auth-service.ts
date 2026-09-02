@@ -20,6 +20,17 @@ export function normalizePhone(input: string): string {
   return `+63${local}`;
 }
 
+/** "+639171234567" / "09171234567" → "9171234567" for the 10-digit phone inputs. */
+export function toLocalPhone(input: string): string {
+  const digits = input.replace(/\D/g, '');
+  const local = digits.startsWith('63')
+    ? digits.slice(2)
+    : digits.startsWith('0')
+      ? digits.slice(1)
+      : digits;
+  return local.slice(0, 10);
+}
+
 /**
  * `functions.invoke()` collapses any non-2xx response to a generic message —
  * the real `{ error }` body has to be read off `error.context` instead.

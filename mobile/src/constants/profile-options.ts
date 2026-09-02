@@ -3,23 +3,27 @@ import type { SelectOption } from '@/components/animo/select-field';
 /**
  * Static option lists for the registration profile form.
  *
- * Placeholder data for frontend development — municipalities/barangays would
- * come from an API keyed by location once the backend exists.
+ * Placeholder data for frontend development — barangays would come from an
+ * API keyed by location once the backend exists.
  */
 
-export const MUNICIPALITIES: SelectOption[] = [
-  { value: 'cabanatuan', label: 'Cabanatuan' },
-  { value: 'gapan', label: 'Gapan' },
-  { value: 'san-jose', label: 'San Jose' },
-  { value: 'guimba', label: 'Guimba' },
-  { value: 'talavera', label: 'Talavera' },
-];
-
 export const BARANGAYS: SelectOption[] = [
-  { value: 'brgy-1', label: 'Barangay 1' },
-  { value: 'brgy-2', label: 'Barangay 2' },
-  { value: 'brgy-3', label: 'Barangay 3' },
-  { value: 'brgy-4', label: 'Barangay 4' },
+  { value: 'bagong-nayon', label: 'Bagong Nayon' },
+  { value: 'beverly-hills', label: 'Beverly Hills' },
+  { value: 'calawis', label: 'Calawis' },
+  { value: 'cupang', label: 'Cupang' },
+  { value: 'dalig', label: 'Dalig' },
+  { value: 'dela-paz', label: 'Dela Paz' },
+  { value: 'inarawan', label: 'Inarawan' },
+  { value: 'mambugan', label: 'Mambugan' },
+  { value: 'mayamot', label: 'Mayamot' },
+  { value: 'muntingdilaw', label: 'Muntingdilaw' },
+  { value: 'san-isidro', label: 'San Isidro' },
+  { value: 'san-jose', label: 'San Jose' },
+  { value: 'san-juan', label: 'San Juan' },
+  { value: 'san-luis', label: 'San Luis' },
+  { value: 'san-roque', label: 'San Roque' },
+  { value: 'santa-cruz', label: 'Santa Cruz' },
 ];
 
 export const FARM_SIZES: SelectOption[] = [
@@ -30,16 +34,10 @@ export const FARM_SIZES: SelectOption[] = [
   { value: 'gt-5', label: 'Higit sa 5 ektarya' },
 ];
 
-export const EXPERIENCE_YEARS: SelectOption[] = [
-  { value: '0-5', label: '0 hanggang 5 taon' },
-  { value: '6-10', label: '6 hanggang 10 taon' },
-  { value: '11-20', label: '11 hanggang 20 taon' },
-  { value: 'gt-20', label: 'Higit sa 20 taon' },
-];
-
-export const HOUSEHOLD_SIZES: SelectOption[] = [
-  { value: '1-3', label: '1 hanggang 3' },
-  { value: '4-6', label: '4 hanggang 6' },
-  { value: '7-9', label: '7 hanggang 9' },
-  { value: 'gt-10', label: '10 pataas' },
+export const PALAY_VARIETIES: SelectOption[] = [
+  { value: 'inbred', label: 'Inbred' },
+  { value: 'hybrid', label: 'Hybrid' },
+  { value: 'traditional-heirloom', label: 'Tradisyonal o Pamana' },
+  { value: 'mixed', label: 'Halo-halong Uri' },
+  { value: 'other', label: 'Iba Pa' },
 ];
