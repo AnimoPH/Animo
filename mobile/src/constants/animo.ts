@@ -206,6 +206,8 @@ export const AnimoLoginColors = {
   pageBackground: '#FAFAFA',
   linkOnGreen: '#FFFFFF',
   linkOnWhite: '#1A6E1E',
+  /** Body/label/helper text sitting directly on the green form card. */
+  textOnGreen: '#FFFFFF',
 } as const;
 
 /** Fonts to load with `useFonts`. */

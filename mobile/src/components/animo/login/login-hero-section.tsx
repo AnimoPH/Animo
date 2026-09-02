@@ -3,17 +3,16 @@ import { useWindowDimensions, StyleSheet, View } from 'react-native';
 
 import { AnimoLoginColors, AnimoSpacing } from '@/constants/animo';
 
-const BANNER_ASPECT = 1;
-const BANNER_MAX_HEIGHT_RATIO = 0.32;
-const BANNER_MAX_HEIGHT_DP = 175;
+const HERO_HEIGHT_RATIO = 0.5;
+const HERO_MAX_HEIGHT_DP = 400;
 
 /** Logo lockup + full-width hero illustration for the login phone step. */
 export function LoginHeroSection() {
   const { height: windowHeight } = useWindowDimensions();
-  const bannerMaxHeight = Math.min(windowHeight * BANNER_MAX_HEIGHT_RATIO, BANNER_MAX_HEIGHT_DP);
+  const heroHeight = Math.min(windowHeight * HERO_HEIGHT_RATIO, HERO_MAX_HEIGHT_DP);
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { height: heroHeight }]}>
       <View style={styles.logoRow}>
         <Image
           source={require('@/assets/images/animo/Animo-Logo.png')}
@@ -21,11 +20,14 @@ export function LoginHeroSection() {
           contentFit="contain"
         />
       </View>
-      <Image
-        source={require('@/assets/images/animo/login-banner.png')}
-        style={[styles.banner, { maxHeight: bannerMaxHeight }]}
-        contentFit="cover"
-      />
+      <View style={styles.bannerWrap}>
+        <Image
+          source={require('@/assets/images/animo/login-banner.png')}
+          style={styles.bannerImage}
+          contentFit="contain"
+          contentPosition="bottom"
+        />
+      </View>
     </View>
   );
 }
@@ -34,6 +36,7 @@ const styles = StyleSheet.create({
   wrap: {
     backgroundColor: AnimoLoginColors.pageBackground,
     flexShrink: 1,
+    flexGrow: 0,
   },
   logoRow: {
     paddingHorizontal: AnimoSpacing.lg,
@@ -42,12 +45,17 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   logo: {
-    width: 151,
+    width: 150,
     height: 44,
   },
-  banner: {
+  bannerWrap: {
+    flex: 1,
     width: '100%',
-    aspectRatio: BANNER_ASPECT,
-    marginTop: 0,
+    alignSelf: 'stretch',
+    overflow: 'hidden',
+  },
+  bannerImage: {
+    width: '100%',
+    height: '100%',
   },
 });

@@ -9,6 +9,8 @@ export type LoginPhoneInputProps = Omit<TextInputProps, 'keyboardType' | 'maxLen
   label?: string;
   /** Small helper text shown below the field. */
   hint?: string;
+  /** Override the hint text color (default: muted gray, for use on light backgrounds). */
+  hintColor?: string;
   /** Render the field in the error (red border) state. */
   error?: boolean;
 };
@@ -20,6 +22,7 @@ export type LoginPhoneInputProps = Omit<TextInputProps, 'keyboardType' | 'maxLen
 export function LoginPhoneInput({
   label,
   hint,
+  hintColor,
   error = false,
   style,
   placeholder = '9XX XXX XXXX',
@@ -60,7 +63,7 @@ export function LoginPhoneInput({
         />
       </View>
       {hint ? (
-        <AnimoText variant="caption" color={AnimoColors.muted} style={styles.hint}>
+        <AnimoText variant="caption" color={hintColor ?? AnimoColors.muted} style={styles.hint}>
           {hint}
         </AnimoText>
       ) : null}

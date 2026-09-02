@@ -121,7 +121,7 @@ export default function LoginScreen() {
       <StatusBar style={step === 'phone' ? 'dark' : 'dark'} />
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         {step === 'otp' && (
           <View style={styles.headerBar}>
             <Pressable
@@ -143,7 +143,11 @@ export default function LoginScreen() {
         )}
 
         {step === 'phone' ? (
-          <View style={styles.phoneStep}>
+          <ScrollView
+            style={styles.phoneStep}
+            contentContainerStyle={styles.phoneStepContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
             <LoginHeroSection />
             <LoginFormSection
               phone={phone}
@@ -157,20 +161,20 @@ export default function LoginScreen() {
               onRegister={() => router.replace('/onboarding/role')}
               footer={<LoginFooterSection />}
               // dev mode only
-              devSlot={
-                __DEV__
-                  ? (
-                    <DevLoginBar
-                      onSelect={handleDevLogin}
-                      submitting={submitting}
-                      activeRole={devRole}
-                      error={devError}
-                    />
-                  )
-                  : null
-              }
+              // devSlot={
+              //   __DEV__
+              //     ? (
+              //       <DevLoginBar
+              //         onSelect={handleDevLogin}
+              //         submitting={submitting}
+              //         activeRole={devRole}
+              //         error={devError}
+              //       />
+              //     )
+              //     : null
+              // }
             />
-          </View>
+          </ScrollView>
         ) : (
           <ScrollView
             contentContainerStyle={styles.scrollContent}
@@ -236,6 +240,9 @@ const styles = StyleSheet.create({
   },
   phoneStep: {
     flex: 1,
+  },
+  phoneStepContent: {
+    flexGrow: 1,
   },
   headerBar: {
     flexDirection: 'row',

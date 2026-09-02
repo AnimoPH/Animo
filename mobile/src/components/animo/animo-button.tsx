@@ -9,8 +9,8 @@ export type AnimoButtonProps = {
   onPress?: () => void;
   disabled?: boolean;
   loading?: boolean;
-  /** Visual style. Primary = filled green; secondary = green outline; danger = red fill; dangerOutline = red outline; neutralOutline = muted gray outline. */
-  variant?: 'primary' | 'secondary' | 'danger' | 'dangerOutline' | 'neutralOutline' | 'lightdangerOutline';
+  /** Visual style. Primary = filled green; secondary = green outline; inverse = filled white with green text (for CTAs on green/dark backgrounds); danger = red fill; dangerOutline = red outline; neutralOutline = muted gray outline. */
+  variant?: 'primary' | 'secondary' | 'inverse' | 'danger' | 'dangerOutline' | 'neutralOutline' | 'lightdangerOutline';
   /** Optional leading Lucide icon. */
   icon?: LucideIcon;
   /**
@@ -19,6 +19,8 @@ export type AnimoButtonProps = {
    */
   fullWidth?: boolean;
   style?: ViewStyle;
+  /** Override the label/icon color. Defaults to the variant's own color. */
+  textColor?: string;
 };
 
 /**
@@ -34,6 +36,7 @@ export function AnimoButton({
   icon: Icon,
   fullWidth = true,
   style,
+  textColor,
 }: AnimoButtonProps) {
   const isInactive = disabled || loading;
 
@@ -50,6 +53,12 @@ export function AnimoButton({
           bg: 'transparent',
           text: AnimoColors.green,
           border: AnimoColors.green,
+        };
+      case 'inverse':
+        return {
+          bg: isInactive ? AnimoColors.surfaceSecondary : AnimoColors.white,
+          text: AnimoColors.green,
+          border: undefined,
         };
       case 'danger':
         return {
@@ -79,7 +88,8 @@ export function AnimoButton({
     }
   };
 
-  const { bg, text, border } = getColors();
+  const { bg, text: variantText, border } = getColors();
+  const text = textColor ?? variantText;
 
   return (
     <Pressable

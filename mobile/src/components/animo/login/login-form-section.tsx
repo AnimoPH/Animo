@@ -1,15 +1,16 @@
-import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import type { ReactNode } from "react";
+import { Pressable, StyleSheet, View } from "react-native";
 
-import { AnimoButton } from '@/components/animo/animo-button';
-import { AnimoText } from '@/components/animo/animo-text';
-import { LoginPhoneInput } from '@/components/animo/login-phone-input';
+import { AnimoButton } from "@/components/animo/animo-button";
+import { AnimoText } from "@/components/animo/animo-text";
+import { LoginPhoneInput } from "@/components/animo/login-phone-input";
+import { NoticeBanner } from "@/components/animo/notice-banner";
 import {
   AnimoColors,
   AnimoLoginColors,
   AnimoRadius,
   AnimoSpacing,
-} from '@/constants/animo';
+} from "@/constants/animo";
 
 export type LoginFormSectionProps = {
   phone: string;
@@ -25,7 +26,7 @@ export type LoginFormSectionProps = {
   devSlot?: ReactNode;
 };
 
-/** Dark-green form card with white inner surface for the login phone step. */
+/** Dark-green form card for the login phone step — fields sit directly on the green surface. */
 export function LoginFormSection({
   phone,
   onChangePhone,
@@ -41,106 +42,160 @@ export function LoginFormSection({
 }: LoginFormSectionProps) {
   return (
     <View style={styles.container}>
-      <View style={styles.whiteCard}>
-        <View style={styles.labelRow}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-            Numero ng Telepono
+      <View style={styles.contentGroup}>
+        {/* Header title */}
+        <View style={styles.headingBlock}>
+          <AnimoText variant="h1" color={AnimoLoginColors.textOnGreen}>
+            Welcome to Animo
           </AnimoText>
-          <Pressable
-            accessibilityRole="link"
-            onPress={onClearAccount}
-            style={styles.linkTouch}>
-            <AnimoText
-              variant="tag"
-              color={AnimoLoginColors.linkOnWhite}
-              style={styles.link}>
-              Ibang account?
-            </AnimoText>
-          </Pressable>
+          <AnimoText variant="body" color={AnimoLoginColors.textOnGreen}>
+            Sign in now and start exploring our app.
+          </AnimoText>
         </View>
 
-        <LoginPhoneInput
-          value={phone}
-          onChangeText={onChangePhone}
-          hint="Padadalhan namin ng OTP sa numerong ito."
-          error={Boolean(errorMessage)}
-        />
+        {/* Form */}
+        <View style={styles.formBlock}>
+          {/* Upper Section */}
+          <View style={styles.upperSection}>
+            {/* Input Form */}
+            <View style={styles.labelRow}>
+              <AnimoText variant="button" color={AnimoColors.surfacePrimary}>
+                Numero ng Telepono
+              </AnimoText>
+              <Pressable
+                accessibilityRole="link"
+                onPress={onClearAccount}
+                hitSlop={LINK_HIT_SLOP}
+                style={styles.linkTouch}
+              >
+                <AnimoText
+                  variant="tag"
+                  color={AnimoLoginColors.linkOnGreen}
+                  style={styles.link}
+                >
+                  Ibang account?
+                </AnimoText>
+              </Pressable>
+            </View>
 
-        {errorMessage ? (
-          <AnimoText variant="body" color={AnimoColors.danger}>
-            {errorMessage}
-          </AnimoText>
-        ) : null}
+            <LoginPhoneInput
+              value={phone}
+              onChangeText={onChangePhone}
+              // hint="Padadalhan namin ng OTP sa numerong ito."
+              hintColor={AnimoLoginColors.textOnGreen}
+              error={Boolean(errorMessage)}
+            />
+          </View>
+          {errorMessage ? (
+            <NoticeBanner tone="danger">{errorMessage}</NoticeBanner>
+          ) : null}
 
-        <AnimoButton
-          label={primaryLabel}
-          onPress={onPrimary}
-          disabled={primaryDisabled}
-          loading={submitting}
-          style={styles.primaryButton}
-        />
+          {/* Bottom Section */}
+          <View style={styles.lowerSection}>
+            {/* Button Section */}
+            <AnimoButton
+              label={primaryLabel}
+              onPress={onPrimary}
+              disabled={primaryDisabled}
+              loading={submitting}
+              variant="primary"
+              style={styles.primaryButton}
+              textColor={AnimoColors.accentPrimary}
+            />
 
-        <View style={styles.registerRow}>
-          <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            Wala pang account?{' '}
-          </AnimoText>
-          <Pressable accessibilityRole="link" onPress={onRegister} style={styles.linkTouch}>
-            <AnimoText
-              variant="bodyEmphasis"
-              color={AnimoLoginColors.linkOnWhite}
-              style={styles.link}>
-              Mag-register
-            </AnimoText>
-          </Pressable>
+            <View style={styles.registerRow}>
+              <AnimoText variant="body" color={AnimoLoginColors.textOnGreen}>
+                Wala pang account?{" "}
+              </AnimoText>
+              <Pressable
+                accessibilityRole="link"
+                onPress={onRegister}
+                hitSlop={LINK_HIT_SLOP}
+                style={styles.linkTouch}
+              >
+                <AnimoText
+                  variant="bodyEmphasis"
+                  color={AnimoLoginColors.linkOnGreen}
+                  style={styles.link}
+                >
+                  Mag-register
+                </AnimoText>
+              </Pressable>
+            </View>
+          </View>
         </View>
       </View>
 
-      {footer}
-      {devSlot}
+      <View style={styles.footerGroup}>
+        {/* Terms & Policy */}
+        {/* {footer} */}
+
+        {/* Dev Mode */}
+        {devSlot}
+      </View>
     </View>
   );
 }
 
 const CARD_TOP_RADIUS = 32;
+const LINK_HIT_SLOP = { top: 16, bottom: 16, left: 8, right: 8 };
 
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
+    flexShrink: 0,
+    marginTop: AnimoSpacing.lg,
     backgroundColor: AnimoLoginColors.brandGreen,
     borderTopLeftRadius: CARD_TOP_RADIUS,
     borderTopRightRadius: CARD_TOP_RADIUS,
-    paddingTop: AnimoSpacing.lg,
-    paddingHorizontal: AnimoSpacing.lg,
+    paddingTop: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.xl,
   },
-  whiteCard: {
-    backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
+  contentGroup: {
+    flexGrow: 0,
+    flexShrink: 0,
+    gap: AnimoSpacing.xl,
+  },
+  headingBlock: {
+    gap: AnimoSpacing.xs,
+  },
+  formBlock: {
+    gap: AnimoSpacing.xl,
+  },
+  footerGroup: {
+    flexGrow: 0,
+    flexShrink: 0,
+    marginTop: AnimoSpacing.xl,
+  },
+  upperSection: {
     gap: AnimoSpacing.md,
   },
   labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: AnimoSpacing.sm,
   },
   link: {
-    textDecorationLine: 'underline',
+    textDecorationLine: "underline",
   },
   linkTouch: {
-    minWidth: 56,
-    minHeight: 56,
-    justifyContent: 'center',
-    alignItems: 'flex-end',
+    justifyContent: "center",
+    alignItems: "center",
   },
   primaryButton: {
-    minHeight: 56,
+    // minHeight: 56,
+    backgroundColor: AnimoColors.accentSecondaryLight,
+    paddingVertical: AnimoSpacing.lg,
     borderRadius: AnimoRadius.md,
-    backgroundColor: AnimoLoginColors.brandGreen,
   },
+  lowerSection: {
+    gap: AnimoSpacing.lg,
+  },
+
   registerRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
