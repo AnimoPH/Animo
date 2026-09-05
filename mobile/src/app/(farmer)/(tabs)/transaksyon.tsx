@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, ChevronRight, ClipboardList, Search, X } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Bell, ChevronLeft, ChevronRight, ClipboardList, Filter, Search, X } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -17,13 +17,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
 import { TransactionCard, type FarmerTransactionCardItem } from '@/components/animo/farmer/transaction-card';
+import {
+  SpotlightTour,
+  type SpotlightStep,
+} from '@/components/animo/spotlight-tour';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
 import { fetchCropListingsByIds } from '@/services/crop-listing-service';
 import { fetchCounterpartNames, fetchFarmerPurchaseOutcomes } from '@/services/transaction-service';
 import { varietyLabel, type CropListing } from '@/types/crop-listing';
 import {
   DISPLAY_STAGE_LABELS,
+  getDisplayStageLabel,
   deriveDisplayStage,
   formatDate,
   formatReferenceId,
@@ -49,6 +55,7 @@ function toCardItem(
   outcome: PurchaseOutcome,
   listing: CropListing | undefined,
   buyerName?: string,
+  lang: 'tl' | 'en' = 'tl',
 ): FarmerTransactionCardItem {
   const stage = deriveDisplayStage(outcome);
   const quantityKg = outcome.kind === 'matched' ? outcome.transaction.quantityKg : outcome.request.requestedQuantityKg;
@@ -56,21 +63,17 @@ function toCardItem(
   const total = outcome.kind === 'matched' ? requestTotal(outcome) : pricePerKg * quantityKg;
 
   return {
-    // Routing key: transaction id once matched (the farmer transaction detail
-    // screen only understands transaction ids); the listing id pre-match, so
-    // tapping a pending request lands on that listing's Orders tab instead.
     id: outcome.kind === 'matched' ? outcome.transaction.id : outcome.request.listingId,
     referenceId: formatReferenceId(outcome.kind === 'matched' ? outcome.transaction.id : outcome.request.id, outcome.kind === 'matched' ? 'TXN' : 'PR'),
     stage,
-    statusLabel: DISPLAY_STAGE_LABELS[stage],
+    statusLabel: getDisplayStageLabel(stage, lang),
     variety: listing ? varietyLabel(listing) : 'Palay',
-    moisture: listing?.declaredMoisture === 'Wet' ? 'Basa' : 'Tuyo',
+    moisture: listing?.declaredMoisture === 'Wet' ? (lang === 'en' ? 'Wet' : 'Basa') : (lang === 'en' ? 'Dry' : 'Tuyo'),
     price: formatPeso(total),
     weight: `${quantityKg} kg`,
     pricePerKg: `${formatPeso(pricePerKg)}/kg`,
     paymentMode: outcome.kind === 'matched' ? (outcome.transaction.payment?.paymentMode ?? null) : null,
-    // Buyer identity is revealed once a transaction match exists, or falls back gracefully
-    buyer: buyerName || (outcome.kind === 'matched' ? 'Mamimili' : 'Bagong Mamimili'),
+    buyer: buyerName || (outcome.kind === 'matched' ? (lang === 'en' ? 'Buyer' : 'Mamimili') : (lang === 'en' ? 'New Buyer' : 'Bagong Mamimili')),
     date: formatDate(outcome.request.submittedAt),
     time: formatTime(outcome.request.submittedAt),
   };
@@ -78,9 +81,11 @@ function toCardItem(
 
 /** Farmer Transaksyon — pending requests across every listing plus matched transactions, driven by real data. */
 export default function FarmerTransactionsScreen() {
+  const { language, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterValue>('Lahat');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showTutorial, setShowTutorial] = useState(true);
 
   const [outcomes, setOutcomes] = useState<PurchaseOutcome[]>([]);
   const [listingsById, setListingsById] = useState<Map<string, CropListing>>(new Map());
@@ -88,6 +93,10 @@ export default function FarmerTransactionsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const searchBarRef = useRef<View>(null);
+  const filterRowRef = useRef<View>(null);
+  const bellRef = useRef<View>(null);
 
   const load = useCallback(async (isRefresh: boolean) => {
     if (isRefresh) setRefreshing(true);
@@ -123,9 +132,9 @@ export default function FarmerTransactionsScreen() {
       outcomes.map((outcome) => {
         const buyerId = outcome.kind === 'matched' ? outcome.transaction.buyerId : outcome.request.buyerId;
         const buyerName = buyerNamesById.get(buyerId);
-        return toCardItem(outcome, listingsById.get(outcome.request.listingId), buyerName);
+        return toCardItem(outcome, listingsById.get(outcome.request.listingId), buyerName, language);
       }),
-    [outcomes, listingsById, buyerNamesById],
+    [outcomes, listingsById, buyerNamesById, language],
   );
 
   const filteredData = useMemo(() => {
@@ -169,12 +178,47 @@ export default function FarmerTransactionsScreen() {
     setCurrentPage(1);
   };
 
+  const farmerTxnTourSteps: SpotlightStep[] = [
+    {
+      id: 'farmer-txn-filter',
+      title: t('spotlight.farmerTxn.step1Title'),
+      description: t('spotlight.farmerTxn.step1Desc'),
+      icon: Filter,
+      targetRef: filterRowRef,
+      shape: 'rectangle',
+      borderRadius: 16,
+      padding: 6,
+    },
+    {
+      id: 'farmer-txn-search',
+      title: t('spotlight.farmerTxn.step2Title'),
+      description: t('spotlight.farmerTxn.step2Desc'),
+      icon: Search,
+      targetRef: searchBarRef,
+      shape: 'rectangle',
+      borderRadius: 16,
+      padding: 6,
+    },
+    {
+      id: 'farmer-txn-bell',
+      title: t('spotlight.farmerTxn.step3Title'),
+      description: t('spotlight.farmerTxn.step3Desc'),
+      icon: Bell,
+      targetRef: bellRef,
+      shape: 'circle',
+      padding: 6,
+    },
+  ];
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <AppHeader onPressBell={() => router.push('/(farmer)/notipikasyon')} />
+      <AppHeader
+        bellRef={bellRef}
+        onPressBell={() => router.push('/(farmer)/notipikasyon')}
+      />
 
-      <View style={styles.searchBar}>
+      <View ref={searchBarRef} collapsable={false} style={styles.searchBar}>
         <Search size={18} color={AnimoColors.objectLowEmphasis} />
         <TextInput
           style={styles.searchInput}
@@ -226,28 +270,30 @@ export default function FarmerTransactionsScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
           ListHeaderComponent={
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filters}
-              style={styles.filterScroll}>
-              {FILTERS.map((filter) => {
-                const active = activeFilter === filter;
-                return (
-                  <TouchableOpacity
-                    key={filter}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    onPress={() => handleFilterSelect(filter)}
-                    activeOpacity={0.85}
-                    style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}>
-                    <AnimoText variant="bodyEmphasis" color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
-                      {filter}
-                    </AnimoText>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+            <View ref={filterRowRef} collapsable={false}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filters}
+                style={styles.filterScroll}>
+                {FILTERS.map((filter) => {
+                  const active = activeFilter === filter;
+                  return (
+                    <TouchableOpacity
+                      key={filter}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      onPress={() => handleFilterSelect(filter)}
+                      activeOpacity={0.85}
+                      style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}>
+                      <AnimoText variant="bodyEmphasis" color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
+                        {filter}
+                      </AnimoText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
           }
           ListFooterComponent={
             <PaginationControls
@@ -267,6 +313,12 @@ export default function FarmerTransactionsScreen() {
           }
         />
       )}
+
+      <SpotlightTour
+        visible={showTutorial}
+        steps={farmerTxnTourSteps}
+        onClose={() => setShowTutorial(false)}
+      />
     </SafeAreaView>
   );
 }

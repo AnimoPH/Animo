@@ -1,11 +1,14 @@
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   Banknote,
   Bell,
+  BookOpen,
+  Check,
   ChevronRight,
   CreditCard,
   FileText,
+  Globe,
   HelpCircle,
   Lock,
   LogOut,
@@ -25,6 +28,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
+import { OnboardingWalkthroughModal } from '@/components/animo/onboarding-walkthrough-modal';
 import SignOutModal from '@/components/signout-modal';
 import {
   AnimoColors,
@@ -32,24 +36,10 @@ import {
   AnimoSpacing,
   AnimoType,
 } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
-
-const CARD_SHADOW = {
-  shadowColor: AnimoColors.darkBackground,
-  shadowOpacity: 0.08,
-  shadowRadius: 6,
-  shadowOffset: { width: 0, height: 2 },
-  elevation: 3,
-} as const;
-
-const SETTINGS_ROWS = [
-  { icon: Bell, label: 'Notipikasyon', key: 'notif' },
-  { icon: HelpCircle, label: 'Tulong at FAQ', key: 'help' },
-  { icon: FileText, label: 'Mga Tuntunin at Kundisyon', key: 'terms' },
-  { icon: ShieldCheck, label: 'Patakaran sa Privacy', key: 'privacy' },
-] as const;
 
 const TOP_BUYER_FEEDBACKS = [
   {
@@ -146,14 +136,18 @@ const TOP_BUYER_TRANSACTIONS = [
  * Buyer Profile Screen (Mamimili).
  *
  * Adopts the unified hero identity banner, floating stats row, account info,
- * payment methods, top 5 feedback and recent transactions modals matching design system.
+ * payment methods, top 5 feedback, Language Selector, and User Guide tutorial walkthrough.
  */
 export default function BuyerProfileScreen() {
   const { signOut } = useSession();
+  const { t, language, setLanguage, isTagalog } = useLanguage();
+
   const [showPersonalInfoModal, setShowPersonalInfoModal] = useState(false);
   const [showFeedbacksModal, setShowFeedbacksModal] = useState(false);
   const [showRecentTxnsModal, setShowRecentTxnsModal] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
 
@@ -164,7 +158,12 @@ export default function BuyerProfileScreen() {
   };
 
   const handleSettingPress = (key: string) => {
-    if (key === 'help') setShowHelpModal(true);
+    if (key === 'notif') router.push('/(buyer)/notipikasyon' as Href);
+    else if (key === 'language') setShowLanguageModal(true);
+    else if (key === 'guide') {
+      router.push({ pathname: '/(buyer)', params: { startTour: 'true' } });
+    }
+    else if (key === 'help') setShowHelpModal(true);
     else if (key === 'terms' || key === 'privacy') setShowTermsModal(true);
   };
 
@@ -186,7 +185,7 @@ export default function BuyerProfileScreen() {
             <View style={styles.badgeRow}>
               <View style={styles.roleBadge}>
                 <Lock size={12} color={AnimoColors.white} />
-                <Text style={styles.roleBadgeText}>Mamimili</Text>
+                <Text style={styles.roleBadgeText}>{t('role.buyer')}</Text>
               </View>
             </View>
           </SafeAreaView>
@@ -199,29 +198,29 @@ export default function BuyerProfileScreen() {
             accessibilityLabel="Tingnan ang rating at feedback"
             onPress={() => setShowFeedbacksModal(true)}
             style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
-            <Text style={styles.statValue}>5.0 ★</Text>
-            <Text style={styles.statLabel}>Rating</Text>
+            <Text style={styles.statValue}>4.9 ★</Text>
+            <Text style={styles.statLabel}>{t('profile.rating')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Tingnan ang mga review"
             onPress={() => setShowFeedbacksModal(true)}
             style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
-            <Text style={styles.statValue}>12</Text>
-            <Text style={styles.statLabel}>Reviews</Text>
+            <Text style={styles.statValue}>840</Text>
+            <Text style={styles.statLabel}>{t('profile.reviews')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Tingnan ang kamakailang transaksyon"
             onPress={() => setShowRecentTxnsModal(true)}
             style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
-            <Text style={styles.statValue}>15</Text>
-            <Text style={styles.statLabel}>Transaksyon</Text>
+            <Text style={styles.statValue}>62</Text>
+            <Text style={styles.statLabel}>{t('profile.transactions')}</Text>
           </Pressable>
         </View>
 
-        {/* SECTION 3 — Account Information */}
-        <Text style={styles.sectionLabel}>Account Information</Text>
+        {/* SECTION 3 — Impormasyon ng Account */}
+        <Text style={styles.sectionLabel}>{t('profile.accountInfo')}</Text>
         <View style={styles.card}>
           <Pressable
             accessibilityRole="button"
@@ -231,9 +230,9 @@ export default function BuyerProfileScreen() {
               <UserRound size={20} color={AnimoColors.objectMediumEmphasis} />
             </View>
             <View style={styles.accountCopy}>
-              <Text style={styles.accountTitle}>Personal na Impormasyon</Text>
+              <Text style={styles.accountTitle}>{t('profile.personalInfo')}</Text>
               <Text style={styles.accountCaption}>
-                Pangalan, Contact, Address, at Paraan ng Bayad
+                {t('profile.personalInfoDesc')}
               </Text>
             </View>
             <ChevronRight size={18} color={AnimoColors.objectLowEmphasis} />
@@ -241,7 +240,7 @@ export default function BuyerProfileScreen() {
         </View>
 
         {/* SECTION 4 — Paraan ng Pagbabayad */}
-        <Text style={styles.sectionLabel}>Paraan ng Pagbabayad</Text>
+        <Text style={styles.sectionLabel}>{t('profile.paymentMethods')}</Text>
         <View style={styles.card}>
           <View style={styles.paymentRow}>
             <View style={styles.gcashIcon}>
@@ -249,10 +248,10 @@ export default function BuyerProfileScreen() {
             </View>
             <View style={styles.paymentCopy}>
               <Text style={styles.paymentTitle}>GCash</Text>
-              <Text style={styles.paymentCaption}>0917 •••• 567</Text>
+              <Text style={styles.paymentCaption}>0917 **** 234</Text>
             </View>
             <View style={styles.defaultBadge}>
-              <Text style={styles.defaultBadgeText}>Default</Text>
+              <Text style={styles.defaultBadgeText}>{t('profile.default')}</Text>
             </View>
           </View>
           <View style={styles.divider} />
@@ -268,28 +267,88 @@ export default function BuyerProfileScreen() {
         </View>
 
         {/* SECTION 5 — Mga Setting */}
-        <Text style={styles.sectionLabel}>Mga Setting</Text>
+        <Text style={styles.sectionLabel}>{t('profile.settings')}</Text>
         <View style={[styles.card, styles.settingsCard]}>
-          {SETTINGS_ROWS.map(({ icon: Icon, label, key }, index) => (
-            <View key={label}>
-              {index > 0 ? <View style={styles.divider} /> : null}
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => handleSettingPress(key)}
-                style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
-                <Icon size={20} color={AnimoColors.objectHighEmphasis} />
-                <Text style={styles.settingLabel}>{label}</Text>
-                <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
-              </Pressable>
-            </View>
-          ))}
+          {/* Notifications */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSettingPress('notif')}
+            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
+            <Bell size={20} color={AnimoColors.objectHighEmphasis} />
+            <Text style={styles.settingLabel}>{t('profile.notifications')}</Text>
+            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
+          </Pressable>
           <View style={styles.divider} />
+
+          {/* Language Selection */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSettingPress('language')}
+            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
+            <Globe size={20} color={AnimoColors.accentPrimary} />
+            <View style={styles.flexSettingLabel}>
+              <Text style={styles.settingLabel}>{t('profile.language')}</Text>
+              <View style={styles.langBadge}>
+                <Text style={styles.langBadgeText}>
+                  {isTagalog ? '🇵🇭 Tagalog' : '🌐 English'}
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
+          </Pressable>
+          <View style={styles.divider} />
+
+          {/* User Guide & Tutorial */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSettingPress('guide')}
+            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
+            <BookOpen size={20} color={AnimoColors.objectHighEmphasis} />
+            <Text style={styles.settingLabel}>{t('profile.userGuide')}</Text>
+            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
+          </Pressable>
+          <View style={styles.divider} />
+
+          {/* Help & FAQ */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSettingPress('help')}
+            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
+            <HelpCircle size={20} color={AnimoColors.objectHighEmphasis} />
+            <Text style={styles.settingLabel}>{t('profile.helpFaq')}</Text>
+            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
+          </Pressable>
+          <View style={styles.divider} />
+
+          {/* Terms */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSettingPress('terms')}
+            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
+            <FileText size={20} color={AnimoColors.objectHighEmphasis} />
+            <Text style={styles.settingLabel}>{t('profile.terms')}</Text>
+            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
+          </Pressable>
+          <View style={styles.divider} />
+
+          {/* Privacy */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSettingPress('privacy')}
+            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
+            <ShieldCheck size={20} color={AnimoColors.objectHighEmphasis} />
+            <Text style={styles.settingLabel}>{t('profile.privacy')}</Text>
+            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
+          </Pressable>
+          <View style={styles.divider} />
+
+          {/* Sign Out */}
           <Pressable
             accessibilityRole="button"
             onPress={() => setShowSignOutModal(true)}
             style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
             <LogOut size={20} color={AnimoColors.caution} />
-            <Text style={styles.signOutLabel}>Mag-sign Out</Text>
+            <Text style={styles.signOutLabel}>{t('profile.signOut')}</Text>
           </Pressable>
         </View>
 
@@ -301,6 +360,79 @@ export default function BuyerProfileScreen() {
         />
       </ScrollView>
 
+      {/* Language Selection Modal */}
+      <Modal
+        visible={showLanguageModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowLanguageModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <SafeAreaView style={styles.langModalCard} edges={['bottom']}>
+            <View style={styles.langModalHeader}>
+              <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
+                {t('profile.selectLanguage')}
+              </AnimoText>
+              <Pressable
+                onPress={() => setShowLanguageModal(false)}
+                hitSlop={10}
+                style={styles.closeBtn}>
+                <X size={22} color={AnimoColors.textMediumEmphasis} />
+              </Pressable>
+            </View>
+
+            <View style={styles.langList}>
+              <Pressable
+                onPress={() => {
+                  setLanguage('tl');
+                  setShowLanguageModal(false);
+                }}
+                style={[
+                  styles.langOption,
+                  language === 'tl' && styles.langOptionActive,
+                ]}>
+                <View style={styles.langOptionLeft}>
+                  <Text style={styles.langFlag}>🇵🇭</Text>
+                  <View>
+                    <Text style={styles.langOptionTitle}>Tagalog (Filipino)</Text>
+                    <Text style={styles.langOptionSubtitle}>Pangunahing wika sa app</Text>
+                  </View>
+                </View>
+                {language === 'tl' ? (
+                  <Check size={20} color={AnimoColors.accentPrimary} />
+                ) : null}
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  setLanguage('en');
+                  setShowLanguageModal(false);
+                }}
+                style={[
+                  styles.langOption,
+                  language === 'en' && styles.langOptionActive,
+                ]}>
+                <View style={styles.langOptionLeft}>
+                  <Text style={styles.langFlag}>🌐</Text>
+                  <View>
+                    <Text style={styles.langOptionTitle}>English</Text>
+                    <Text style={styles.langOptionSubtitle}>Switch interface to English</Text>
+                  </View>
+                </View>
+                {language === 'en' ? (
+                  <Check size={20} color={AnimoColors.accentPrimary} />
+                ) : null}
+              </Pressable>
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
+
+      {/* Onboarding / Tutorial Walkthrough Modal */}
+      <OnboardingWalkthroughModal
+        visible={showTutorialModal}
+        onClose={() => setShowTutorialModal(false)}
+      />
+
       {/* Full Personal Information Details Modal */}
       <Modal
         visible={showPersonalInfoModal}
@@ -310,7 +442,7 @@ export default function BuyerProfileScreen() {
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
             <AnimoText variant="h2" color={AnimoColors.black}>
-              Personal na Impormasyon
+              {t('profile.personalInfo')}
             </AnimoText>
             <Pressable
               onPress={() => setShowPersonalInfoModal(false)}
@@ -360,45 +492,53 @@ export default function BuyerProfileScreen() {
                     Email Address
                   </AnimoText>
                   <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    maria.santos@email.com
+                    maria.santos.trader@gmail.com
                   </AnimoText>
                 </View>
               </View>
-            </View>
 
-            {/* Address Details Card */}
-            <View style={styles.infoCard}>
-              <AnimoText variant="h3" color={AnimoColors.black}>
-                Address ng Paghahatid
-              </AnimoText>
+              <View style={styles.divider} />
 
               <View style={styles.infoRow}>
                 <MapPin size={18} color={AnimoColors.green} />
                 <View style={styles.flex}>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    Barangay San Jose, Antipolo, Rizal
-                  </AnimoText>
                   <AnimoText variant="caption" color={AnimoColors.muted}>
-                    Pangunahing address para sa delivery at pickup coordination
+                    Pangunahing Lokasyon / Warehouse
+                  </AnimoText>
+                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+                    Brgy. San Jose, Antipolo City, Rizal
                   </AnimoText>
                 </View>
               </View>
             </View>
 
-            {/* Payment Method Card */}
+            {/* Trading Profile Card */}
+            <AnimoText variant="h3" color={AnimoColors.black} style={styles.modalSectionLabel}>
+              Trading Profile
+            </AnimoText>
             <View style={styles.infoCard}>
-              <AnimoText variant="h3" color={AnimoColors.black}>
-                Paraan ng Pagbabayad
-              </AnimoText>
+              <View style={styles.infoRow}>
+                <Package size={18} color={AnimoColors.green} />
+                <View style={styles.flex}>
+                  <AnimoText variant="caption" color={AnimoColors.muted}>
+                    Kapasidad sa Pagbili
+                  </AnimoText>
+                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+                    5,000 kg - 10,000 kg bawat buwan
+                  </AnimoText>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
 
               <View style={styles.infoRow}>
                 <CreditCard size={18} color={AnimoColors.green} />
                 <View style={styles.flex}>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    GCash Wallet
-                  </AnimoText>
                   <AnimoText variant="caption" color={AnimoColors.muted}>
-                    0917 •••• 567 (Naka-link at aktibo)
+                    Pangunahing Paraan ng Bayad
+                  </AnimoText>
+                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+                    GCash & Cash on Pickup
                   </AnimoText>
                 </View>
               </View>
@@ -407,7 +547,7 @@ export default function BuyerProfileScreen() {
 
           <View style={styles.modalFooter}>
             <AnimoButton
-              label="Isara"
+              label={t('common.close')}
               onPress={() => setShowPersonalInfoModal(false)}
             />
           </View>
@@ -422,26 +562,23 @@ export default function BuyerProfileScreen() {
         onRequestClose={() => setShowFeedbacksModal(false)}>
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
-            <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
+            <AnimoText variant="h2" color={AnimoColors.black}>
               Rating at Feedback (Top 5)
             </AnimoText>
             <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Isara ang modal"
-              hitSlop={12}
-              onPress={() => setShowFeedbacksModal(false)}>
-              <X size={24} color={AnimoColors.objectMediumEmphasis} />
+              onPress={() => setShowFeedbacksModal(false)}
+              hitSlop={8}
+              style={styles.closeBtn}>
+              <X size={22} color={AnimoColors.black} />
             </Pressable>
           </View>
 
           <ScrollView
-            style={styles.modalScroll}
-            contentContainerStyle={styles.modalContent}
+            contentContainerStyle={styles.modalScroll}
             showsVerticalScrollIndicator={false}>
-            {/* Rating Summary Banner */}
             <View style={styles.ratingSummaryBanner}>
               <View style={styles.ratingBigWrap}>
-                <Text style={styles.ratingBigText}>5.0</Text>
+                <Text style={styles.ratingBigText}>4.9</Text>
                 <View style={styles.starsRow}>
                   {[1, 2, 3, 4, 5].map((s) => (
                     <Star key={s} size={16} color="#F9A825" fill="#F9A825" />
@@ -449,11 +586,10 @@ export default function BuyerProfileScreen() {
                 </View>
               </View>
               <Text style={styles.ratingSubCaption}>
-                12 kabuuang review mula sa mga rehistradong magsasaka
+                840 kabuuang review mula sa mga magsasaka sa Antipolo at Rizal
               </Text>
             </View>
 
-            {/* Feedback List */}
             {TOP_BUYER_FEEDBACKS.map((fb) => (
               <View key={fb.id} style={styles.feedbackCard}>
                 <View style={styles.feedbackHeader}>
@@ -474,7 +610,7 @@ export default function BuyerProfileScreen() {
 
           <View style={styles.modalFooter}>
             <AnimoButton
-              label="Isara"
+              label={t('common.close')}
               onPress={() => setShowFeedbacksModal(false)}
             />
           </View>
@@ -489,21 +625,19 @@ export default function BuyerProfileScreen() {
         onRequestClose={() => setShowRecentTxnsModal(false)}>
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
-            <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
+            <AnimoText variant="h2" color={AnimoColors.black}>
               Kamakailang Transaksyon (Top 5)
             </AnimoText>
             <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Isara ang modal"
-              hitSlop={12}
-              onPress={() => setShowRecentTxnsModal(false)}>
-              <X size={24} color={AnimoColors.objectMediumEmphasis} />
+              onPress={() => setShowRecentTxnsModal(false)}
+              hitSlop={8}
+              style={styles.closeBtn}>
+              <X size={22} color={AnimoColors.black} />
             </Pressable>
           </View>
 
           <ScrollView
-            style={styles.modalScroll}
-            contentContainerStyle={styles.modalContent}
+            contentContainerStyle={styles.modalScroll}
             showsVerticalScrollIndicator={false}>
             {TOP_BUYER_TRANSACTIONS.map((tx) => (
               <View key={tx.id} style={styles.txCard}>
@@ -532,19 +666,19 @@ export default function BuyerProfileScreen() {
 
           <View style={styles.modalFooter}>
             <AnimoButton
-              label="Isara"
+              label={t('common.close')}
               onPress={() => setShowRecentTxnsModal(false)}
             />
           </View>
         </SafeAreaView>
       </Modal>
 
-      {/* Tulong at Suporta Modal */}
+      {/* Help Modal */}
       <FeedbackModal
         visible={showHelpModal}
         tone="info"
         title="Tulong at Suporta"
-        message="Maaari kang makipag-ugnayan sa Tanggapan ng Pagsasaka (LGU Antipolo) o sa ANIMO Support Hotline sa 0917 123 4567 para sa anumang katanungan."
+        message="Maaari kang makipag-ugnayan sa Tanggapan ng Pagsasaka (LGU Antipolo) o sa ANIMO Support Hotline sa 0917 123 4567 para sa anumang katanungan ukol sa kalakalan."
         confirmLabel="OK"
         onConfirm={() => setShowHelpModal(false)}
       />
@@ -599,15 +733,14 @@ const styles = StyleSheet.create({
   },
   location: {
     ...AnimoType.body,
-    color: AnimoColors.white,
-    opacity: 0.85,
-    textAlign: 'center',
+    color: 'rgba(255,255,255,0.85)',
     marginTop: AnimoSpacing.xs,
+    textAlign: 'center',
   },
   badgeRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: AnimoSpacing.sm,
-    justifyContent: 'center',
     marginTop: AnimoSpacing.md,
   },
   roleBadge: {
@@ -690,31 +823,30 @@ const styles = StyleSheet.create({
   accountCaption: {
     ...AnimoType.caption,
     color: AnimoColors.textLowEmphasis,
-    marginTop: AnimoSpacing.xs,
+    marginTop: 2,
   },
   paymentRow: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.md,
+    padding: AnimoSpacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
   },
   gcashIcon: {
     width: 40,
     height: 40,
-    backgroundColor: '#007AFF',
-    borderRadius: AnimoRadius.sm,
+    borderRadius: AnimoRadius.pill,
+    backgroundColor: '#E3F2FD',
     alignItems: 'center',
     justifyContent: 'center',
   },
   gcashIconText: {
     ...AnimoType.tag,
-    color: AnimoColors.white,
+    color: '#1565C0',
   },
   cashIcon: {
     width: 40,
     height: 40,
+    borderRadius: AnimoRadius.pill,
     backgroundColor: AnimoColors.surfaceTertiary,
-    borderRadius: AnimoRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -729,41 +861,116 @@ const styles = StyleSheet.create({
   paymentCaption: {
     ...AnimoType.caption,
     color: AnimoColors.textLowEmphasis,
+    marginTop: 2,
   },
   defaultBadge: {
     backgroundColor: AnimoColors.accentPrimaryLight,
     borderRadius: AnimoRadius.pill,
     paddingHorizontal: AnimoSpacing.sm,
-    paddingVertical: AnimoSpacing.xs,
+    paddingVertical: 2,
   },
   defaultBadgeText: {
     ...AnimoType.tag,
     color: AnimoColors.accentPrimary,
   },
+  divider: {
+    height: 1,
+    backgroundColor: AnimoColors.surfaceTertiary,
+    marginHorizontal: AnimoSpacing.lg,
+  },
   settingRow: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.lg,
+    padding: AnimoSpacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   settingLabel: {
     ...AnimoType.body,
     color: AnimoColors.textHighEmphasis,
-    marginLeft: AnimoSpacing.md,
     flex: 1,
+    marginLeft: AnimoSpacing.md,
+  },
+  flexSettingLabel: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: AnimoSpacing.sm,
+  },
+  langBadge: {
+    backgroundColor: AnimoColors.greenTint,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: AnimoRadius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(46, 125, 50, 0.2)',
+  },
+  langBadgeText: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    color: AnimoColors.accentPrimary,
   },
   signOutLabel: {
-    ...AnimoType.bodyEmphasis,
+    ...AnimoType.body,
     color: AnimoColors.caution,
-    marginLeft: AnimoSpacing.md,
     flex: 1,
+    marginLeft: AnimoSpacing.md,
   },
-  divider: {
-    height: 1,
-    backgroundColor: AnimoColors.borderLowEmphasis,
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
-  pressed: {
-    opacity: 0.85,
+  langModalCard: {
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderTopLeftRadius: AnimoRadius.lg,
+    borderTopRightRadius: AnimoRadius.lg,
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingTop: AnimoSpacing.lg,
+    paddingBottom: AnimoSpacing.xl,
+    gap: AnimoSpacing.md,
+  },
+  langModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: AnimoSpacing.xs,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  langList: {
+    gap: AnimoSpacing.sm,
+  },
+  langOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: AnimoSpacing.md,
+    borderRadius: AnimoRadius.md,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    backgroundColor: '#FAFAFA',
+  },
+  langOptionActive: {
+    borderColor: AnimoColors.accentPrimary,
+    backgroundColor: AnimoColors.greenTint,
+  },
+  langOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AnimoSpacing.md,
+  },
+  langFlag: {
+    fontSize: 24,
+  },
+  langOptionTitle: {
+    ...AnimoType.bodyEmphasis,
+    color: AnimoColors.textHighEmphasis,
+  },
+  langOptionSubtitle: {
+    ...AnimoType.caption,
+    color: AnimoColors.textLowEmphasis,
   },
   modalSafeArea: {
     flex: 1,
@@ -773,22 +980,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
     paddingVertical: AnimoSpacing.md,
     borderBottomWidth: 1,
     borderBottomColor: AnimoColors.borderLowEmphasis,
     backgroundColor: AnimoColors.surfacePrimary,
   },
-  closeBtn: {
-    padding: 4,
-  },
   modalScroll: {
-    flex: 1,
-  },
-  modalContent: {
     paddingHorizontal: AnimoSpacing.lg,
     paddingVertical: AnimoSpacing.lg,
     gap: AnimoSpacing.md,
+  },
+  modalSectionLabel: {
+    marginTop: AnimoSpacing.sm,
+    marginBottom: AnimoSpacing.xs,
+  },
+  infoCard: {
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    borderRadius: AnimoRadius.lg,
+    paddingVertical: AnimoSpacing.xs,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AnimoSpacing.md,
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingVertical: AnimoSpacing.md,
   },
   ratingSummaryBanner: {
     backgroundColor: AnimoColors.surfaceSecondary,
@@ -909,19 +1128,6 @@ const styles = StyleSheet.create({
     ...AnimoType.bodyEmphasis,
     color: AnimoColors.accentPrimary,
   },
-  infoCard: {
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    backgroundColor: AnimoColors.surfacePrimary,
-    gap: AnimoSpacing.md,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.md,
-  },
   flex: {
     flex: 1,
     gap: 2,
@@ -932,5 +1138,8 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.surfacePrimary,
     borderTopWidth: 1,
     borderTopColor: AnimoColors.borderLowEmphasis,
+  },
+  pressed: {
+    opacity: 0.88,
   },
 });

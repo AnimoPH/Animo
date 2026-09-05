@@ -16,6 +16,8 @@ export type AppHeaderProps = {
    * Pass false when the parent screen already applies `AnimoLayout.screenGutter`.
    */
   inset?: boolean;
+  /** Optional ref for spotlight tour highlight */
+  bellRef?: React.RefObject<any>;
 };
 
 /**
@@ -27,6 +29,7 @@ export function AppHeader({
   onPressBell,
   unreadCount = 3,
   inset = true,
+  bellRef,
 }: AppHeaderProps) {
   const handleBellPress = onPressBell || (() => router.push('/(buyer)/notipikasyon'));
 
@@ -46,16 +49,18 @@ export function AppHeader({
           </AnimoText>
         </View>
 
-        <Pressable
-          onPress={handleBellPress}
-          hitSlop={8}
-          style={styles.bell}
-          accessibilityLabel="Mga abiso">
-          <Bell size={20} color={AnimoColors.black} />
-          {unreadCount > 0 && (
-            <View style={styles.unreadDot} />
-          )}
-        </Pressable>
+        <View ref={bellRef} collapsable={false}>
+          <Pressable
+            onPress={handleBellPress}
+            hitSlop={8}
+            style={styles.bell}
+            accessibilityLabel="Mga abiso">
+            <Bell size={20} color={AnimoColors.black} />
+            {unreadCount > 0 && (
+              <View style={styles.unreadDot} />
+            )}
+          </Pressable>
+        </View>
       </View>
 
       {title ? (

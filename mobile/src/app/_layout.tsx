@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
 import { AnimoColors, AnimoFontMap } from '@/constants/animo';
+import { LanguageProvider } from '@/context/language-context';
 import { SessionProvider, useSession } from '@/context/session-context';
 
 SplashScreen.preventAutoHideAsync();
@@ -16,9 +17,11 @@ export default function RootLayout() {
   }
 
   return (
-    <SessionProvider>
-      <RootNavigator />
-    </SessionProvider>
+    <LanguageProvider>
+      <SessionProvider>
+        <RootNavigator />
+      </SessionProvider>
+    </LanguageProvider>
   );
 }
 

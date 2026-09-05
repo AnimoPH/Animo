@@ -27,8 +27,8 @@ export type ListingStatus = 'Draft' | 'Available' | 'Sold_Out' | 'Cancelled';
 
 /** Options for the "Gumawa ng Listing" form — `value` is exactly what's sent to the DB. */
 export const VARIETY_OPTIONS: { value: DeclaredVariety; label: string }[] = [
-  { value: 'Inbred', label: 'Inbred' },
-  { value: 'Hybrid', label: 'Hybrid' },
+  { value: 'Inbred', label: 'Inbred (Sertipikadong Binhi)' },
+  { value: 'Hybrid', label: 'Hybrid (Mataas na Ani)' },
   { value: 'Traditional_or_Heirloom', label: 'Tradisyonal o Pamana' },
   { value: 'Mix_of_Varieties', label: 'Halo-halong Uri' },
   { value: 'Others', label: 'Iba pa' },

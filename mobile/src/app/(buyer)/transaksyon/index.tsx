@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, ChevronRight, ClipboardList, Search, X } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Bell, ChevronLeft, ChevronRight, ClipboardList, Filter, Search, X } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -20,8 +20,13 @@ import {
   BuyerTransactionCard,
   type BuyerTransactionCardItem,
 } from '@/components/animo/buyer/buyer-transaction-card';
+import {
+  SpotlightTour,
+  type SpotlightStep,
+} from '@/components/animo/spotlight-tour';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
 import { fetchCropListingsByIds } from '@/services/crop-listing-service';
 import {
   fetchBuyerPurchaseOutcomes,
@@ -31,6 +36,7 @@ import {
 import { varietyLabel, type CropListing } from '@/types/crop-listing';
 import {
   DISPLAY_STAGE_LABELS,
+  getDisplayStageLabel,
   deriveDisplayStage,
   formatDate,
   formatReferenceId,
@@ -67,6 +73,7 @@ function toCardItem(
   outcome: PurchaseOutcome,
   listing: CropListing | undefined,
   farmerName?: string,
+  lang: 'tl' | 'en' = 'tl',
 ): BuyerTransactionCardItem {
   const stage = deriveDisplayStage(outcome);
   const quantityKg =
@@ -80,14 +87,14 @@ function toCardItem(
     id: outcome.request.id,
     referenceId: formatReferenceId(outcome.request.id, 'PR'),
     stage,
-    statusLabel: DISPLAY_STAGE_LABELS[stage],
+    statusLabel: getDisplayStageLabel(stage, lang),
     variety: listing ? varietyLabel(listing) : 'Palay',
-    moisture: listing?.declaredMoisture === 'Wet' ? 'Basa' : 'Tuyo',
+    moisture: listing?.declaredMoisture === 'Wet' ? (lang === 'en' ? 'Wet' : 'Basa') : (lang === 'en' ? 'Dry' : 'Tuyo'),
     price: formatPeso(total),
     weight: `${quantityKg} kg`,
     pricePerKg: `${formatPeso(pricePerKg)}/kg`,
     paymentMode: outcome.kind === 'matched' ? (outcome.transaction.payment?.paymentMode ?? null) : null,
-    farmer: farmerName || 'Magsasaka',
+    farmer: farmerName || (lang === 'en' ? 'Farmer' : 'Magsasaka'),
     date: formatDate(outcome.request.submittedAt),
     time: formatTime(outcome.request.submittedAt),
   };
@@ -95,9 +102,11 @@ function toCardItem(
 
 /** Buyer Transaksyon — requests & matched transactions matching farmer transaksyon UI layout. */
 export default function BuyerTransactionsScreen() {
+  const { language, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterValue>('Lahat');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showTutorial, setShowTutorial] = useState(true);
 
   const [outcomes, setOutcomes] = useState<PurchaseOutcome[]>([]);
   const [listingsById, setListingsById] = useState<Map<string, CropListing>>(new Map());
@@ -106,6 +115,10 @@ export default function BuyerTransactionsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const searchBarRef = useRef<View>(null);
+  const filterRowRef = useRef<View>(null);
+  const bellRef = useRef<View>(null);
 
   const load = useCallback(async (isRefresh: boolean) => {
     if (isRefresh) setRefreshing(true);
@@ -145,10 +158,10 @@ export default function BuyerTransactionsScreen() {
         const farmerName =
           (outcome.kind === 'matched' ? counterpartNamesById.get(outcome.transaction.farmerId) : null) ||
           farmerNamesByListing.get(outcome.request.listingId) ||
-          'Magsasaka';
-        return toCardItem(outcome, listingsById.get(outcome.request.listingId), farmerName);
+          (language === 'en' ? 'Farmer' : 'Magsasaka');
+        return toCardItem(outcome, listingsById.get(outcome.request.listingId), farmerName, language);
       }),
-    [outcomes, listingsById, counterpartNamesById, farmerNamesByListing],
+    [outcomes, listingsById, counterpartNamesById, farmerNamesByListing, language],
   );
 
   const filteredData = useMemo(() => {
@@ -192,12 +205,47 @@ export default function BuyerTransactionsScreen() {
     setCurrentPage(1);
   };
 
+  const buyerTxnTourSteps: SpotlightStep[] = [
+    {
+      id: 'buyer-txn-filter',
+      title: t('spotlight.buyerTxn.step1Title'),
+      description: t('spotlight.buyerTxn.step1Desc'),
+      icon: Filter,
+      targetRef: filterRowRef,
+      shape: 'rectangle',
+      borderRadius: 16,
+      padding: 6,
+    },
+    {
+      id: 'buyer-txn-search',
+      title: t('spotlight.buyerTxn.step2Title'),
+      description: t('spotlight.buyerTxn.step2Desc'),
+      icon: Search,
+      targetRef: searchBarRef,
+      shape: 'rectangle',
+      borderRadius: 16,
+      padding: 6,
+    },
+    {
+      id: 'buyer-txn-bell',
+      title: t('spotlight.buyerTxn.step3Title'),
+      description: t('spotlight.buyerTxn.step3Desc'),
+      icon: Bell,
+      targetRef: bellRef,
+      shape: 'circle',
+      padding: 6,
+    },
+  ];
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <AppHeader onPressBell={() => router.push('/(buyer)/notipikasyon')} />
+      <AppHeader
+        bellRef={bellRef}
+        onPressBell={() => router.push('/(buyer)/notipikasyon')}
+      />
 
-      <View style={styles.searchBar}>
+      <View ref={searchBarRef} collapsable={false} style={styles.searchBar}>
         <Search size={18} color={AnimoColors.objectLowEmphasis} />
         <TextInput
           style={styles.searchInput}
@@ -240,30 +288,32 @@ export default function BuyerTransactionsScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
           ListHeaderComponent={
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filters}
-              style={styles.filterScroll}>
-              {FILTERS.map((filter) => {
-                const active = activeFilter === filter;
-                return (
-                  <TouchableOpacity
-                    key={filter}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    onPress={() => handleFilterSelect(filter)}
-                    activeOpacity={0.85}
-                    style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}>
-                    <AnimoText
-                      variant="bodyEmphasis"
-                      color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
-                      {filter}
-                    </AnimoText>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+            <View ref={filterRowRef} collapsable={false}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filters}
+                style={styles.filterScroll}>
+                {FILTERS.map((filter) => {
+                  const active = activeFilter === filter;
+                  return (
+                    <TouchableOpacity
+                      key={filter}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      onPress={() => handleFilterSelect(filter)}
+                      activeOpacity={0.85}
+                      style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}>
+                      <AnimoText
+                        variant="bodyEmphasis"
+                        color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
+                        {filter}
+                      </AnimoText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
           }
           ListFooterComponent={
             <PaginationControls
@@ -283,6 +333,12 @@ export default function BuyerTransactionsScreen() {
           }
         />
       )}
+
+      <SpotlightTour
+        visible={showTutorial}
+        steps={buyerTxnTourSteps}
+        onClose={() => setShowTutorial(false)}
+      />
     </SafeAreaView>
   );
 }

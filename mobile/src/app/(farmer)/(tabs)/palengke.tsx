@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
-import { Droplets, ImageIcon, Plus, Scale, ShieldCheck } from 'lucide-react-native';
+import { Bell, Droplets, ImageIcon, Plus, Scale, Search, ShieldCheck } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -17,9 +17,14 @@ import { AppHeader } from '@/components/animo/app-header';
 import { FilterModal } from '@/components/animo/filter-modal';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { SearchFilterBar } from '@/components/animo/search-filter-bar';
+import {
+  SpotlightTour,
+  type SpotlightStep,
+} from '@/components/animo/spotlight-tour';
 import { StatusBadge, type BadgeTone } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
 import { fetchCoverPhotos, fetchMyCropListings } from '@/services/crop-listing-service';
 import {
   MOISTURE_OPTIONS,
@@ -172,15 +177,21 @@ function listingMatchesSearch(listing: CropListing, searchQuery: string): boolea
  * and marketplace-style cards.
  */
 export default function FarmerPalengkeScreen() {
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [appliedFilters, setAppliedFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
   const [draftFilters, setDraftFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
   const [modalOpen, setModalOpen] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(true);
 
   const [listings, setListings] = useState<CropListing[]>([]);
   const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
+
+  const searchBarRef = useRef<View>(null);
+  const fabRef = useRef<View>(null);
+  const bellRef = useRef<View>(null);
 
   const latestRequestId = useRef(0);
 
@@ -248,17 +259,53 @@ export default function FarmerPalengkeScreen() {
     setModalOpen(false);
   };
 
+  const palengkeTourSteps: SpotlightStep[] = [
+    {
+      id: 'farmer-palengke-search',
+      title: t('spotlight.farmerPalengke.step1Title'),
+      description: t('spotlight.farmerPalengke.step1Desc'),
+      icon: Search,
+      targetRef: searchBarRef,
+      shape: 'rectangle',
+      borderRadius: 16,
+      padding: 6,
+    },
+    {
+      id: 'farmer-palengke-fab',
+      title: t('spotlight.farmerPalengke.step2Title'),
+      description: t('spotlight.farmerPalengke.step2Desc'),
+      icon: Plus,
+      targetRef: fabRef,
+      shape: 'circle',
+      padding: 6,
+    },
+    {
+      id: 'farmer-palengke-bell',
+      title: t('spotlight.farmerPalengke.step3Title'),
+      description: t('spotlight.farmerPalengke.step3Desc'),
+      icon: Bell,
+      targetRef: bellRef,
+      shape: 'circle',
+      padding: 6,
+    },
+  ];
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <AppHeader onPressBell={() => router.push('/(farmer)/notipikasyon')} />
-
-      <SearchFilterBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="Maghanap ng ani, uri, at..."
-        activeFilterCount={activeFilterCount}
-        onFilterPress={openModal}
+      <AppHeader
+        bellRef={bellRef}
+        onPressBell={() => router.push('/(farmer)/notipikasyon')}
       />
+
+      <View ref={searchBarRef} collapsable={false}>
+        <SearchFilterBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Maghanap ng ani, uri, at..."
+          activeFilterCount={activeFilterCount}
+          onFilterPress={openModal}
+        />
+      </View>
 
       <FilterModal
         visible={modalOpen}
@@ -415,13 +462,21 @@ export default function FarmerPalengkeScreen() {
           />
         )}
 
-        <Pressable
-          onPress={() => router.push('/(farmer)/creation-listing')}
-          style={[styles.fab, styles.fabShadow]}
-          accessibilityLabel="Gumawa ng bagong listing">
-          <Plus size={28} color={AnimoColors.white} />
-        </Pressable>
+        <View ref={fabRef} collapsable={false} style={styles.fabWrapper}>
+          <Pressable
+            onPress={() => router.push('/(farmer)/creation-listing')}
+            style={[styles.fab, styles.fabShadow]}
+            accessibilityLabel="Gumawa ng bagong listing">
+            <Plus size={28} color={AnimoColors.white} />
+          </Pressable>
+        </View>
       </View>
+
+      <SpotlightTour
+        visible={showTutorial}
+        steps={palengkeTourSteps}
+        onClose={() => setShowTutorial(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -634,10 +689,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
   },
-  fab: {
+  fabWrapper: {
     position: 'absolute',
     bottom: AnimoSpacing.xl,
     right: AnimoSpacing.xl,
+  },
+  fab: {
     width: 56,
     height: 56,
     borderRadius: AnimoRadius.pill,

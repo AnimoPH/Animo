@@ -1,15 +1,19 @@
-import { router, useFocusEffect } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import {
+  Bell,
   ChevronRight,
   Clock,
   CloudRain,
+  LayoutGrid,
   ListChecks,
   ShoppingCart,
+  Sprout,
   User,
   Wheat,
-} from "lucide-react-native";
-import { useCallback, useState } from "react";
+} from 'lucide-react-native';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -17,19 +21,25 @@ import {
   ScrollView,
   StyleSheet,
   View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimoText } from "@/components/animo/animo-text";
-import { AppHeader } from "@/components/animo/app-header";
-import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
+import { AnimoText } from '@/components/animo/animo-text';
+import { AppHeader } from '@/components/animo/app-header';
+import {
+  SpotlightTour,
+  type SpotlightStep,
+  FARMER_TUTORIAL_STORAGE_KEY,
+} from '@/components/animo/spotlight-tour';
+import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
 import {
   fetchFarmerHomeData,
   type FarmerHomeActivity,
   type FarmerHomeStats,
-} from "@/services/farmer-home-service";
+} from '@/services/farmer-home-service';
 
-const AdvisoryOrange = "#F57C00";
+const AdvisoryOrange = '#F57C00';
 
 const EMPTY_STATS: FarmerHomeStats = {
   activeListings: 0,
@@ -39,12 +49,22 @@ const EMPTY_STATS: FarmerHomeStats = {
 
 /** Tahanan — farmer home: weather advisory, quick stats, sell CTA, activity feed. */
 export default function FarmerHomeScreen() {
+  const { t } = useLanguage();
+  const params = useLocalSearchParams<{ startTour?: string }>();
   const [hasActiveAdvisory] = useState(true);
   const [stats, setStats] = useState<FarmerHomeStats>(EMPTY_STATS);
   const [activities, setActivities] = useState<FarmerHomeActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTutorial, setShowTutorial] = useState(true);
+
+  // Spotlight target refs
+  const advisoryRef = useRef<View>(null);
+  const statsRef = useRef<View>(null);
+  const ctaRef = useRef<View>(null);
+  const bellRef = useRef<View>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const load = useCallback(async (isRefresh: boolean) => {
     if (isRefresh) setRefreshing(true);
@@ -55,7 +75,7 @@ export default function FarmerHomeScreen() {
       setStats(data.stats);
       setActivities(data.activities);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Hindi ma-load ang dashboard.");
+      setError(e instanceof Error ? e.message : 'Hindi ma-load ang dashboard.');
     } finally {
       if (isRefresh) setRefreshing(false);
       else setLoading(false);
@@ -64,53 +84,106 @@ export default function FarmerHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      // Force spotlight tour visible for preview
+      setShowTutorial(true);
       load(false);
     }, [load]),
   );
 
   const statCards = [
     {
-      key: "listings",
+      key: 'listings',
       icon: ListChecks,
       value: stats.activeListings,
-      label: "Aktibong Listahan",
-      onPress: () => router.push("/(farmer)/(tabs)/palengke"),
+      label: t('farmer.activeListings'),
+      onPress: () => router.push('/(farmer)/(tabs)/palengke'),
     },
     {
-      key: "requests",
+      key: 'requests',
       icon: ShoppingCart,
       value: stats.pendingRequests,
-      label: "Bagong Kahilingan",
-      onPress: () => router.push("/(farmer)/(tabs)/transaksyon"),
+      label: t('farmer.newRequests'),
+      onPress: () => router.push('/(farmer)/(tabs)/transaksyon'),
     },
     {
-      key: "transactions",
+      key: 'transactions',
       icon: Clock,
       value: stats.pendingTransactions,
-      label: "Nakabinbing Transaksyon",
-      onPress: () => router.push("/(farmer)/(tabs)/transaksyon"),
+      label: t('farmer.pendingTxns'),
+      onPress: () => router.push('/(farmer)/(tabs)/transaksyon'),
+    },
+  ];
+
+  const farmerTourSteps: SpotlightStep[] = [
+    {
+      id: 'farmer-advisory',
+      title: t('spotlight.farmer.step1Title'),
+      description: t('spotlight.farmer.step1Desc'),
+      icon: CloudRain,
+      targetRef: advisoryRef,
+      shape: 'rectangle',
+      borderRadius: 20,
+      padding: 6,
+    },
+    {
+      id: 'farmer-stats',
+      title: t('spotlight.farmer.step2Title'),
+      description: t('spotlight.farmer.step2Desc'),
+      icon: LayoutGrid,
+      targetRef: statsRef,
+      shape: 'rectangle',
+      borderRadius: 16,
+      padding: 6,
+    },
+    {
+      id: 'farmer-sell-cta',
+      title: t('spotlight.farmer.step3Title'),
+      description: t('spotlight.farmer.step3Desc'),
+      icon: Sprout,
+      targetRef: ctaRef,
+      shape: 'rectangle',
+      borderRadius: 20,
+      padding: 6,
+    },
+    {
+      id: 'farmer-bell',
+      title: t('spotlight.farmer.step4Title'),
+      description: t('spotlight.farmer.step4Desc'),
+      icon: Bell,
+      targetRef: bellRef,
+      shape: 'circle',
+      padding: 6,
     },
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <AppHeader onPressBell={() => router.push("/(farmer)/notipikasyon")} />
+      <AppHeader
+        bellRef={bellRef}
+        onPressBell={() => router.push('/(farmer)/notipikasyon')}
+      />
 
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
-        }
-      >
+        }>
         {hasActiveAdvisory ? (
-          <AdvisoryCard
-            onPress={() => router.push("/(farmer)/advisory")}
-          />
+          <View ref={advisoryRef} collapsable={false}>
+            <AdvisoryCard
+              title={t('farmer.advisoryTitle')}
+              badge={t('farmer.advisoryBadge')}
+              tip={t('farmer.advisoryTip')}
+              desc={t('farmer.advisoryDesc')}
+              onPress={() => router.push('/(farmer)/advisory')}
+            />
+          </View>
         ) : null}
 
-        <View style={styles.statsRow}>
+        <View ref={statsRef} collapsable={false} style={styles.statsRow}>
           {statCards.map((stat) => (
             <StatCard
               key={stat.key}
@@ -123,19 +196,24 @@ export default function FarmerHomeScreen() {
           ))}
         </View>
 
-        <CtaBanner onPress={() => router.push("/(farmer)/(tabs)/palengke")} />
+        <View ref={ctaRef} collapsable={false}>
+          <CtaBanner
+            title={t('farmer.sellCtaTitle')}
+            subtitle={t('farmer.sellCtaSubtitle')}
+            onPress={() => router.push('/(farmer)/(tabs)/palengke')}
+          />
+        </View>
 
         <View style={styles.activitySection}>
           <View style={styles.activityHeader}>
             <AnimoText variant="h3" color={AnimoColors.black}>
-              Mga Aktibidad
+              {t('farmer.activities')}
             </AnimoText>
             <Pressable
-              onPress={() => router.push("/(farmer)/(tabs)/transaksyon")}
-              hitSlop={8}
-            >
+              onPress={() => router.push('/(farmer)/(tabs)/transaksyon')}
+              hitSlop={8}>
               <AnimoText variant="caption" color={AnimoColors.green}>
-                Tignan Lahat
+                {t('common.seeAll')}
               </AnimoText>
             </Pressable>
           </View>
@@ -150,7 +228,7 @@ export default function FarmerHomeScreen() {
             </AnimoText>
           ) : activities.length === 0 ? (
             <AnimoText variant="caption" color={AnimoColors.muted}>
-              Walang aktibidad pa. Maglista ng palay para magsimula.
+              {t('farmer.noActivities')}
             </AnimoText>
           ) : (
             <View style={styles.activityList}>
@@ -166,27 +244,47 @@ export default function FarmerHomeScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* GCash-style Interactive Spotlight Tour for Farmers */}
+      <SpotlightTour
+        visible={showTutorial}
+        role="magsasaka"
+        steps={farmerTourSteps}
+        scrollViewRef={scrollViewRef}
+        onClose={() => setShowTutorial(false)}
+      />
     </SafeAreaView>
   );
 }
 
-function AdvisoryCard({ onPress }: { onPress: () => void }) {
+function AdvisoryCard({
+  title,
+  badge,
+  tip,
+  desc,
+  onPress,
+}: {
+  title: string;
+  badge: string;
+  tip: string;
+  desc: string;
+  onPress: () => void;
+}) {
   return (
     <View style={styles.advisoryCard}>
       <View style={styles.advisoryTopRow}>
         <View style={styles.advisoryTopLeft}>
           <CloudRain size={18} color={AnimoColors.white} />
           <AnimoText variant="h3" color={AnimoColors.white}>
-            Payo sa Bukid
+            {title}
           </AnimoText>
         </View>
         <View style={styles.advisoryBadge}>
           <AnimoText
             variant="tag"
             color={AnimoColors.white}
-            style={styles.advisoryBadgeText}
-          >
-            ADVISORY
+            style={styles.advisoryBadgeText}>
+            {badge}
           </AnimoText>
         </View>
       </View>
@@ -197,17 +295,16 @@ function AdvisoryCard({ onPress }: { onPress: () => void }) {
         style={({ pressed }) => [
           styles.advisoryInner,
           pressed && styles.pressed,
-        ]}
-      >
+        ]}>
         <View style={styles.advisoryIconWrap}>
-          <CloudRain size={26} color={AnimoColors.muted} />
+          <CloudRain size={24} color={AnimoColors.muted} />
         </View>
         <View style={styles.advisoryTextWrap}>
           <AnimoText variant="bodyEmphasis" color={AdvisoryOrange}>
-            Tip: Maagang Pag-aani
+            {tip}
           </AnimoText>
-          <AnimoText variant="caption" color={AnimoColors.muted}>
-            Inaasahang malakas na ulan sa susunod na 3 araw dulot ng monsoon.
+          <AnimoText variant="caption" color={AnimoColors.muted} numberOfLines={2}>
+            {desc}
           </AnimoText>
         </View>
         <ChevronRight size={18} color={AnimoColors.muted} />
@@ -233,9 +330,8 @@ function StatCard({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}
-    >
-      <Icon size={22} color={AnimoColors.green} />
+      style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
+      <Icon size={20} color={AnimoColors.green} />
       {loading ? (
         <ActivityIndicator
           color={AnimoColors.green}
@@ -244,40 +340,46 @@ function StatCard({
         />
       ) : (
         <AnimoText
-          variant="h1"
+          variant="h2"
           color={AnimoColors.black}
-          style={styles.statValue}
-        >
+          style={styles.statValue}>
           {value}
         </AnimoText>
       )}
       <AnimoText
         variant="caption"
-        color={AnimoColors.muted}
+        color={AnimoColors.textMediumEmphasis}
         style={styles.statLabel}
-      >
+        numberOfLines={2}>
         {label}
       </AnimoText>
     </Pressable>
   );
 }
 
-function CtaBanner({ onPress }: { onPress: () => void }) {
+function CtaBanner({
+  title,
+  subtitle,
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.ctaBanner, pressed && styles.pressed]}
-    >
+      style={({ pressed }) => [styles.ctaBanner, pressed && styles.pressed]}>
       <View style={styles.ctaIconWrap}>
         <Wheat size={22} color={AnimoColors.green} />
       </View>
       <View style={styles.ctaTextWrap}>
         <AnimoText variant="h3" color={AnimoColors.white}>
-          Ibenta ang aking Palay
+          {title}
         </AnimoText>
-        <AnimoText variant="caption" color={AnimoColors.white}>
-          Magsimulang ilista ang iyong ani ngayon
+        <AnimoText variant="caption" color={AnimoColors.white} numberOfLines={1}>
+          {subtitle}
         </AnimoText>
       </View>
       <ChevronRight size={20} color={AnimoColors.white} />
@@ -287,22 +389,21 @@ function CtaBanner({ onPress }: { onPress: () => void }) {
 
 function ActivityRow({ activity }: { activity: FarmerHomeActivity }) {
   const handlePress = () => {
-    if (activity.stage === "request_pending") {
+    if (activity.stage === 'request_pending') {
       router.push({
-        pathname: "/(farmer)/listing-detail",
-        params: { id: activity.id, tab: "orders" },
+        pathname: '/(farmer)/listing-detail',
+        params: { id: activity.id, tab: 'orders' },
       });
       return;
     }
-    router.push({ pathname: "/(farmer)/transaksyon/[id]", params: { id: activity.id } });
+    router.push({ pathname: '/(farmer)/transaksyon/[id]', params: { id: activity.id } });
   };
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={handlePress}
-      style={({ pressed }) => [styles.activityRow, pressed && styles.pressed]}
-    >
+      style={({ pressed }) => [styles.activityRow, pressed && styles.pressed]}>
       <View style={styles.avatar}>
         <User size={20} color={AnimoColors.green} />
       </View>
@@ -327,8 +428,8 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.white,
   },
   content: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingTop: AnimoSpacing.lg,
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingTop: AnimoSpacing.sm,
     paddingBottom: AnimoSpacing.xxl,
     gap: AnimoSpacing.lg,
   },
@@ -342,13 +443,13 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.md,
   },
   advisoryTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   advisoryTopLeft: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: AnimoSpacing.sm,
   },
   advisoryBadge: {
@@ -361,58 +462,63 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   advisoryInner: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: AnimoColors.white,
     borderRadius: AnimoRadius.md,
     padding: AnimoSpacing.md,
     gap: AnimoSpacing.md,
-    shadowColor: "#000000",
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
   },
   advisoryIconWrap: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: AnimoRadius.md,
     backgroundColor: AnimoColors.greenTint,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   advisoryTextWrap: {
     flex: 1,
     gap: 2,
   },
   statsRow: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: AnimoSpacing.sm,
   },
   statCard: {
     flex: 1,
+    minHeight: 110,
     backgroundColor: AnimoColors.greenTint,
     borderRadius: AnimoRadius.lg,
-    paddingVertical: AnimoSpacing.lg,
-    paddingHorizontal: AnimoSpacing.xs,
-    alignItems: "center",
-    gap: AnimoSpacing.xs,
+    paddingVertical: AnimoSpacing.md,
+    paddingHorizontal: AnimoSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: "rgba(46, 125, 50, 0.12)",
+    borderColor: 'rgba(46, 125, 50, 0.14)',
   },
   statValue: {
     marginTop: 2,
+    fontSize: 22,
+    lineHeight: 26,
   },
   statSpinner: {
     marginTop: 2,
-    height: 32,
+    height: 26,
   },
   statLabel: {
-    textAlign: "center",
+    textAlign: 'center',
+    fontSize: 11.5,
+    lineHeight: 15,
   },
   ctaBanner: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: AnimoColors.green,
     borderRadius: AnimoRadius.lg,
     padding: AnimoSpacing.lg,
@@ -423,8 +529,8 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: AnimoRadius.pill,
     backgroundColor: AnimoColors.white,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   ctaTextWrap: {
     flex: 1,
@@ -434,34 +540,34 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.md,
   },
   activityHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   activityLoading: {
-    alignItems: "center",
+    alignItems: 'center',
     paddingVertical: AnimoSpacing.lg,
   },
   activityList: {
     gap: AnimoSpacing.md,
   },
   activityRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: AnimoSpacing.md,
     paddingVertical: AnimoSpacing.sm,
   },
   avatar: {
-    width: 44,
-    height: 44,
+    width: 42,
+    height: 42,
     borderRadius: AnimoRadius.pill,
     backgroundColor: AnimoColors.greenTint,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   activityTextWrap: {
     flex: 1,
-    gap: 5,
+    gap: 4,
   },
   divider: {
     height: 1,

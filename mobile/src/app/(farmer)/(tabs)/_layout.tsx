@@ -7,10 +7,10 @@ import { useSession } from '@/hooks/use-session';
 
 /** Bottom navigation for the farmer (Magsasaka) module. */
 const FARMER_TABS: TabItem[] = [
-  { name: 'index', label: 'Tahanan', icon: Home },
-  { name: 'palengke', label: 'Aking Ani', icon: Sprout },
-  { name: 'transaksyon', label: 'Transaksyon', icon: ReceiptText },
-  { name: 'profile', label: 'Profile', icon: User },
+  { name: 'index', label: 'Tahanan', labelKey: 'tab.home', icon: Home },
+  { name: 'palengke', label: 'Aking Ani', labelKey: 'tab.myHarvest', icon: Sprout },
+  { name: 'transaksyon', label: 'Transaksyon', labelKey: 'tab.transactions', icon: ReceiptText },
+  { name: 'profile', label: 'Profile', labelKey: 'tab.profile', icon: User },
 ];
 
 export default function FarmerLayout() {

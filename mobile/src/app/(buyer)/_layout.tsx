@@ -8,10 +8,10 @@ import { useSession } from '@/hooks/use-session';
 
 /** Bottom navigation for the buyer (Mamimili) module. */
 const BUYER_TABS: TabItem[] = [
-  { name: 'index', label: 'Tahanan', icon: Home },
-  { name: 'palengke', label: 'Palengke', icon: ShoppingBag, rootScreen: 'index' },
-  { name: 'transaksyon', label: 'Transaksyon', icon: ReceiptText },
-  { name: 'profile', label: 'Profile', icon: User },
+  { name: 'index', label: 'Tahanan', labelKey: 'tab.home', icon: Home },
+  { name: 'palengke', label: 'Palengke', labelKey: 'tab.market', icon: ShoppingBag, rootScreen: 'index' },
+  { name: 'transaksyon', label: 'Transaksyon', labelKey: 'tab.transactions', icon: ReceiptText },
+  { name: 'profile', label: 'Profile', labelKey: 'tab.profile', icon: User },
 ];
 
 /**

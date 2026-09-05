@@ -5,6 +5,7 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
 import { moistureLabel, varietyLabel, type CropListing } from '@/types/crop-listing';
 
 export type MarketplaceListingCardProps = {
@@ -15,19 +16,21 @@ export type MarketplaceListingCardProps = {
 
 /**
  * Buyer marketplace card for a real `croplisting` row.
- *
- * Separate from `components/animo/listing-card.tsx`, which is still typed to
- * the frontend mock `Listing` and is used by the buyer dashboard.
- *
- * No location line: `farmer.barangay` and `farm.location` are both behind
- * owner-only RLS and `croplisting` has no location column, so there is nothing
- * a buyer can legitimately read (see migration 0001 §1a/§4).
  */
 export function MarketplaceListingCard({
   listing,
   coverPhotoUrl,
   onPress,
 }: MarketplaceListingCardProps) {
+  const { t, isEnglish } = useLanguage();
+
+  const getLocalizedMoisture = () => {
+    if (isEnglish) {
+      return listing.declaredMoisture === 'Wet' ? 'Wet' : 'Dry';
+    }
+    return moistureLabel(listing.declaredMoisture);
+  };
+
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -43,31 +46,31 @@ export function MarketplaceListingCard({
       </View>
 
       <View style={styles.body}>
-        <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
+        <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} numberOfLines={2}>
           {varietyLabel(listing)}
         </AnimoText>
 
         <View style={styles.priceRow}>
-          <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
+          <AnimoText variant="h2" color={AnimoColors.accentPrimary} style={styles.priceText}>
             {formatPeso(listing.pricePerKg ?? 0)}
           </AnimoText>
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
             {' '}
-            bawat kilo
+            {t('common.perKg')}
           </AnimoText>
         </View>
 
         <View style={styles.specs}>
           <Spec icon={<Scale size={14} color={AnimoColors.accentPrimary} />}>
-            {listing.remainingQuantityKg} kg available
+            {listing.remainingQuantityKg} {t('common.kg')} {t('buyer.available')}
           </Spec>
           <Spec icon={<Droplets size={14} color={AnimoColors.textMediumEmphasis} />}>
-            {moistureLabel(listing.declaredMoisture)}
+            {getLocalizedMoisture()}
           </Spec>
         </View>
 
         <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-          Pinakamaliit na order: {listing.minimumRequestKg} kg
+          {t('buyer.minOrder')} {listing.minimumRequestKg} {t('common.kg')}
         </AnimoText>
       </View>
     </TouchableOpacity>
@@ -78,7 +81,7 @@ function Spec({ icon, children }: { icon: React.ReactNode; children: React.React
   return (
     <View style={styles.spec}>
       {icon}
-      <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+      <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
         {children}
       </AnimoText>
     </View>
@@ -117,16 +120,27 @@ const styles = StyleSheet.create({
   priceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    marginTop: 2,
+  },
+  priceText: {
+    fontSize: 22,
+    lineHeight: 26,
   },
   specs: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: AnimoSpacing.lg,
-    marginTop: AnimoSpacing.xs,
+    gap: AnimoSpacing.md,
+    marginVertical: 4,
   },
   spec: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: AnimoRadius.sm,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
   },
 });
