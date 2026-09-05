@@ -13,7 +13,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -216,6 +216,79 @@ export function SpotlightTour({
   const steps = customSteps && customSteps.length > 0 ? customSteps : defaultSteps;
   const currentStep = steps[currentStepIndex] || steps[0];
 
+  const measureTarget = useCallback(() => {
+    if (!currentStep?.targetRef?.current) {
+      if (currentStep?.fallbackLayout) {
+        setMeasuredLayout(currentStep.fallbackLayout);
+      }
+      return;
+    }
+
+    const node = currentStep.targetRef.current;
+
+    // 1. Web DOM element getBoundingClientRect
+    if (typeof node?.getBoundingClientRect === 'function') {
+      const rect = node.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        setMeasuredLayout({
+          x: Math.round(rect.left),
+          y: Math.round(rect.top),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        });
+        return;
+      }
+    }
+
+    // 2. React Native Web internal node
+    if (typeof node?._node?.getBoundingClientRect === 'function') {
+      const rect = node._node.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        setMeasuredLayout({
+          x: Math.round(rect.left),
+          y: Math.round(rect.top),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        });
+        return;
+      }
+    }
+
+    // 3. React Native measureInWindow (iOS / Android)
+    if (typeof node?.measureInWindow === 'function') {
+      node.measureInWindow((x: number, y: number, width: number, height: number) => {
+        if (width > 0 && height > 0) {
+          setMeasuredLayout({
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(width),
+            height: Math.round(height),
+          });
+        } else if (typeof node?.measure === 'function') {
+          node.measure((_x: number, _y: number, w: number, h: number, pageX: number, pageY: number) => {
+            if (w > 0 && h > 0) {
+              setMeasuredLayout({
+                x: Math.round(pageX),
+                y: Math.round(pageY),
+                width: Math.round(w),
+                height: Math.round(h),
+              });
+            } else if (currentStep.fallbackLayout) {
+              setMeasuredLayout(currentStep.fallbackLayout);
+            }
+          });
+        } else if (currentStep.fallbackLayout) {
+          setMeasuredLayout(currentStep.fallbackLayout);
+        }
+      });
+      return;
+    }
+
+    if (currentStep?.fallbackLayout) {
+      setMeasuredLayout(currentStep.fallbackLayout);
+    }
+  }, [currentStep]);
+
   // Pulse animation loop
   useEffect(() => {
     if (!visible) return;
@@ -249,12 +322,12 @@ export function SpotlightTour({
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 260,
+        duration: 240,
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 260,
+        duration: 240,
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
@@ -272,24 +345,24 @@ export function SpotlightTour({
       }
     }
 
-    const timer = setTimeout(() => {
-      if (currentStep?.targetRef?.current?.measureInWindow) {
-        currentStep.targetRef.current.measureInWindow(
-          (x: number, y: number, width: number, height: number) => {
-            if (width > 0 && height > 0) {
-              setMeasuredLayout({ x, y, width, height });
-            } else if (currentStep.fallbackLayout) {
-              setMeasuredLayout(currentStep.fallbackLayout);
-            }
-          },
-        );
-      } else if (currentStep?.fallbackLayout) {
-        setMeasuredLayout(currentStep.fallbackLayout);
-      }
-    }, 80);
+    // Initial immediate measurement
+    measureTarget();
 
-    return () => clearTimeout(timer);
-  }, [visible, currentStepIndex, currentStep, fadeAnim, slideAnim, scrollViewRef]);
+    // Staggered follow-up measurements to accommodate rendering & layout passes
+    const t1 = setTimeout(measureTarget, 50);
+    const t2 = setTimeout(measureTarget, 150);
+    const t3 = setTimeout(measureTarget, 350);
+    const t4 = setTimeout(measureTarget, 700);
+    const t5 = setTimeout(measureTarget, 1200);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+      clearTimeout(t5);
+    };
+  }, [visible, currentStepIndex, currentStep, fadeAnim, slideAnim, scrollViewRef, measureTarget]);
 
   if (!visible || !currentStep) return null;
 
@@ -321,9 +394,9 @@ export function SpotlightTour({
   const pad = currentStep.padding ?? 6;
   const layout = measuredLayout || currentStep.fallbackLayout || {
     x: 16,
-    y: 100,
+    y: 120,
     width: windowWidth - 32,
-    height: 100,
+    height: 120,
   };
 
   const cutoutX = Math.max(4, layout.x - pad);
@@ -340,22 +413,28 @@ export function SpotlightTour({
   const targetCenterY = cutoutY + cutoutH / 2;
 
   // Compute Tooltip position
-  const estimatedTooltipHeight = 220;
+  const estimatedTooltipHeight = 225;
   const spaceBelow = windowHeight - (cutoutY + cutoutH);
-  const isBelow = spaceBelow >= estimatedTooltipHeight || cutoutY < 200;
+  const spaceAbove = cutoutY;
+
+  // Place below if there is enough space below or if space below is greater than above
+  const isBelow = spaceBelow >= estimatedTooltipHeight || spaceBelow >= spaceAbove;
 
   const tooltipWidth = Math.min(windowWidth - 32, 400);
   const tooltipLeft = (windowWidth - tooltipWidth) / 2;
 
-  const tooltipTop = isBelow
-    ? cutoutY + cutoutH + 14
-    : Math.max(36, cutoutY - estimatedTooltipHeight - 14);
+  let tooltipTop = isBelow
+    ? cutoutY + cutoutH + 16
+    : cutoutY - estimatedTooltipHeight - 16;
+
+  // Clamp within viewport
+  tooltipTop = Math.max(16, Math.min(windowHeight - estimatedTooltipHeight - 16, tooltipTop));
 
   const StepIcon = currentStep.icon || Sparkles;
   const isLastStep = currentStepIndex === steps.length - 1;
 
   // Arrow position pointing at target center
-  const arrowLeft = Math.max(20, Math.min(tooltipWidth - 36, targetCenterX - tooltipLeft - 8));
+  const arrowLeft = Math.max(20, Math.min(tooltipWidth - 36, targetCenterX - tooltipLeft - 7));
 
   return (
     <Modal

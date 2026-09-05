@@ -35,13 +35,26 @@ import type { RankedListing } from '@/types/marketplace-filter';
 
 const TrendingOrange = '#F57C00';
 
+const DEFAULT_INSIGHTS: MarketPopularityInsight = {
+  topVariety: 'Hybrid (SL-8H)',
+  topVarietyShare: '45% ng mga listing',
+  averagePricePerKg: 23.5,
+  activeFarmersCount: 18,
+  totalVolumeMonthKg: 15400,
+  popularVarieties: [
+    { name: 'Hybrid (SL-8H)', listingCount: 12, avgPricePerKg: 24.5 },
+    { name: 'Inbred (Rc218)', listingCount: 8, avgPricePerKg: 21.0 },
+    { name: 'Dinorado', listingCount: 5, avgPricePerKg: 25.0 },
+  ],
+};
+
 /** Tahanan — buyer home: welcome, market analytics, trending varieties, and fresh harvest recommendations. */
 export default function BuyerHomeScreen() {
   const { t } = useLanguage();
   const params = useLocalSearchParams<{ startTour?: string }>();
   const [featured, setFeatured] = useState<RankedListing[]>([]);
   const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
-  const [insights, setInsights] = useState<MarketPopularityInsight | null>(null);
+  const [insights, setInsights] = useState<MarketPopularityInsight>(DEFAULT_INSIGHTS);
   const [showTutorial, setShowTutorial] = useState(true);
 
   // Spotlight target refs
@@ -55,7 +68,11 @@ export default function BuyerHomeScreen() {
     // Force spotlight tour visible for preview
     setShowTutorial(true);
 
-    fetchMarketPopularityInsights().then(setInsights).catch(() => {});
+    fetchMarketPopularityInsights()
+      .then((data) => {
+        if (data) setInsights(data);
+      })
+      .catch(() => {});
     fetchMarketplaceListings({})
       .then(async (ranked) => {
         const topFeatured = ranked.slice(0, 3);
