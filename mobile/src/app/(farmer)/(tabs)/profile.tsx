@@ -152,7 +152,9 @@ export default function FarmerProfileScreen() {
   const handleSettingPress = (key: string) => {
     if (key === 'notif') router.push('/(farmer)/notipikasyon' as Href);
     else if (key === 'language') setShowLanguageModal(true);
-    else if (key === 'guide') setShowTutorialModal(true);
+    else if (key === 'guide') {
+      router.push({ pathname: '/(farmer)/(tabs)', params: { startTour: 'true' } });
+    }
     else if (key === 'help') setShowHelpModal(true);
     else if (key === 'terms' || key === 'privacy') setShowTermsModal(true);
   };

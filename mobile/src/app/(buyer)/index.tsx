@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
+  Bell,
   ChevronRight,
   Flame,
   ReceiptText,
@@ -10,7 +11,7 @@ import {
   TrendingUp,
   Wheat,
 } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -18,9 +19,10 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
 import { MarketplaceListingCard } from '@/components/animo/buyer/marketplace-listing-card';
 import {
-  OnboardingWalkthroughModal,
+  SpotlightTour,
+  type SpotlightStep,
   TUTORIAL_STORAGE_KEY,
-} from '@/components/animo/onboarding-walkthrough-modal';
+} from '@/components/animo/spotlight-tour';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
 import { fetchCoverPhotos } from '@/services/crop-listing-service';
@@ -36,20 +38,33 @@ const TrendingOrange = '#F57C00';
 /** Tahanan — buyer home: welcome, market analytics, trending varieties, and fresh harvest recommendations. */
 export default function BuyerHomeScreen() {
   const { t } = useLanguage();
+  const params = useLocalSearchParams<{ startTour?: string }>();
   const [featured, setFeatured] = useState<RankedListing[]>([]);
   const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
   const [insights, setInsights] = useState<MarketPopularityInsight | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
 
+  // Spotlight target refs
+  const marketTrendsRef = useRef<View>(null);
+  const quickActionsRef = useRef<View>(null);
+  const varietiesRef = useRef<View>(null);
+  const bellRef = useRef<View>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+
   useEffect(() => {
-    // Check first-time user tutorial flag
-    AsyncStorage.getItem(TUTORIAL_STORAGE_KEY)
-      .then((seen) => {
-        if (!seen) {
-          setShowTutorial(true);
-        }
-      })
-      .catch(() => {});
+    // Check query param trigger (e.g. from Profile > Settings > Gabay)
+    if (params.startTour === 'true') {
+      setShowTutorial(true);
+    } else {
+      // Check first-time user tutorial flag
+      AsyncStorage.getItem(TUTORIAL_STORAGE_KEY)
+        .then((seen) => {
+          if (!seen) {
+            setShowTutorial(true);
+          }
+        })
+        .catch(() => {});
+    }
 
     fetchMarketPopularityInsights().then(setInsights).catch(() => {});
     fetchMarketplaceListings({})
@@ -64,14 +79,62 @@ export default function BuyerHomeScreen() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [params.startTour]);
+
+  const buyerTourSteps: SpotlightStep[] = [
+    {
+      id: 'buyer-market-trends',
+      title: t('spotlight.buyer.step1Title'),
+      description: t('spotlight.buyer.step1Desc'),
+      icon: Flame,
+      targetRef: marketTrendsRef,
+      shape: 'rectangle',
+      borderRadius: 20,
+      padding: 6,
+    },
+    {
+      id: 'buyer-quick-actions',
+      title: t('spotlight.buyer.step2Title'),
+      description: t('spotlight.buyer.step2Desc'),
+      icon: ShoppingBag,
+      targetRef: quickActionsRef,
+      shape: 'rectangle',
+      borderRadius: 16,
+      padding: 6,
+    },
+    {
+      id: 'buyer-varieties',
+      title: t('spotlight.buyer.step3Title'),
+      description: t('spotlight.buyer.step3Desc'),
+      icon: Wheat,
+      targetRef: varietiesRef,
+      shape: 'rectangle',
+      borderRadius: 20,
+      padding: 6,
+    },
+    {
+      id: 'buyer-bell',
+      title: t('spotlight.buyer.step4Title'),
+      description: t('spotlight.buyer.step4Desc'),
+      icon: Bell,
+      targetRef: bellRef,
+      shape: 'circle',
+      padding: 6,
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <AppHeader onPressBell={() => router.push('/(buyer)/notipikasyon')} />
+      <AppHeader
+        bellRef={bellRef}
+        onPressBell={() => router.push('/(buyer)/notipikasyon')}
+      />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}>
         {/* Welcome Greeting */}
         <View style={styles.hero}>
           <AnimoText variant="h1" color={AnimoColors.black}>
@@ -84,68 +147,70 @@ export default function BuyerHomeScreen() {
 
         {/* Market Insights & Popularity Card */}
         {insights ? (
-          <View style={styles.marketInsightCard}>
-            <View style={styles.marketInsightTopRow}>
-              <View style={styles.marketInsightTopLeft}>
-                <Flame size={18} color={AnimoColors.white} />
-                <AnimoText variant="h3" color={AnimoColors.white}>
-                  {t('buyer.marketTrends')}
-                </AnimoText>
-              </View>
-              <View style={styles.trendingBadge}>
-                <AnimoText variant="tag" color={AnimoColors.white} style={styles.trendingBadgeText}>
-                  {t('buyer.trending')}
-                </AnimoText>
-              </View>
-            </View>
-
-            <View style={styles.marketInsightInner}>
-              <View style={styles.insightBox}>
-                <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                  {t('buyer.mostSold')}
-                </AnimoText>
-                <AnimoText
-                  variant="h2"
-                  color={AnimoColors.accentPrimary}
-                  style={styles.insightVarietyValueLarge}
-                  numberOfLines={2}>
-                  {insights.topVariety}
-                </AnimoText>
-                {insights.topVariety.toLowerCase().includes('hybrid') ? (
-                  <View style={styles.hybridBadge}>
-                    <AnimoText variant="tag" color="#1E40AF">
-                      High-Yield F1 Palay
-                    </AnimoText>
-                  </View>
-                ) : null}
-              </View>
-
-              <View style={styles.insightBox}>
-                <View style={styles.insightBoxHeader}>
-                  <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                    {t('buyer.averagePrice')}
+          <View ref={marketTrendsRef} collapsable={false}>
+            <View style={styles.marketInsightCard}>
+              <View style={styles.marketInsightTopRow}>
+                <View style={styles.marketInsightTopLeft}>
+                  <Flame size={18} color={AnimoColors.white} />
+                  <AnimoText variant="h3" color={AnimoColors.white}>
+                    {t('buyer.marketTrends')}
                   </AnimoText>
-                  <View style={styles.trendRow}>
-                    <TrendingUp size={14} strokeWidth={2.5} color={AnimoColors.accentPrimary} />
-                    <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
-                      {t('buyer.stablePrice')}
-                    </AnimoText>
-                  </View>
+                </View>
+                <View style={styles.trendingBadge}>
+                  <AnimoText variant="tag" color={AnimoColors.white} style={styles.trendingBadgeText}>
+                    {t('buyer.trending')}
+                  </AnimoText>
+                </View>
+              </View>
+
+              <View style={styles.marketInsightInner}>
+                <View style={styles.insightBox}>
+                  <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                    {t('buyer.mostSold')}
+                  </AnimoText>
+                  <AnimoText
+                    variant="h2"
+                    color={AnimoColors.accentPrimary}
+                    style={styles.insightVarietyValueLarge}
+                    numberOfLines={2}>
+                    {insights.topVariety}
+                  </AnimoText>
+                  {insights.topVariety.toLowerCase().includes('hybrid') ? (
+                    <View style={styles.hybridBadge}>
+                      <AnimoText variant="tag" color="#1E40AF">
+                        High-Yield F1 Palay
+                      </AnimoText>
+                    </View>
+                  ) : null}
                 </View>
 
-                <View style={styles.priceRowHighlight}>
-                  <AnimoText
-                    variant="h1"
-                    color={AnimoColors.accentPrimary}
-                    style={styles.insightPriceValue}>
-                    ₱{insights.averagePricePerKg.toFixed(2)}
-                  </AnimoText>
-                  <AnimoText
-                    variant="body"
-                    color={AnimoColors.textMediumEmphasis}
-                    style={styles.perKgText}>
-                    {t('common.perKg')}
-                  </AnimoText>
+                <View style={styles.insightBox}>
+                  <View style={styles.insightBoxHeader}>
+                    <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                      {t('buyer.averagePrice')}
+                    </AnimoText>
+                    <View style={styles.trendRow}>
+                      <TrendingUp size={14} strokeWidth={2.5} color={AnimoColors.accentPrimary} />
+                      <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
+                        {t('buyer.stablePrice')}
+                      </AnimoText>
+                    </View>
+                  </View>
+
+                  <View style={styles.priceRowHighlight}>
+                    <AnimoText
+                      variant="h1"
+                      color={AnimoColors.accentPrimary}
+                      style={styles.insightPriceValue}>
+                      ₱{insights.averagePricePerKg.toFixed(2)}
+                    </AnimoText>
+                    <AnimoText
+                      variant="body"
+                      color={AnimoColors.textMediumEmphasis}
+                      style={styles.perKgText}>
+                      {t('common.perKg')}
+                    </AnimoText>
+                  </View>
                 </View>
               </View>
             </View>
@@ -153,7 +218,7 @@ export default function BuyerHomeScreen() {
         ) : null}
 
         {/* Colored Quick Actions */}
-        <View style={styles.actions}>
+        <View ref={quickActionsRef} collapsable={false} style={styles.actions}>
           <QuickAction
             icon={<ShoppingBag size={22} color={AnimoColors.accentPrimary} />}
             label={t('buyer.quickMarket')}
@@ -170,7 +235,7 @@ export default function BuyerHomeScreen() {
 
         {/* Patok na Uri ng Palay — live avg of Available listings per variety */}
         {insights && insights.popularVarieties.length > 0 ? (
-          <View style={styles.varietiesSection}>
+          <View ref={varietiesRef} collapsable={false} style={styles.varietiesSection}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
                 <Sparkles size={18} color={AnimoColors.accentPrimary} />
@@ -290,9 +355,12 @@ export default function BuyerHomeScreen() {
         </View>
       </ScrollView>
 
-      {/* Onboarding / Tutorial Walkthrough Modal */}
-      <OnboardingWalkthroughModal
+      {/* GCash-style Interactive Spotlight Tour for Buyers */}
+      <SpotlightTour
         visible={showTutorial}
+        role="mamimili"
+        steps={buyerTourSteps}
+        scrollViewRef={scrollViewRef}
         onClose={() => setShowTutorial(false)}
       />
     </SafeAreaView>

@@ -58,6 +58,34 @@ export const TRANSLATIONS = {
     'common.kg': 'kg',
     'common.peso': '₱',
 
+    // Spotlight Coachmark Tour (GCash-style)
+    'spotlight.step': 'HAKBANG',
+    'spotlight.of': 'sa',
+    'spotlight.skip': 'Laktawan',
+    'spotlight.next': 'Susunod',
+    'spotlight.finish': 'Naintindihan',
+    'spotlight.prev': 'Bumalik',
+
+    // Farmer Spotlight Steps
+    'spotlight.farmer.step1Title': 'Payo sa Bukid at Panahon',
+    'spotlight.farmer.step1Desc': 'Bantayan ang mga payo mula sa LGU at ulat-panahon upang maagap na maprotektahan ang palay laban sa ulan at bagyo.',
+    'spotlight.farmer.step2Title': 'Aktibong Listahan at Kahilingan',
+    'spotlight.farmer.step2Desc': 'Mabilis na makita ang iyong mga nakalistang palay, mga bagong purchase request mula sa mamimili, at mga transaksyong naghihintay.',
+    'spotlight.farmer.step3Title': 'Ibenta ang Inaning Palay',
+    'spotlight.farmer.step3Desc': 'Pindutin ito upang maglista ng bagong ani. Ilagay ang barayti (Inbred o Hybrid), timbang, at antas ng moisture (Tuyo o Basa).',
+    'spotlight.farmer.step4Title': 'Mga Abiso at Alerto',
+    'spotlight.farmer.step4Desc': 'Dito mo matatanggap ang agarang update kapag may mamimiling nagpadala ng offer, nagbayad gamit ang GCash, o nagkumpirma ng order.',
+
+    // Buyer Spotlight Steps
+    'spotlight.buyer.step1Title': 'Patok sa Merkado at Presyo',
+    'spotlight.buyer.step1Desc': 'Tingnan ang real-time na karaniwang presyo bawat kilo at pinakamabiling uri ng palay sa merkado upang makakuha ng patas na transaksyon.',
+    'spotlight.buyer.step2Title': 'Palengke at Transaksyon',
+    'spotlight.buyer.step2Desc': 'Mag-browse ng sariwang ani mula sa mga lokal na magsasaka sa Palengke o subaybayan ang iyong mga aktibong order sa Transaksyon.',
+    'spotlight.buyer.step3Title': 'Mga Patok na Barayti ng Palay',
+    'spotlight.buyer.step3Desc': 'Suriin ang mga barayti tulad ng Inbred (Rc218, Rc160) at High-Yield Hybrid (SL-8H), kasama ang average na presyo bawat kilo.',
+    'spotlight.buyer.step4Title': 'Mga Abiso at Alerto',
+    'spotlight.buyer.step4Desc': 'Manatiling updated sa estado ng iyong mga purchase request, kumpirmasyon ng bayad gamit ang GCash, at paghahatid ng palay.',
+
     // Onboarding Walkthrough (Buyer / General)
     'tutorial.badge': 'Gabay sa Animo',
     'tutorial.skip': 'Laktawan',
@@ -227,6 +255,34 @@ export const TRANSLATIONS = {
     'common.perKg': '/ kg',
     'common.kg': 'kg',
     'common.peso': '₱',
+
+    // Spotlight Coachmark Tour (GCash-style)
+    'spotlight.step': 'STEP',
+    'spotlight.of': 'of',
+    'spotlight.skip': 'Skip',
+    'spotlight.next': 'Next',
+    'spotlight.finish': 'Got It',
+    'spotlight.prev': 'Back',
+
+    // Farmer Spotlight Steps
+    'spotlight.farmer.step1Title': 'Farm Advisory & Weather',
+    'spotlight.farmer.step1Desc': 'Monitor timely LGU notices and weather forecasts to protect drying palay and optimize harvest timing.',
+    'spotlight.farmer.step2Title': 'Active Listings & Requests',
+    'spotlight.farmer.step2Desc': 'Quickly track your active palay listings, incoming buyer purchase requests, and pending transactions.',
+    'spotlight.farmer.step3Title': 'Sell Palay Harvest',
+    'spotlight.farmer.step3Desc': 'Tap here to list your harvested palay. Specify variety (Inbred or Hybrid), sack weight, and moisture level (Dry or Wet).',
+    'spotlight.farmer.step4Title': 'Notifications & Alerts',
+    'spotlight.farmer.step4Desc': 'Receive instant notifications when buyers place purchase requests, send payments via GCash, or confirm receipts.',
+
+    // Buyer Spotlight Steps
+    'spotlight.buyer.step1Title': 'Market Highlights & Pricing',
+    'spotlight.buyer.step1Desc': 'View real-time average prices per kg and top-selling varieties across local farms for transparent trading.',
+    'spotlight.buyer.step2Title': 'Marketplace & Orders',
+    'spotlight.buyer.step2Desc': 'Explore fresh palay listings from local farmers in the Marketplace, and track ongoing deals under Transactions.',
+    'spotlight.buyer.step3Title': 'Popular Palay Varieties',
+    'spotlight.buyer.step3Desc': 'Compare grain varieties including certified Inbred (Rc218, Rc160) and High-Yield Hybrid (SL-8H) with live price feeds.',
+    'spotlight.buyer.step4Title': 'Notifications & Alerts',
+    'spotlight.buyer.step4Desc': 'Stay updated on purchase request approvals, payment confirmations via GCash, and sack deliveries.',
 
     // Onboarding Walkthrough (Buyer / General)
     'tutorial.badge': 'Animo User Guide',

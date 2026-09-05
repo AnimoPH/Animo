@@ -1,16 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
+  Bell,
   ChevronRight,
   Clock,
   CloudRain,
+  LayoutGrid,
   ListChecks,
   ShoppingCart,
+  Sprout,
   User,
   Wheat,
 } from 'lucide-react-native';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -24,9 +27,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
 import {
-  OnboardingWalkthroughModal,
+  SpotlightTour,
+  type SpotlightStep,
   FARMER_TUTORIAL_STORAGE_KEY,
-} from '@/components/animo/onboarding-walkthrough-modal';
+} from '@/components/animo/spotlight-tour';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
 import {
@@ -46,6 +50,7 @@ const EMPTY_STATS: FarmerHomeStats = {
 /** Tahanan — farmer home: weather advisory, quick stats, sell CTA, activity feed. */
 export default function FarmerHomeScreen() {
   const { t } = useLanguage();
+  const params = useLocalSearchParams<{ startTour?: string }>();
   const [hasActiveAdvisory] = useState(true);
   const [stats, setStats] = useState<FarmerHomeStats>(EMPTY_STATS);
   const [activities, setActivities] = useState<FarmerHomeActivity[]>([]);
@@ -53,6 +58,13 @@ export default function FarmerHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
+
+  // Spotlight target refs
+  const advisoryRef = useRef<View>(null);
+  const statsRef = useRef<View>(null);
+  const ctaRef = useRef<View>(null);
+  const bellRef = useRef<View>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const load = useCallback(async (isRefresh: boolean) => {
     if (isRefresh) setRefreshing(true);
@@ -72,17 +84,22 @@ export default function FarmerHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Check first-time farmer tutorial flag
-      AsyncStorage.getItem(FARMER_TUTORIAL_STORAGE_KEY)
-        .then((seen) => {
-          if (!seen) {
-            setShowTutorial(true);
-          }
-        })
-        .catch(() => {});
+      // Check query param trigger (e.g. from Profile > Settings > Gabay)
+      if (params.startTour === 'true') {
+        setShowTutorial(true);
+      } else {
+        // Check first-time farmer tutorial flag
+        AsyncStorage.getItem(FARMER_TUTORIAL_STORAGE_KEY)
+          .then((seen) => {
+            if (!seen) {
+              setShowTutorial(true);
+            }
+          })
+          .catch(() => {});
+      }
 
       load(false);
-    }, [load]),
+    }, [load, params.startTour]),
   );
 
   const statCards = [
@@ -109,28 +126,76 @@ export default function FarmerHomeScreen() {
     },
   ];
 
+  const farmerTourSteps: SpotlightStep[] = [
+    {
+      id: 'farmer-advisory',
+      title: t('spotlight.farmer.step1Title'),
+      description: t('spotlight.farmer.step1Desc'),
+      icon: CloudRain,
+      targetRef: advisoryRef,
+      shape: 'rectangle',
+      borderRadius: 20,
+      padding: 6,
+    },
+    {
+      id: 'farmer-stats',
+      title: t('spotlight.farmer.step2Title'),
+      description: t('spotlight.farmer.step2Desc'),
+      icon: LayoutGrid,
+      targetRef: statsRef,
+      shape: 'rectangle',
+      borderRadius: 16,
+      padding: 6,
+    },
+    {
+      id: 'farmer-sell-cta',
+      title: t('spotlight.farmer.step3Title'),
+      description: t('spotlight.farmer.step3Desc'),
+      icon: Sprout,
+      targetRef: ctaRef,
+      shape: 'rectangle',
+      borderRadius: 20,
+      padding: 6,
+    },
+    {
+      id: 'farmer-bell',
+      title: t('spotlight.farmer.step4Title'),
+      description: t('spotlight.farmer.step4Desc'),
+      icon: Bell,
+      targetRef: bellRef,
+      shape: 'circle',
+      padding: 6,
+    },
+  ];
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <AppHeader onPressBell={() => router.push('/(farmer)/notipikasyon')} />
+      <AppHeader
+        bellRef={bellRef}
+        onPressBell={() => router.push('/(farmer)/notipikasyon')}
+      />
 
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
         }>
         {hasActiveAdvisory ? (
-          <AdvisoryCard
-            title={t('farmer.advisoryTitle')}
-            badge={t('farmer.advisoryBadge')}
-            tip={t('farmer.advisoryTip')}
-            desc={t('farmer.advisoryDesc')}
-            onPress={() => router.push('/(farmer)/advisory')}
-          />
+          <View ref={advisoryRef} collapsable={false}>
+            <AdvisoryCard
+              title={t('farmer.advisoryTitle')}
+              badge={t('farmer.advisoryBadge')}
+              tip={t('farmer.advisoryTip')}
+              desc={t('farmer.advisoryDesc')}
+              onPress={() => router.push('/(farmer)/advisory')}
+            />
+          </View>
         ) : null}
 
-        <View style={styles.statsRow}>
+        <View ref={statsRef} collapsable={false} style={styles.statsRow}>
           {statCards.map((stat) => (
             <StatCard
               key={stat.key}
@@ -143,11 +208,13 @@ export default function FarmerHomeScreen() {
           ))}
         </View>
 
-        <CtaBanner
-          title={t('farmer.sellCtaTitle')}
-          subtitle={t('farmer.sellCtaSubtitle')}
-          onPress={() => router.push('/(farmer)/(tabs)/palengke')}
-        />
+        <View ref={ctaRef} collapsable={false}>
+          <CtaBanner
+            title={t('farmer.sellCtaTitle')}
+            subtitle={t('farmer.sellCtaSubtitle')}
+            onPress={() => router.push('/(farmer)/(tabs)/palengke')}
+          />
+        </View>
 
         <View style={styles.activitySection}>
           <View style={styles.activityHeader}>
@@ -190,10 +257,12 @@ export default function FarmerHomeScreen() {
         </View>
       </ScrollView>
 
-      {/* Onboarding / Tutorial Walkthrough Modal for Farmers */}
-      <OnboardingWalkthroughModal
+      {/* GCash-style Interactive Spotlight Tour for Farmers */}
+      <SpotlightTour
         visible={showTutorial}
         role="magsasaka"
+        steps={farmerTourSteps}
+        scrollViewRef={scrollViewRef}
         onClose={() => setShowTutorial(false)}
       />
     </SafeAreaView>

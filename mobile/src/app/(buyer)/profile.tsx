@@ -160,7 +160,9 @@ export default function BuyerProfileScreen() {
   const handleSettingPress = (key: string) => {
     if (key === 'notif') router.push('/(buyer)/notipikasyon' as Href);
     else if (key === 'language') setShowLanguageModal(true);
-    else if (key === 'guide') setShowTutorialModal(true);
+    else if (key === 'guide') {
+      router.push({ pathname: '/(buyer)', params: { startTour: 'true' } });
+    }
     else if (key === 'help') setShowHelpModal(true);
     else if (key === 'terms' || key === 'privacy') setShowTermsModal(true);
   };
