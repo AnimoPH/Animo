@@ -153,70 +153,68 @@ export default function BuyerHomeScreen() {
 
         {/* Market Insights & Popularity Card */}
         {insights ? (
-          <View ref={marketTrendsRef} collapsable={false}>
-            <View style={styles.marketInsightCard}>
-              <View style={styles.marketInsightTopRow}>
-                <View style={styles.marketInsightTopLeft}>
-                  <Flame size={18} color={AnimoColors.white} />
-                  <AnimoText variant="h3" color={AnimoColors.white}>
-                    {t('buyer.marketTrends')}
-                  </AnimoText>
-                </View>
-                <View style={styles.trendingBadge}>
-                  <AnimoText variant="tag" color={AnimoColors.white} style={styles.trendingBadgeText}>
-                    {t('buyer.trending')}
-                  </AnimoText>
-                </View>
+          <View ref={marketTrendsRef} collapsable={false} style={styles.marketInsightCard}>
+            <View style={styles.marketInsightTopRow}>
+              <View style={styles.marketInsightTopLeft}>
+                <Flame size={18} color={AnimoColors.white} />
+                <AnimoText variant="h3" color={AnimoColors.white}>
+                  {t('buyer.marketTrends')}
+                </AnimoText>
+              </View>
+              <View style={styles.trendingBadge}>
+                <AnimoText variant="tag" color={AnimoColors.white} style={styles.trendingBadgeText}>
+                  {t('buyer.trending')}
+                </AnimoText>
+              </View>
+            </View>
+
+            <View style={styles.marketInsightInner}>
+              <View style={styles.insightBox}>
+                <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                  {t('buyer.mostSold')}
+                </AnimoText>
+                <AnimoText
+                  variant="h2"
+                  color={AnimoColors.accentPrimary}
+                  style={styles.insightVarietyValueLarge}
+                  numberOfLines={2}>
+                  {insights.topVariety}
+                </AnimoText>
+                {insights.topVariety.toLowerCase().includes('hybrid') ? (
+                  <View style={styles.hybridBadge}>
+                    <AnimoText variant="tag" color="#1E40AF">
+                      High-Yield F1 Palay
+                    </AnimoText>
+                  </View>
+                ) : null}
               </View>
 
-              <View style={styles.marketInsightInner}>
-                <View style={styles.insightBox}>
+              <View style={styles.insightBox}>
+                <View style={styles.insightBoxHeader}>
                   <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                    {t('buyer.mostSold')}
+                    {t('buyer.averagePrice')}
                   </AnimoText>
-                  <AnimoText
-                    variant="h2"
-                    color={AnimoColors.accentPrimary}
-                    style={styles.insightVarietyValueLarge}
-                    numberOfLines={2}>
-                    {insights.topVariety}
-                  </AnimoText>
-                  {insights.topVariety.toLowerCase().includes('hybrid') ? (
-                    <View style={styles.hybridBadge}>
-                      <AnimoText variant="tag" color="#1E40AF">
-                        High-Yield F1 Palay
-                      </AnimoText>
-                    </View>
-                  ) : null}
+                  <View style={styles.trendRow}>
+                    <TrendingUp size={14} strokeWidth={2.5} color={AnimoColors.accentPrimary} />
+                    <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
+                      {t('buyer.stablePrice')}
+                    </AnimoText>
+                  </View>
                 </View>
 
-                <View style={styles.insightBox}>
-                  <View style={styles.insightBoxHeader}>
-                    <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                      {t('buyer.averagePrice')}
-                    </AnimoText>
-                    <View style={styles.trendRow}>
-                      <TrendingUp size={14} strokeWidth={2.5} color={AnimoColors.accentPrimary} />
-                      <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
-                        {t('buyer.stablePrice')}
-                      </AnimoText>
-                    </View>
-                  </View>
-
-                  <View style={styles.priceRowHighlight}>
-                    <AnimoText
-                      variant="h1"
-                      color={AnimoColors.accentPrimary}
-                      style={styles.insightPriceValue}>
-                      ₱{insights.averagePricePerKg.toFixed(2)}
-                    </AnimoText>
-                    <AnimoText
-                      variant="body"
-                      color={AnimoColors.textMediumEmphasis}
-                      style={styles.perKgText}>
-                      {t('common.perKg')}
-                    </AnimoText>
-                  </View>
+                <View style={styles.priceRowHighlight}>
+                  <AnimoText
+                    variant="h1"
+                    color={AnimoColors.accentPrimary}
+                    style={styles.insightPriceValue}>
+                    ₱{insights.averagePricePerKg.toFixed(2)}
+                  </AnimoText>
+                  <AnimoText
+                    variant="body"
+                    color={AnimoColors.textMediumEmphasis}
+                    style={styles.perKgText}>
+                    {t('common.perKg')}
+                  </AnimoText>
                 </View>
               </View>
             </View>
