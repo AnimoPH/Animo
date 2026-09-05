@@ -86,6 +86,38 @@ export const TRANSLATIONS = {
     'spotlight.buyer.step4Title': 'Mga Abiso at Alerto',
     'spotlight.buyer.step4Desc': 'Manatiling updated sa estado ng iyong mga purchase request, kumpirmasyon ng bayad gamit ang GCash, at paghahatid ng palay.',
 
+    // Farmer Palengke (Aking Ani) Spotlight
+    'spotlight.farmerPalengke.step1Title': 'Paghahanap at Pagsasala',
+    'spotlight.farmerPalengke.step1Desc': 'Maghanap ng partikular na ani, o salain ayon sa presyo bawat kilo, timbang, at antas ng moisture.',
+    'spotlight.farmerPalengke.step2Title': 'Maglista ng Bagong Ani',
+    'spotlight.farmerPalengke.step2Desc': 'Pindutin ang + button upang mag-upload ng litrato at magbenta ng inaning palay sa merkado.',
+    'spotlight.farmerPalengke.step3Title': 'Mga Abiso',
+    'spotlight.farmerPalengke.step3Desc': 'Bantayan ang mga agarang alerto para sa mga bagong offer mula sa mga mamimili.',
+
+    // Farmer Transaksyon Spotlight
+    'spotlight.farmerTxn.step1Title': 'Pagsasala ng Transaksyon',
+    'spotlight.farmerTxn.step1Desc': 'Piliin ang Kailangan ng Aksyon, Naghihintay, o Kumpleto upang madaling masubaybayan ang iyong mga benta.',
+    'spotlight.farmerTxn.step2Title': 'Paghahanap ng Deal',
+    'spotlight.farmerTxn.step2Desc': 'I-type ang Reference ID, pangalan ng mamimili, o uri ng palay upang mabilis na mahanap ang transaksyon.',
+    'spotlight.farmerTxn.step3Title': 'Mga Abiso',
+    'spotlight.farmerTxn.step3Desc': 'Manatiling updated sa mga kumpirmasyon ng bayad at iskedyul ng delivery.',
+
+    // Buyer Palengke (Marketplace) Spotlight
+    'spotlight.buyerPalengke.step1Title': 'Maghanap at Salain ang Palay',
+    'spotlight.buyerPalengke.step1Desc': 'Mag-type ng barayti tulad ng Inbred o Hybrid, o salain ayon sa presyo bawat kilo at moisture.',
+    'spotlight.buyerPalengke.step2Title': 'Palay at Direktoryo',
+    'spotlight.buyerPalengke.step2Desc': 'Madaling magpalipat-lipat sa mga aktibong listahan ng palay at direktoryo ng mga beripikadong lokal na magsasaka.',
+    'spotlight.buyerPalengke.step3Title': 'Mga Abiso',
+    'spotlight.buyerPalengke.step3Desc': 'Makatanggap ng abiso kapag tinanggap ng magsasaka ang iyong purchase request.',
+
+    // Buyer Transaksyon Spotlight
+    'spotlight.buyerTxn.step1Title': 'Pagsasala ng Order',
+    'spotlight.buyerTxn.step1Desc': 'Salain ang mga order ayon sa Kailangan ng Aksyon (bayaran gamit ang GCash o Cash), Naghihintay, o Kumpleto.',
+    'spotlight.buyerTxn.step2Title': 'Paghahanap ng Order',
+    'spotlight.buyerTxn.step2Desc': 'Hanapin ang order gamit ang Reference ID, pangalan ng magsasaka, o uri ng palay.',
+    'spotlight.buyerTxn.step3Title': 'Mga Abiso',
+    'spotlight.buyerTxn.step3Desc': 'Bantayan ang resibo at update sa paghahatid ng iyong biniling palay.',
+
     // Onboarding Walkthrough (Buyer / General)
     'tutorial.badge': 'Gabay sa Animo',
     'tutorial.skip': 'Laktawan',
@@ -283,6 +315,38 @@ export const TRANSLATIONS = {
     'spotlight.buyer.step3Desc': 'Compare grain varieties including certified Inbred (Rc218, Rc160) and High-Yield Hybrid (SL-8H) with live price feeds.',
     'spotlight.buyer.step4Title': 'Notifications & Alerts',
     'spotlight.buyer.step4Desc': 'Stay updated on purchase request approvals, payment confirmations via GCash, and sack deliveries.',
+
+    // Farmer Palengke (My Harvest) Spotlight
+    'spotlight.farmerPalengke.step1Title': 'Search & Smart Filters',
+    'spotlight.farmerPalengke.step1Desc': 'Search specific crops or filter by price per kg, sack weight, and moisture level.',
+    'spotlight.farmerPalengke.step2Title': 'List New Harvest',
+    'spotlight.farmerPalengke.step2Desc': 'Tap the + button to upload photos and list harvested palay directly on the market.',
+    'spotlight.farmerPalengke.step3Title': 'Notifications',
+    'spotlight.farmerPalengke.step3Desc': 'Stay updated with instant alerts whenever buyers place new purchase requests.',
+
+    // Farmer Transaksyon Spotlight
+    'spotlight.farmerTxn.step1Title': 'Filter Transactions',
+    'spotlight.farmerTxn.step1Desc': 'Filter by Action Required, Pending, or Completed to manage your farm sales smoothly.',
+    'spotlight.farmerTxn.step2Title': 'Search Deals',
+    'spotlight.farmerTxn.step2Desc': 'Type the Reference ID, buyer name, or grain variety to find deals instantly.',
+    'spotlight.farmerTxn.step3Title': 'Notifications',
+    'spotlight.farmerTxn.step3Desc': 'Receive instant alerts for GCash payment receipts and scheduled sack pickups.',
+
+    // Buyer Palengke (Marketplace) Spotlight
+    'spotlight.buyerPalengke.step1Title': 'Search & Filter Palay',
+    'spotlight.buyerPalengke.step1Desc': 'Search for varieties like Inbred or Hybrid, and filter by price per kg or moisture level.',
+    'spotlight.buyerPalengke.step2Title': 'Palay & Farmers Directory',
+    'spotlight.buyerPalengke.step2Desc': 'Quickly switch between active crop listings and profiles of verified local farmers.',
+    'spotlight.buyerPalengke.step3Title': 'Notifications',
+    'spotlight.buyerPalengke.step3Desc': 'Receive instant alerts when a farmer accepts your purchase request or confirms stock.',
+
+    // Buyer Transaksyon Spotlight
+    'spotlight.buyerTxn.step1Title': 'Filter Orders',
+    'spotlight.buyerTxn.step1Desc': 'Filter orders by Action Required (pay via GCash or Cash), Pending, or Completed.',
+    'spotlight.buyerTxn.step2Title': 'Search Orders',
+    'spotlight.buyerTxn.step2Desc': 'Search orders by Reference ID, farmer name, or rice variety.',
+    'spotlight.buyerTxn.step3Title': 'Notifications',
+    'spotlight.buyerTxn.step3Desc': 'Track order verification, digital receipts, and palay delivery progress.',
 
     // Onboarding Walkthrough (Buyer / General)
     'tutorial.badge': 'Animo User Guide',

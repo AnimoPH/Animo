@@ -57,7 +57,7 @@ export default function FarmerHomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showTutorial, setShowTutorial] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(true);
 
   // Spotlight target refs
   const advisoryRef = useRef<View>(null);
@@ -84,22 +84,10 @@ export default function FarmerHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Check query param trigger (e.g. from Profile > Settings > Gabay)
-      if (params.startTour === 'true') {
-        setShowTutorial(true);
-      } else {
-        // Check first-time farmer tutorial flag
-        AsyncStorage.getItem(FARMER_TUTORIAL_STORAGE_KEY)
-          .then((seen) => {
-            if (!seen) {
-              setShowTutorial(true);
-            }
-          })
-          .catch(() => {});
-      }
-
+      // Force spotlight tour visible for preview
+      setShowTutorial(true);
       load(false);
-    }, [load, params.startTour]),
+    }, [load]),
   );
 
   const statCards = [

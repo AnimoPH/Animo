@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, ChevronRight, ClipboardList, Search, X } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Bell, ChevronLeft, ChevronRight, ClipboardList, Filter, Search, X } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -17,6 +17,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
 import { TransactionCard, type FarmerTransactionCardItem } from '@/components/animo/farmer/transaction-card';
+import {
+  SpotlightTour,
+  type SpotlightStep,
+} from '@/components/animo/spotlight-tour';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
@@ -81,6 +85,7 @@ export default function FarmerTransactionsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterValue>('Lahat');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showTutorial, setShowTutorial] = useState(true);
 
   const [outcomes, setOutcomes] = useState<PurchaseOutcome[]>([]);
   const [listingsById, setListingsById] = useState<Map<string, CropListing>>(new Map());
@@ -88,6 +93,10 @@ export default function FarmerTransactionsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const searchBarRef = useRef<View>(null);
+  const filterRowRef = useRef<View>(null);
+  const bellRef = useRef<View>(null);
 
   const load = useCallback(async (isRefresh: boolean) => {
     if (isRefresh) setRefreshing(true);
@@ -169,12 +178,47 @@ export default function FarmerTransactionsScreen() {
     setCurrentPage(1);
   };
 
+  const farmerTxnTourSteps: SpotlightStep[] = [
+    {
+      id: 'farmer-txn-filter',
+      title: t('spotlight.farmerTxn.step1Title'),
+      description: t('spotlight.farmerTxn.step1Desc'),
+      icon: Filter,
+      targetRef: filterRowRef,
+      shape: 'rectangle',
+      borderRadius: 16,
+      padding: 6,
+    },
+    {
+      id: 'farmer-txn-search',
+      title: t('spotlight.farmerTxn.step2Title'),
+      description: t('spotlight.farmerTxn.step2Desc'),
+      icon: Search,
+      targetRef: searchBarRef,
+      shape: 'rectangle',
+      borderRadius: 16,
+      padding: 6,
+    },
+    {
+      id: 'farmer-txn-bell',
+      title: t('spotlight.farmerTxn.step3Title'),
+      description: t('spotlight.farmerTxn.step3Desc'),
+      icon: Bell,
+      targetRef: bellRef,
+      shape: 'circle',
+      padding: 6,
+    },
+  ];
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <AppHeader onPressBell={() => router.push('/(farmer)/notipikasyon')} />
+      <AppHeader
+        bellRef={bellRef}
+        onPressBell={() => router.push('/(farmer)/notipikasyon')}
+      />
 
-      <View style={styles.searchBar}>
+      <View ref={searchBarRef} collapsable={false} style={styles.searchBar}>
         <Search size={18} color={AnimoColors.objectLowEmphasis} />
         <TextInput
           style={styles.searchInput}
@@ -226,28 +270,30 @@ export default function FarmerTransactionsScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
           ListHeaderComponent={
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filters}
-              style={styles.filterScroll}>
-              {FILTERS.map((filter) => {
-                const active = activeFilter === filter;
-                return (
-                  <TouchableOpacity
-                    key={filter}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    onPress={() => handleFilterSelect(filter)}
-                    activeOpacity={0.85}
-                    style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}>
-                    <AnimoText variant="bodyEmphasis" color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
-                      {filter}
-                    </AnimoText>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+            <View ref={filterRowRef} collapsable={false}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filters}
+                style={styles.filterScroll}>
+                {FILTERS.map((filter) => {
+                  const active = activeFilter === filter;
+                  return (
+                    <TouchableOpacity
+                      key={filter}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      onPress={() => handleFilterSelect(filter)}
+                      activeOpacity={0.85}
+                      style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}>
+                      <AnimoText variant="bodyEmphasis" color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
+                        {filter}
+                      </AnimoText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
           }
           ListFooterComponent={
             <PaginationControls
@@ -267,6 +313,12 @@ export default function FarmerTransactionsScreen() {
           }
         />
       )}
+
+      <SpotlightTour
+        visible={showTutorial}
+        steps={farmerTxnTourSteps}
+        onClose={() => setShowTutorial(false)}
+      />
     </SafeAreaView>
   );
 }

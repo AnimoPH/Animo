@@ -42,7 +42,7 @@ export default function BuyerHomeScreen() {
   const [featured, setFeatured] = useState<RankedListing[]>([]);
   const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
   const [insights, setInsights] = useState<MarketPopularityInsight | null>(null);
-  const [showTutorial, setShowTutorial] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(true);
 
   // Spotlight target refs
   const marketTrendsRef = useRef<View>(null);
@@ -52,19 +52,8 @@ export default function BuyerHomeScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
-    // Check query param trigger (e.g. from Profile > Settings > Gabay)
-    if (params.startTour === 'true') {
-      setShowTutorial(true);
-    } else {
-      // Check first-time user tutorial flag
-      AsyncStorage.getItem(TUTORIAL_STORAGE_KEY)
-        .then((seen) => {
-          if (!seen) {
-            setShowTutorial(true);
-          }
-        })
-        .catch(() => {});
-    }
+    // Force spotlight tour visible for preview
+    setShowTutorial(true);
 
     fetchMarketPopularityInsights().then(setInsights).catch(() => {});
     fetchMarketplaceListings({})
@@ -79,7 +68,7 @@ export default function BuyerHomeScreen() {
         }
       })
       .catch(() => {});
-  }, [params.startTour]);
+  }, []);
 
   const buyerTourSteps: SpotlightStep[] = [
     {

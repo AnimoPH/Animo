@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
+  Bell,
   MapPin,
   Search,
   SlidersHorizontal,
@@ -27,7 +28,12 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
 import { MarketplaceListingCard } from '@/components/animo/buyer/marketplace-listing-card';
 import { LabeledInput } from '@/components/animo/labeled-input';
+import {
+  SpotlightTour,
+  type SpotlightStep,
+} from '@/components/animo/spotlight-tour';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
 import { fetchCoverPhotos } from '@/services/crop-listing-service';
 import {
   fetchTopRankedFarmers,
@@ -83,9 +89,11 @@ function newestListingsFirst(items: RankedListing[]): RankedListing[] {
  * Supports searching both crop listings and farmer profiles with ranking insights.
  */
 export default function MarketplaceScreen() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabMode>('palay');
   const [modalOpen, setModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showTutorial, setShowTutorial] = useState(true);
 
   // Draft filter state (committed when user taps "Ilapat" in modal)
   const [quantityText, setQuantityText] = useState('');
@@ -101,6 +109,10 @@ export default function MarketplaceScreen() {
   const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
+
+  const searchRowRef = useRef<View>(null);
+  const tabBarRef = useRef<View>(null);
+  const bellRef = useRef<View>(null);
 
   const latestRequestId = useRef(0);
 
@@ -229,13 +241,54 @@ export default function MarketplaceScreen() {
     );
   }, [farmers, searchQuery]);
 
+  const buyerPalengkeTourSteps: SpotlightStep[] = [
+    {
+      id: 'buyer-palengke-search',
+      title: t('spotlight.buyerPalengke.step1Title'),
+      description: t('spotlight.buyerPalengke.step1Desc'),
+      icon: Search,
+      targetRef: searchRowRef,
+      shape: 'rectangle',
+      borderRadius: 16,
+      padding: 6,
+    },
+    {
+      id: 'buyer-palengke-tabs',
+      title: t('spotlight.buyerPalengke.step2Title'),
+      description: t('spotlight.buyerPalengke.step2Desc'),
+      icon: Users,
+      targetRef: tabBarRef,
+      shape: 'rectangle',
+      borderRadius: 16,
+      padding: 6,
+    },
+    {
+      id: 'buyer-palengke-bell',
+      title: t('spotlight.buyerPalengke.step3Title'),
+      description: t('spotlight.buyerPalengke.step3Desc'),
+      icon: Bell,
+      targetRef: bellRef,
+      shape: 'circle',
+      padding: 6,
+    },
+  ];
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <AppHeader />
+      <AppHeader
+        bellRef={bellRef}
+        onPressBell={() => router.push('/(buyer)/notipikasyon')}
+      />
+
+      <SpotlightTour
+        steps={buyerPalengkeTourSteps}
+        visible={showTutorial}
+        onClose={() => setShowTutorial(false)}
+      />
 
       {/* Top Search Bar & Filter Icon Side-by-Side */}
-      <View style={styles.searchFilterRow}>
+      <View ref={searchRowRef} collapsable={false} style={styles.searchFilterRow}>
         <View style={styles.searchBar}>
           <Search size={18} color={AnimoColors.objectMediumEmphasis} style={styles.searchIcon} />
           <TextInput
@@ -284,7 +337,7 @@ export default function MarketplaceScreen() {
       </View>
 
       {/* Segment Tab Switcher: Mga Palay vs Mga Magsasaka */}
-      <View style={styles.tabBarContainer}>
+      <View ref={tabBarRef} collapsable={false} style={styles.tabBarContainer}>
         <Pressable
           accessibilityRole="tab"
           onPress={() => setActiveTab('palay')}
