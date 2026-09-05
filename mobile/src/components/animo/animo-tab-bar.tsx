@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
+import type { TranslationKey } from '@/i18n/translations';
 
 export type TabItem = {
   /**
@@ -17,6 +19,7 @@ export type TabItem = {
   /** Route name registered in the Tabs layout (file name without extension). */
   name: string;
   label: string;
+  labelKey?: TranslationKey;
   icon: LucideIcon;
 };
 
@@ -36,6 +39,7 @@ export function AnimoTabBar({
   items,
 }: BottomTabBarProps & { items: TabItem[] }) {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
 
   // Respect `tabBarStyle: { display: 'none' }` set per screen (e.g. focused
   // sub-flows that have their own bottom action button).
@@ -55,6 +59,7 @@ export function AnimoTabBar({
           const focused = state.index === index;
           const color = focused ? AnimoColors.green : AnimoColors.muted;
           const Icon = item.icon;
+          const displayLabel = item.labelKey ? t(item.labelKey) : item.label;
 
           const onPress = () => {
             const event = navigation.emit({
@@ -93,12 +98,12 @@ export function AnimoTabBar({
               key={route.key}
               accessibilityRole="button"
               accessibilityState={focused ? { selected: true } : {}}
-              accessibilityLabel={item.label}
+              accessibilityLabel={displayLabel}
               onPress={onPress}
               style={styles.tab}>
               <Icon size={24} color={color} strokeWidth={focused ? 2.4 : 2} />
               <AnimoText variant="tag" color={color} style={styles.label}>
-                {item.label}
+                {displayLabel}
               </AnimoText>
             </Pressable>
           );

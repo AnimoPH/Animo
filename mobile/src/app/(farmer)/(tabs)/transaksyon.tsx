@@ -19,11 +19,13 @@ import { AppHeader } from '@/components/animo/app-header';
 import { TransactionCard, type FarmerTransactionCardItem } from '@/components/animo/farmer/transaction-card';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
 import { fetchCropListingsByIds } from '@/services/crop-listing-service';
 import { fetchCounterpartNames, fetchFarmerPurchaseOutcomes } from '@/services/transaction-service';
 import { varietyLabel, type CropListing } from '@/types/crop-listing';
 import {
   DISPLAY_STAGE_LABELS,
+  getDisplayStageLabel,
   deriveDisplayStage,
   formatDate,
   formatReferenceId,
@@ -49,6 +51,7 @@ function toCardItem(
   outcome: PurchaseOutcome,
   listing: CropListing | undefined,
   buyerName?: string,
+  lang: 'tl' | 'en' = 'tl',
 ): FarmerTransactionCardItem {
   const stage = deriveDisplayStage(outcome);
   const quantityKg = outcome.kind === 'matched' ? outcome.transaction.quantityKg : outcome.request.requestedQuantityKg;
@@ -56,21 +59,17 @@ function toCardItem(
   const total = outcome.kind === 'matched' ? requestTotal(outcome) : pricePerKg * quantityKg;
 
   return {
-    // Routing key: transaction id once matched (the farmer transaction detail
-    // screen only understands transaction ids); the listing id pre-match, so
-    // tapping a pending request lands on that listing's Orders tab instead.
     id: outcome.kind === 'matched' ? outcome.transaction.id : outcome.request.listingId,
     referenceId: formatReferenceId(outcome.kind === 'matched' ? outcome.transaction.id : outcome.request.id, outcome.kind === 'matched' ? 'TXN' : 'PR'),
     stage,
-    statusLabel: DISPLAY_STAGE_LABELS[stage],
+    statusLabel: getDisplayStageLabel(stage, lang),
     variety: listing ? varietyLabel(listing) : 'Palay',
-    moisture: listing?.declaredMoisture === 'Wet' ? 'Basa' : 'Tuyo',
+    moisture: listing?.declaredMoisture === 'Wet' ? (lang === 'en' ? 'Wet' : 'Basa') : (lang === 'en' ? 'Dry' : 'Tuyo'),
     price: formatPeso(total),
     weight: `${quantityKg} kg`,
     pricePerKg: `${formatPeso(pricePerKg)}/kg`,
     paymentMode: outcome.kind === 'matched' ? (outcome.transaction.payment?.paymentMode ?? null) : null,
-    // Buyer identity is revealed once a transaction match exists, or falls back gracefully
-    buyer: buyerName || (outcome.kind === 'matched' ? 'Mamimili' : 'Bagong Mamimili'),
+    buyer: buyerName || (outcome.kind === 'matched' ? (lang === 'en' ? 'Buyer' : 'Mamimili') : (lang === 'en' ? 'New Buyer' : 'Bagong Mamimili')),
     date: formatDate(outcome.request.submittedAt),
     time: formatTime(outcome.request.submittedAt),
   };
@@ -78,6 +77,7 @@ function toCardItem(
 
 /** Farmer Transaksyon — pending requests across every listing plus matched transactions, driven by real data. */
 export default function FarmerTransactionsScreen() {
+  const { language, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterValue>('Lahat');
   const [currentPage, setCurrentPage] = useState(1);
@@ -123,9 +123,9 @@ export default function FarmerTransactionsScreen() {
       outcomes.map((outcome) => {
         const buyerId = outcome.kind === 'matched' ? outcome.transaction.buyerId : outcome.request.buyerId;
         const buyerName = buyerNamesById.get(buyerId);
-        return toCardItem(outcome, listingsById.get(outcome.request.listingId), buyerName);
+        return toCardItem(outcome, listingsById.get(outcome.request.listingId), buyerName, language);
       }),
-    [outcomes, listingsById, buyerNamesById],
+    [outcomes, listingsById, buyerNamesById, language],
   );
 
   const filteredData = useMemo(() => {

@@ -110,17 +110,34 @@ export const DISPLAY_STAGE_TONE: Record<DisplayStage, DisplayStageTone> = {
 };
 
 export const DISPLAY_STAGE_LABELS: Record<DisplayStage, string> = {
-  request_pending: 'Naghihintay',
+  request_pending: 'Hinihintay ang Pagtanggap',
   request_rejected: 'Tinanggihan',
   request_cancelled: 'Nakansela',
   awaiting_payment: 'Naghihintay ng Bayad',
-  payment_sent: 'Naghihintay ng Kumpirmasyon',
+  payment_sent: 'Kumpirmasyon ng Bayad',
   payment_confirmed: 'Bayad Nakumpirma',
   delivered: 'Naihatid',
   completed: 'Kumpleto',
   transaction_cancelled: 'Nakansela',
   payment_failed: 'Hindi Natuloy',
 };
+
+export const DISPLAY_STAGE_LABELS_EN: Record<DisplayStage, string> = {
+  request_pending: 'Pending Acceptance',
+  request_rejected: 'Rejected',
+  request_cancelled: 'Cancelled',
+  awaiting_payment: 'Awaiting Payment',
+  payment_sent: 'Verifying Payment',
+  payment_confirmed: 'Payment Confirmed',
+  delivered: 'Delivered',
+  completed: 'Completed',
+  transaction_cancelled: 'Cancelled',
+  payment_failed: 'Failed',
+};
+
+export function getDisplayStageLabel(stage: DisplayStage, lang: 'tl' | 'en' = 'tl'): string {
+  return (lang === 'en' ? DISPLAY_STAGE_LABELS_EN[stage] : DISPLAY_STAGE_LABELS[stage]) ?? DISPLAY_STAGE_LABELS[stage];
+}
 
 /** Pure derivation — no I/O. This is what replaces both old stage enums. */
 export function deriveDisplayStage(outcome: PurchaseOutcome): DisplayStage {

@@ -18,12 +18,21 @@ export type PurchaseRequestStatus =
   | 'No_Quantity_Remaining';
 
 export const PURCHASE_REQUEST_STATUS_LABELS: Record<PurchaseRequestStatus, string> = {
-  Pending: 'Naghihintay',
+  Pending: 'Hinihintay ang Pagtanggap',
   Accepted: 'Tinanggap',
   Partially_Accepted: 'Bahagyang Tinanggap',
   Rejected: 'Tinanggihan',
   Cancelled: 'Nakansela',
   No_Quantity_Remaining: 'Naubos na ang Stock',
+};
+
+export const PURCHASE_REQUEST_STATUS_LABELS_EN: Record<PurchaseRequestStatus, string> = {
+  Pending: 'Pending Acceptance',
+  Accepted: 'Accepted',
+  Partially_Accepted: 'Partially Accepted',
+  Rejected: 'Rejected',
+  Cancelled: 'Cancelled',
+  No_Quantity_Remaining: 'Stock Depleted',
 };
 
 export type PurchaseRequest = {

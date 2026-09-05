@@ -35,8 +35,8 @@ export const FARM_SIZES: SelectOption[] = [
 ];
 
 export const PALAY_VARIETIES: SelectOption[] = [
-  { value: 'inbred', label: 'Inbred' },
-  { value: 'hybrid', label: 'Hybrid' },
+  { value: 'inbred', label: 'Inbred (Sertipikadong Binhi)' },
+  { value: 'hybrid', label: 'Hybrid (Mataas na Ani)' },
   { value: 'traditional-heirloom', label: 'Tradisyonal o Pamana' },
   { value: 'mixed', label: 'Halo-halong Uri' },
   { value: 'other', label: 'Iba Pa' },

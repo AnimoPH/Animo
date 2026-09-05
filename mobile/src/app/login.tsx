@@ -160,19 +160,16 @@ export default function LoginScreen() {
               onPrimary={handlePrimary}
               onRegister={() => router.replace('/onboarding/role')}
               footer={<LoginFooterSection />}
-              // dev mode only
-              // devSlot={
-              //   __DEV__
-              //     ? (
-              //       <DevLoginBar
-              //         onSelect={handleDevLogin}
-              //         submitting={submitting}
-              //         activeRole={devRole}
-              //         error={devError}
-              //       />
-              //     )
-              //     : null
-              // }
+              devSlot={
+                __DEV__ ? (
+                  <DevLoginBar
+                    onSelect={handleDevLogin}
+                    submitting={submitting}
+                    activeRole={devRole}
+                    error={devError}
+                  />
+                ) : null
+              }
             />
           </ScrollView>
         ) : (

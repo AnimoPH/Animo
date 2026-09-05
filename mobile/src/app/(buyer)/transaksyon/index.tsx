@@ -22,6 +22,7 @@ import {
 } from '@/components/animo/buyer/buyer-transaction-card';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
 import { fetchCropListingsByIds } from '@/services/crop-listing-service';
 import {
   fetchBuyerPurchaseOutcomes,
@@ -31,6 +32,7 @@ import {
 import { varietyLabel, type CropListing } from '@/types/crop-listing';
 import {
   DISPLAY_STAGE_LABELS,
+  getDisplayStageLabel,
   deriveDisplayStage,
   formatDate,
   formatReferenceId,
@@ -67,6 +69,7 @@ function toCardItem(
   outcome: PurchaseOutcome,
   listing: CropListing | undefined,
   farmerName?: string,
+  lang: 'tl' | 'en' = 'tl',
 ): BuyerTransactionCardItem {
   const stage = deriveDisplayStage(outcome);
   const quantityKg =
@@ -80,14 +83,14 @@ function toCardItem(
     id: outcome.request.id,
     referenceId: formatReferenceId(outcome.request.id, 'PR'),
     stage,
-    statusLabel: DISPLAY_STAGE_LABELS[stage],
+    statusLabel: getDisplayStageLabel(stage, lang),
     variety: listing ? varietyLabel(listing) : 'Palay',
-    moisture: listing?.declaredMoisture === 'Wet' ? 'Basa' : 'Tuyo',
+    moisture: listing?.declaredMoisture === 'Wet' ? (lang === 'en' ? 'Wet' : 'Basa') : (lang === 'en' ? 'Dry' : 'Tuyo'),
     price: formatPeso(total),
     weight: `${quantityKg} kg`,
     pricePerKg: `${formatPeso(pricePerKg)}/kg`,
     paymentMode: outcome.kind === 'matched' ? (outcome.transaction.payment?.paymentMode ?? null) : null,
-    farmer: farmerName || 'Magsasaka',
+    farmer: farmerName || (lang === 'en' ? 'Farmer' : 'Magsasaka'),
     date: formatDate(outcome.request.submittedAt),
     time: formatTime(outcome.request.submittedAt),
   };
@@ -95,6 +98,7 @@ function toCardItem(
 
 /** Buyer Transaksyon — requests & matched transactions matching farmer transaksyon UI layout. */
 export default function BuyerTransactionsScreen() {
+  const { language, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterValue>('Lahat');
   const [currentPage, setCurrentPage] = useState(1);
@@ -145,10 +149,10 @@ export default function BuyerTransactionsScreen() {
         const farmerName =
           (outcome.kind === 'matched' ? counterpartNamesById.get(outcome.transaction.farmerId) : null) ||
           farmerNamesByListing.get(outcome.request.listingId) ||
-          'Magsasaka';
-        return toCardItem(outcome, listingsById.get(outcome.request.listingId), farmerName);
+          (language === 'en' ? 'Farmer' : 'Magsasaka');
+        return toCardItem(outcome, listingsById.get(outcome.request.listingId), farmerName, language);
       }),
-    [outcomes, listingsById, counterpartNamesById, farmerNamesByListing],
+    [outcomes, listingsById, counterpartNamesById, farmerNamesByListing, language],
   );
 
   const filteredData = useMemo(() => {

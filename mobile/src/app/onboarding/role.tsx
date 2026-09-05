@@ -11,6 +11,7 @@ import { DevLoginBar } from '@/components/animo/dev-login-bar';
 import { RoleCard } from '@/components/animo/role-card';
 import { AnimoColors, AnimoSpacing } from '@/constants/animo';
 import { homeRouteForRole, ROLES, type RoleId } from '@/constants/roles';
+import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
 import { signInDevAccount } from '@/services/auth-service';
 
@@ -20,6 +21,7 @@ import { signInDevAccount } from '@/services/auth-service';
  */
 export default function RoleScreen() {
   const { refresh } = useSession();
+  const { t } = useLanguage();
   const [selected, setSelected] = useState<RoleId | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [devRole, setDevRole] = useState<RoleId | null>(null);
@@ -61,11 +63,10 @@ export default function RoleScreen() {
 
         <View style={styles.heading}>
           <AnimoText variant="display" color={AnimoColors.green} style={styles.title}>
-            Sino ka?
+            {t('role.title')}
           </AnimoText>
           <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.subtitle}>
-            Pumili ng isa lamang. Ang inyong papel ay maitatakda pagkatapos ng verification at hindi
-            na mababago.
+            {t('role.subtitle')}
           </AnimoText>
         </View>
 
@@ -83,17 +84,17 @@ export default function RoleScreen() {
 
       <View style={styles.footer}>
         <AnimoButton
-          label="Magpatuloy"
+          label={t('role.continue')}
           onPress={handleContinue}
           disabled={!selected || submitting}
         />
         <View style={styles.loginRow}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            Meron ng account?{' '}
+            {t('role.hasAccount')}{' '}
           </AnimoText>
           <Pressable onPress={() => router.replace('/login')} hitSlop={8}>
             <AnimoText variant="bodyEmphasis" color={AnimoColors.green} style={styles.link}>
-              Mag-login
+              {t('role.login')}
             </AnimoText>
           </Pressable>
         </View>

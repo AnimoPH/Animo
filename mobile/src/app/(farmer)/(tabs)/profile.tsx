@@ -1,11 +1,13 @@
 import { router, type Href } from 'expo-router';
-import { useSession } from '@/hooks/use-session';
 import { StatusBar } from 'expo-status-bar';
 import {
   Banknote,
   Bell,
+  BookOpen,
+  Check,
   ChevronRight,
   FileText,
+  Globe,
   HelpCircle,
   Lock,
   LogOut,
@@ -21,22 +23,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
+import { OnboardingWalkthroughModal } from '@/components/animo/onboarding-walkthrough-modal';
 import SignOutModal from '@/components/signout-modal';
 import {
   AnimoColors,
-  AnimoType,
-  AnimoSpacing,
   AnimoRadius,
+  AnimoSpacing,
+  AnimoType,
 } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
+import { useSession } from '@/hooks/use-session';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
-
-const SETTINGS_ROWS = [
-  { icon: Bell, label: 'Notipikasyon', key: 'notif' },
-  { icon: HelpCircle, label: 'Tulong at FAQ', key: 'help' },
-  { icon: FileText, label: 'Mga Tuntunin at Kundisyon', key: 'terms' },
-  { icon: ShieldCheck, label: 'Patakaran sa Privacy', key: 'privacy' },
-] as const;
 
 const TOP_FARMER_FEEDBACKS = [
   {
@@ -131,16 +129,19 @@ const TOP_FARMER_TRANSACTIONS = [
 
 /**
  * Farmer Profile — identity hero, stats, account, payment methods, and settings.
- * Includes interactive Top 5 Feedbacks and Recent Transactions modals.
+ * Includes interactive Top 5 Feedbacks, Language Selector, and User Guide Walkthrough.
  */
 export default function FarmerProfileScreen() {
+  const { signOut } = useSession();
+  const { t, language, setLanguage, isTagalog } = useLanguage();
+
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showFeedbacksModal, setShowFeedbacksModal] = useState(false);
   const [showRecentTxnsModal, setShowRecentTxnsModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
-
-  const { signOut } = useSession();
 
   const handleLogout = async () => {
     setShowSignOutModal(false);
@@ -150,6 +151,8 @@ export default function FarmerProfileScreen() {
 
   const handleSettingPress = (key: string) => {
     if (key === 'notif') router.push('/(farmer)/notipikasyon' as Href);
+    else if (key === 'language') setShowLanguageModal(true);
+    else if (key === 'guide') setShowTutorialModal(true);
     else if (key === 'help') setShowHelpModal(true);
     else if (key === 'terms' || key === 'privacy') setShowTermsModal(true);
   };
@@ -173,7 +176,7 @@ export default function FarmerProfileScreen() {
             <View style={styles.badgeRow}>
               <View style={styles.roleBadge}>
                 <Lock size={12} color={AnimoColors.white} />
-                <Text style={styles.roleBadgeText}>Magsasaka</Text>
+                <Text style={styles.roleBadgeText}>{t('role.farmer')}</Text>
               </View>
             </View>
           </SafeAreaView>
@@ -187,7 +190,7 @@ export default function FarmerProfileScreen() {
             onPress={() => setShowFeedbacksModal(true)}
             style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
             <Text style={styles.statValue}>4.8 ★</Text>
-            <Text style={styles.statLabel}>Rating</Text>
+            <Text style={styles.statLabel}>{t('profile.rating')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -195,7 +198,7 @@ export default function FarmerProfileScreen() {
             onPress={() => setShowFeedbacksModal(true)}
             style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
             <Text style={styles.statValue}>1.2k</Text>
-            <Text style={styles.statLabel}>Reviews</Text>
+            <Text style={styles.statLabel}>{t('profile.reviews')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -203,12 +206,12 @@ export default function FarmerProfileScreen() {
             onPress={() => setShowRecentTxnsModal(true)}
             style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
             <Text style={styles.statValue}>48</Text>
-            <Text style={styles.statLabel}>Transaksyon</Text>
+            <Text style={styles.statLabel}>{t('profile.transactions')}</Text>
           </Pressable>
         </View>
 
         {/* SECTION 3 — Account Information */}
-        <Text style={styles.sectionLabel}>Account Information</Text>
+        <Text style={styles.sectionLabel}>{t('profile.accountInfo')}</Text>
         <View style={styles.card}>
           <Pressable
             accessibilityRole="button"
@@ -218,9 +221,9 @@ export default function FarmerProfileScreen() {
               <UserRound size={20} color={AnimoColors.objectMediumEmphasis} />
             </View>
             <View style={styles.accountCopy}>
-              <Text style={styles.accountTitle}>Personal na Impormasyon</Text>
+              <Text style={styles.accountTitle}>{t('profile.personalInfo')}</Text>
               <Text style={styles.accountCaption}>
-                Pangalan, Contact, Address, at iba pa.
+                {t('profile.personalInfoDesc')}
               </Text>
             </View>
             <ChevronRight size={18} color={AnimoColors.objectLowEmphasis} />
@@ -228,7 +231,7 @@ export default function FarmerProfileScreen() {
         </View>
 
         {/* SECTION 4 — Paraan ng Pagbabayad */}
-        <Text style={styles.sectionLabel}>Paraan ng Pagbabayad</Text>
+        <Text style={styles.sectionLabel}>{t('profile.paymentMethods')}</Text>
         <View style={styles.card}>
           <View style={styles.paymentRow}>
             <View style={styles.gcashIcon}>
@@ -249,34 +252,94 @@ export default function FarmerProfileScreen() {
               <Text style={styles.paymentCaption}>Personal na bayaran</Text>
             </View>
             <View style={styles.defaultBadge}>
-              <Text style={styles.defaultBadgeText}>Default</Text>
+              <Text style={styles.defaultBadgeText}>{t('profile.default')}</Text>
             </View>
           </View>
         </View>
 
         {/* SECTION 5 — Mga Setting */}
-        <Text style={styles.sectionLabel}>Mga Setting</Text>
+        <Text style={styles.sectionLabel}>{t('profile.settings')}</Text>
         <View style={[styles.card, styles.settingsCard]}>
-          {SETTINGS_ROWS.map(({ icon: Icon, label, key }, index) => (
-            <View key={label}>
-              {index > 0 ? <View style={styles.divider} /> : null}
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => handleSettingPress(key)}
-                style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
-                <Icon size={20} color={AnimoColors.objectHighEmphasis} />
-                <Text style={styles.settingLabel}>{label}</Text>
-                <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
-              </Pressable>
-            </View>
-          ))}
+          {/* Notifications */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSettingPress('notif')}
+            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
+            <Bell size={20} color={AnimoColors.objectHighEmphasis} />
+            <Text style={styles.settingLabel}>{t('profile.notifications')}</Text>
+            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
+          </Pressable>
           <View style={styles.divider} />
+
+          {/* Language Selection */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSettingPress('language')}
+            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
+            <Globe size={20} color={AnimoColors.accentPrimary} />
+            <View style={styles.flexSettingLabel}>
+              <Text style={styles.settingLabel}>{t('profile.language')}</Text>
+              <View style={styles.langBadge}>
+                <Text style={styles.langBadgeText}>
+                  {isTagalog ? '🇵🇭 Tagalog' : '🌐 English'}
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
+          </Pressable>
+          <View style={styles.divider} />
+
+          {/* User Guide & Tutorial */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSettingPress('guide')}
+            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
+            <BookOpen size={20} color={AnimoColors.objectHighEmphasis} />
+            <Text style={styles.settingLabel}>{t('profile.userGuide')}</Text>
+            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
+          </Pressable>
+          <View style={styles.divider} />
+
+          {/* Help & FAQ */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSettingPress('help')}
+            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
+            <HelpCircle size={20} color={AnimoColors.objectHighEmphasis} />
+            <Text style={styles.settingLabel}>{t('profile.helpFaq')}</Text>
+            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
+          </Pressable>
+          <View style={styles.divider} />
+
+          {/* Terms */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSettingPress('terms')}
+            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
+            <FileText size={20} color={AnimoColors.objectHighEmphasis} />
+            <Text style={styles.settingLabel}>{t('profile.terms')}</Text>
+            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
+          </Pressable>
+          <View style={styles.divider} />
+
+          {/* Privacy */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSettingPress('privacy')}
+            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
+            <ShieldCheck size={20} color={AnimoColors.objectHighEmphasis} />
+            <Text style={styles.settingLabel}>{t('profile.privacy')}</Text>
+            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
+          </Pressable>
+          <View style={styles.divider} />
+
+          {/* Sign Out */}
           <Pressable
             accessibilityRole="button"
             onPress={() => setShowSignOutModal(true)}
             style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
             <LogOut size={20} color={AnimoColors.caution} />
-            <Text style={styles.signOutLabel}>Mag-sign Out</Text>
+            <Text style={styles.signOutLabel}>{t('profile.signOut')}</Text>
           </Pressable>
         </View>
 
@@ -287,6 +350,80 @@ export default function FarmerProfileScreen() {
           onConfirm={handleLogout}
         />
       </ScrollView>
+
+      {/* Language Selection Modal */}
+      <Modal
+        visible={showLanguageModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowLanguageModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <SafeAreaView style={styles.langModalCard} edges={['bottom']}>
+            <View style={styles.langModalHeader}>
+              <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
+                {t('profile.selectLanguage')}
+              </AnimoText>
+              <Pressable
+                onPress={() => setShowLanguageModal(false)}
+                hitSlop={10}
+                style={styles.closeBtn}>
+                <X size={22} color={AnimoColors.textMediumEmphasis} />
+              </Pressable>
+            </View>
+
+            <View style={styles.langList}>
+              <Pressable
+                onPress={() => {
+                  setLanguage('tl');
+                  setShowLanguageModal(false);
+                }}
+                style={[
+                  styles.langOption,
+                  language === 'tl' && styles.langOptionActive,
+                ]}>
+                <View style={styles.langOptionLeft}>
+                  <Text style={styles.langFlag}>🇵🇭</Text>
+                  <View>
+                    <Text style={styles.langOptionTitle}>Tagalog (Filipino)</Text>
+                    <Text style={styles.langOptionSubtitle}>Pangunahing wika sa app</Text>
+                  </View>
+                </View>
+                {language === 'tl' ? (
+                  <Check size={20} color={AnimoColors.accentPrimary} />
+                ) : null}
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  setLanguage('en');
+                  setShowLanguageModal(false);
+                }}
+                style={[
+                  styles.langOption,
+                  language === 'en' && styles.langOptionActive,
+                ]}>
+                <View style={styles.langOptionLeft}>
+                  <Text style={styles.langFlag}>🌐</Text>
+                  <View>
+                    <Text style={styles.langOptionTitle}>English</Text>
+                    <Text style={styles.langOptionSubtitle}>Switch interface to English</Text>
+                  </View>
+                </View>
+                {language === 'en' ? (
+                  <Check size={20} color={AnimoColors.accentPrimary} />
+                ) : null}
+              </Pressable>
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
+
+      {/* Onboarding / Tutorial Walkthrough Modal for Farmers */}
+      <OnboardingWalkthroughModal
+        visible={showTutorialModal}
+        role="magsasaka"
+        onClose={() => setShowTutorialModal(false)}
+      />
 
       {/* Top 5 Feedbacks Modal */}
       <Modal
@@ -312,7 +449,6 @@ export default function FarmerProfileScreen() {
             style={styles.modalScroll}
             contentContainerStyle={styles.modalContent}
             showsVerticalScrollIndicator={false}>
-            {/* Rating Summary Banner */}
             <View style={styles.ratingSummaryBanner}>
               <View style={styles.ratingBigWrap}>
                 <Text style={styles.ratingBigText}>4.8</Text>
@@ -327,7 +463,6 @@ export default function FarmerProfileScreen() {
               </Text>
             </View>
 
-            {/* Feedback List */}
             {TOP_FARMER_FEEDBACKS.map((fb) => (
               <View key={fb.id} style={styles.feedbackCard}>
                 <View style={styles.feedbackHeader}>
@@ -348,7 +483,7 @@ export default function FarmerProfileScreen() {
 
           <View style={styles.modalFooter}>
             <AnimoButton
-              label="Isara"
+              label={t('common.close')}
               onPress={() => setShowFeedbacksModal(false)}
             />
           </View>
@@ -406,7 +541,7 @@ export default function FarmerProfileScreen() {
 
           <View style={styles.modalFooter}>
             <AnimoButton
-              label="Isara"
+              label={t('common.close')}
               onPress={() => setShowRecentTxnsModal(false)}
             />
           </View>
@@ -630,11 +765,87 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: AnimoSpacing.md,
   },
+  flexSettingLabel: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: AnimoSpacing.sm,
+  },
+  langBadge: {
+    backgroundColor: AnimoColors.greenTint,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: AnimoRadius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(46, 125, 50, 0.2)',
+  },
+  langBadgeText: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    color: AnimoColors.accentPrimary,
+  },
   signOutLabel: {
     ...AnimoType.body,
     color: AnimoColors.caution,
     flex: 1,
     marginLeft: AnimoSpacing.md,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  langModalCard: {
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderTopLeftRadius: AnimoRadius.lg,
+    borderTopRightRadius: AnimoRadius.lg,
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingTop: AnimoSpacing.lg,
+    paddingBottom: AnimoSpacing.xl,
+    gap: AnimoSpacing.md,
+  },
+  langModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: AnimoSpacing.xs,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  langList: {
+    gap: AnimoSpacing.sm,
+  },
+  langOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: AnimoSpacing.md,
+    borderRadius: AnimoRadius.md,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    backgroundColor: '#FAFAFA',
+  },
+  langOptionActive: {
+    borderColor: AnimoColors.accentPrimary,
+    backgroundColor: AnimoColors.greenTint,
+  },
+  langOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AnimoSpacing.md,
+  },
+  langFlag: {
+    fontSize: 24,
+  },
+  langOptionTitle: {
+    ...AnimoType.bodyEmphasis,
+    color: AnimoColors.textHighEmphasis,
+  },
+  langOptionSubtitle: {
+    ...AnimoType.caption,
+    color: AnimoColors.textLowEmphasis,
   },
   modalSafeArea: {
     flex: 1,
