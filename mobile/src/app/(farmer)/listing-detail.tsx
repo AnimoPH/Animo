@@ -24,7 +24,6 @@ import { formatPeso } from "@/constants/marketplace";
 import { useSession } from "@/hooks/use-session";
 import { fetchCropListing, fetchListingPhotos } from "@/services/crop-listing-service";
 import { fetchBuyerTrustStatsBatch, type BuyerTrustStats } from "@/services/farmer-public-profile";
-import { rankPurchaseRequests, type RankedPurchaseRequest } from "@/services/marketplace-ranking";
 import {
   acceptPurchaseRequest,
   fetchListingPurchaseRequests,
@@ -42,7 +41,7 @@ const REJECTION_REASONS = [
   "Iba pang dahilan",
 ];
 
-/** Palay Listing detail — quality/price summary plus real purchase requests, ranked by buyer trust/quantity/recency. */
+/** Palay Listing detail — quality/price summary plus real purchase requests, oldest first. */
 export default function ListingDetailScreen() {
   const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
   const { account } = useSession();
@@ -52,10 +51,10 @@ export default function ListingDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
-  // Orders state — pending requests only need to be re-ranked whenever the
-  // request list or trust stats change; accepted/rejected rows drop off the
-  // list entirely once acted on (they show up in the Transaksyon tab instead).
-  const [ranked, setRanked] = useState<RankedPurchaseRequest[]>([]);
+  // Orders state — pending requests, oldest first; accepted/rejected rows
+  // drop off the list entirely once acted on (they show up in the
+  // Transaksyon tab instead).
+  const [orderedRequests, setOrderedRequests] = useState<PurchaseRequest[]>([]);
   const [trustByBuyer, setTrustByBuyer] = useState<Map<string, BuyerTrustStats>>(new Map());
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState<string | undefined>();
@@ -103,22 +102,19 @@ export default function ListingDetailScreen() {
     setOrdersError(undefined);
     try {
       const requests = await fetchListingPurchaseRequests(id);
-      const pending = requests.filter((r) => r.status === "Pending");
+      // Oldest submitted first — plain FIFO order, no ranking algorithm
+      // (Research Notes Sec. AC.7 excludes farmer-side buyer WPM ranking).
+      const pending = requests
+        .filter((r) => r.status === "Pending")
+        .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
       if (pending.length === 0) {
         setTrustByBuyer(new Map());
-        setRanked([]);
+        setOrderedRequests([]);
         return;
       }
       const trustByBuyer = await fetchBuyerTrustStatsBatch(pending.map((r) => r.buyerId));
       setTrustByBuyer(trustByBuyer);
-      setRanked(
-        rankPurchaseRequests(
-          pending.map((request) => ({
-            request,
-            reliabilityScore: trustByBuyer.get(request.buyerId)?.reliabilityScore ?? 0.5,
-          })),
-        ),
-      );
+      setOrderedRequests(pending);
     } catch (err) {
       setOrdersError(err instanceof Error ? err.message : "Hindi ma-load ang mga kahilingan.");
     } finally {
@@ -219,7 +215,7 @@ export default function ListingDetailScreen() {
     );
   }
 
-  const pendingCount = ranked.length;
+  const pendingCount = orderedRequests.length;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
@@ -262,7 +258,7 @@ export default function ListingDetailScreen() {
           </View>
         ) : (
           <View style={styles.ordersSection}>
-            {ranked.length === 0 ? (
+            {orderedRequests.length === 0 ? (
               <OrdersEmptyState />
             ) : (
               <>
@@ -271,10 +267,10 @@ export default function ListingDetailScreen() {
                     Order Requests
                   </AnimoText>
                   <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-                    {ranked.length} kabuuan
+                    {orderedRequests.length} kabuuan
                   </AnimoText>
                 </View>
-                {ranked.map(({ request }) => (
+                {orderedRequests.map((request) => (
                   <PurchaseRequestCard
                     key={request.id}
                     request={request}

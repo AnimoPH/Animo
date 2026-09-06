@@ -41,6 +41,8 @@ supabase/.branches
 supabase/.temp/start-secrets/
 # Supabase CLI local project-link cache — leaks project ref/org id.
 supabase/.temp/
+# Studio SQL Editor auto-saves every run query here.
+supabase/snippets/
 
 # typescript
 *.tsbuildinfo

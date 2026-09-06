@@ -17,8 +17,8 @@ import { fetchBuyerRatingComments, fetchBuyerTrustStats, type BuyerTrustStats } 
  * (RLS reveals "user" contact/name only once a transaction match exists, per
  * the "Counterpart contact revealed after a transaction match" policy in
  * migration 0001). What's shown here is purely aggregate trust: completed
- * sales to this buyer and their public ratings, computed on the fly since no
- * buyer-side `credibilityscore`-equivalent table exists.
+ * sales to this buyer and their public ratings, read from `user_trust_profile`
+ * (migration 0022).
  */
 export default function BuyerProfileScreen() {
   const params = useLocalSearchParams<{ id: string; quantityKg?: string; total?: string }>();
@@ -79,7 +79,6 @@ export default function BuyerProfileScreen() {
     );
   }
 
-  const reliabilityPct = Math.round(stats.reliabilityScore * 100);
   const volumeLabel =
     stats.totalBoughtKg >= 1000
       ? `${(stats.totalBoughtKg / 1000).toFixed(1)}k`
@@ -154,11 +153,11 @@ export default function BuyerProfileScreen() {
 
             <View style={styles.tableRow}>
               <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.rowLabel}>
-                Maasahang Mamimili
+                Rating
               </AnimoText>
               <View style={styles.greenBadge}>
                 <AnimoText variant="bodyEmphasis" color="#166534" style={styles.greenBadgeText}>
-                  {stats.completedTransactionsCount > 0 || stats.totalReviews > 0 ? `${reliabilityPct}%` : '—'}
+                  {stats.totalReviews > 0 ? `${stats.averageRating} / 5.0` : '—'}
                 </AnimoText>
               </View>
             </View>

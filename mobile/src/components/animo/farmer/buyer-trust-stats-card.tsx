@@ -17,7 +17,6 @@ function formatVolumeKg(kg: number): string {
 
 /** Compact pre-match buyer trust summary for a purchase request row. */
 export function BuyerTrustStatsCard({ stats, onPressProfile }: BuyerTrustStatsCardProps) {
-  const reliabilityPct = Math.round(stats.reliabilityScore * 100);
   const hasHistory = stats.completedTransactionsCount > 0 || stats.totalReviews > 0;
 
   const content = (
@@ -72,17 +71,11 @@ export function BuyerTrustStatsCard({ stats, onPressProfile }: BuyerTrustStatsCa
         </View>
       </View>
 
-      {hasHistory ? (
-        <View style={styles.reliabilityBadge}>
-          <AnimoText variant="caption" color="#166534">
-            Maasahan: {reliabilityPct}%
-          </AnimoText>
-        </View>
-      ) : (
+      {!hasHistory ? (
         <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
           Bagong mamimili — wala pang nakumpletong transaksyon.
         </AnimoText>
-      )}
+      ) : null}
     </View>
   );
 
@@ -127,13 +120,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     gap: 2,
-    paddingVertical: 4,
-  },
-  reliabilityBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#DCFCE7',
-    borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.sm,
     paddingVertical: 4,
   },
   pressed: {
