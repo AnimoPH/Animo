@@ -30,6 +30,7 @@ import { ScreenHeader } from '@/components/animo/screen-header';
 import { BackHeader } from '@/components/animo/back-header';
 
 import { SpecBox } from '@/components/animo/spec-box';
+import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { fetchListingPhotos } from '@/services/crop-listing-service';
@@ -271,9 +272,12 @@ export default function ListingDetailScreen() {
         {/* Summary card */}
         <View style={styles.card}>
           <View style={styles.titleRow}>
-            <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
+            <AnimoText variant="h2" color={AnimoColors.accentPrimary} style={styles.titleText}>
               {varietyLabel(listing)}
             </AnimoText>
+            {listing.varietyCode === "218" ? (
+              <StatusBadge label="May Premium" tone="success" />
+            ) : null}
           </View>
 
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
@@ -627,7 +631,12 @@ const styles = StyleSheet.create({
   },
   titleRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: AnimoSpacing.xs,
+  },
+  titleText: {
+    flex: 1,
   },
   priceBlock: {
     backgroundColor: AnimoColors.accentPrimary,

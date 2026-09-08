@@ -15,20 +15,27 @@ import { ProgressSteps } from "@/components/animo/farmer/progress-steps";
 
 import { LabeledInput } from "@/components/animo/labeled-input";
 import { SelectField } from "@/components/animo/select-field";
+import { SpecificVarietyField } from "@/components/animo/specific-variety-field";
 import { SegmentedChoice } from "@/components/animo/segmented-choice";
 
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
 import { createCropListing, uploadListingPhoto } from "@/services/crop-listing-service";
 import {
+  HYBRID_SPECIFIC_VARIETY_OPTIONS,
+  INBRED_SPECIFIC_VARIETY_OPTIONS,
   MOISTURE_OPTIONS,
   PHOTO_SLOTS,
   PURITY_OPTIONS,
+  SPECIFIC_VARIETY_OTHER,
   VARIETY_OPTIONS,
   type DeclaredVariety,
   type MoistureType,
   type PhotoType,
   type PurityGrade,
+  type SpecificVarietyOption,
+  type VarietyCode,
 } from "@/types/crop-listing";
+import { BackHeader } from "@/components/animo/back-header";
 
 /** Re-encodes a picked photo to a size-capped JPEG before it's held in state / uploaded. */
 async function toUploadableJpeg(uri: string): Promise<string> {
@@ -49,6 +56,11 @@ async function toUploadableJpeg(uri: string): Promise<string> {
 export default function PalayListingScreen() {
   const [variety, setVariety] = useState<DeclaredVariety | "">("");
   const [customVariety, setCustomVariety] = useState("");
+  // Second modal, shown only for Inbred/Hybrid — lets the farmer recognize
+  // their variety by name; only 218-vs-OTHER of it is ever persisted.
+  const [specificVariety, setSpecificVariety] = useState<SpecificVarietyOption | null>(null);
+  const [specificVarietyOpen, setSpecificVarietyOpen] = useState(false);
+  const [specificVarietyCustom, setSpecificVarietyCustom] = useState("");
   const [moistureType, setMoistureType] = useState<MoistureType>("Dry");
   const [purityGrade, setPurityGrade] = useState<PurityGrade | "">("");
   const [grossWeight, setGrossWeight] = useState("");
@@ -70,10 +82,24 @@ export default function PalayListingScreen() {
     (parseFloat(grossWeight) || 0) - (parseFloat(tareWeight) || 0),
   );
 
+  const needsSpecificVariety = variety === "Inbred" || variety === "Hybrid";
+  const specificVarietyOptions =
+    variety === "Inbred"
+      ? INBRED_SPECIFIC_VARIETY_OPTIONS
+      : variety === "Hybrid"
+        ? HYBRID_SPECIFIC_VARIETY_OPTIONS
+        : [];
+  // Only NSIC Rc218 carries a price premium (see varietypricepremium); every
+  // other pick, including non-Inbred/Hybrid varieties, resolves to OTHER.
+  const varietyCode: VarietyCode = needsSpecificVariety
+    ? (specificVariety?.varietyCode ?? "OTHER")
+    : "OTHER";
+
   const hasAnyPhoto = Object.keys(photos).length > 0;
   const canSubmit =
     variety !== "" &&
     (variety !== "Others" || customVariety.trim().length > 0) &&
+    (!needsSpecificVariety || specificVariety !== null) &&
     purityGrade !== "" &&
     netWeight > 0 &&
     hasAnyPhoto;
@@ -146,6 +172,7 @@ export default function PalayListingScreen() {
         const listing = await createCropListing({
           declaredVariety: variety,
           customVariety: variety === "Others" ? customVariety : undefined,
+          varietyCode,
           declaredMoisture: moistureType,
           declaredPurityGrade: purityGrade,
           grossWeightKg: parseFloat(grossWeight) || 0,
@@ -188,7 +215,7 @@ export default function PalayListingScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-      <ScreenHeader title="Gumawa ng Listing" />
+      <BackHeader title="Gumawa ng Listing" />
 
       {/* Progress Bar */}
       <ProgressSteps />
@@ -279,7 +306,16 @@ export default function PalayListingScreen() {
               placeholder="Pumili ng uri ng palay"
               options={VARIETY_OPTIONS}
               value={variety || null}
-              onChange={(value) => setVariety(value as DeclaredVariety)}
+              onChange={(value) => {
+                const next = value as DeclaredVariety;
+                setVariety(next);
+                setCustomVariety("");
+                setSpecificVariety(null);
+                setSpecificVarietyCustom("");
+                // Opens right after this modal closes — only for Inbred/Hybrid;
+                // every other pick sets variety_code = OTHER directly (above).
+                setSpecificVarietyOpen(next === "Inbred" || next === "Hybrid");
+              }}
             />
             {variety === "Others" ? (
               <View style={styles.inlineFieldSpacing}>
@@ -288,6 +324,33 @@ export default function PalayListingScreen() {
                   onChangeText={setCustomVariety}
                   placeholder="Ilagay ang pangalan ng uri"
                 />
+              </View>
+            ) : null}
+            {needsSpecificVariety ? (
+              <View style={styles.inlineFieldSpacing}>
+                <SpecificVarietyField
+                  label="Tiyak na Uri ng Palay"
+                  placeholder="Pumili ng tiyak na uri"
+                  options={specificVarietyOptions}
+                  value={specificVariety?.value ?? null}
+                  open={specificVarietyOpen}
+                  onOpenChange={setSpecificVarietyOpen}
+                  onSelect={(option) => {
+                    setSpecificVariety(option);
+                    if (option.value !== SPECIFIC_VARIETY_OTHER) {
+                      setSpecificVarietyCustom("");
+                    }
+                  }}
+                />
+                {specificVariety?.value === SPECIFIC_VARIETY_OTHER ? (
+                  <View style={styles.inlineFieldSpacing}>
+                    <LabeledInput
+                      value={specificVarietyCustom}
+                      onChangeText={setSpecificVarietyCustom}
+                      placeholder="Ilagay ang tiyak na uri (opsyonal)"
+                    />
+                  </View>
+                ) : null}
               </View>
             ) : null}
           </View>

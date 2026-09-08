@@ -192,11 +192,16 @@ export function ListingDetailContent({
           <AnimoText variant="h2" color={AnimoColors.accentPrimary} style={styles.summaryTitle}>
             {varietyLabel(listing)}
           </AnimoText>
-          <StatusBadge
-            label={STATUS_LABELS[listing.status]}
-            tone={STATUS_TONE[listing.status]}
-            icon={<CheckCircle size={12} color={AnimoColors.accentPrimary} />}
-          />
+          <View style={styles.summaryBadges}>
+            {listing.varietyCode === "218" ? (
+              <StatusBadge label="May Premium" tone="success" />
+            ) : null}
+            <StatusBadge
+              label={STATUS_LABELS[listing.status]}
+              tone={STATUS_TONE[listing.status]}
+              icon={<CheckCircle size={12} color={AnimoColors.accentPrimary} />}
+            />
+          </View>
         </View>
 
         <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
@@ -463,6 +468,11 @@ const styles = StyleSheet.create({
   },
   summaryTitle: {
     flex: 1,
+  },
+  summaryBadges: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: AnimoSpacing.xs,
   },
   priceBlock: {
     backgroundColor: AnimoColors.accentPrimary,
