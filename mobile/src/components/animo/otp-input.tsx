@@ -80,6 +80,7 @@ const styles = StyleSheet.create({
   },
   box: {
     flex: 1,
+    minWidth: 0,
     height: 56,
     borderRadius: AnimoRadius.md,
     borderWidth: 1,

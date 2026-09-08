@@ -9,6 +9,7 @@ import {
   type MoistureType,
   type PhotoType,
   type PurityGrade,
+  type VarietyCode,
 } from '@/types/crop-listing';
 
 /**
@@ -32,6 +33,7 @@ export type CropListingRow = {
   date_listed: string;
   declared_variety: DeclaredVariety;
   declared_variety_custom: string | null;
+  variety_code: VarietyCode;
   declared_moisture: MoistureType;
   declared_purity_grade: PurityGrade;
   gross_weight_kg: number;
@@ -44,7 +46,7 @@ export type CropListingRow = {
 };
 
 export const LISTING_COLUMNS =
-  'listing_id, date_listed, declared_variety, declared_variety_custom, declared_moisture, declared_purity_grade, gross_weight_kg, tare_weight_kg, net_weight_kg, remaining_quantity_kg, minimum_request_kg, computed_price_per_kg, status' as const;
+  'listing_id, date_listed, declared_variety, declared_variety_custom, variety_code, declared_moisture, declared_purity_grade, gross_weight_kg, tare_weight_kg, net_weight_kg, remaining_quantity_kg, minimum_request_kg, computed_price_per_kg, status' as const;
 
 export function mapListing(row: CropListingRow): CropListing {
   return {
@@ -52,6 +54,7 @@ export function mapListing(row: CropListingRow): CropListing {
     dateListed: row.date_listed,
     declaredVariety: row.declared_variety,
     declaredVarietyCustom: row.declared_variety_custom,
+    varietyCode: row.variety_code,
     declaredMoisture: row.declared_moisture,
     declaredPurityGrade: row.declared_purity_grade,
     grossWeightKg: Number(row.gross_weight_kg),
@@ -142,6 +145,7 @@ export async function createCropListing(input: CreateCropListingInput): Promise<
       farmer_id: farmerId,
       declared_variety: input.declaredVariety,
       declared_variety_custom: input.declaredVariety === 'Others' ? customVariety : null,
+      variety_code: input.varietyCode,
       declared_moisture: input.declaredMoisture,
       declared_purity_grade: input.declaredPurityGrade,
       gross_weight_kg: input.grossWeightKg,

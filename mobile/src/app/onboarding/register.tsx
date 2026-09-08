@@ -17,11 +17,18 @@ import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { LoginPhoneInput } from '@/components/animo/login-phone-input';
 import { OtpVerification } from '@/components/animo/otp-verification';
-import { ProfileForm, type ProfileValues, isProfileComplete } from '@/components/animo/profile-form';
+import {
+  EMPTY_PROFILE_VALUES,
+  ProfileForm,
+  type ProfileValues,
+  isProfileComplete,
+} from '@/components/animo/profile-form';
+import { buyerPreferencesFormToInput } from '@/components/animo/buyer-preferences-form';
 import { StepIndicator, type Step } from '@/components/animo/step-indicator';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { getRole, homeRouteForRole, type RoleId } from '@/constants/roles';
 import { completeRegistration, sendOtp, toLocalPhone, verifyOtp } from '@/services/auth-service';
+import { upsertMyBuyerPreferences } from '@/services/buyer-preferences-service';
 import { useSession } from '@/hooks/use-session';
 import type { CompleteRegistrationInput } from '@/types/auth';
 import { BackHeader } from '@/components/animo/back-header';
@@ -32,13 +39,7 @@ const OTP_LENGTH = 6;
 /** Survives app restarts between OTP verification and profile submission. */
 const PENDING_ROLE_KEY = 'animo.registration.pendingRole';
 
-const emptyProfile: ProfileValues = {
-  fullName: '',
-  barangay: null,
-  farmSize: null,
-  riceVariety: null,
-  gcashNumber: '',
-};
+const emptyProfile: ProfileValues = EMPTY_PROFILE_VALUES;
 
 /**
  * Trims the rich `ProfileValues` the form collects down to what `user` +
@@ -160,6 +161,13 @@ export default function RegisterScreen() {
     setSubmitting(true);
     try {
       await completeRegistration(buildRegistrationInput(roleId, profile));
+      if (roleId === 'mamimili') {
+        // Best-effort: optional preferences must never block registration.
+        const input = buyerPreferencesFormToInput(profile.buyerPreferences);
+        if (input.preferredVariety || input.preferredMoisture || input.typicalQuantityKg) {
+          await upsertMyBuyerPreferences(input).catch(() => {});
+        }
+      }
       await AsyncStorage.removeItem(PENDING_ROLE_KEY);
       await refresh();
       router.replace(homeRouteForRole(roleId));
@@ -236,6 +244,7 @@ export default function RegisterScreen() {
             <ProfileForm
               roleTitle={role?.title}
               showFarmerFields={isFarmer}
+              showBuyerFields={!isFarmer}
               phoneNumber={phone}
               values={profile}
               onChange={setProfile}

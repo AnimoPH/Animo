@@ -192,9 +192,9 @@ export const TRANSLATIONS = {
     'filter.failed': 'Nabigo',
 
     // Varieties & Terminology
-    'variety.inbred': 'Inbred (Sertipikadong Binhi)',
+    'variety.inbred': 'Inbred',
     'variety.inbredDesc': 'Standard na sertipikadong binhi (hal. NSIC Rc222, Rc160)',
-    'variety.hybrid': 'Hybrid (Mataas na Ani)',
+    'variety.hybrid': 'Hybrid',
     'variety.hybridDesc': 'High-yield F1 hybrid na binhi (hal. SL-8H, Mestiso)',
     'variety.traditional': 'Tradisyonal o Pamana',
     'variety.traditionalDesc': 'Katutubong barayti (hal. Dinorado, Sinandomeng)',

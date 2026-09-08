@@ -27,11 +27,44 @@ export type ListingStatus = 'Draft' | 'Available' | 'Sold_Out' | 'Cancelled';
 
 /** Options for the "Gumawa ng Listing" form — `value` is exactly what's sent to the DB. */
 export const VARIETY_OPTIONS: { value: DeclaredVariety; label: string }[] = [
-  { value: 'Inbred', label: 'Inbred (Sertipikadong Binhi)' },
-  { value: 'Hybrid', label: 'Hybrid (Mataas na Ani)' },
+  { value: 'Inbred', label: 'Inbred' },
+  { value: 'Hybrid', label: 'Hybrid' },
   { value: 'Traditional_or_Heirloom', label: 'Tradisyonal o Pamana' },
   { value: 'Mix_of_Varieties', label: 'Halo-halong Uri' },
   { value: 'Others', label: 'Iba pa' },
+];
+
+/**
+ * §14 VARIETYPRICEPREMIUM only has two rows (see migration 0001) — '218' for
+ * NSIC Rc218, 'OTHER' as the catch-all for every other variety. The specific-
+ * variety modal below exists purely so farmers recognize their variety by
+ * name; it must never grow a third code.
+ */
+export type VarietyCode = '218' | 'OTHER';
+
+/** Sentinel `value` shared by both specific-variety lists' "Iba pa" row. */
+export const SPECIFIC_VARIETY_OTHER = 'Others_Specific';
+
+export type SpecificVarietyOption = { value: string; label: string; varietyCode: VarietyCode };
+
+/** Shown after "Uri ng Palay" resolves to Inbred — maps to `variety_code`. */
+export const INBRED_SPECIFIC_VARIETY_OPTIONS: SpecificVarietyOption[] = [
+  { value: 'NSIC_Rc218', label: 'NSIC Rc218', varietyCode: '218' },
+  { value: 'NSIC_Rc216', label: 'NSIC Rc216', varietyCode: 'OTHER' },
+  { value: 'NSIC_Rc160', label: 'NSIC Rc160', varietyCode: 'OTHER' },
+  { value: 'NSIC_Rc222', label: 'NSIC Rc222', varietyCode: 'OTHER' },
+  { value: 'NSIC_Rc300', label: 'NSIC Rc300', varietyCode: 'OTHER' },
+  { value: 'NSIC_Rc512', label: 'NSIC Rc512', varietyCode: 'OTHER' },
+  { value: 'NSIC_Rc508', label: 'NSIC Rc508', varietyCode: 'OTHER' },
+  { value: 'NSIC_Rc480', label: 'NSIC Rc480', varietyCode: 'OTHER' },
+  { value: SPECIFIC_VARIETY_OTHER, label: 'Iba pa', varietyCode: 'OTHER' },
+];
+
+/** Shown after "Uri ng Palay" resolves to Hybrid — maps to `variety_code`. */
+export const HYBRID_SPECIFIC_VARIETY_OPTIONS: SpecificVarietyOption[] = [
+  { value: 'Mestizo_20', label: 'Mestizo 20 (NSIC Rc204H)', varietyCode: 'OTHER' },
+  { value: 'Mestizo_1', label: 'Mestizo 1 (PSB Rc72H)', varietyCode: 'OTHER' },
+  { value: SPECIFIC_VARIETY_OTHER, label: 'Iba pa', varietyCode: 'OTHER' },
 ];
 
 export const PURITY_OPTIONS: { value: PurityGrade; label: string }[] = [
@@ -51,6 +84,8 @@ export type CreateCropListingInput = {
   declaredVariety: DeclaredVariety;
   /** Required (and only sent) when declaredVariety === 'Others'. */
   customVariety?: string;
+  /** '218' only for NSIC Rc218; 'OTHER' for every other pick, including non-Inbred/Hybrid varieties. */
+  varietyCode: VarietyCode;
   declaredMoisture: MoistureType;
   declaredPurityGrade: PurityGrade;
   grossWeightKg: number;
@@ -63,6 +98,8 @@ export type CropListing = {
   dateListed: string;
   declaredVariety: DeclaredVariety;
   declaredVarietyCustom: string | null;
+  /** '218' only for NSIC Rc218 (the only variety carrying a price premium); 'OTHER' otherwise. */
+  varietyCode: VarietyCode;
   declaredMoisture: MoistureType;
   declaredPurityGrade: PurityGrade;
   grossWeightKg: number;
