@@ -16,17 +16,25 @@ import {
   MapPin,
   Package,
   Phone,
+  Sprout,
   ShieldCheck,
   Star,
   UserRound,
   X,
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
+import {
+  BuyerPreferencesForm,
+  buyerPreferencesFormToInput,
+  buyerPreferencesToForm,
+  EMPTY_BUYER_PREFERENCES_FORM,
+  type BuyerPreferencesFormValues,
+} from '@/components/animo/buyer-preferences-form';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { OnboardingWalkthroughModal } from '@/components/animo/onboarding-walkthrough-modal';
 import SignOutModal from '@/components/signout-modal';
@@ -38,6 +46,10 @@ import {
 } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
+import {
+  fetchMyBuyerPreferences,
+  upsertMyBuyerPreferences,
+} from '@/services/buyer-preferences-service';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
 
@@ -151,6 +163,41 @@ export default function BuyerProfileScreen() {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
 
+  // Buying preferences — optional, storage-only fields also collected at
+  // onboarding (see profile-form.tsx / buyer-preferences-form.tsx).
+  const [showBuyerPreferencesModal, setShowBuyerPreferencesModal] = useState(false);
+  const [buyerPreferences, setBuyerPreferences] = useState<BuyerPreferencesFormValues>(
+    EMPTY_BUYER_PREFERENCES_FORM,
+  );
+  const [buyerPreferencesLoading, setBuyerPreferencesLoading] = useState(false);
+  const [buyerPreferencesSaving, setBuyerPreferencesSaving] = useState(false);
+  const [buyerPreferencesError, setBuyerPreferencesError] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (!showBuyerPreferencesModal) return;
+    setBuyerPreferencesLoading(true);
+    setBuyerPreferencesError(undefined);
+    fetchMyBuyerPreferences()
+      .then((prefs) => setBuyerPreferences(buyerPreferencesToForm(prefs)))
+      .catch(() => setBuyerPreferencesError('Hindi na-load ang kagustuhan sa pagbili.'))
+      .finally(() => setBuyerPreferencesLoading(false));
+  }, [showBuyerPreferencesModal]);
+
+  const handleSaveBuyerPreferences = async () => {
+    setBuyerPreferencesSaving(true);
+    setBuyerPreferencesError(undefined);
+    try {
+      await upsertMyBuyerPreferences(buyerPreferencesFormToInput(buyerPreferences));
+      setShowBuyerPreferencesModal(false);
+    } catch (err) {
+      setBuyerPreferencesError(
+        err instanceof Error ? err.message : 'Hindi na-save ang kagustuhan sa pagbili.',
+      );
+    } finally {
+      setBuyerPreferencesSaving(false);
+    }
+  };
+
   const handleLogout = async () => {
     setShowSignOutModal(false);
     await signOut();
@@ -233,6 +280,22 @@ export default function BuyerProfileScreen() {
               <Text style={styles.accountTitle}>{t('profile.personalInfo')}</Text>
               <Text style={styles.accountCaption}>
                 {t('profile.personalInfoDesc')}
+              </Text>
+            </View>
+            <ChevronRight size={18} color={AnimoColors.objectLowEmphasis} />
+          </Pressable>
+          <View style={styles.divider} />
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setShowBuyerPreferencesModal(true)}
+            style={({ pressed }) => [styles.accountRow, pressed && styles.pressed]}>
+            <View style={styles.accountIcon}>
+              <Sprout size={20} color={AnimoColors.objectMediumEmphasis} />
+            </View>
+            <View style={styles.accountCopy}>
+              <Text style={styles.accountTitle}>Kagustuhan sa Pagbili</Text>
+              <Text style={styles.accountCaption}>
+                Uri ng palay, moisture, at karaniwang dami na binibili
               </Text>
             </View>
             <ChevronRight size={18} color={AnimoColors.objectLowEmphasis} />
@@ -549,6 +612,53 @@ export default function BuyerProfileScreen() {
             <AnimoButton
               label={t('common.close')}
               onPress={() => setShowPersonalInfoModal(false)}
+            />
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Kagustuhan sa Pagbili (Buying Preferences) Modal */}
+      <Modal
+        visible={showBuyerPreferencesModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowBuyerPreferencesModal(false)}>
+        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
+          <View style={styles.modalHeader}>
+            <AnimoText variant="h2" color={AnimoColors.black}>
+              Kagustuhan sa Pagbili
+            </AnimoText>
+            <Pressable
+              onPress={() => setShowBuyerPreferencesModal(false)}
+              hitSlop={8}
+              style={styles.closeBtn}>
+              <X size={22} color={AnimoColors.black} />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            contentContainerStyle={styles.modalScroll}
+            showsVerticalScrollIndicator={false}>
+            {buyerPreferencesLoading ? (
+              <AnimoText variant="body" color={AnimoColors.muted}>
+                Ikinakarga...
+              </AnimoText>
+            ) : (
+              <BuyerPreferencesForm values={buyerPreferences} onChange={setBuyerPreferences} />
+            )}
+            {buyerPreferencesError ? (
+              <AnimoText variant="body" color={AnimoColors.danger}>
+                {buyerPreferencesError}
+              </AnimoText>
+            ) : null}
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <AnimoButton
+              label="I-save"
+              onPress={handleSaveBuyerPreferences}
+              loading={buyerPreferencesSaving}
+              disabled={buyerPreferencesLoading}
             />
           </View>
         </SafeAreaView>

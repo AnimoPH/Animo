@@ -1,6 +1,11 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
+import {
+  BuyerPreferencesForm,
+  EMPTY_BUYER_PREFERENCES_FORM,
+  type BuyerPreferencesFormValues,
+} from '@/components/animo/buyer-preferences-form';
 import { FormCard } from '@/components/animo/form-card';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { SelectField } from '@/components/animo/select-field';
@@ -17,12 +22,25 @@ export type ProfileValues = {
   farmSize: string | null;
   riceVariety: string | null;
   gcashNumber: string;
+  /** Buyer-only; optional, storage-only preferences (see buyer-preferences-form.tsx). */
+  buyerPreferences: BuyerPreferencesFormValues;
+};
+
+export const EMPTY_PROFILE_VALUES: ProfileValues = {
+  fullName: '',
+  barangay: null,
+  farmSize: null,
+  riceVariety: null,
+  gcashNumber: '',
+  buyerPreferences: EMPTY_BUYER_PREFERENCES_FORM,
 };
 
 export type ProfileFormProps = {
   roleTitle?: string;
   /** Farm location / details only apply to Magsasaka. */
   showFarmerFields: boolean;
+  /** Buying preferences only apply to Mamimili. */
+  showBuyerFields: boolean;
   /** Verified phone from the Numero/OTP steps — read-only display only. */
   phoneNumber: string;
   values: ProfileValues;
@@ -47,6 +65,7 @@ export function isProfileComplete(v: ProfileValues, isFarmer: boolean): boolean 
 export function ProfileForm({
   roleTitle,
   showFarmerFields,
+  showBuyerFields,
   phoneNumber,
   values,
   onChange,
@@ -126,6 +145,13 @@ export function ProfileForm({
             />
           </FormCard>
         </>
+      )}
+
+      {showBuyerFields && (
+        <BuyerPreferencesForm
+          values={values.buyerPreferences}
+          onChange={(buyerPreferences) => set('buyerPreferences', buyerPreferences)}
+        />
       )}
     </View>
   );
