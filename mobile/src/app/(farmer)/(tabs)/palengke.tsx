@@ -566,7 +566,7 @@ function FarmerMarketplaceCard({
         </View>
 
         <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-          Pinakamaliit na order: {listing.minimumRequestKg} kg · Kabuuang ani: {listing.netWeightKg} kg
+          Kabuuang ani: {listing.netWeightKg} kg
         </AnimoText>
       </View>
     </TouchableOpacity>
