@@ -264,7 +264,7 @@ export default function ListingDetailScreen() {
               <>
                 <View style={styles.ordersHeaderRow}>
                   <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-                    Order Requests
+                    Mga Kahilingan
                   </AnimoText>
                   <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
                     {orderedRequests.length} kabuuan

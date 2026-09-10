@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
-import { Bell, Droplets, ImageIcon, Plus, Scale, Search, ShieldCheck } from 'lucide-react-native';
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Bell, ImageIcon, Plus, Search } from 'lucide-react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -26,6 +26,7 @@ import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
 import { fetchCoverPhotos, fetchMyCropListings } from '@/services/crop-listing-service';
+import { fetchPendingPurchaseRequestCountsByListing } from '@/services/purchase-request-service';
 import {
   MOISTURE_OPTIONS,
   STATUS_LABELS,
@@ -189,6 +190,7 @@ export default function FarmerPalengkeScreen() {
 
   const [listings, setListings] = useState<CropListing[]>([]);
   const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
+  const [pendingCounts, setPendingCounts] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
@@ -202,9 +204,13 @@ export default function FarmerPalengkeScreen() {
     const requestId = ++latestRequestId.current;
     setErrorMessage(undefined);
     try {
-      const result = await fetchMyCropListings();
+      const [result, counts] = await Promise.all([
+        fetchMyCropListings(),
+        fetchPendingPurchaseRequestCountsByListing().catch(() => new Map<string, number>()),
+      ]);
       if (latestRequestId.current !== requestId) return;
       setListings(result);
+      setPendingCounts(counts);
 
       try {
         const photos = await fetchCoverPhotos(result.map((l) => l.id));
@@ -448,16 +454,25 @@ export default function FarmerPalengkeScreen() {
           <FlatList
             data={displayedListings}
             keyExtractor={(item) => item.id}
+            numColumns={2}
+            columnWrapperStyle={styles.columnWrapper}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => (
               <FarmerMarketplaceCard
                 listing={item}
                 coverPhotoUrl={coverPhotos.get(item.id)}
+                pendingCount={pendingCounts.get(item.id) ?? 0}
                 onPress={() =>
                   router.push({
                     pathname: '/(farmer)/listing-detail',
                     params: { id: item.id },
+                  })
+                }
+                onPressOrders={() =>
+                  router.push({
+                    pathname: '/(farmer)/listing-detail',
+                    params: { id: item.id, tab: 'orders' },
                   })
                 }
               />
@@ -510,16 +525,21 @@ function FilterChoiceChip({
 }
 
 /**
- * Rich listing card formatted to match the Buyer Marketplace card style.
+ * Simplified Aking Ani card: photo, status, title, price, pending count, Tingnan.
+ * Specs (moisture, purity, remaining kg, harvest) live on the detail Detalye tab.
  */
 function FarmerMarketplaceCard({
   listing,
   coverPhotoUrl,
+  pendingCount,
   onPress,
+  onPressOrders,
 }: {
   listing: CropListing;
   coverPhotoUrl: string | undefined;
+  pendingCount: number;
   onPress: () => void;
+  onPressOrders: () => void;
 }) {
   return (
     <TouchableOpacity
@@ -531,7 +551,7 @@ function FarmerMarketplaceCard({
         {coverPhotoUrl ? (
           <Image source={{ uri: coverPhotoUrl }} style={styles.photoImage} contentFit="cover" />
         ) : (
-          <ImageIcon size={32} color={AnimoColors.objectLowEmphasis} />
+          <ImageIcon size={24} color={AnimoColors.objectLowEmphasis} />
         )}
         <View style={styles.statusBadgeWrap}>
           <StatusBadge
@@ -542,48 +562,51 @@ function FarmerMarketplaceCard({
       </View>
 
       <View style={styles.body}>
-        <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
+        <AnimoText
+          variant="h3"
+          color={AnimoColors.textHighEmphasis}
+          numberOfLines={2}
+          style={styles.cardTitle}>
           {listingTitle(listing)}
         </AnimoText>
 
         <View style={styles.priceRow}>
-          <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
+          <AnimoText variant="h2" color={AnimoColors.accentPrimary} style={styles.priceText}>
             {listing.pricePerKg !== null ? formatPeso(listing.pricePerKg) : '—'}
           </AnimoText>
-          <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+          <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
             {' '}
             bawat kilo
           </AnimoText>
         </View>
 
-        <View style={styles.specs}>
-          <Spec icon={<Scale size={14} color={AnimoColors.accentPrimary} />}>
-            {listing.remainingQuantityKg} kg natitira
-          </Spec>
-          <Spec icon={<Droplets size={14} color={AnimoColors.textMediumEmphasis} />}>
-            {moistureLabel(listing.declaredMoisture)}
-          </Spec>
-          <Spec icon={<ShieldCheck size={14} color={AnimoColors.textMediumEmphasis} />}>
-            {purityLabel(listing.declaredPurityGrade)}
-          </Spec>
+        <View style={styles.footerCol}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${pendingCount} nakabinbing kahilingan`}
+            hitSlop={8}
+            onPress={onPressOrders}>
+            <AnimoText
+              variant="caption"
+              color={AnimoColors.textMediumEmphasis}
+              numberOfLines={2}
+              style={styles.pendingText}>
+              {pendingCount} nakabinbing kahilingan
+            </AnimoText>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tingnan ang listing"
+            hitSlop={8}
+            onPress={onPress}
+            style={styles.tingnanPressable}>
+            <AnimoText variant="bodyEmphasis" color={AnimoColors.accentPrimary} style={styles.tingnanText}>
+              Tingnan
+            </AnimoText>
+          </Pressable>
         </View>
-
-        <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-          Kabuuang ani: {listing.netWeightKg} kg
-        </AnimoText>
       </View>
     </TouchableOpacity>
-  );
-}
-
-function Spec({ icon, children }: { icon: ReactNode; children: ReactNode }) {
-  return (
-    <View style={styles.spec}>
-      {icon}
-      <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-        {children}
-      </AnimoText>
-    </View>
   );
 }
 
@@ -633,6 +656,9 @@ const styles = StyleSheet.create({
     paddingTop: AnimoSpacing.sm,
     paddingBottom: AnimoSpacing.xxl,
   },
+  columnWrapper: {
+    gap: AnimoSpacing.md,
+  },
   centerState: {
     flex: 1,
     alignItems: 'center',
@@ -644,6 +670,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   card: {
+    flex: 1,
     backgroundColor: AnimoColors.surfacePrimary,
     borderRadius: AnimoRadius.lg,
     borderWidth: 1,
@@ -659,7 +686,7 @@ const styles = StyleSheet.create({
   },
   photoArea: {
     width: '100%',
-    aspectRatio: 2.5,
+    aspectRatio: 1.35,
     backgroundColor: AnimoColors.surfaceTertiary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -670,27 +697,40 @@ const styles = StyleSheet.create({
   },
   statusBadgeWrap: {
     position: 'absolute',
-    top: AnimoSpacing.sm,
-    right: AnimoSpacing.sm,
+    top: AnimoSpacing.xs,
+    right: AnimoSpacing.xs,
   },
   body: {
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.xs,
+    padding: AnimoSpacing.sm,
+    gap: 4,
+  },
+  cardTitle: {
+    fontSize: 15,
+    lineHeight: 20,
   },
   priceRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'baseline',
   },
-  specs: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: AnimoSpacing.md,
-    marginTop: AnimoSpacing.xs,
+  priceText: {
+    fontSize: 18,
+    lineHeight: 22,
   },
-  spec: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
+  footerCol: {
+    marginTop: 2,
+    gap: 4,
+  },
+  pendingText: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  tingnanPressable: {
+    alignSelf: 'flex-start',
+  },
+  tingnanText: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   fabWrapper: {
     position: 'absolute',
