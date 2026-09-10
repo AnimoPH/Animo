@@ -41,8 +41,10 @@ import {
 import { fetchMarketplaceListing } from '@/services/marketplace-service';
 import { fetchMyActiveRequestForListing } from '@/services/purchase-request-service';
 import {
+  listingTitle,
   moistureLabel,
   purityLabel,
+  specificVarietyDisplay,
   varietyLabel,
   type CropListing,
   type ListingPhoto,
@@ -185,6 +187,7 @@ export default function ListingDetailScreen() {
   const activePhoto = galleryItems[selectedPhotoIndex] || galleryItems[0];
   const modalActivePhoto = galleryItems[modalPhotoIndex] || galleryItems[0];
   const locationText = farmerProfile?.location || '';
+  const specificVariety = specificVarietyDisplay(listing);
 
   const openModalAt = (index: number) => {
     setModalPhotoIndex(index);
@@ -273,10 +276,10 @@ export default function ListingDetailScreen() {
         <View style={styles.card}>
           <View style={styles.titleRow}>
             <AnimoText variant="h2" color={AnimoColors.accentPrimary} style={styles.titleText}>
-              {varietyLabel(listing)}
+              {listingTitle(listing)}
             </AnimoText>
-            {listing.varietyCode === "218" ? (
-              <StatusBadge label="May Premium" tone="success" />
+            {specificVariety ? (
+              <StatusBadge label={specificVariety} tone="neutral" />
             ) : null}
           </View>
 

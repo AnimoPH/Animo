@@ -30,6 +30,7 @@ import {
   MOISTURE_OPTIONS,
   STATUS_LABELS,
   VARIETY_OPTIONS,
+  listingTitle,
   moistureLabel,
   purityLabel,
   varietyLabel,
@@ -149,6 +150,7 @@ function listingMatchesSearch(listing: CropListing, searchQuery: string): boolea
   const vLabel = varietyLabel(listing).toLowerCase();
   const rawVariety = listing.declaredVariety.toLowerCase();
   const custom = listing.declaredVarietyCustom?.toLowerCase() || '';
+  const name = listing.listingName.toLowerCase();
   const moisture = listing.declaredMoisture.toLowerCase();
   const mLabel = moistureLabel(listing.declaredMoisture).toLowerCase();
   const purity = purityLabel(listing.declaredPurityGrade).toLowerCase();
@@ -162,6 +164,7 @@ function listingMatchesSearch(listing: CropListing, searchQuery: string): boolea
       return listing.declaredMoisture === 'Wet';
     }
     return (
+      name.includes(term) ||
       vLabel.includes(term) ||
       rawVariety.includes(term) ||
       custom.includes(term) ||
@@ -540,7 +543,7 @@ function FarmerMarketplaceCard({
 
       <View style={styles.body}>
         <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-          {varietyLabel(listing)}
+          {listingTitle(listing)}
         </AnimoText>
 
         <View style={styles.priceRow}>

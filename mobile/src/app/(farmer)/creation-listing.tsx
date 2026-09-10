@@ -55,9 +55,10 @@ async function toUploadableJpeg(uri: string): Promise<string> {
 /** Gumawa ng Listing — farmer creates a new palay listing: photo, quality, weight. */
 export default function PalayListingScreen() {
   const [variety, setVariety] = useState<DeclaredVariety | "">("");
+  const [listingName, setListingName] = useState("");
   const [customVariety, setCustomVariety] = useState("");
-  // Second modal, shown only for Inbred/Hybrid — lets the farmer recognize
-  // their variety by name; only 218-vs-OTHER of it is ever persisted.
+  // Second modal, shown only for Inbred/Hybrid — persisted as
+  // specific_variety_name (+ custom) and variety_code (218 vs OTHER).
   const [specificVariety, setSpecificVariety] = useState<SpecificVarietyOption | null>(null);
   const [specificVarietyOpen, setSpecificVarietyOpen] = useState(false);
   const [specificVarietyCustom, setSpecificVarietyCustom] = useState("");
@@ -97,9 +98,11 @@ export default function PalayListingScreen() {
 
   const hasAnyPhoto = Object.keys(photos).length > 0;
   const canSubmit =
+    listingName.trim().length > 0 &&
     variety !== "" &&
     (variety !== "Others" || customVariety.trim().length > 0) &&
     (!needsSpecificVariety || specificVariety !== null) &&
+    (specificVariety?.value !== SPECIFIC_VARIETY_OTHER || specificVarietyCustom.trim().length > 0) &&
     purityGrade !== "" &&
     netWeight > 0 &&
     hasAnyPhoto;
@@ -170,9 +173,13 @@ export default function PalayListingScreen() {
       if (!listingId) {
         if (!canSubmit || !variety || !purityGrade) return;
         const listing = await createCropListing({
+          listingName,
           declaredVariety: variety,
           customVariety: variety === "Others" ? customVariety : undefined,
           varietyCode,
+          specificVarietyName: needsSpecificVariety ? specificVariety?.value ?? null : null,
+          specificVarietyNameCustom:
+            specificVariety?.value === SPECIFIC_VARIETY_OTHER ? specificVarietyCustom : undefined,
           declaredMoisture: moistureType,
           declaredPurityGrade: purityGrade,
           grossWeightKg: parseFloat(grossWeight) || 0,
@@ -301,22 +308,30 @@ export default function PalayListingScreen() {
         <View style={[styles.card, styles.shadow]}>
           {/* Palay Details */}
           <View>
-            <SelectField
-              label="Uri ng Palay"
-              placeholder="Pumili ng uri ng palay"
-              options={VARIETY_OPTIONS}
-              value={variety || null}
-              onChange={(value) => {
-                const next = value as DeclaredVariety;
-                setVariety(next);
-                setCustomVariety("");
-                setSpecificVariety(null);
-                setSpecificVarietyCustom("");
-                // Opens right after this modal closes — only for Inbred/Hybrid;
-                // every other pick sets variety_code = OTHER directly (above).
-                setSpecificVarietyOpen(next === "Inbred" || next === "Hybrid");
-              }}
+            <LabeledInput
+              label="Pangalan ng Listing"
+              value={listingName}
+              onChangeText={setListingName}
+              placeholder="Hal. Palay Listing"
             />
+            <View style={styles.inlineFieldSpacing}>
+              <SelectField
+                label="Uri ng Palay"
+                placeholder="Pumili ng uri ng palay"
+                options={VARIETY_OPTIONS}
+                value={variety || null}
+                onChange={(value) => {
+                  const next = value as DeclaredVariety;
+                  setVariety(next);
+                  setCustomVariety("");
+                  setSpecificVariety(null);
+                  setSpecificVarietyCustom("");
+                  // Opens right after this modal closes — only for Inbred/Hybrid;
+                  // every other pick sets variety_code = OTHER directly (above).
+                  setSpecificVarietyOpen(next === "Inbred" || next === "Hybrid");
+                }}
+              />
+            </View>
             {variety === "Others" ? (
               <View style={styles.inlineFieldSpacing}>
                 <LabeledInput
@@ -347,7 +362,7 @@ export default function PalayListingScreen() {
                     <LabeledInput
                       value={specificVarietyCustom}
                       onChangeText={setSpecificVarietyCustom}
-                      placeholder="Ilagay ang tiyak na uri (opsyonal)"
+                      placeholder="Ilagay ang tiyak na uri"
                     />
                   </View>
                 ) : null}

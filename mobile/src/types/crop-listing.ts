@@ -42,30 +42,34 @@ export const VARIETY_OPTIONS: { value: DeclaredVariety; label: string }[] = [
  */
 export type VarietyCode = '218' | 'OTHER';
 
-/** Sentinel `value` shared by both specific-variety lists' "Iba pa" row. */
-export const SPECIFIC_VARIETY_OTHER = 'Others_Specific';
+/** Sentinel `value` shared by both specific-variety lists' "Iba pa" row. Stored as `specific_variety_name`. */
+export const SPECIFIC_VARIETY_OTHER = 'Iba pa';
 
 export type SpecificVarietyOption = { value: string; label: string; varietyCode: VarietyCode };
 
-/** Shown after "Uri ng Palay" resolves to Inbred — maps to `variety_code`. */
+/** Shown after "Uri ng Palay" resolves to Inbred — maps to `variety_code` and `specific_variety_name`. */
 export const INBRED_SPECIFIC_VARIETY_OPTIONS: SpecificVarietyOption[] = [
-  { value: 'NSIC_Rc218', label: 'NSIC Rc218', varietyCode: '218' },
-  { value: 'NSIC_Rc216', label: 'NSIC Rc216', varietyCode: 'OTHER' },
-  { value: 'NSIC_Rc160', label: 'NSIC Rc160', varietyCode: 'OTHER' },
-  { value: 'NSIC_Rc222', label: 'NSIC Rc222', varietyCode: 'OTHER' },
-  { value: 'NSIC_Rc300', label: 'NSIC Rc300', varietyCode: 'OTHER' },
-  { value: 'NSIC_Rc512', label: 'NSIC Rc512', varietyCode: 'OTHER' },
-  { value: 'NSIC_Rc508', label: 'NSIC Rc508', varietyCode: 'OTHER' },
-  { value: 'NSIC_Rc480', label: 'NSIC Rc480', varietyCode: 'OTHER' },
+  { value: 'Rc218', label: 'NSIC Rc218', varietyCode: '218' },
+  { value: 'Rc216', label: 'NSIC Rc216', varietyCode: 'OTHER' },
+  { value: 'Rc160', label: 'NSIC Rc160', varietyCode: 'OTHER' },
+  { value: 'Rc222', label: 'NSIC Rc222', varietyCode: 'OTHER' },
+  { value: 'Rc300', label: 'NSIC Rc300', varietyCode: 'OTHER' },
+  { value: 'Rc512', label: 'NSIC Rc512', varietyCode: 'OTHER' },
+  { value: 'Rc508', label: 'NSIC Rc508', varietyCode: 'OTHER' },
+  { value: 'Rc480', label: 'NSIC Rc480', varietyCode: 'OTHER' },
   { value: SPECIFIC_VARIETY_OTHER, label: 'Iba pa', varietyCode: 'OTHER' },
 ];
 
-/** Shown after "Uri ng Palay" resolves to Hybrid — maps to `variety_code`. */
+/** Shown after "Uri ng Palay" resolves to Hybrid — maps to `variety_code` and `specific_variety_name`. */
 export const HYBRID_SPECIFIC_VARIETY_OPTIONS: SpecificVarietyOption[] = [
-  { value: 'Mestizo_20', label: 'Mestizo 20 (NSIC Rc204H)', varietyCode: 'OTHER' },
-  { value: 'Mestizo_1', label: 'Mestizo 1 (PSB Rc72H)', varietyCode: 'OTHER' },
+  { value: 'Rc204H', label: 'Mestizo 20 (NSIC Rc204H)', varietyCode: 'OTHER' },
+  { value: 'PSB Rc72H', label: 'Mestizo 1 (PSB Rc72H)', varietyCode: 'OTHER' },
   { value: SPECIFIC_VARIETY_OTHER, label: 'Iba pa', varietyCode: 'OTHER' },
 ];
+
+const SPECIFIC_VARIETY_LABEL_BY_VALUE = new Map(
+  [...INBRED_SPECIFIC_VARIETY_OPTIONS, ...HYBRID_SPECIFIC_VARIETY_OPTIONS].map((o) => [o.value, o.label]),
+);
 
 export const PURITY_OPTIONS: { value: PurityGrade; label: string }[] = [
   { value: 'A', label: 'A' },
@@ -81,11 +85,16 @@ export const MOISTURE_OPTIONS: { value: MoistureType; label: string }[] = [
 
 /** Payload for `createCropListing` — exactly what the "Gumawa ng Listing" form collects. */
 export type CreateCropListingInput = {
+  listingName: string;
   declaredVariety: DeclaredVariety;
   /** Required (and only sent) when declaredVariety === 'Others'. */
   customVariety?: string;
   /** '218' only for NSIC Rc218; 'OTHER' for every other pick, including non-Inbred/Hybrid varieties. */
   varietyCode: VarietyCode;
+  /** CHECK token from the second modal; null for Traditional / Mix / Others. */
+  specificVarietyName?: string | null;
+  /** Required (and only sent) when specificVarietyName === 'Iba pa'. */
+  specificVarietyNameCustom?: string;
   declaredMoisture: MoistureType;
   declaredPurityGrade: PurityGrade;
   grossWeightKg: number;
@@ -96,10 +105,14 @@ export type CreateCropListingInput = {
 export type CropListing = {
   id: string;
   dateListed: string;
+  listingName: string;
   declaredVariety: DeclaredVariety;
   declaredVarietyCustom: string | null;
   /** '218' only for NSIC Rc218 (the only variety carrying a price premium); 'OTHER' otherwise. */
   varietyCode: VarietyCode;
+  /** Null for Traditional / Mix / Others and for legacy rows. */
+  specificVarietyName: string | null;
+  specificVarietyNameCustom: string | null;
   declaredMoisture: MoistureType;
   declaredPurityGrade: PurityGrade;
   grossWeightKg: number;
@@ -112,6 +125,26 @@ export type CropListing = {
   pricePerKg: number | null;
   status: ListingStatus;
 };
+
+/** Farmer-chosen listing title shown on Palengke cards and detail screens. */
+export function listingTitle(listing: Pick<CropListing, 'listingName'>): string {
+  return listing.listingName;
+}
+
+/**
+ * Specific-variety text for buyer/farmer detail chips. `Iba pa` resolves to the
+ * custom name; otherwise the existing modal label (so Hybrid still reads
+ * "Mestizo 20 (NSIC Rc204H)", not the CHECK token). Null when the column is unset.
+ */
+export function specificVarietyDisplay(
+  listing: Pick<CropListing, 'specificVarietyName' | 'specificVarietyNameCustom'>,
+): string | null {
+  if (!listing.specificVarietyName) return null;
+  if (listing.specificVarietyName === SPECIFIC_VARIETY_OTHER) {
+    return listing.specificVarietyNameCustom?.trim() || 'Iba pa';
+  }
+  return SPECIFIC_VARIETY_LABEL_BY_VALUE.get(listing.specificVarietyName) ?? listing.specificVarietyName;
+}
 
 /** Display label for `declaredVariety`, resolving the free-text custom name when set. */
 export function varietyLabel(

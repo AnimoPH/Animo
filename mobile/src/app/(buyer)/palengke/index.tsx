@@ -205,6 +205,7 @@ export default function MarketplaceScreen() {
       const vLabel = varietyLabel(l).toLowerCase();
       const rawVariety = l.declaredVariety.toLowerCase();
       const custom = l.declaredVarietyCustom?.toLowerCase() || '';
+      const name = l.listingName.toLowerCase();
       const moisture = l.declaredMoisture.toLowerCase(); // 'dry' or 'wet'
       const mLabel = moistureLabel(l.declaredMoisture).toLowerCase(); // 'tuyo (dry)' or 'basa (wet)'
       const purity = purityLabel(l.declaredPurityGrade).toLowerCase();
@@ -218,6 +219,7 @@ export default function MarketplaceScreen() {
           return l.declaredMoisture === 'Wet';
         }
         return (
+          name.includes(term) ||
           vLabel.includes(term) ||
           rawVariety.includes(term) ||
           custom.includes(term) ||

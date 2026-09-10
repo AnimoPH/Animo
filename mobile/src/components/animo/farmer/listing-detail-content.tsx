@@ -23,8 +23,10 @@ import { AnimoColors, AnimoRadius, AnimoSpacing } from "@/constants/animo";
 import { formatPeso } from "@/constants/marketplace";
 import {
   STATUS_LABELS,
+  listingTitle,
   moistureLabel,
   purityLabel,
+  specificVarietyDisplay,
   varietyLabel,
   type CropListing,
   type ListingPhoto,
@@ -108,6 +110,7 @@ export function ListingDetailContent({
   const activePhoto = galleryItems[selectedPhotoIndex] ?? galleryItems[0];
   const modalActivePhoto = galleryItems[modalPhotoIndex] ?? galleryItems[0];
   const locationText = location?.trim() ? location.trim() : null;
+  const specificVariety = specificVarietyDisplay(listing);
 
   const openModalAt = (index: number) => {
     setModalPhotoIndex(index);
@@ -190,11 +193,14 @@ export function ListingDetailContent({
       <View style={styles.summaryCard}>
         <View style={styles.summaryTopRow}>
           <AnimoText variant="h2" color={AnimoColors.accentPrimary} style={styles.summaryTitle}>
-            {varietyLabel(listing)}
+            {listingTitle(listing)}
           </AnimoText>
           <View style={styles.summaryBadges}>
             {listing.varietyCode === "218" ? (
               <StatusBadge label="May Premium" tone="success" />
+            ) : null}
+            {specificVariety ? (
+              <StatusBadge label={specificVariety} tone="neutral" />
             ) : null}
             <StatusBadge
               label={STATUS_LABELS[listing.status]}
@@ -471,8 +477,11 @@ const styles = StyleSheet.create({
   },
   summaryBadges: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
+    justifyContent: "flex-end",
     gap: AnimoSpacing.xs,
+    maxWidth: "46%",
   },
   priceBlock: {
     backgroundColor: AnimoColors.accentPrimary,

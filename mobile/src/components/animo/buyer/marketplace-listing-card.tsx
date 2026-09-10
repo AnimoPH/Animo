@@ -1,12 +1,12 @@
 import { Image } from 'expo-image';
-import { Droplets, ImageIcon, Scale } from 'lucide-react-native';
+import { Droplets, ImageIcon, Scale, Sprout } from 'lucide-react-native';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
-import { moistureLabel, varietyLabel, type CropListing } from '@/types/crop-listing';
+import { listingTitle, moistureLabel, specificVarietyDisplay, type CropListing } from '@/types/crop-listing';
 
 export type MarketplaceListingCardProps = {
   listing: CropListing;
@@ -23,6 +23,7 @@ export function MarketplaceListingCard({
   onPress,
 }: MarketplaceListingCardProps) {
   const { t, isEnglish } = useLanguage();
+  const specificVariety = specificVarietyDisplay(listing);
 
   const getLocalizedMoisture = () => {
     if (isEnglish) {
@@ -47,7 +48,7 @@ export function MarketplaceListingCard({
 
       <View style={styles.body}>
         <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} numberOfLines={2}>
-          {varietyLabel(listing)}
+          {listingTitle(listing)}
         </AnimoText>
 
         <View style={styles.priceRow}>
@@ -61,6 +62,11 @@ export function MarketplaceListingCard({
         </View>
 
         <View style={styles.specs}>
+          {specificVariety ? (
+            <Spec icon={<Sprout size={14} color={AnimoColors.textMediumEmphasis} />}>
+              {specificVariety}
+            </Spec>
+          ) : null}
           <Spec icon={<Scale size={14} color={AnimoColors.accentPrimary} />}>
             {listing.remainingQuantityKg} {t('common.kg')} {t('buyer.available')}
           </Spec>
