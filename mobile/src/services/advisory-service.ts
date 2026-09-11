@@ -131,20 +131,39 @@ export type AdvisoryHistoryEntry = {
   advisoryId: string;
   recommendedAction: RecommendedAction;
   dateIssued: string;
+  cropcycleId: string;
+  riceTypeCategory: RiceTypeCategory | null;
+  plantingDate: string | null;
 };
 
-/** RLS already scopes this to the signed-in farmer's own cropcycle(s). */
+type AdvisoryHistoryRow = {
+  advisory_id: string;
+  recommended_action: string;
+  date_issued: string;
+  cropcycle_id: string;
+  cropcycle: { rice_type_category: RiceTypeCategory | null; planting_date: string | null } | null;
+};
+
+/**
+ * RLS already scopes this to the signed-in farmer's own cropcycle(s), but a
+ * farmer can have more than one Growing cropcycle at once — the embedded
+ * cropcycle fields let the UI tag which planting each entry belongs to
+ * instead of silently interleaving them.
+ */
 export async function fetchAdvisoryHistory(): Promise<AdvisoryHistoryEntry[]> {
   const { data, error } = await supabase
     .from('advisoryrecommendation')
-    .select('advisory_id, recommended_action, date_issued')
+    .select('advisory_id, recommended_action, date_issued, cropcycle_id, cropcycle(rice_type_category, planting_date)')
     .order('date_issued', { ascending: false });
 
   if (error) throw error;
-  return (data ?? []).map((row) => ({
+  return ((data ?? []) as unknown as AdvisoryHistoryRow[]).map((row) => ({
     advisoryId: row.advisory_id,
     recommendedAction: row.recommended_action as RecommendedAction,
     dateIssued: row.date_issued,
+    cropcycleId: row.cropcycle_id,
+    riceTypeCategory: row.cropcycle?.rice_type_category ?? null,
+    plantingDate: row.cropcycle?.planting_date ?? null,
   }));
 }
 

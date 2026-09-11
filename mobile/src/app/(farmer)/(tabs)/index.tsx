@@ -195,7 +195,6 @@ export default function FarmerHomeScreen() {
             <AdvisoryCard
               title={t('farmer.advisoryTitle')}
               badge={actionLabel(currentAdvisory.advisory.recommendedAction)}
-              tip={actionLabel(currentAdvisory.advisory.recommendedAction)}
               desc={ADVISORY_DESCRIPTIONS[currentAdvisory.advisory.recommendedAction]}
               onPress={() => router.push('/(farmer)/advisory')}
             />
@@ -292,13 +291,11 @@ export default function FarmerHomeScreen() {
 function AdvisoryCard({
   title,
   badge,
-  tip,
   desc,
   onPress,
 }: {
   title: string;
   badge: string;
-  tip: string;
   desc: string;
   onPress: () => void;
 }) {
@@ -332,10 +329,7 @@ function AdvisoryCard({
           <CloudRain size={24} color={AnimoColors.muted} />
         </View>
         <View style={styles.advisoryTextWrap}>
-          <AnimoText variant="bodyEmphasis" color={AdvisoryOrange}>
-            {tip}
-          </AnimoText>
-          <AnimoText variant="caption" color={AnimoColors.muted} numberOfLines={2}>
+          <AnimoText variant="bodyEmphasis" color={AdvisoryOrange} numberOfLines={2}>
             {desc}
           </AnimoText>
         </View>

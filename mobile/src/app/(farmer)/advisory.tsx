@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CloudRain, Info, Sprout } from "lucide-react-native";
 
 import { ScreenHeader } from "@/components/animo/screen-header";
 import { AnimoText } from "@/components/animo/animo-text";
@@ -16,11 +17,18 @@ import {
 } from "@/services/advisory-service";
 
 const AdvisoryOrange = "#F57C00";
+const HISTORY_PREVIEW_COUNT = 5;
 
 function formatDateTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString("fil-PH", { year: "numeric", month: "long", day: "numeric" });
+}
+
+function formatShortDate(dateStr: string): string {
+  const date = new Date(`${dateStr}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("fil-PH", { month: "short", day: "numeric" });
 }
 
 function formatHoursAgo(iso: string): string {
@@ -36,6 +44,8 @@ export default function AdvisoryDetailScreen() {
   const [history, setHistory] = useState<AdvisoryHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,6 +66,11 @@ export default function AdvisoryDetailScreen() {
       load();
     }, [load]),
   );
+
+  // Only tag rows with their planting once a farmer actually has more than
+  // one — otherwise it's a redundant label on every single entry.
+  const showPlantingTag = new Set(history.map((h) => h.cropcycleId)).size > 1;
+  const visibleHistory = showAllHistory ? history : history.slice(0, HISTORY_PREVIEW_COUNT);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
@@ -85,32 +100,54 @@ export default function AdvisoryDetailScreen() {
                   {actionLabel(current.advisory.recommendedAction)}
                 </AnimoText>
 
-                <View style={styles.rationaleTable}>
-                  <RationaleRow
-                    label="Antas ng Pagkahinog"
-                    value={`${Math.round(ripenessPct(current.advisory.plantingDate, current.advisory.riceTypeCategory) * 100)}%`}
-                  />
-                  <RationaleRow
-                    label="Inaasahang Ulan"
-                    value={`${current.advisory.precipitationMmH.toFixed(1)} mm/h`}
-                  />
-                  <RationaleRow label="Huling Na-update" value={formatHoursAgo(current.advisory.forecastFetchedAt)} />
-                  <View style={styles.rationaleRow}>
-                    <AnimoText variant="caption" color={AnimoColors.muted}>
-                      Katayuan ng Datos
+                <View style={styles.statsRow}>
+                  <View style={styles.statTile}>
+                    <Sprout size={20} color={AnimoColors.green} />
+                    <AnimoText variant="h2" color={AnimoColors.black} style={styles.statValue}>
+                      {Math.round(ripenessPct(current.advisory.plantingDate, current.advisory.riceTypeCategory) * 100)}%
                     </AnimoText>
-                    <View style={[styles.statusBadge, current.advisory.isStale && styles.statusBadgeStale]}>
-                      <AnimoText variant="tag" color={current.advisory.isStale ? AdvisoryOrange : AnimoColors.green}>
-                        {current.advisory.isStale ? "LUMA" : "SARIWA"}
-                      </AnimoText>
-                    </View>
+                    <AnimoText variant="caption" color={AnimoColors.muted} style={styles.statLabel}>
+                      Antas ng Pagkahinog
+                    </AnimoText>
+                  </View>
+                  <View style={styles.statTile}>
+                    <CloudRain size={20} color={AnimoColors.green} />
+                    <AnimoText variant="h2" color={AnimoColors.black} style={styles.statValue}>
+                      {current.advisory.precipitationMmH.toFixed(1)}
+                    </AnimoText>
+                    <AnimoText variant="caption" color={AnimoColors.muted} style={styles.statLabel}>
+                      mm/h Inaasahang Ulan
+                    </AnimoText>
                   </View>
                 </View>
 
-                <AnimoText variant="caption" color={AnimoColors.muted} style={styles.disclaimer}>
-                  Batay ito sa isang simpleng panuntunan (antas ng pagkahinog + inaasahang ulan), hindi isang AI
-                  prediction. Hindi rin ito sumasalamin sa kondisyon ng lupa o pagbaha sa bukid.
-                </AnimoText>
+                <View style={styles.freshnessRow}>
+                  <View style={[styles.statusBadge, current.advisory.isStale && styles.statusBadgeStale]}>
+                    <AnimoText variant="tag" color={current.advisory.isStale ? AdvisoryOrange : AnimoColors.green}>
+                      {current.advisory.isStale ? "LUMA" : "SARIWA"}
+                    </AnimoText>
+                  </View>
+                  <AnimoText variant="caption" color={AnimoColors.muted}>
+                    Huling na-update: {formatHoursAgo(current.advisory.forecastFetchedAt)}
+                  </AnimoText>
+                </View>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setShowDisclaimer((v) => !v)}
+                  style={styles.disclaimerToggle}
+                  hitSlop={8}>
+                  <Info size={14} color={AnimoColors.muted} />
+                  <AnimoText variant="caption" color={AnimoColors.muted}>
+                    Paano ito kinakalkula?
+                  </AnimoText>
+                </Pressable>
+                {showDisclaimer ? (
+                  <AnimoText variant="caption" color={AnimoColors.muted} style={styles.disclaimer}>
+                    Batay ito sa isang simpleng panuntunan (antas ng pagkahinog + inaasahang ulan), hindi isang AI
+                    prediction. Hindi rin ito sumasalamin sa kondisyon ng lupa o pagbaha sa bukid.
+                  </AnimoText>
+                ) : null}
               </View>
             </View>
           ) : current?.kind === "awaiting_advisory" ? (
@@ -137,7 +174,29 @@ export default function AdvisoryDetailScreen() {
               Wala pang naitalang payo.
             </AnimoText>
           ) : (
-            history.map((entry) => <PastAdvisoryRow key={entry.advisoryId} entry={entry} />)
+            <>
+              <View style={[styles.historyCard, styles.shadow]}>
+                {visibleHistory.map((entry, i) => (
+                  <PastAdvisoryRow
+                    key={entry.advisoryId}
+                    entry={entry}
+                    showPlantingTag={showPlantingTag}
+                    isLast={i === visibleHistory.length - 1}
+                  />
+                ))}
+              </View>
+
+              {history.length > HISTORY_PREVIEW_COUNT ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setShowAllHistory((v) => !v)}
+                  style={styles.viewAllButton}>
+                  <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
+                    {showAllHistory ? "Ipakita ang Kaunti" : "Tingnan Lahat"}
+                  </AnimoText>
+                </Pressable>
+              ) : null}
+            </>
           )}
         </ScrollView>
       )}
@@ -145,25 +204,20 @@ export default function AdvisoryDetailScreen() {
   );
 }
 
-function RationaleRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.rationaleRow}>
-      <AnimoText variant="caption" color={AnimoColors.muted}>
-        {label}
-      </AnimoText>
-      <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-        {value}
-      </AnimoText>
-    </View>
-  );
-}
-
-function PastAdvisoryRow({ entry }: { entry: AdvisoryHistoryEntry }) {
+function PastAdvisoryRow({
+  entry,
+  showPlantingTag,
+  isLast,
+}: {
+  entry: AdvisoryHistoryEntry;
+  showPlantingTag: boolean;
+  isLast: boolean;
+}) {
   const isNoAction = entry.recommendedAction === "No_Action_Needed";
   const accentColor = isNoAction ? AnimoColors.green : AdvisoryOrange;
 
   return (
-    <View style={[styles.pastRow, styles.shadow]}>
+    <View style={[styles.pastRow, !isLast && styles.pastRowDivider]}>
       <View style={[styles.pastDot, { backgroundColor: accentColor }]} />
       <View style={styles.pastContent}>
         <AnimoText variant="body" color={AnimoColors.blackSecondary} numberOfLines={1}>
@@ -171,6 +225,7 @@ function PastAdvisoryRow({ entry }: { entry: AdvisoryHistoryEntry }) {
         </AnimoText>
         <AnimoText variant="caption" color={AnimoColors.muted}>
           {formatDateTime(entry.dateIssued)}
+          {showPlantingTag && entry.plantingDate ? ` · Tinanim ${formatShortDate(entry.plantingDate)}` : ""}
         </AnimoText>
       </View>
     </View>
@@ -211,18 +266,31 @@ const styles = StyleSheet.create({
   },
   activeBody: {
     padding: AnimoSpacing.lg,
+    gap: AnimoSpacing.md,
+  },
+  statsRow: {
+    flexDirection: "row",
     gap: AnimoSpacing.sm,
   },
-  rationaleTable: {
-    marginTop: AnimoSpacing.sm,
+  statTile: {
+    flex: 1,
+    backgroundColor: AnimoColors.greenTint,
+    borderRadius: AnimoRadius.lg,
+    paddingVertical: AnimoSpacing.md,
+    alignItems: "center",
+    gap: 2,
   },
-  rationaleRow: {
+  statValue: {
+    fontSize: 20,
+    lineHeight: 24,
+  },
+  statLabel: {
+    textAlign: "center",
+  },
+  freshnessRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: AnimoSpacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: AnimoColors.surfaceTertiary,
   },
   statusBadge: {
     backgroundColor: AnimoColors.greenTint,
@@ -233,8 +301,12 @@ const styles = StyleSheet.create({
   statusBadgeStale: {
     backgroundColor: "#FFF3E0",
   },
+  disclaimerToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   disclaimer: {
-    marginTop: AnimoSpacing.sm,
     lineHeight: 18,
   },
   sectionHeader: {
@@ -245,15 +317,27 @@ const styles = StyleSheet.create({
   emptyHistoryText: {
     marginHorizontal: AnimoSpacing.lg,
   },
-  pastRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  historyCard: {
     backgroundColor: AnimoColors.white,
     borderRadius: AnimoRadius.md,
     marginHorizontal: AnimoSpacing.lg,
-    marginBottom: AnimoSpacing.sm,
-    padding: AnimoSpacing.md,
+    overflow: "hidden",
+  },
+  viewAllButton: {
+    alignItems: "center",
+    paddingVertical: AnimoSpacing.md,
+    marginHorizontal: AnimoSpacing.lg,
+  },
+  pastRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: AnimoSpacing.md,
+    paddingVertical: AnimoSpacing.md,
     gap: AnimoSpacing.md,
+  },
+  pastRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: AnimoColors.surfaceTertiary,
   },
   pastDot: {
     width: 8,
