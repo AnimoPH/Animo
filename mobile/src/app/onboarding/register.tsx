@@ -26,6 +26,7 @@ import {
 import { buyerPreferencesFormToInput } from '@/components/animo/buyer-preferences-form';
 import { StepIndicator, type Step } from '@/components/animo/step-indicator';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { SHOW_DEV_TOOLS } from '@/constants/dev-tools';
 import { getRole, homeRouteForRole, type RoleId } from '@/constants/roles';
 import { completeRegistration, sendOtp, toLocalPhone, verifyOtp } from '@/services/auth-service';
 import { upsertMyBuyerPreferences } from '@/services/buyer-preferences-service';
@@ -327,7 +328,7 @@ function StepNumero({
   );
 }
 
-/** Temporary __DEV__ jumper — skip OTP auth while polishing step UI. Remove when done. */
+/** Temporary dev jumper — skip OTP auth while polishing step UI. Remove when done. */
 function DevStepNav({
   current,
   onSelect,
@@ -335,7 +336,7 @@ function DevStepNav({
   current: number;
   onSelect: (step: number) => void;
 }) {
-  if (!__DEV__) return null;
+  if (!SHOW_DEV_TOOLS) return null;
 
   const chips = [
     { label: 'Numero', step: 0 },

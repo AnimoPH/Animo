@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoText } from '@/components/animo/animo-text';
 import { DevLoginBar } from '@/components/animo/dev-login-bar';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { SHOW_DEV_TOOLS } from '@/constants/dev-tools';
 import { homeRouteForRole, type RoleId } from '@/constants/roles';
 import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
@@ -163,7 +164,7 @@ export default function LandingScreen() {
           </Pressable>
 
           {/* Development Quick Bypass */}
-          {__DEV__ ? (
+          {SHOW_DEV_TOOLS ? (
             <View style={styles.devBarContainer}>
               <DevLoginBar
                 onSelect={handleDevLogin}

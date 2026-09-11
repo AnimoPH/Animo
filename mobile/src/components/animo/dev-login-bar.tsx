@@ -2,6 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { SHOW_DEV_TOOLS } from '@/constants/dev-tools';
 import type { RoleId } from '@/constants/roles';
 
 type DevLoginBarProps = {
@@ -21,7 +22,7 @@ export function DevLoginBar({
   activeRole = null,
   error,
 }: DevLoginBarProps) {
-  if (!__DEV__) return null;
+  if (!SHOW_DEV_TOOLS) return null;
 
   return (
     <View style={styles.wrap}>

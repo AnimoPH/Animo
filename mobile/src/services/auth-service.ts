@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { SHOW_DEV_TOOLS } from '@/constants/dev-tools';
 import type { RoleId } from '@/constants/roles';
 import type { Account, CompleteRegistrationInput, UpdateFarmerProfileInput } from '@/types/auth';
 
@@ -220,10 +221,11 @@ export async function signOut() {
 
 /**
  * Dev-only shortcut onto an existing farmer/buyer account via email + password.
- * Does not send OTP and is a no-op outside `__DEV__` (release APKs).
+ * Does not send OTP; a no-op unless SHOW_DEV_TOOLS is on (Metro dev mode, or
+ * EXPO_PUBLIC_SHOW_DEV_TOOLS=1 on a preview build — never production).
  */
 export async function signInDevAccount(role: RoleId): Promise<Account> {
-  if (!__DEV__) throw new Error('Dev login is not available.');
+  if (!SHOW_DEV_TOOLS) throw new Error('Dev login is not available.');
 
   const email =
     role === 'magsasaka'
