@@ -21,7 +21,6 @@ import { ListingDetailContent } from "@/components/animo/farmer/listing-detail-c
 import { StatusBadge } from "@/components/animo/status-badge";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
 import { formatPeso } from "@/constants/marketplace";
-import { useSession } from "@/hooks/use-session";
 import { fetchCropListing, fetchListingPhotos } from "@/services/crop-listing-service";
 import { fetchBuyerTrustStatsBatch, type BuyerTrustStats } from "@/services/farmer-public-profile";
 import {
@@ -44,7 +43,6 @@ const REJECTION_REASONS = [
 /** Palay Listing detail — quality/price summary plus real purchase requests, oldest first. */
 export default function ListingDetailScreen() {
   const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
-  const { account } = useSession();
   const [activeTab, setActiveTab] = useState<DetailTab>(tab === "orders" ? "orders" : "detalye");
   const [listing, setListing] = useState<CropListing | null>(null);
   const [photos, setPhotos] = useState<ListingPhoto[]>([]);
@@ -245,7 +243,7 @@ export default function ListingDetailScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {activeTab === "detalye" ? (
-          <ListingDetailContent listing={listing} photos={photos} location={account?.barangay} />
+          <ListingDetailContent listing={listing} photos={photos} />
         ) : ordersLoading ? (
           <View style={styles.centerState}>
             <ActivityIndicator color={AnimoColors.accentPrimary} />
