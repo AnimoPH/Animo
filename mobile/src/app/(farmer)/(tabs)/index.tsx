@@ -13,7 +13,7 @@ import {
   User,
   Wheat,
 } from 'lucide-react-native';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -38,6 +38,12 @@ import {
   type FarmerHomeActivity,
   type FarmerHomeStats,
 } from '@/services/farmer-home-service';
+import {
+  actionLabel,
+  fetchCurrentAdvisory,
+  type AdvisoryState,
+  type RecommendedAction,
+} from '@/services/advisory-service';
 
 const AdvisoryOrange = '#F57C00';
 
@@ -47,17 +53,23 @@ const EMPTY_STATS: FarmerHomeStats = {
   pendingTransactions: 0,
 };
 
+const ADVISORY_DESCRIPTIONS: Record<RecommendedAction, string> = {
+  Advance_Cut: 'May inaasahang malakas na ulan sa darating na 48 oras, at hinog na ang iyong palay.',
+  Delayed_Harvest: 'May inaasahang malakas na ulan sa darating na 48 oras, pero hindi pa hinog ang iyong palay.',
+  No_Action_Needed: 'Walang inaasahang malakas na ulan sa darating na 48 oras.',
+};
+
 /** Tahanan — farmer home: weather advisory, quick stats, sell CTA, activity feed. */
 export default function FarmerHomeScreen() {
   const { t } = useLanguage();
   const params = useLocalSearchParams<{ startTour?: string }>();
-  const [hasActiveAdvisory] = useState(true);
+  const [currentAdvisory, setCurrentAdvisory] = useState<AdvisoryState | null>(null);
   const [stats, setStats] = useState<FarmerHomeStats>(EMPTY_STATS);
   const [activities, setActivities] = useState<FarmerHomeActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showTutorial, setShowTutorial] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Spotlight target refs
   const advisoryRef = useRef<View>(null);
@@ -71,9 +83,10 @@ export default function FarmerHomeScreen() {
     else setLoading(true);
     setError(null);
     try {
-      const data = await fetchFarmerHomeData();
+      const [data, advisory] = await Promise.all([fetchFarmerHomeData(), fetchCurrentAdvisory()]);
       setStats(data.stats);
       setActivities(data.activities);
+      setCurrentAdvisory(advisory);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Hindi ma-load ang dashboard.');
     } finally {
@@ -84,11 +97,17 @@ export default function FarmerHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Force spotlight tour visible for preview
-      setShowTutorial(true);
       load(false);
     }, [load]),
   );
+
+  // Shown once, first run only — the tour itself has no way to check this,
+  // so the parent screen owns reading the "already seen" flag it writes.
+  useEffect(() => {
+    AsyncStorage.getItem(FARMER_TUTORIAL_STORAGE_KEY).then((seen) => {
+      if (seen !== 'true') setShowTutorial(true);
+    });
+  }, []);
 
   const statCards = [
     {
@@ -171,17 +190,21 @@ export default function FarmerHomeScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
         }>
-        {hasActiveAdvisory ? (
-          <View ref={advisoryRef} collapsable={false}>
+        <View ref={advisoryRef} collapsable={false}>
+          {currentAdvisory?.kind === 'active' ? (
             <AdvisoryCard
               title={t('farmer.advisoryTitle')}
-              badge={t('farmer.advisoryBadge')}
-              tip={t('farmer.advisoryTip')}
-              desc={t('farmer.advisoryDesc')}
+              badge={actionLabel(currentAdvisory.advisory.recommendedAction)}
+              tip={actionLabel(currentAdvisory.advisory.recommendedAction)}
+              desc={ADVISORY_DESCRIPTIONS[currentAdvisory.advisory.recommendedAction]}
               onPress={() => router.push('/(farmer)/advisory')}
             />
-          </View>
-        ) : null}
+          ) : currentAdvisory?.kind === 'awaiting_advisory' ? (
+            <AdvisoryPendingCard onPress={() => router.push('/(farmer)/advisory')} />
+          ) : (
+            <AdvisoryEmptyCard onPress={() => router.push('/(farmer)/itala-taniman')} />
+          )}
+        </View>
 
         <View ref={statsRef} collapsable={false} style={styles.statsRow}>
           {statCards.map((stat) => (
@@ -251,7 +274,16 @@ export default function FarmerHomeScreen() {
         role="magsasaka"
         steps={farmerTourSteps}
         scrollViewRef={scrollViewRef}
-        onClose={() => setShowTutorial(false)}
+        onClose={() => {
+          setShowTutorial(false);
+          // Guided next step, not a thing to stumble on later — matches
+          // the tour's own "here's what this is" intent for a farmer who
+          // has never logged a planting yet. Not shown once they've already
+          // planted, even if the advisory itself is still pending.
+          if (!loading && currentAdvisory?.kind === 'no_cropcycle') {
+            router.push('/(farmer)/itala-taniman');
+          }
+        }}
       />
     </SafeAreaView>
   );
@@ -310,6 +342,49 @@ function AdvisoryCard({
         <ChevronRight size={18} color={AnimoColors.muted} />
       </Pressable>
     </View>
+  );
+}
+
+function AdvisoryEmptyCard({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.advisoryEmptyCard, pressed && styles.pressed]}>
+      <View style={styles.advisoryEmptyIconWrap}>
+        <CloudRain size={22} color={AnimoColors.green} />
+      </View>
+      <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.centerText}>
+        Walang aktibong babala para sa iyong palay
+      </AnimoText>
+      <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.centerText}>
+        Itala ang petsa ng pagtatanim para makatanggap ng babala kapag may inaasahang malakas na ulan.
+      </AnimoText>
+      <View style={styles.advisoryEmptyCta}>
+        <AnimoText variant="button" color={AnimoColors.white}>
+          Itala ang Taniman
+        </AnimoText>
+      </View>
+    </Pressable>
+  );
+}
+
+function AdvisoryPendingCard({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.advisoryEmptyCard, pressed && styles.pressed]}>
+      <View style={styles.advisoryEmptyIconWrap}>
+        <Clock size={22} color={AnimoColors.green} />
+      </View>
+      <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.centerText}>
+        Naitala na ang iyong taniman
+      </AnimoText>
+      <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.centerText}>
+        Hinihintay ang susunod na pagsusuri ng panahon — makakatanggap ka ng babala sa loob ng ilang oras.
+      </AnimoText>
+    </Pressable>
   );
 }
 
@@ -435,6 +510,35 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.9,
+  },
+  centerText: {
+    textAlign: 'center',
+  },
+  advisoryEmptyCard: {
+    backgroundColor: AnimoColors.surface,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: AnimoColors.border,
+    borderRadius: AnimoRadius.lg,
+    paddingVertical: AnimoSpacing.xl,
+    paddingHorizontal: AnimoSpacing.lg,
+    alignItems: 'center',
+    gap: AnimoSpacing.sm,
+  },
+  advisoryEmptyIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: AnimoColors.greenTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  advisoryEmptyCta: {
+    marginTop: AnimoSpacing.xs,
+    backgroundColor: AnimoColors.green,
+    borderRadius: AnimoRadius.pill,
+    paddingHorizontal: AnimoSpacing.xl,
+    paddingVertical: AnimoSpacing.sm,
   },
   advisoryCard: {
     backgroundColor: AnimoColors.green,
