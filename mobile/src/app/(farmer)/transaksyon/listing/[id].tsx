@@ -417,9 +417,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: AnimoSpacing.sm,
+    // marginBottom: AnimoSpacing.sm,
   },
   infoTitle: {
+    marginTop: AnimoSpacing.md,
     marginBottom: AnimoSpacing.md,
   },
   infoSectionLabel: {
