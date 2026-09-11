@@ -175,7 +175,15 @@ Deno.serve(async (req) => {
     .filter((row): row is NonNullable<typeof row> => row !== null);
 
   if (advisories.length > 0) {
-    const { error: insertError } = await adminClient.from('advisoryrecommendation').insert(advisories);
+    // upsert + ignoreDuplicates, not insert: a re-run within the same day
+    // (manual retrigger, or the cron somehow double-firing) must not create
+    // a second same-day row per cropcycle — see 0025's unique constraint.
+    const { error: insertError } = await adminClient
+      .from('advisoryrecommendation')
+      .upsert(advisories, {
+        onConflict: 'cropcycle_id,date_issued,type,trigger_source',
+        ignoreDuplicates: true,
+      });
     if (insertError) {
       console.error('refresh-advisory: advisoryrecommendation insert failed', insertError.message);
       return jsonResponse({ error: insertError.message }, 500);
