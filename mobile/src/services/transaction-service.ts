@@ -3,9 +3,11 @@ import { unwrapFunctionError } from '@/services/auth-service';
 import {
   fetchBuyerPurchaseRequests,
   fetchFarmerPurchaseRequests,
+  fetchListingPurchaseRequests,
 } from '@/services/purchase-request-service';
 import { supabase } from '@/lib/supabase';
 import type {
+  DisplayStage,
   Payment,
   PaymentMode,
   PaymentStatus,
@@ -15,6 +17,7 @@ import type {
   TransactionMatchStatus,
   TransactionWithPayment,
 } from '@/types/transaction';
+import { DISPLAY_STAGE_LABELS, deriveDisplayStage } from '@/types/transaction';
 
 /**
  * Transaction/payment service — `transactionmatch` rows are only ever
@@ -193,6 +196,30 @@ export async function fetchFarmerPurchaseOutcomes(): Promise<PurchaseOutcome[]> 
   return combineOutcomes(requests, transactions);
 }
 
+/** Merged purchase requests + matched transactions for one listing the farmer owns. */
+export async function fetchListingPurchaseOutcomes(listingId: string): Promise<PurchaseOutcome[]> {
+  const [requests, transactions] = await Promise.all([
+    fetchListingPurchaseRequests(listingId),
+    fetchListingTransactions(listingId),
+  ]);
+  return combineOutcomes(requests, transactions);
+}
+
+/** Farmer's matched transactions for a single listing. */
+export async function fetchListingTransactions(listingId: string): Promise<TransactionWithPayment[]> {
+  const farmerId = await requireAuthUserId();
+
+  const { data, error } = await supabase
+    .from('transactionmatch')
+    .select(TRANSACTION_WITH_PAYMENT_SELECT)
+    .eq('farmer_id', farmerId)
+    .eq('listing_id', listingId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data as unknown as TransactionMatchWithPaymentsRow[]).map(mapTransactionWithPayment);
+}
+
 function combineOutcomes(
   requests: Awaited<ReturnType<typeof fetchBuyerPurchaseRequests>>,
   transactions: TransactionWithPayment[],
@@ -205,6 +232,53 @@ function combineOutcomes(
       return transaction ? { kind: 'matched', request, transaction } : { kind: 'unmatched', request };
     })
     .sort((a, b) => (a.request.submittedAt < b.request.submittedAt ? 1 : -1));
+}
+
+/** Live sum of completed kg sold for one listing (no stored column). */
+export function sumCompletedSoldKg(transactions: TransactionWithPayment[], listingId: string): number {
+  return transactions
+    .filter((tx) => tx.listingId === listingId && tx.status === 'Completed')
+    .reduce((sum, tx) => sum + tx.quantityKg, 0);
+}
+
+/** Live sum of completed earnings (Buong Kita) for one listing. */
+export function sumCompletedEarnings(transactions: TransactionWithPayment[], listingId: string): number {
+  return transactions
+    .filter((tx) => tx.listingId === listingId && tx.status === 'Completed')
+    .reduce((sum, tx) => sum + tx.totalAmount, 0);
+}
+
+/**
+ * Farmer Part B list badges — local labels only; does not change global
+ * DISPLAY_STAGE_LABELS used on detail/buyer screens.
+ */
+const FARMER_LISTING_TXN_STAGE_LABELS: Partial<Record<DisplayStage, string>> = {
+  request_pending: 'Naghihintay ng sagot',
+  awaiting_payment: 'Naghihintay ng bayad',
+  payment_sent: 'Naghihintay ng bayad',
+  payment_confirmed: 'Naghihintay ng pickup',
+  delivered: 'Naghihintay ng pickup',
+  completed: 'Tapos na',
+};
+
+export function getFarmerListingTxnStageLabel(stage: DisplayStage): string {
+  return FARMER_LISTING_TXN_STAGE_LABELS[stage] ?? DISPLAY_STAGE_LABELS[stage];
+}
+
+export const LISTING_TXN_ONGOING_STAGES: DisplayStage[] = [
+  'request_pending',
+  'awaiting_payment',
+  'payment_sent',
+  'payment_confirmed',
+  'delivered',
+];
+
+export function isListingTxnOngoing(outcome: PurchaseOutcome): boolean {
+  return LISTING_TXN_ONGOING_STAGES.includes(deriveDisplayStage(outcome));
+}
+
+export function isListingTxnCompleted(outcome: PurchaseOutcome): boolean {
+  return deriveDisplayStage(outcome) === 'completed';
 }
 
 /** Buyer records a payment on their own transaction. Returns the new payment_id. */

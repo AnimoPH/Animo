@@ -24,6 +24,7 @@ import {
   AnimoSpacing,
   AnimoRadius,
 } from '@/constants/animo';
+import { BackHeader } from '@/components/animo/back-header';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
 
@@ -43,7 +44,7 @@ export default function AccountInformationScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Account Information" />
+      <BackHeader title="Account Information" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}

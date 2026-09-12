@@ -160,6 +160,26 @@ export async function fetchListingPurchaseRequests(listingId: string): Promise<P
   return (data as PurchaseRequestRow[]).map(mapPurchaseRequest);
 }
 
+/**
+ * Pending purchase-request counts keyed by listing_id for the signed-in farmer.
+ * One round trip of listing_id only; RLS scopes rows to listings the farmer owns.
+ */
+export async function fetchPendingPurchaseRequestCountsByListing(): Promise<Map<string, number>> {
+  const { data, error } = await supabase
+    .from('purchaserequest')
+    .select('listing_id')
+    .eq('status', 'Pending');
+
+  if (error) throw error;
+
+  const counts = new Map<string, number>();
+  for (const row of data ?? []) {
+    const id = (row as { listing_id: string }).listing_id;
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return counts;
+}
+
 /** Farmer accepts (fully or partially) a pending request. Returns the new transaction_id. */
 export async function acceptPurchaseRequest(requestId: string, acceptedQuantityKg: number): Promise<string> {
   if (!(acceptedQuantityKg > 0)) {

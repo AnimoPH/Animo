@@ -20,6 +20,7 @@ export default function FarmerStackLayout() {
       <Stack.Screen name="mamimili/[id]" />
       <Stack.Screen name="resibo" />
       <Stack.Screen name="transaksyon/[id]" />
+      <Stack.Screen name="transaksyon/listing/[id]" />
     </Stack>
   );
 }

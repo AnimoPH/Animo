@@ -9,6 +9,7 @@ import {
   type MoistureType,
   type PhotoType,
   type PurityGrade,
+  SPECIFIC_VARIETY_OTHER,
   type VarietyCode,
 } from '@/types/crop-listing';
 
@@ -31,9 +32,12 @@ import {
 export type CropListingRow = {
   listing_id: string;
   date_listed: string;
+  listing_name: string;
   declared_variety: DeclaredVariety;
   declared_variety_custom: string | null;
   variety_code: VarietyCode;
+  specific_variety_name: string | null;
+  specific_variety_name_custom: string | null;
   declared_moisture: MoistureType;
   declared_purity_grade: PurityGrade;
   gross_weight_kg: number;
@@ -46,15 +50,18 @@ export type CropListingRow = {
 };
 
 export const LISTING_COLUMNS =
-  'listing_id, date_listed, declared_variety, declared_variety_custom, variety_code, declared_moisture, declared_purity_grade, gross_weight_kg, tare_weight_kg, net_weight_kg, remaining_quantity_kg, minimum_request_kg, computed_price_per_kg, status' as const;
+  'listing_id, date_listed, listing_name, declared_variety, declared_variety_custom, variety_code, specific_variety_name, specific_variety_name_custom, declared_moisture, declared_purity_grade, gross_weight_kg, tare_weight_kg, net_weight_kg, remaining_quantity_kg, minimum_request_kg, computed_price_per_kg, status' as const;
 
 export function mapListing(row: CropListingRow): CropListing {
   return {
     id: row.listing_id,
     dateListed: row.date_listed,
+    listingName: row.listing_name,
     declaredVariety: row.declared_variety,
     declaredVarietyCustom: row.declared_variety_custom,
     varietyCode: row.variety_code,
+    specificVarietyName: row.specific_variety_name,
+    specificVarietyNameCustom: row.specific_variety_name_custom,
     declaredMoisture: row.declared_moisture,
     declaredPurityGrade: row.declared_purity_grade,
     grossWeightKg: Number(row.gross_weight_kg),
@@ -134,18 +141,30 @@ export async function createCropListing(input: CreateCropListingInput): Promise<
   if (!(netWeightKg > 0)) {
     throw new Error('Dapat mas malaki ang gross weight kaysa sa tare weight.');
   }
+  const listingName = input.listingName.trim();
+  if (!listingName) {
+    throw new Error('Ilagay ang pangalan ng listing.');
+  }
   const customVariety = input.customVariety?.trim() || null;
   if (input.declaredVariety === 'Others' && !customVariety) {
     throw new Error('Ilagay ang pangalan ng uri ng palay.');
+  }
+  const specificCustom = input.specificVarietyNameCustom?.trim() || null;
+  if (input.specificVarietyName === SPECIFIC_VARIETY_OTHER && !specificCustom) {
+    throw new Error('Ilagay ang pangalan ng tiyak na uri ng palay.');
   }
 
   const { data, error } = await supabase
     .from('croplisting')
     .insert({
       farmer_id: farmerId,
+      listing_name: listingName,
       declared_variety: input.declaredVariety,
       declared_variety_custom: input.declaredVariety === 'Others' ? customVariety : null,
       variety_code: input.varietyCode,
+      specific_variety_name: input.specificVarietyName ?? null,
+      specific_variety_name_custom:
+        input.specificVarietyName === SPECIFIC_VARIETY_OTHER ? specificCustom : null,
       declared_moisture: input.declaredMoisture,
       declared_purity_grade: input.declaredPurityGrade,
       gross_weight_kg: input.grossWeightKg,

@@ -6,25 +6,25 @@ import {
   Droplets,
   ImageIcon,
   Maximize2,
-  MapPin,
   Scale,
   ShieldCheck,
   Sprout,
   X,
 } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimoText } from "@/components/animo/animo-text";
-import { SpecBox } from "@/components/animo/spec-box";
 import { StatusBadge } from "@/components/animo/status-badge";
 import { AnimoColors, AnimoRadius, AnimoSpacing } from "@/constants/animo";
 import { formatPeso } from "@/constants/marketplace";
 import {
   STATUS_LABELS,
+  listingTitle,
   moistureLabel,
   purityLabel,
+  specificVarietyDisplay,
   varietyLabel,
   type CropListing,
   type ListingPhoto,
@@ -68,8 +68,6 @@ export type ListingDetailContentProps = {
   listing: CropListing;
   /** Whichever of the 3 photo_type slots have been uploaded, already signed. */
   photos: ListingPhoto[];
-  /** Farmer barangay from session; omit the Lokasyon spec when empty. */
-  location?: string | null;
 };
 
 type GalleryItem = (typeof PHOTO_TYPE_DETAILS)[number] & { url: string | null };
@@ -85,12 +83,40 @@ function PhotoFill({ url, contentFit }: { url: string | null; contentFit: "cover
   );
 }
 
-/** Detalye ng Listing tab: 3-slot gallery, summary with Patas na Presyo, SpecBox grid. */
-export function ListingDetailContent({
-  listing,
-  photos,
-  location,
-}: ListingDetailContentProps) {
+/** Farmer-only list row (icon + label left, value right). Not SpecBox — buyer still uses SpecBox. */
+function SpecRow({
+  icon,
+  label,
+  value,
+  showDivider,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  showDivider?: boolean;
+}) {
+  return (
+    <View style={[styles.specRow, showDivider && styles.specRowDivider]}>
+      <View style={styles.specRowLeft}>
+        {icon}
+        <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.specRowLabel}>
+          {label}
+        </AnimoText>
+      </View>
+      <AnimoText
+        variant="bodyEmphasis"
+        color={AnimoColors.accentPrimary}
+        style={styles.specRowValue}
+        numberOfLines={2}
+      >
+        {value}
+      </AnimoText>
+    </View>
+  );
+}
+
+/** Detalye ng Listing tab: 3-slot gallery, summary with Patas na Presyo, Ibang Impormasyon list. */
+export function ListingDetailContent({ listing, photos }: ListingDetailContentProps) {
   const insets = useSafeAreaInsets();
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
@@ -107,7 +133,7 @@ export function ListingDetailContent({
 
   const activePhoto = galleryItems[selectedPhotoIndex] ?? galleryItems[0];
   const modalActivePhoto = galleryItems[modalPhotoIndex] ?? galleryItems[0];
-  const locationText = location?.trim() ? location.trim() : null;
+  const specificVariety = specificVarietyDisplay(listing);
 
   const openModalAt = (index: number) => {
     setModalPhotoIndex(index);
@@ -121,6 +147,43 @@ export function ListingDetailContent({
   const handleNextModalPhoto = () => {
     setModalPhotoIndex((prev) => (prev < galleryItems.length - 1 ? prev + 1 : 0));
   };
+
+  const infoRows: { key: string; icon: ReactNode; label: string; value: string }[] = [
+    {
+      key: "variety",
+      icon: <Sprout size={16} color={AnimoColors.textMediumEmphasis} />,
+      label: "Uri ng palay",
+      value: varietyLabel(listing),
+    },
+    ...(specificVariety
+      ? [
+          {
+            key: "specificVariety",
+            icon: <Sprout size={16} color={AnimoColors.textMediumEmphasis} />,
+            label: "Tiyak na uri ng palay",
+            value: specificVariety,
+          },
+        ]
+      : []),
+    {
+      key: "moisture",
+      icon: <Droplets size={16} color={AnimoColors.textMediumEmphasis} />,
+      label: "Moisture",
+      value: moistureLabel(listing.declaredMoisture),
+    },
+    {
+      key: "purity",
+      icon: <ShieldCheck size={16} color={AnimoColors.textMediumEmphasis} />,
+      label: "Kalidad",
+      value: purityLabel(listing.declaredPurityGrade),
+    },
+    {
+      key: "weight",
+      icon: <Scale size={16} color={AnimoColors.textMediumEmphasis} />,
+      label: "Aktwal na timbang",
+      value: `${listing.netWeightKg} kg`,
+    },
+  ];
 
   return (
     <>
@@ -190,23 +253,14 @@ export function ListingDetailContent({
       <View style={styles.summaryCard}>
         <View style={styles.summaryTopRow}>
           <AnimoText variant="h2" color={AnimoColors.accentPrimary} style={styles.summaryTitle}>
-            {varietyLabel(listing)}
+            {listingTitle(listing)} ({listing.remainingQuantityKg} kg)
           </AnimoText>
-          <View style={styles.summaryBadges}>
-            {listing.varietyCode === "218" ? (
-              <StatusBadge label="May Premium" tone="success" />
-            ) : null}
-            <StatusBadge
-              label={STATUS_LABELS[listing.status]}
-              tone={STATUS_TONE[listing.status]}
-              icon={<CheckCircle size={12} color={AnimoColors.accentPrimary} />}
-            />
-          </View>
+          <StatusBadge
+            label={STATUS_LABELS[listing.status]}
+            tone={STATUS_TONE[listing.status]}
+            icon={<CheckCircle size={12} color={AnimoColors.accentPrimary} />}
+          />
         </View>
-
-        <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-          {listing.remainingQuantityKg} kg na available
-        </AnimoText>
 
         <View style={styles.priceBlock}>
           <AnimoText
@@ -240,44 +294,22 @@ export function ListingDetailContent({
               : "—"}
           </AnimoText>
         </View>
-
-        <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-          Pinakamaliit na order: {listing.minimumRequestKg} kg
-        </AnimoText>
       </View>
 
       <View style={styles.section}>
         <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-          Impormasyon ng Palay
+          Ibang Impormasyon
         </AnimoText>
-        <View style={styles.specGrid}>
-          <SpecBox
-            icon={<Sprout size={16} color={AnimoColors.accentPrimary} />}
-            label="Uri ng palay"
-            value={varietyLabel(listing)}
-          />
-          <SpecBox
-            icon={<Scale size={16} color={AnimoColors.accentPrimary} />}
-            label="Aktwal na timbang"
-            value={`${listing.netWeightKg} kg`}
-          />
-          <SpecBox
-            icon={<Droplets size={16} color={AnimoColors.accentPrimary} />}
-            label="Moisture"
-            value={moistureLabel(listing.declaredMoisture)}
-          />
-          <SpecBox
-            icon={<ShieldCheck size={16} color={AnimoColors.accentPrimary} />}
-            label="Kalidad"
-            value={purityLabel(listing.declaredPurityGrade)}
-          />
-          {locationText ? (
-            <SpecBox
-              icon={<MapPin size={16} color={AnimoColors.accentPrimary} />}
-              label="Lokasyon"
-              value={locationText}
+        <View style={styles.infoCard}>
+          {infoRows.map((row, index) => (
+            <SpecRow
+              key={row.key}
+              icon={row.icon}
+              label={row.label}
+              value={row.value}
+              showDivider={index < infoRows.length - 1}
             />
-          ) : null}
+          ))}
         </View>
       </View>
 
@@ -469,11 +501,6 @@ const styles = StyleSheet.create({
   summaryTitle: {
     flex: 1,
   },
-  summaryBadges: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: AnimoSpacing.xs,
-  },
   priceBlock: {
     backgroundColor: AnimoColors.accentPrimary,
     borderRadius: AnimoRadius.md,
@@ -498,10 +525,38 @@ const styles = StyleSheet.create({
   section: {
     gap: AnimoSpacing.md,
   },
-  specGrid: {
+  infoCard: {
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    borderRadius: AnimoRadius.lg,
+    backgroundColor: AnimoColors.surfacePrimary,
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingVertical: AnimoSpacing.sm,
+  },
+  specRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: AnimoSpacing.md,
+    paddingVertical: AnimoSpacing.md,
+  },
+  specRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: AnimoColors.borderLowEmphasis,
+  },
+  specRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: AnimoSpacing.sm,
+    flexShrink: 1,
+  },
+  specRowLabel: {
+    flexShrink: 1,
+  },
+  specRowValue: {
+    textAlign: "right",
+    flexShrink: 1,
+    maxWidth: "48%",
   },
   modalBackdrop: {
     flex: 1,

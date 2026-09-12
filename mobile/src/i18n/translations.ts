@@ -95,10 +95,10 @@ export const TRANSLATIONS = {
     'spotlight.farmerPalengke.step3Desc': 'Bantayan ang mga agarang alerto para sa mga bagong offer mula sa mga mamimili.',
 
     // Farmer Transaksyon Spotlight
-    'spotlight.farmerTxn.step1Title': 'Pagsasala ng Transaksyon',
-    'spotlight.farmerTxn.step1Desc': 'Piliin ang Kailangan ng Aksyon, Naghihintay, o Kumpleto upang madaling masubaybayan ang iyong mga benta.',
-    'spotlight.farmerTxn.step2Title': 'Paghahanap ng Deal',
-    'spotlight.farmerTxn.step2Desc': 'I-type ang Reference ID, pangalan ng mamimili, o uri ng palay upang mabilis na mahanap ang transaksyon.',
+    'spotlight.farmerTxn.step1Title': 'Pagsasala ng Listing',
+    'spotlight.farmerTxn.step1Desc': 'Piliin ang Lahat, Kasalukuyan, o Tapos na upang makita ang estado ng bawat listing.',
+    'spotlight.farmerTxn.step2Title': 'Paghahanap ng Listing',
+    'spotlight.farmerTxn.step2Desc': 'I-type ang pangalan ng listing o uri ng palay upang mabilis na mahanap ang buod ng kita.',
     'spotlight.farmerTxn.step3Title': 'Mga Abiso',
     'spotlight.farmerTxn.step3Desc': 'Manatiling updated sa mga kumpirmasyon ng bayad at iskedyul ng delivery.',
 
@@ -325,10 +325,10 @@ export const TRANSLATIONS = {
     'spotlight.farmerPalengke.step3Desc': 'Stay updated with instant alerts whenever buyers place new purchase requests.',
 
     // Farmer Transaksyon Spotlight
-    'spotlight.farmerTxn.step1Title': 'Filter Transactions',
-    'spotlight.farmerTxn.step1Desc': 'Filter by Action Required, Pending, or Completed to manage your farm sales smoothly.',
-    'spotlight.farmerTxn.step2Title': 'Search Deals',
-    'spotlight.farmerTxn.step2Desc': 'Type the Reference ID, buyer name, or grain variety to find deals instantly.',
+    'spotlight.farmerTxn.step1Title': 'Filter Listings',
+    'spotlight.farmerTxn.step1Desc': 'Filter by All, Ongoing, or Completed to see each listing’s sales status.',
+    'spotlight.farmerTxn.step2Title': 'Search Listings',
+    'spotlight.farmerTxn.step2Desc': 'Type a listing name or grain variety to find earnings summaries quickly.',
     'spotlight.farmerTxn.step3Title': 'Notifications',
     'spotlight.farmerTxn.step3Desc': 'Receive instant alerts for GCash payment receipts and scheduled sack pickups.',
 

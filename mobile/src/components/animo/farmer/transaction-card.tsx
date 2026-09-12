@@ -26,6 +26,7 @@ export type FarmerTransactionCardItem = {
   referenceId: string;
   stage: DisplayStage;
   statusLabel: string;
+  /** Unused in Part B row UI (covered by Impormasyon ng Palay); kept for mapper compatibility. */
   variety: string;
   moisture: string;
   price: string;
@@ -42,7 +43,7 @@ export type TransactionCardProps = {
   onPress?: () => void;
 };
 
-/** Farmer transaksyon list card: status, variety, payment, total, buyer, date. */
+/** Farmer Part B list card: buyer, amount, kg, payment, ref, status, date/time. */
 export function TransactionCard({ item, onPress }: TransactionCardProps) {
   const isDone = item.stage === 'completed';
   const needsAction = NEEDS_ACTION[item.stage] === true;
@@ -59,63 +60,53 @@ export function TransactionCard({ item, onPress }: TransactionCardProps) {
   return (
     <TouchableOpacity accessibilityRole="button" activeOpacity={0.85} onPress={openTransactionDetail} style={styles.card}>
       <View style={styles.cardBody}>
-        <View style={styles.rowBetween}>
+        {/* Reference ID and Status */}
+        <View style={[styles.rowBetween, styles.refRow]}>
           <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
             {item.referenceId}
           </AnimoText>
           <StatusLabel label={item.statusLabel} isDone={isDone} dotColor={dotColor} />
         </View>
 
-        <View style={styles.varietyRow}>
-          <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            {item.variety} ({item.moisture})
-          </AnimoText>
-          {item.paymentMode ? (
-            <View style={item.paymentMode === 'GCash' ? styles.payPillGcash : styles.payPillCash}>
-              <AnimoText variant="tag" color={item.paymentMode === 'GCash' ? AnimoColors.focusRing : AnimoColors.textMediumEmphasis}>
-                {item.paymentMode}
-              </AnimoText>
-            </View>
-          ) : null}
-        </View>
+        <View style={styles.divider} />
 
-        <View style={styles.priceRow}>
+        {/* Buyer Name and Price */}
+        <View style={styles.rowBetween}>
+          <AnimoText
+            variant="bodyEmphasis"
+            color={AnimoColors.textHighEmphasis}
+            style={styles.buyerName}
+            numberOfLines={1}>
+            {item.buyer}
+          </AnimoText>
           <AnimoText color={AnimoColors.accentPrimary} style={styles.price}>
             {item.price}
           </AnimoText>
-          <View style={styles.weightGroup}>
-            <AnimoText variant="caption" color={AnimoColors.textHighEmphasis}>
-              {item.weight}
-            </AnimoText>
-            <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-              ({item.pricePerKg})
-            </AnimoText>
-          </View>
         </View>
 
-        <View style={styles.divider} />
-
-        <View style={styles.buyerRow}>
-          <View style={styles.buyerCol}>
-            <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-              Mamimili:
-            </AnimoText>
-            <AnimoText
-              variant="bodyEmphasis"
-              color={AnimoColors.textHighEmphasis}
-              style={styles.buyerName}>
-              {item.buyer}
-            </AnimoText>
-          </View>
-          <View style={styles.dateCol}>
-            <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-              {item.date}
-            </AnimoText>
-            <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.time}>
-              {item.time}
-            </AnimoText>
-          </View>
+        {/* Weight and Payment Mode */}
+        <View style={styles.rowBetween}>
+          <AnimoText variant="caption" color={AnimoColors.textHighEmphasis}>
+            {item.weight}
+          </AnimoText>
+          {item.paymentMode ? (
+            <View style={item.paymentMode === 'GCash' ? styles.payPillGcash : styles.payPillCash}>
+              <AnimoText
+                variant="tag"
+                color={item.paymentMode === 'GCash' ? AnimoColors.focusRing : AnimoColors.textMediumEmphasis}>
+                {item.paymentMode}
+              </AnimoText>
+            </View>
+          ) : (
+            <View />
+          )}
         </View>
+
+        {/* Date and Time */}
+        <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.datetime}>
+          {item.date}
+          {item.time ? `   (${item.time})` : ''}
+        </AnimoText>
       </View>
 
       {needsAction ? (
@@ -167,12 +158,35 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     padding: AnimoSpacing.lg,
+    gap: AnimoSpacing.sm,
   },
   rowBetween: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: AnimoSpacing.sm,
+    gap: AnimoSpacing.sm,
+  },
+  buyerName: {
+    flex: 1,
+  },
+  price: {
+    fontSize: 18,
+    lineHeight: 26,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    flexShrink: 0,
+  },
+  refRow: {
+    marginTop: AnimoSpacing.xs,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: AnimoColors.borderLowEmphasis,
+    opacity: 0.5,
+    // marginVertical: AnimoSpacing.sm, // or only marginTop / marginBottom
+  },
+  
+  datetime: {
+    marginTop: 2,
   },
   statusFilled: {
     backgroundColor: AnimoColors.accentPrimary,
@@ -190,12 +204,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: AnimoRadius.pill,
   },
-  varietyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: AnimoSpacing.xs,
-  },
   payPillGcash: {
     backgroundColor: AnimoColors.focusRingLight,
     borderRadius: AnimoRadius.sm,
@@ -207,46 +215,6 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.sm,
     paddingHorizontal: AnimoSpacing.sm,
     paddingVertical: 2,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: AnimoSpacing.md,
-  },
-  price: {
-    fontSize: 24,
-    lineHeight: 36,
-    fontFamily: 'PlusJakartaSans_700Bold',
-  },
-  weightGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.xs,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: AnimoColors.borderLowEmphasis,
-    marginBottom: AnimoSpacing.md,
-  },
-  buyerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  buyerCol: {
-    flex: 1,
-    paddingRight: AnimoSpacing.md,
-  },
-  buyerName: {
-    marginTop: 2,
-  },
-  dateCol: {
-    alignItems: 'flex-end',
-  },
-  time: {
-    marginTop: 2,
-    textAlign: 'right',
   },
   actionBanner: {
     flexDirection: 'row',
