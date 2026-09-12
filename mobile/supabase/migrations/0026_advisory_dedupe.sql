@@ -1,5 +1,5 @@
 -- Advisory Module follow-up #2 — fix a real duplication bug surfaced while
--- testing 0023/0024: refresh-advisory inserts a new advisoryrecommendation
+-- testing 0024/0025: refresh-advisory inserts a new advisoryrecommendation
 -- row every time it runs, with no check for an existing same-day row, even
 -- though date_issued (a plain `date`, 0001) already implies one advisory per
 -- cropcycle per day. Repeated manual invocations while debugging the cron

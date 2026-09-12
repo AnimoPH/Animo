@@ -7,7 +7,7 @@ import { requireAuthUserId } from '@/services/crop-listing-service';
  * RPC): RLS already scopes both to the signed-in farmer's own farm, the same
  * way farmer-public-profile.ts relies on RLS rather than server-side
  * filtering. The rule engine itself lives in the refresh-advisory edge
- * function (migration 0023) — ripenessPct here is display-only, mirroring
+ * function (migration 0024) — ripenessPct here is display-only, mirroring
  * that function's formula so the rationale card can show the same number,
  * not a second source of truth for the decision.
  */
