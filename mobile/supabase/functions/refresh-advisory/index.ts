@@ -2,7 +2,7 @@
 //   supabase functions deploy refresh-advisory
 //
 // Service-role only, invoked every 6 hours by trigger_advisory_refresh()
-// (migration 0024). Two steps in one invocation since they always run
+// (migration 0025). Two steps in one invocation since they always run
 // together: (1) fetch a rain forecast for Antipolo from OpenWeatherMap and
 // write weather_forecast_feed; (2) for every Growing cropcycle, combine its
 // ripeness with that forecast and insert one new advisoryrecommendation row
@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
   if (advisories.length > 0) {
     // upsert + ignoreDuplicates, not insert: a re-run within the same day
     // (manual retrigger, or the cron somehow double-firing) must not create
-    // a second same-day row per cropcycle — see 0026's unique constraint.
+    // a second same-day row per cropcycle — see 0027's unique constraint.
     const { error: insertError } = await adminClient
       .from('advisoryrecommendation')
       .upsert(advisories, {

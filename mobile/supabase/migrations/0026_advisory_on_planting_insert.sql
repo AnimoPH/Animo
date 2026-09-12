@@ -1,6 +1,6 @@
 -- Advisory Module follow-up — Research Notes Sec. L, Project Context Sec. 5.1/7.3.
 --
--- refresh-advisory (0024) batches two different concerns into one 6-hourly
+-- refresh-advisory (0025) batches two different concerns into one 6-hourly
 -- job: (1) fetch a fresh rain forecast (expensive, rate-limited, shared by
 -- every farmer) and (2) recompute an advisory for every Growing cropcycle
 -- from that forecast. Bundling them means a farmer who logs a planting right
