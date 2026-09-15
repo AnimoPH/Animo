@@ -562,14 +562,18 @@ export default function MarketplaceScreen() {
             <FlatList
               data={displayedListings}
               keyExtractor={(item) => item.listing.id}
+              numColumns={2}
+              columnWrapperStyle={styles.columnWrapper}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => (
-                <MarketplaceListingCard
-                  listing={item.listing}
-                  coverPhotoUrl={coverPhotos.get(item.listing.id)}
-                  onPress={() => router.push(`/(buyer)/palengke/${item.listing.id}`)}
-                />
+                <View style={styles.gridItem}>
+                  <MarketplaceListingCard
+                    listing={item.listing}
+                    coverPhotoUrl={coverPhotos.get(item.listing.id)}
+                    onPress={() => router.push(`/(buyer)/palengke/${item.listing.id}`)}
+                  />
+                </View>
               )}
             />
           )
@@ -897,6 +901,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.sm,
     paddingBottom: AnimoSpacing.xxl,
+  },
+  columnWrapper: {
+    gap: AnimoSpacing.md,
+  },
+  gridItem: {
+    flex: 1,
   },
   farmersDirectoryList: {
     paddingHorizontal: AnimoSpacing.lg,
