@@ -12,7 +12,6 @@ import { FarmerCard, LockedFarmerCard } from '@/components/animo/farmer-card';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
-import { ScreenHeader } from '@/components/animo/screen-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import {
@@ -26,6 +25,7 @@ import {
   type PurchaseOutcome,
   type TransactionCounterpart,
 } from '@/types/transaction';
+import { BackHeader } from '@/components/animo/back-header';
 
 /**
  * Pickup coordination — there is no pickup/scheduling table in this schema,
@@ -73,7 +73,7 @@ export default function PickupScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScreenHeader title="Pickup" />
+        <BackHeader title="Pickup" />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.green} />
         </View>
@@ -84,7 +84,7 @@ export default function PickupScreen() {
   if (!outcome || outcome.kind !== 'matched' || error) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScreenHeader title="Pickup" />
+        <BackHeader title="Pickup" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
             {error ?? 'Hindi nahanap ang transaksyon na ito.'}
@@ -111,7 +111,7 @@ export default function PickupScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Pickup" />
+      <BackHeader title="Pickup" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>

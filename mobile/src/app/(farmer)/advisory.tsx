@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader } from "@/components/animo/screen-header";
 import { AnimoText } from "@/components/animo/animo-text";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
+import { BackHeader } from "@/components/animo/back-header";
 
 const AdvisoryOrange = "#F57C00";
 
@@ -48,7 +49,7 @@ const PAST_ADVISORIES: PastAdvisory[] = [
 export default function AdvisoryDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <ScreenHeader title="Payo sa Bukid" />
+      <BackHeader title="Payo sa Bukid" />
 
       <FlatList
         contentContainerStyle={styles.content}

@@ -23,7 +23,7 @@ import { LabeledInput } from '@/components/animo/labeled-input';
 import { ListingImage } from '@/components/animo/listing-image';
 import { PhotoSourceSheet } from '@/components/animo/photo-source-sheet';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
-import { ScreenHeader } from '@/components/animo/screen-header';
+import { BackHeader } from '@/components/animo/back-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { fetchCropListing } from '@/services/crop-listing-service';
@@ -82,7 +82,7 @@ export default function PaymentScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScreenHeader title="Paraan ng Pagbabayad" />
+        <BackHeader title="Paraan ng Pagbabayad" />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.green} />
         </View>
@@ -93,7 +93,7 @@ export default function PaymentScreen() {
   if (!outcome || outcome.kind !== 'matched' || loadError) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScreenHeader title="Paraan ng Pagbabayad" />
+        <BackHeader title="Paraan ng Pagbabayad" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
             {loadError ?? 'Hindi nahanap ang transaksyon na ito.'}
@@ -172,7 +172,7 @@ export default function PaymentScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Paraan ng Pagbabayad" />
+      <BackHeader title="Paraan ng Pagbabayad" />
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>

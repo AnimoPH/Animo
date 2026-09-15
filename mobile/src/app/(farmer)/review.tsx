@@ -24,6 +24,7 @@ import { fetchOwnRatingForTransaction, submitRating } from '@/services/rating-se
 import { fetchTransaction, fetchTransactionCounterpart } from '@/services/transaction-service';
 import type { Rating } from '@/types/rating';
 import type { TransactionCounterpart, TransactionMatch } from '@/types/transaction';
+import { BackHeader } from '@/components/animo/back-header';
 
 const RATING_MOODS: Record<number, string> = {
   5: 'Napakahusay!',
@@ -92,7 +93,7 @@ export default function ReviewBuyerScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScreenHeader title="Suriin ang Mamimili" />
+        <BackHeader title="Suriin ang Mamimili" />
         <View style={styles.centerState}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -128,7 +129,7 @@ export default function ReviewBuyerScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Suriin ang Mamimili" />
+      <BackHeader title="Suriin ang Mamimili" />
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
