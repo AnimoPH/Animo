@@ -22,6 +22,9 @@ const STATUS_TONES: Record<ListingStatus, BadgeTone> = {
   Cancelled: 'danger',
 };
 
+const TITLE_LINE_HEIGHT = 20;
+const TITLE_MAX_LINES = 2;
+
 export type MarketplaceListingCardProps = {
   listing: CropListing;
   coverPhotoUrl?: string;
@@ -60,20 +63,11 @@ export function MarketplaceListingCard({
         <AnimoText
           variant="h3"
           color={AnimoColors.textHighEmphasis}
-          numberOfLines={2}
+          numberOfLines={TITLE_MAX_LINES}
+          ellipsizeMode="tail"
           style={styles.cardTitle}>
           {listingTitle(listing)}
         </AnimoText>
-
-        {specificVariety ? (
-          <AnimoText
-            variant="caption"
-            color={AnimoColors.textMediumEmphasis}
-            numberOfLines={1}
-            style={styles.subtitle}>
-            {specificVariety}
-          </AnimoText>
-        ) : null}
 
         <View style={styles.priceRow}>
           <AnimoText variant="h2" color={AnimoColors.accentPrimary} style={styles.priceText}>
@@ -85,9 +79,26 @@ export function MarketplaceListingCard({
           </AnimoText>
         </View>
 
-        <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} numberOfLines={1}>
-          {listing.remainingQuantityKg} {t('common.kg')}
-        </AnimoText>
+        <View style={styles.footerRow}>
+          {specificVariety ? (
+            <AnimoText
+              variant="caption"
+              color={AnimoColors.textMediumEmphasis}
+              numberOfLines={1}
+              style={styles.variety}>
+              {specificVariety}
+            </AnimoText>
+          ) : (
+            <View style={styles.variety} />
+          )}
+          <AnimoText
+            variant="caption"
+            color={AnimoColors.textMediumEmphasis}
+            numberOfLines={1}
+            style={styles.quantity}>
+            {listing.remainingQuantityKg} {t('common.kg')}
+          </AnimoText>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -131,11 +142,9 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 15,
-    lineHeight: 20,
-  },
-  subtitle: {
-    fontSize: 12,
-    lineHeight: 16,
+    lineHeight: TITLE_LINE_HEIGHT,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    minHeight: TITLE_LINE_HEIGHT * TITLE_MAX_LINES,
   },
   priceRow: {
     flexDirection: 'row',
@@ -145,5 +154,23 @@ const styles = StyleSheet.create({
   priceText: {
     fontSize: 18,
     lineHeight: 22,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: AnimoSpacing.xs,
+  },
+  variety: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  quantity: {
+    flexShrink: 0,
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'right',
   },
 });
