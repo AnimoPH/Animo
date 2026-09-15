@@ -348,12 +348,13 @@ export default function BuyerHomeScreen() {
 
           <View style={styles.featured}>
             {featured.map(({ listing }) => (
-              <MarketplaceListingCard
-                key={listing.id}
-                listing={listing}
-                coverPhotoUrl={coverPhotos.get(listing.id)}
-                onPress={() => router.push(`/(buyer)/palengke/${listing.id}`)}
-              />
+              <View key={listing.id} style={styles.featuredItem}>
+                <MarketplaceListingCard
+                  listing={listing}
+                  coverPhotoUrl={coverPhotos.get(listing.id)}
+                  onPress={() => router.push(`/(buyer)/palengke/${listing.id}`)}
+                />
+              </View>
             ))}
           </View>
         </View>
@@ -630,6 +631,11 @@ const styles = StyleSheet.create({
     color: AnimoColors.textMediumEmphasis,
   },
   featured: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: AnimoSpacing.md,
+  },
+  featuredItem: {
+    width: '47%',
   },
 });
