@@ -5,7 +5,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { ScreenHeader } from '@/components/animo/screen-header';
 import { FormCard } from '@/components/animo/form-card';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { SelectField } from '@/components/animo/select-field';
@@ -15,6 +14,7 @@ import { BARANGAYS } from '@/constants/profile-options';
 import { getRole } from '@/constants/roles';
 import { useSession } from '@/hooks/use-session';
 import { updateMyFarmerProfile } from '@/services/auth-service';
+import { BackHeader } from '@/components/animo/back-header';
 
 /** 11-digit PH mobile format, matching `farmer.gcash_number varchar(11)`. */
 const GCASH_NUMBER_PATTERN = /^09\d{9}$/;
@@ -63,7 +63,7 @@ export default function ProfileEditScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <ScreenHeader title="Personal na Impormasyon" />
+      <BackHeader title="Personal na Impormasyon" />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

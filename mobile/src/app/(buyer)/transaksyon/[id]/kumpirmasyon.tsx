@@ -18,13 +18,13 @@ import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { NoticeBanner } from '@/components/animo/notice-banner';
-import { ScreenHeader } from '@/components/animo/screen-header';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import { confirmPaymentSent, fetchTransactionByRequestId } from '@/services/transaction-service';
 import { requestTotal, type PurchaseOutcome } from '@/types/transaction';
+import { BackHeader } from '@/components/animo/back-header';
 
 type DiscrepancyReason = 'Mas mababa/mataas ang timbang' | 'Magkaiba ang grade' | 'Iba ang variant' | 'Iba pa';
 
@@ -81,7 +81,7 @@ export default function PaymentConfirmationScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScreenHeader title="Kumpirmasyon ng Bayad" />
+        <BackHeader title="Kumpirmasyon ng Bayad" />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.green} />
         </View>
@@ -94,7 +94,7 @@ export default function PaymentConfirmationScreen() {
   if (!outcome || outcome.kind !== 'matched' || !payment || loadError) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScreenHeader title="Kumpirmasyon ng Bayad" />
+        <BackHeader title="Kumpirmasyon ng Bayad" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
             {loadError ?? 'Wala pang naitalang bayad para sa transaksyong ito.'}
@@ -125,7 +125,7 @@ export default function PaymentConfirmationScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Kumpirmasyon ng Bayad" />
+      <BackHeader title="Kumpirmasyon ng Bayad" />
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>

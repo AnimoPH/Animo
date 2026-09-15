@@ -32,42 +32,29 @@ import {
   fetchBuyerPurchaseOutcomes,
   fetchCounterpartNames,
   fetchFarmerNamesByListingIds,
+  getFarmerListingTxnStageLabel,
+  isListingTxnCompleted,
+  isListingTxnOngoing,
 } from '@/services/transaction-service';
-import { varietyLabel, type CropListing } from '@/types/crop-listing';
 import {
-  DISPLAY_STAGE_LABELS,
-  getDisplayStageLabel,
+  listingTitle,
+  specificVarietyDisplay,
+  type CropListing,
+} from '@/types/crop-listing';
+import {
   deriveDisplayStage,
   formatDate,
-  formatReferenceId,
   formatTime,
   requestTotal,
-  type DisplayStage,
   type PurchaseOutcome,
 } from '@/types/transaction';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
 const PAGE_SIZE = 5;
 
-type FilterValue = 'Lahat' | 'Kailangan ng Aksyon' | 'Naghihintay' | 'Kumpleto' | 'Nabigo';
+type FilterValue = 'Lahat' | 'Kasalukuyan' | 'Tapos na';
 
-const FILTERS: FilterValue[] = [
-  'Lahat',
-  'Kailangan ng Aksyon',
-  'Naghihintay',
-  'Kumpleto',
-  'Nabigo',
-];
-
-const ACTION_STAGES: DisplayStage[] = ['awaiting_payment'];
-const WAITING_STAGES: DisplayStage[] = ['request_pending', 'payment_sent'];
-const COMPLETED_STAGES: DisplayStage[] = ['payment_confirmed', 'delivered', 'completed'];
-const FAILED_STAGES: DisplayStage[] = [
-  'transaction_cancelled',
-  'payment_failed',
-  'request_rejected',
-  'request_cancelled',
-];
+const FILTERS: FilterValue[] = ['Lahat', 'Kasalukuyan', 'Tapos na'];
 
 function toCardItem(
   outcome: PurchaseOutcome,
@@ -85,11 +72,10 @@ function toCardItem(
 
   return {
     id: outcome.request.id,
-    referenceId: formatReferenceId(outcome.request.id, 'PR'),
     stage,
-    statusLabel: getDisplayStageLabel(stage, lang),
-    variety: listing ? varietyLabel(listing) : 'Palay',
-    moisture: listing?.declaredMoisture === 'Wet' ? (lang === 'en' ? 'Wet' : 'Basa') : (lang === 'en' ? 'Dry' : 'Tuyo'),
+    statusLabel: getFarmerListingTxnStageLabel(stage),
+    listingName: listing ? listingTitle(listing) : 'Palay',
+    specificVariety: listing ? specificVarietyDisplay(listing) : null,
     price: formatPeso(total),
     weight: `${quantityKg} kg`,
     pricePerKg: `${formatPeso(pricePerKg)}/kg`,
@@ -159,29 +145,32 @@ export default function BuyerTransactionsScreen() {
           (outcome.kind === 'matched' ? counterpartNamesById.get(outcome.transaction.farmerId) : null) ||
           farmerNamesByListing.get(outcome.request.listingId) ||
           (language === 'en' ? 'Farmer' : 'Magsasaka');
-        return toCardItem(outcome, listingsById.get(outcome.request.listingId), farmerName, language);
+        return {
+          outcome,
+          card: toCardItem(outcome, listingsById.get(outcome.request.listingId), farmerName, language),
+        };
       }),
     [outcomes, listingsById, counterpartNamesById, farmerNamesByListing, language],
   );
 
   const filteredData = useMemo(() => {
-    return items.filter((item) => {
+    return items.filter(({ outcome, card }) => {
       const matchesFilter = (() => {
         if (activeFilter === 'Lahat') return true;
-        if (activeFilter === 'Kailangan ng Aksyon') return ACTION_STAGES.includes(item.stage);
-        if (activeFilter === 'Naghihintay') return WAITING_STAGES.includes(item.stage);
-        if (activeFilter === 'Kumpleto') return COMPLETED_STAGES.includes(item.stage);
-        if (activeFilter === 'Nabigo') return FAILED_STAGES.includes(item.stage);
+        if (activeFilter === 'Kasalukuyan') return isListingTxnOngoing(outcome);
+        if (activeFilter === 'Tapos na') return isListingTxnCompleted(outcome);
         return true;
       })();
 
       const query = searchQuery.toLowerCase().trim();
       const matchesSearch =
         query === '' ||
-        item.variety.toLowerCase().includes(query) ||
-        item.statusLabel.toLowerCase().includes(query) ||
-        item.referenceId.toLowerCase().includes(query) ||
-        item.farmer.toLowerCase().includes(query);
+        card.listingName.toLowerCase().includes(query) ||
+        (card.specificVariety?.toLowerCase().includes(query) ?? false) ||
+        card.statusLabel.toLowerCase().includes(query) ||
+        card.farmer.toLowerCase().includes(query) ||
+        card.price.toLowerCase().includes(query) ||
+        card.weight.toLowerCase().includes(query);
 
       return matchesFilter && matchesSearch;
     });
@@ -192,7 +181,7 @@ export default function BuyerTransactionsScreen() {
 
   const paginatedData = useMemo(() => {
     const start = (validPage - 1) * PAGE_SIZE;
-    return filteredData.slice(start, start + PAGE_SIZE);
+    return filteredData.slice(start, start + PAGE_SIZE).map(({ card }) => card);
   }, [filteredData, validPage]);
 
   const handleFilterSelect = (filter: FilterValue) => {

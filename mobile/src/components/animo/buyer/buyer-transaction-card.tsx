@@ -1,13 +1,16 @@
 import { router } from 'expo-router';
-import { AlertCircle } from 'lucide-react-native';
+import { AlertCircle, Store } from 'lucide-react-native';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
 import type { DisplayStage, PaymentMode } from '@/types/transaction';
 
+/** Buyer must pay, or arrange / complete pickup. */
 const NEEDS_ACTION: Partial<Record<DisplayStage, true>> = {
   awaiting_payment: true,
+  payment_confirmed: true,
+  delivered: true,
 };
 
 const DOT_TONE: Partial<Record<DisplayStage, string>> = {
@@ -15,22 +18,21 @@ const DOT_TONE: Partial<Record<DisplayStage, string>> = {
   awaiting_payment: AnimoColors.focusRing,
   payment_sent: AnimoColors.mild,
   payment_confirmed: AnimoColors.mild,
+  delivered: AnimoColors.mild,
 };
 
 export type BuyerTransactionCardItem = {
   /** Request id pre-match, or transaction id post-match. */
   id: string;
-  referenceId: string;
   stage: DisplayStage;
   statusLabel: string;
-  variety: string;
-  moisture: string;
+  listingName: string;
+  specificVariety: string | null;
   price: string;
   weight: string;
   pricePerKg: string;
   paymentMode: PaymentMode | null;
   farmer: string;
-  location?: string;
   date: string;
   time: string;
 };
@@ -40,7 +42,7 @@ export type BuyerTransactionCardProps = {
   onPress?: () => void;
 };
 
-/** Buyer transaksyon card matching farmer transaction-card layout and visual design. */
+/** Buyer Transaksyon overview card — listing-first layout with farmer + status. */
 export function BuyerTransactionCard({ item, onPress }: BuyerTransactionCardProps) {
   const isDone = item.stage === 'completed';
   const needsAction = NEEDS_ACTION[item.stage] === true;
@@ -73,74 +75,77 @@ export function BuyerTransactionCard({ item, onPress }: BuyerTransactionCardProp
       onPress={handlePress}
       style={styles.card}>
       <View style={styles.cardBody}>
-        <View style={styles.rowBetween}>
-          <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-            {item.referenceId}
-          </AnimoText>
-          <StatusLabel label={item.statusLabel} isDone={isDone} dotColor={dotColor} />
-        </View>
-
-        <View style={styles.varietyRow}>
-          <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            {item.variety} ({item.moisture})
-          </AnimoText>
-          {item.paymentMode ? (
-            <View style={item.paymentMode === 'GCash' ? styles.payPillGcash : styles.payPillCash}>
-              <AnimoText
-                variant="tag"
-                color={item.paymentMode === 'GCash' ? AnimoColors.focusRing : AnimoColors.textMediumEmphasis}>
-                {item.paymentMode}
-              </AnimoText>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={styles.priceRow}>
-          <AnimoText color={AnimoColors.accentPrimary} style={styles.price}>
-            {item.price}
-          </AnimoText>
-          <View style={styles.weightGroup}>
-            <AnimoText variant="caption" color={AnimoColors.textHighEmphasis}>
-              {item.weight}
-            </AnimoText>
-            <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-              ({item.pricePerKg})
-            </AnimoText>
-          </View>
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.farmerRow}>
-          <View style={styles.farmerCol}>
-            <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-              Magsasaka:
-            </AnimoText>
+        {/* 1. Farmer + status */}
+        <View style={[styles.rowBetween, styles.headerRow]}>
+          <View style={styles.farmerRow}>
+            <Store size={14} color={AnimoColors.accentPrimary} />
             <AnimoText
               variant="bodyEmphasis"
               color={AnimoColors.textHighEmphasis}
+              numberOfLines={1}
               style={styles.farmerName}>
               {item.farmer}
             </AnimoText>
-            {item.location ? (
-              <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-                {item.location}
-              </AnimoText>
-            ) : null}
           </View>
-          <View style={styles.dateCol}>
-            <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-              {item.date}
-            </AnimoText>
-            {item.time ? (
-              <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.time}>
-                {item.time}
-              </AnimoText>
-            ) : null}
-          </View>
+          <StatusLabel label={item.statusLabel} isDone={isDone} dotColor={dotColor} />
         </View>
+
+        {/* 2. Listing title */}
+        <AnimoText
+          variant="h3"
+          color={AnimoColors.textHighEmphasis}
+          numberOfLines={2}
+          style={styles.listingTitle}>
+          {item.listingName}
+        </AnimoText>
+
+        {/* 3. Variety (left) | kg + price/kg (right) */}
+        <View style={[styles.rowBetween, styles.metaRow]}>
+          {item.specificVariety ? (
+            <AnimoText
+              variant="caption"
+              color={AnimoColors.textMediumEmphasis}
+              numberOfLines={1}
+              style={styles.metaLeft}>
+              {item.specificVariety}
+            </AnimoText>
+          ) : (
+            <View style={styles.metaLeft} />
+          )}
+          <AnimoText
+            variant="caption"
+            color={AnimoColors.textMediumEmphasis}
+            numberOfLines={1}
+            style={styles.metaRight}>
+            {item.weight} ({item.pricePerKg})
+          </AnimoText>
+        </View>
+
+        {/* 4. Divider */}
+        <View style={styles.divider} />
+
+        {/* 5. Payment (left) | total (right) */}
+        <View style={[styles.rowBetween, styles.paymentRow]}>
+          <AnimoText
+            variant="caption"
+            color={AnimoColors.textHighEmphasis}
+            numberOfLines={1}
+            style={styles.metaLeft}>
+            {item.paymentMode ? `Payment: ${item.paymentMode}` : 'Payment: —'}
+          </AnimoText>
+          <AnimoText color={AnimoColors.accentPrimary} style={styles.price}>
+            {item.price}
+          </AnimoText>
+        </View>
+
+        {/* 6. Date/time */}
+        <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.datetime}>
+          {item.date}
+          {item.time ? `  ·  ${item.time}` : ''}
+        </AnimoText>
       </View>
 
+      {/* 7. Needs-action banner */}
       {needsAction ? (
         <View style={styles.actionBanner}>
           <AlertCircle size={14} color={AnimoColors.moderate} />
@@ -205,7 +210,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: AnimoSpacing.sm,
+  },
+  farmerRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AnimoSpacing.xs,
+    minWidth: 0,
+  },
+  headerRow: {
     marginBottom: AnimoSpacing.sm,
+  },
+  farmerName: {
+    flexShrink: 1,
   },
   statusFilled: {
     backgroundColor: AnimoColors.accentPrimary,
@@ -217,69 +235,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: AnimoSpacing.xs,
+    flexShrink: 0,
   },
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: AnimoRadius.pill,
   },
-  varietyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  listingTitle: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontFamily: 'PlusJakartaSans_700Bold',
     marginBottom: AnimoSpacing.xs,
   },
-  payPillGcash: {
-    backgroundColor: AnimoColors.focusRingLight,
-    borderRadius: AnimoRadius.sm,
-    paddingHorizontal: AnimoSpacing.sm,
-    paddingVertical: 2,
-  },
-  payPillCash: {
-    backgroundColor: AnimoColors.surfaceTertiary,
-    borderRadius: AnimoRadius.sm,
-    paddingHorizontal: AnimoSpacing.sm,
-    paddingVertical: 2,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  metaRow: {
     marginBottom: AnimoSpacing.md,
+    alignItems: 'flex-start',
   },
-  price: {
-    fontSize: 24,
-    lineHeight: 36,
-    fontFamily: 'PlusJakartaSans_700Bold',
+  metaLeft: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: AnimoSpacing.sm,
   },
-  weightGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.xs,
+  metaRight: {
+    flexShrink: 0,
+    textAlign: 'right',
   },
   divider: {
     height: 1,
     backgroundColor: AnimoColors.borderLowEmphasis,
     marginBottom: AnimoSpacing.md,
   },
-  farmerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+  paymentRow: {
+    marginBottom: AnimoSpacing.sm,
+    alignItems: 'center',
   },
-  farmerCol: {
-    flex: 1,
-    paddingRight: AnimoSpacing.md,
+  price: {
+    fontSize: 24,
+    lineHeight: 36,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    flexShrink: 0,
   },
-  farmerName: {
-    marginTop: 2,
-  },
-  dateCol: {
-    alignItems: 'flex-end',
-  },
-  time: {
-    marginTop: 2,
-    textAlign: 'right',
+  datetime: {
+    fontSize: 11,
+    lineHeight: 14,
   },
   actionBanner: {
     flexDirection: 'row',

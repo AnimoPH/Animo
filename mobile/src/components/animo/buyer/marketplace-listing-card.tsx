@@ -1,12 +1,29 @@
 import { Image } from 'expo-image';
-import { Droplets, ImageIcon, Scale, Sprout } from 'lucide-react-native';
+import { ImageIcon } from 'lucide-react-native';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
+import { StatusBadge, type BadgeTone } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
-import { listingTitle, moistureLabel, specificVarietyDisplay, type CropListing } from '@/types/crop-listing';
+import {
+  listingTitle,
+  specificVarietyDisplay,
+  STATUS_LABELS,
+  type CropListing,
+  type ListingStatus,
+} from '@/types/crop-listing';
+
+const STATUS_TONES: Record<ListingStatus, BadgeTone> = {
+  Draft: 'neutral',
+  Available: 'success',
+  Sold_Out: 'neutral',
+  Cancelled: 'danger',
+};
+
+const TITLE_LINE_HEIGHT = 20;
+const TITLE_MAX_LINES = 2;
 
 export type MarketplaceListingCardProps = {
   listing: CropListing;
@@ -15,22 +32,15 @@ export type MarketplaceListingCardProps = {
 };
 
 /**
- * Buyer marketplace card for a real `croplisting` row.
+ * Buyer marketplace card for a real `croplisting` row — 2-column compact layout.
  */
 export function MarketplaceListingCard({
   listing,
   coverPhotoUrl,
   onPress,
 }: MarketplaceListingCardProps) {
-  const { t, isEnglish } = useLanguage();
+  const { t } = useLanguage();
   const specificVariety = specificVarietyDisplay(listing);
-
-  const getLocalizedMoisture = () => {
-    if (isEnglish) {
-      return listing.declaredMoisture === 'Wet' ? 'Wet' : 'Dry';
-    }
-    return moistureLabel(listing.declaredMoisture);
-  };
 
   return (
     <TouchableOpacity
@@ -42,60 +52,61 @@ export function MarketplaceListingCard({
         {coverPhotoUrl ? (
           <Image source={{ uri: coverPhotoUrl }} style={styles.photoImage} contentFit="cover" />
         ) : (
-          <ImageIcon size={32} color={AnimoColors.objectLowEmphasis} />
+          <ImageIcon size={24} color={AnimoColors.objectLowEmphasis} />
         )}
+        <View style={styles.statusBadgeWrap}>
+          <StatusBadge label={STATUS_LABELS[listing.status]} tone={STATUS_TONES[listing.status]} />
+        </View>
       </View>
 
       <View style={styles.body}>
-        <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} numberOfLines={2}>
+        <AnimoText
+          variant="h3"
+          color={AnimoColors.textHighEmphasis}
+          numberOfLines={TITLE_MAX_LINES}
+          ellipsizeMode="tail"
+          style={styles.cardTitle}>
           {listingTitle(listing)}
         </AnimoText>
 
         <View style={styles.priceRow}>
           <AnimoText variant="h2" color={AnimoColors.accentPrimary} style={styles.priceText}>
-            {formatPeso(listing.pricePerKg ?? 0)}
+            {listing.pricePerKg !== null ? formatPeso(listing.pricePerKg) : '—'}
           </AnimoText>
-          <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+          <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
             {' '}
             {t('common.perKg')}
           </AnimoText>
         </View>
 
-        <View style={styles.specs}>
+        <View style={styles.footerRow}>
           {specificVariety ? (
-            <Spec icon={<Sprout size={14} color={AnimoColors.textMediumEmphasis} />}>
+            <AnimoText
+              variant="caption"
+              color={AnimoColors.textMediumEmphasis}
+              numberOfLines={1}
+              style={styles.variety}>
               {specificVariety}
-            </Spec>
-          ) : null}
-          <Spec icon={<Scale size={14} color={AnimoColors.accentPrimary} />}>
-            {listing.remainingQuantityKg} {t('common.kg')} {t('buyer.available')}
-          </Spec>
-          <Spec icon={<Droplets size={14} color={AnimoColors.textMediumEmphasis} />}>
-            {getLocalizedMoisture()}
-          </Spec>
+            </AnimoText>
+          ) : (
+            <View style={styles.variety} />
+          )}
+          <AnimoText
+            variant="caption"
+            color={AnimoColors.textMediumEmphasis}
+            numberOfLines={1}
+            style={styles.quantity}>
+            {listing.remainingQuantityKg} {t('common.kg')}
+          </AnimoText>
         </View>
-
-        <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-          {t('buyer.minOrder')} {listing.minimumRequestKg} {t('common.kg')}
-        </AnimoText>
       </View>
     </TouchableOpacity>
   );
 }
 
-function Spec({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <View style={styles.spec}>
-      {icon}
-      <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-        {children}
-      </AnimoText>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   card: {
+    width: '100%',
     backgroundColor: AnimoColors.surfacePrimary,
     borderRadius: AnimoRadius.lg,
     borderWidth: 1,
@@ -111,42 +122,55 @@ const styles = StyleSheet.create({
   },
   photoArea: {
     width: '100%',
-    aspectRatio: 2.5,
+    aspectRatio: 1.35,
     backgroundColor: AnimoColors.surfaceTertiary,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
   photoImage: {
     ...StyleSheet.absoluteFillObject,
   },
+  statusBadgeWrap: {
+    position: 'absolute',
+    top: AnimoSpacing.xs,
+    right: AnimoSpacing.xs,
+  },
   body: {
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.xs,
+    padding: AnimoSpacing.sm,
+    gap: 4,
+  },
+  cardTitle: {
+    fontSize: 15,
+    lineHeight: TITLE_LINE_HEIGHT,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    minHeight: TITLE_LINE_HEIGHT * TITLE_MAX_LINES,
   },
   priceRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'baseline',
-    marginTop: 2,
   },
   priceText: {
-    fontSize: 22,
-    lineHeight: 26,
+    fontSize: 18,
+    lineHeight: 22,
   },
-  specs: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: AnimoSpacing.md,
-    marginVertical: 4,
-  },
-  spec: {
+  footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#F9FAFB',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: AnimoRadius.sm,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
+    justifyContent: 'space-between',
+    gap: AnimoSpacing.xs,
+  },
+  variety: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  quantity: {
+    flexShrink: 0,
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'right',
   },
 });

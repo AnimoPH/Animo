@@ -2,7 +2,7 @@ import { router, Stack, useLocalSearchParams, type Href } from "expo-router";
 import { StyleSheet, View, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Info } from "lucide-react-native";
-import { ScreenHeader } from "@/components/animo/screen-header";
+import { BackHeader } from "@/components/animo/back-header";
 import { ProgressSteps } from "@/components/animo/farmer/progress-steps";
 import { AnimoText } from "@/components/animo/animo-text";
 import {
@@ -20,7 +20,7 @@ export default function ListingResultScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScreenHeader title="Gumawa ng Listing" />
+      <BackHeader title="Gumawa ng Listing" />
 
       {/* Progress Bar */}
       <ProgressSteps currentStep={2} />

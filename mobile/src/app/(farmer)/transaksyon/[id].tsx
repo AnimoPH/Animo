@@ -595,8 +595,8 @@ function FooterActions({
   if (stage === 'completed') {
     return (
       <View style={styles.footerStack}>
-        <AnimoButton label="Magbigay ng Rating" variant="secondary" icon={Star} onPress={onRate} />
-        <AnimoButton label="Bumalik sa Palengke" icon={Check} onPress={onBackToMarket} />
+        <AnimoButton label="Magbigay ng Rating" variant="primary" icon={Star} onPress={onRate} />
+        <AnimoButton label="Bumalik sa Palengke" variant="secondary" icon={Check} onPress={onBackToMarket} />
       </View>
     );
   }

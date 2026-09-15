@@ -18,13 +18,13 @@ import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { NoticeBanner } from '@/components/animo/notice-banner';
-import { ScreenHeader } from '@/components/animo/screen-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import { fetchOwnRatingForTransaction, submitRating } from '@/services/rating-service';
 import { fetchTransactionByRequestId, fetchTransactionCounterpart } from '@/services/transaction-service';
 import type { Rating } from '@/types/rating';
 import type { PurchaseOutcome, TransactionCounterpart } from '@/types/transaction';
+import { BackHeader } from '@/components/animo/back-header';
 
 const RATING_MOODS: Record<number, string> = {
   5: 'Napakahusay!',
@@ -93,7 +93,7 @@ export default function ReviewFarmerScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScreenHeader title="Suriin ang Magsasaka" />
+        <BackHeader title="Suriin ang Magsasaka" />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.green} />
         </View>
@@ -104,7 +104,7 @@ export default function ReviewFarmerScreen() {
   if (!outcome || outcome.kind !== 'matched' || error) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScreenHeader title="Suriin ang Magsasaka" />
+        <BackHeader title="Suriin ang Magsasaka" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
             {error ?? 'Hindi nahanap ang transaksyon na ito.'}
@@ -142,7 +142,7 @@ export default function ReviewFarmerScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Suriin ang Magsasaka" />
+      <BackHeader title="Suriin ang Magsasaka" />
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
