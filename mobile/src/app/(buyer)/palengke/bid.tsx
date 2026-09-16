@@ -25,6 +25,7 @@ import { cancelPurchaseRequest, submitPurchaseRequest } from '@/services/purchas
 import { fetchMarketplaceListing } from '@/services/marketplace-service';
 import { varietyLabel, type CropListing } from '@/types/crop-listing';
 import type { PurchaseRequest } from '@/types/purchase-request';
+import { BackHeader } from '@/components/animo/back-header';
 
 /** Bumili ng Palay — purchase request screen with quantity, system-locked pricing, and a real cancel-window confirmation modal. */
 export default function BuyScreen() {
@@ -63,7 +64,7 @@ export default function BuyScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <ScreenHeader title="Bumili ng Palay" />
+        <BackHeader title="Bumili ng Palay" />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.green} />
         </View>
@@ -74,7 +75,7 @@ export default function BuyScreen() {
   if (!listing || loadError) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <ScreenHeader title="Bumili ng Palay" />
+        <BackHeader title="Bumili ng Palay" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
             {loadError ?? 'Hindi na available ang pagbili para sa listing na ito.'}
@@ -110,7 +111,7 @@ export default function BuyScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <ScreenHeader title="Bumili ng Palay" />
+      <BackHeader title="Bumili ng Palay" />
 
       <KeyboardAvoidingView
         style={styles.flex}

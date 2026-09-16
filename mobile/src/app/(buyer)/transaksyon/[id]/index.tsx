@@ -35,6 +35,7 @@ import {
   cancelPolicy,
   deriveDisplayStage,
   formatDateTime,
+  formatReferenceId,
   requestTotal,
   type CancelPolicy,
   type PurchaseOutcome,
@@ -131,6 +132,10 @@ export default function TransactionStatusScreen() {
   const quantityKg = outcome.kind === 'matched' ? outcome.transaction.quantityKg : outcome.request.requestedQuantityKg;
   const total = outcome.kind === 'matched' ? requestTotal(outcome) : (listing?.pricePerKg ?? 0) * quantityKg;
   const pricePerKg = outcome.kind === 'matched' ? outcome.transaction.agreedPricePerKg : (listing?.pricePerKg ?? 0);
+  const referenceId =
+    outcome.kind === 'matched'
+      ? formatReferenceId(outcome.transaction.id, 'TXN')
+      : formatReferenceId(outcome.request.id, 'PR');
 
   const handleConfirmCancel = async () => {
     setCancelError(null);
@@ -155,6 +160,9 @@ export default function TransactionStatusScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <StageBanner request={outcome.request} isDead={isDead} label={DISPLAY_STAGE_LABELS[stage]} />
+        <AnimoText variant="caption" color={AnimoColors.muted} style={styles.referenceCaption}>
+          {referenceId}
+        </AnimoText>
         {listing ? (
           <RequestListingCard listing={listing} quantityKg={quantityKg} totalAmount={total} muted={isDead} />
         ) : null}
@@ -318,6 +326,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: AnimoSpacing.xl,
     paddingBottom: AnimoSpacing.xl,
     gap: AnimoSpacing.lg,
+  },
+  referenceCaption: {
+    marginTop: -AnimoSpacing.md,
   },
   bannerCard: {
     borderWidth: 1,

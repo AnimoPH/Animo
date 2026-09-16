@@ -4,7 +4,6 @@ import { Animated, Easing, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 
-import { ScreenHeader } from "@/components/animo/screen-header";
 import { ProgressSteps } from "@/components/animo/farmer/progress-steps";
 import { AnimoText } from "@/components/animo/animo-text";
 import {
@@ -13,6 +12,7 @@ import {
   AnimoSpacing,
   AnimoRadius,
 } from "@/constants/animo";
+import { BackHeader } from "@/components/animo/back-header";
 
 const SCREEN_PADDING = AnimoSpacing.lg;
 
@@ -61,7 +61,7 @@ export default function ListingUploadingScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScreenHeader title="Gumawa ng Listing" />
+      <BackHeader title="Gumawa ng Listing" />
 
       {/* Progress Bar */}
       <ProgressSteps currentStep={1} />

@@ -87,6 +87,9 @@ const STATUS_TONES: Record<ListingStatus, BadgeTone> = {
   Cancelled: 'danger',
 };
 
+const TITLE_LINE_HEIGHT = 20;
+const TITLE_MAX_LINES = 2;
+
 /** Parses a filter text field, treating blank/garbage as "not set" rather than 0. */
 function parseNumber(text: string): number | undefined {
   const trimmed = text.trim();
@@ -565,7 +568,8 @@ function FarmerMarketplaceCard({
         <AnimoText
           variant="h3"
           color={AnimoColors.textHighEmphasis}
-          numberOfLines={2}
+          numberOfLines={TITLE_MAX_LINES}
+          ellipsizeMode="tail"
           style={styles.cardTitle}>
           {listingTitle(listing)}
         </AnimoText>
@@ -706,7 +710,8 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 15,
-    lineHeight: 20,
+    lineHeight: TITLE_LINE_HEIGHT,
+    minHeight: TITLE_LINE_HEIGHT * TITLE_MAX_LINES,
   },
   priceRow: {
     flexDirection: 'row',

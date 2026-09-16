@@ -7,6 +7,7 @@ import { CloudRain, Info, Sprout } from "lucide-react-native";
 import { ScreenHeader } from "@/components/animo/screen-header";
 import { AnimoText } from "@/components/animo/animo-text";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
+import { BackHeader } from "@/components/animo/back-header";
 import {
   actionLabel,
   fetchAdvisoryHistory,
@@ -74,7 +75,7 @@ export default function AdvisoryDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <ScreenHeader title="Payo sa Bukid" />
+      <BackHeader title="Payo sa Bukid" />
 
       {loading ? (
         <View style={styles.centerState}>
