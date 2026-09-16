@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { DevLoginBar } from '@/components/animo/dev-login-bar';
+import { SHOW_DEV_TOOLS } from '@/constants/dev-tools';
 import { LoginFooterSection } from '@/components/animo/login/login-footer-section';
 import { LoginFormSection } from '@/components/animo/login/login-form-section';
 import { LoginHeroSection } from '@/components/animo/login/login-hero-section';
@@ -161,7 +162,7 @@ export default function LoginScreen() {
               onRegister={() => router.replace('/onboarding/role')}
               footer={<LoginFooterSection />}
               devSlot={
-                __DEV__ ? (
+                SHOW_DEV_TOOLS ? (
                   <DevLoginBar
                     onSelect={handleDevLogin}
                     submitting={submitting}
