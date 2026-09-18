@@ -179,6 +179,79 @@ export async function createCropListing(input: CreateCropListingInput): Promise<
   return mapListing(data as CropListingRow);
 }
 
+/** True when the listing has a Pending request or an in-flight transactionmatch. */
+export async function listingHasActiveDeal(listingId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('listing_has_active_deal', {
+    p_listing_id: listingId,
+  });
+  if (error) throw error;
+  return Boolean(data);
+}
+
+/** True when the listing has ever had any purchaserequest row. */
+export async function listingEverHadRequest(listingId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('listing_ever_had_request', {
+    p_listing_id: listingId,
+  });
+  if (error) throw error;
+  return Boolean(data);
+}
+
+export type UpdateCropListingInput = {
+  listingName?: string;
+  declaredVariety?: DeclaredVariety;
+  customVariety?: string;
+  varietyCode?: VarietyCode;
+  specificVarietyName?: string | null;
+  specificVarietyNameCustom?: string;
+  declaredMoisture?: MoistureType;
+  declaredPurityGrade?: PurityGrade;
+  grossWeightKg?: number;
+  tareWeightKg?: number;
+  remainingQuantityKg?: number;
+  minimumRequestKg?: number;
+};
+
+/**
+ * Owner update via update_own_crop_listing RPC. With an active deal only
+ * listingName may be sent; other fields are rejected server-side.
+ */
+export async function updateCropListing(
+  listingId: string,
+  input: UpdateCropListingInput,
+): Promise<void> {
+  const { error } = await supabase.rpc('update_own_crop_listing', {
+    p_listing_id: listingId,
+    p_listing_name: input.listingName ?? null,
+    p_declared_variety: input.declaredVariety ?? null,
+    p_declared_variety_custom: input.customVariety ?? null,
+    p_variety_code: input.varietyCode ?? null,
+    p_specific_variety_name: input.specificVarietyName === undefined ? null : input.specificVarietyName,
+    p_specific_variety_name_custom: input.specificVarietyNameCustom ?? null,
+    p_declared_moisture: input.declaredMoisture ?? null,
+    p_declared_purity_grade: input.declaredPurityGrade ?? null,
+    p_gross_weight_kg: input.grossWeightKg ?? null,
+    p_tare_weight_kg: input.tareWeightKg ?? null,
+    p_remaining_quantity_kg: input.remainingQuantityKg ?? null,
+    p_minimum_request_kg: input.minimumRequestKg ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function archiveCropListing(listingId: string): Promise<void> {
+  const { error } = await supabase.rpc('archive_own_crop_listing', {
+    p_listing_id: listingId,
+  });
+  if (error) throw error;
+}
+
+export async function deleteCropListing(listingId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_own_crop_listing', {
+    p_listing_id: listingId,
+  });
+  if (error) throw error;
+}
+
 /**
  * §6 LISTINGPHOTO storage (migration 0008). The bucket is PRIVATE — reads go
  * through short-lived signed URLs so listingphoto's own Draft/non-Draft RLS

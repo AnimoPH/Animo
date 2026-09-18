@@ -104,7 +104,7 @@ export default function FarmerTransactionsScreen() {
 
   const rollups = useMemo((): ListingRollup[] => {
     return listings
-      .filter((listing) => listing.status !== 'Draft' && listing.status !== 'Cancelled')
+      .filter((listing) => listing.status !== 'Draft' && listing.status !== 'Cancelled' && listing.status !== 'Archived')
       .map((listing) => {
         const specific = specificVarietyDisplay(listing);
         const variety = varietyLabel(listing);

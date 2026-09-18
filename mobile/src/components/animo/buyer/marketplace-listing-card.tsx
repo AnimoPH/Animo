@@ -20,6 +20,7 @@ const STATUS_TONES: Record<ListingStatus, BadgeTone> = {
   Available: 'success',
   Sold_Out: 'neutral',
   Cancelled: 'danger',
+  Archived: 'neutral',
 };
 
 const TITLE_LINE_HEIGHT = 20;
