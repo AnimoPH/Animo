@@ -43,6 +43,8 @@ export type PurchaseRequest = {
   acceptedQuantityKg: number | null;
   status: PurchaseRequestStatus;
   submittedAt: string;
+  /** Last row change (status transitions, etc.) — migration 0028. */
+  updatedAt: string;
   cancelDeadline: string | null;
 };
 
