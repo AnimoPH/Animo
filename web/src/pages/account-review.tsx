@@ -25,10 +25,17 @@ import {
   formatReviewDate,
   mapAccountStatus,
   mapRoleLabel,
+  suspendAccount,
+  unsuspendAccount,
   type LguUserProfile,
   type LguUserReview,
   type LguUserTransaction,
 } from '@/services/lgu-console-service';
+
+// Informational only — highlights the account for LGU review, never
+// auto-suspends (Research Notes: "LGU is visibility/escalation, not
+// control," same pattern as pricing and the NFA window toggle).
+const REPORTED_THRESHOLD = 3;
 
 export type AccountReviewPageProps = {
   onSignOut: () => void;
@@ -71,6 +78,12 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
   const [showUnsuspendModal, setShowUnsuspendModal] = useState(false);
   const [inputReason, setInputReason] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [suspending, setSuspending] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (showSuspendModal || showUnsuspendModal) setActionError(null);
+  }, [showSuspendModal, showUnsuspendModal]);
 
   useEffect(() => {
     if (!userId) return;
@@ -94,6 +107,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
         setReviews(loadedReviews);
         setTransactions(loadedTransactions);
         setAccountStatus(mapAccountStatus(loadedProfile.accountStatus));
+        if (loadedProfile.suspensionReason) setSuspensionReason(loadedProfile.suspensionReason);
       })
       .catch((error) => {
         if (!cancelled) {
@@ -137,20 +151,39 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
   const rating = profile?.averageRating ?? 0;
   const totalTransactions = profile?.completedTransactions ?? 0;
 
-  const handleConfirmSuspend = () => {
-    setAccountStatus('suspended');
-    setSuspensionReason(inputReason || 'Paglabag sa mga alituntunin ng transaksyon.');
-    setShowSuspendModal(false);
-    setInputReason('');
-    setToastMessage(`Matagumpay na nasuspinde ang account ni ${name}.`);
-    setTimeout(() => setToastMessage(null), 4000);
+  const handleConfirmSuspend = async () => {
+    const reason = inputReason.trim() || 'Paglabag sa mga alituntunin ng transaksyon.';
+    setSuspending(true);
+    setActionError(null);
+    try {
+      await suspendAccount(userId, reason);
+      setAccountStatus('suspended');
+      setSuspensionReason(reason);
+      setShowSuspendModal(false);
+      setInputReason('');
+      setToastMessage(`Matagumpay na nasuspinde ang account ni ${name}.`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Hindi na-suspinde ang account.');
+    } finally {
+      setSuspending(false);
+    }
   };
 
-  const handleConfirmUnsuspend = () => {
-    setAccountStatus('active');
-    setShowUnsuspendModal(false);
-    setToastMessage(`Matagumpay na naibalik ang account ni ${name} sa aktibong katayuan.`);
-    setTimeout(() => setToastMessage(null), 4000);
+  const handleConfirmUnsuspend = async () => {
+    setSuspending(true);
+    setActionError(null);
+    try {
+      await unsuspendAccount(userId);
+      setAccountStatus('active');
+      setShowUnsuspendModal(false);
+      setToastMessage(`Matagumpay na naibalik ang account ni ${name} sa aktibong katayuan.`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Hindi naibalik ang account.');
+    } finally {
+      setSuspending(false);
+    }
   };
 
   const handleResolveReport = (reportId: string) => {
@@ -250,6 +283,11 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
 
           {/* Suspend / Unsuspend Action Button */}
           <div style={styles.headActionWrap}>
+            {accountStatus !== 'suspended' && reports.length >= REPORTED_THRESHOLD ? (
+              <p style={styles.reportedWarning}>
+                <TriangleAlert size={14} /> {reports.length} na ulat — nararapat na suriin
+              </p>
+            ) : null}
             {accountStatus === 'suspended' ? (
               <button
                 type="button"
@@ -556,6 +594,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                   style={styles.textareaField}
                 />
               </div>
+              {actionError ? <p style={styles.errorNotice}>{actionError}</p> : null}
             </div>
 
             <div style={styles.modalFooter}>
@@ -568,10 +607,10 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
               <button
                 type="button"
                 onClick={handleConfirmSuspend}
-                disabled={!inputReason.trim()}
+                disabled={!inputReason.trim() || suspending}
                 style={styles.confirmSuspendBtn}>
                 <UserX size={18} />
-                Kumpirmahin ang Pagsuspinde
+                {suspending ? 'Isinusumite...' : 'Kumpirmahin ang Pagsuspinde'}
               </button>
             </div>
           </div>
@@ -604,6 +643,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
               <p style={styles.modalText}>
                 Tatanggalin ang suspensyon at muling mabibigyan ng buong access si {name} sa ANIMO marketplace.
               </p>
+              {actionError ? <p style={styles.errorNotice}>{actionError}</p> : null}
             </div>
 
             <div style={styles.modalFooter}>
@@ -616,9 +656,10 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
               <button
                 type="button"
                 onClick={handleConfirmUnsuspend}
+                disabled={suspending}
                 style={styles.confirmUnsuspendBtn}>
                 <CheckCircle2 size={18} />
-                Oo, Ibalik ang Account
+                {suspending ? 'Isinusumite...' : 'Oo, Ibalik ang Account'}
               </button>
             </div>
           </div>
@@ -800,6 +841,15 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 12,
+  },
+  reportedWarning: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    margin: 0,
+    fontSize: 13,
+    fontWeight: 600,
+    color: 'var(--animo-danger)',
   },
   suspendButton: {
     display: 'inline-flex',
