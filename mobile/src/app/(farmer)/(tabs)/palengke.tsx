@@ -42,7 +42,7 @@ import {
   type MoistureType,
 } from '@/types/crop-listing';
 
-type StatusFilterKey = 'Lahat' | Extract<ListingStatus, 'Available' | 'Sold_Out' | 'Cancelled'>;
+type StatusFilterKey = 'Lahat' | Extract<ListingStatus, 'Available' | 'Sold_Out' | 'Cancelled' | 'Archived'>;
 type VarietyChoice = 'Lahat' | DeclaredVariety;
 type MoistureChoice = 'Lahat' | MoistureType;
 
@@ -69,6 +69,7 @@ const STATUS_FILTER_OPTIONS: { value: StatusFilterKey; label: string }[] = [
   { value: 'Available', label: 'Available' },
   { value: 'Sold_Out', label: 'Naubos' },
   { value: 'Cancelled', label: 'Tinanggal' },
+  { value: 'Archived', label: 'Naka-archive' },
 ];
 
 const VARIETY_CHOICES: { value: VarietyChoice; label: string }[] = [
@@ -86,6 +87,7 @@ const STATUS_TONES: Record<ListingStatus, BadgeTone> = {
   Available: 'success',
   Sold_Out: 'neutral',
   Cancelled: 'danger',
+  Archived: 'neutral',
 };
 
 const TITLE_LINE_HEIGHT = 20;

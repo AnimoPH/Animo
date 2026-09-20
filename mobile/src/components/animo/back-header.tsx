@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
+import { type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
@@ -9,10 +10,12 @@ export type BackHeaderProps = {
   title: string;
   /** Defaults to router.back(). */
   onBack?: () => void;
+  /** Optional trailing control (e.g. overflow menu on listing detail). */
+  rightAction?: ReactNode;
 };
 
 /** Back-arrow header with a left-aligned title (advisory, listing detail, create-listing screens). */
-export function BackHeader({ title, onBack }: BackHeaderProps) {
+export function BackHeader({ title, onBack, rightAction }: BackHeaderProps) {
   return (
     <View style={styles.header}>
       <Pressable
@@ -22,9 +25,10 @@ export function BackHeader({ title, onBack }: BackHeaderProps) {
         accessibilityLabel="Bumalik">
         <ChevronLeft size={24} color={AnimoColors.textHighEmphasis} />
       </Pressable>
-      <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
+      <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.title}>
         {title}
       </AnimoText>
+      {rightAction ? <View style={styles.rightSlot}>{rightAction}</View> : <View style={styles.rightSpacer} />}
     </View>
   );
 }
@@ -37,12 +41,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.sm,
     paddingBottom: AnimoSpacing.md,
-    // backgroundColor: AnimoColors.surfacePrimary,
   },
   backButton: {
     width: 32,
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  title: {
+    flex: 1,
+  },
+  rightSlot: {
+    minWidth: 32,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  rightSpacer: {
+    width: 32,
   },
 });
