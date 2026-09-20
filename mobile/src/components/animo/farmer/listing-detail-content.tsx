@@ -36,6 +36,7 @@ const STATUS_TONE: Record<CropListing["status"], "success" | "neutral" | "warnin
   Available: "success",
   Sold_Out: "neutral",
   Cancelled: "warning",
+  Archived: "neutral",
 };
 
 const PHOTO_TYPE_DETAILS: {

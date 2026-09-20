@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Check, Inbox, PackageSearch, TriangleAlert, UserRound, X } from "lucide-react-native";
+import { Archive, Check, Inbox, PackageSearch, TriangleAlert, Trash2, UserRound, X } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -17,11 +17,22 @@ import { AnimoText } from "@/components/animo/animo-text";
 import { BackHeader } from "@/components/animo/back-header";
 import { FeedbackModal } from "@/components/animo/feedback-modal";
 import { BuyerTrustStatsCard } from "@/components/animo/farmer/buyer-trust-stats-card";
+import {
+  ListingActionsSheet,
+  ListingOverflowButton,
+} from "@/components/animo/farmer/listing-actions-sheet";
 import { ListingDetailContent } from "@/components/animo/farmer/listing-detail-content";
 import { StatusBadge } from "@/components/animo/status-badge";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
 import { formatPeso } from "@/constants/marketplace";
-import { fetchCropListing, fetchListingPhotos } from "@/services/crop-listing-service";
+import {
+  archiveCropListing,
+  deleteCropListing,
+  fetchCropListing,
+  fetchListingPhotos,
+  listingEverHadRequest,
+  listingHasActiveDeal,
+} from "@/services/crop-listing-service";
 import { fetchBuyerTrustStatsBatch, type BuyerTrustStats } from "@/services/farmer-public-profile";
 import {
   acceptPurchaseRequest,
@@ -32,6 +43,7 @@ import type { CropListing, ListingPhoto } from "@/types/crop-listing";
 import type { PurchaseRequest } from "@/types/purchase-request";
 
 type DetailTab = "detalye" | "orders";
+type ConfirmAction = "archive" | "delete" | null;
 
 const REJECTION_REASONS = [
   "Kulang ang natitirang stock o naubos na",
@@ -48,6 +60,14 @@ export default function ListingDetailScreen() {
   const [photos, setPhotos] = useState<ListingPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
+
+  const [hasActiveDeal, setHasActiveDeal] = useState(false);
+  const [everHadRequest, setEverHadRequest] = useState(true);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | undefined>();
+  const [actionSuccess, setActionSuccess] = useState<"archive" | "delete" | null>(null);
 
   // Orders state — pending requests, oldest first; accepted/rejected rows
   // drop off the list entirely once acted on (they show up in the
@@ -77,10 +97,17 @@ export default function ListingDetailScreen() {
         setListing(result);
         if (!result) return;
         try {
-          const listingPhotos = await fetchListingPhotos(result.id);
-          if (!cancelled) setPhotos(listingPhotos);
+          const [listingPhotos, active, everHad] = await Promise.all([
+            fetchListingPhotos(result.id),
+            listingHasActiveDeal(result.id),
+            listingEverHadRequest(result.id),
+          ]);
+          if (cancelled) return;
+          setPhotos(listingPhotos);
+          setHasActiveDeal(active);
+          setEverHadRequest(everHad);
         } catch {
-          // Falls back to placeholder
+          // Falls back to placeholder / conservative action gates
         }
       })
       .catch((err) => {
@@ -173,6 +200,32 @@ export default function ListingDetailScreen() {
     }
   };
 
+  const isArchived = listing?.status === "Archived";
+  const canEdit = Boolean(listing) && !isArchived;
+  const canArchive = Boolean(listing) && !isArchived && !hasActiveDeal;
+  const canDelete = Boolean(listing) && !everHadRequest && !isArchived;
+
+  const handleConfirmListingAction = async () => {
+    if (!id || !confirmAction || actionBusy) return;
+    setActionBusy(true);
+    setActionError(undefined);
+    try {
+      if (confirmAction === "archive") {
+        await archiveCropListing(id);
+        setConfirmAction(null);
+        setActionSuccess("archive");
+      } else {
+        await deleteCropListing(id);
+        setConfirmAction(null);
+        setActionSuccess("delete");
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Hindi natapos ang aksyon.");
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
@@ -218,7 +271,14 @@ export default function ListingDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
       <StatusBar style="dark" />
-      <BackHeader title="Detalye ng Listing" />
+      <BackHeader
+        title="Detalye ng Listing"
+        rightAction={
+          canEdit || canArchive || canDelete ? (
+            <ListingOverflowButton onPress={() => setActionsOpen(true)} />
+          ) : undefined
+        }
+      />
 
       <View style={styles.tabsWrapper}>
         <View style={styles.tabsContainer}>
@@ -442,6 +502,111 @@ export default function ListingDetailScreen() {
         message="Naitala ang iyong sagot."
         confirmLabel="Naiintindihan Ko"
         onConfirm={() => setRejectSuccessVisible(false)}
+      />
+
+      <ListingActionsSheet
+        visible={actionsOpen}
+        canEdit={canEdit}
+        canArchive={canArchive}
+        canDelete={canDelete}
+        onEdit={() => {
+          setActionsOpen(false);
+          if (id) router.push({ pathname: "/(farmer)/edit-listing", params: { id } });
+        }}
+        onArchive={() => {
+          setActionsOpen(false);
+          setActionError(undefined);
+          setConfirmAction("archive");
+        }}
+        onDelete={() => {
+          setActionsOpen(false);
+          setActionError(undefined);
+          setConfirmAction("delete");
+        }}
+        onClose={() => setActionsOpen(false)}
+      />
+
+      <Modal
+        visible={confirmAction !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !actionBusy && setConfirmAction(null)}>
+        <Pressable style={styles.modalOverlay} onPress={() => !actionBusy && setConfirmAction(null)}>
+          <Pressable style={styles.rejectCard} onPress={(e) => e.stopPropagation()}>
+            <View style={confirmAction === "delete" ? styles.rejectIconCircle : styles.acceptIconCircle}>
+              {confirmAction === "delete" ? (
+                <Trash2 size={28} color={AnimoColors.danger} />
+              ) : (
+                <Archive size={28} color={AnimoColors.accentPrimary} />
+              )}
+            </View>
+            <View style={styles.rejectHeaderGroup}>
+              <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.textCenter}>
+                {confirmAction === "delete" ? "Tanggalin ang Listing?" : "I-archive ang Listing?"}
+              </AnimoText>
+              <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
+                {confirmAction === "delete"
+                  ? "Permanenteng mabubura ang listing at mga larawan nito. Hindi na ito mababawi."
+                  : "Itatago ang listing sa mga mamimili. Hindi ito mabubura — makikita mo pa rin ito sa Aking Ani bilang Naka-archive."}
+              </AnimoText>
+            </View>
+            {actionError ? (
+              <AnimoText variant="caption" color={AnimoColors.danger} style={styles.textCenter}>
+                {actionError}
+              </AnimoText>
+            ) : null}
+            <View style={styles.modalActions}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={actionBusy}
+                onPress={handleConfirmListingAction}
+                style={({ pressed }) => [
+                  confirmAction === "delete" ? styles.confirmRejectBtn : styles.acceptModalBtn,
+                  pressed && styles.pressed,
+                ]}>
+                {actionBusy ? (
+                  <ActivityIndicator color={AnimoColors.white} />
+                ) : (
+                  <>
+                    {confirmAction === "delete" ? (
+                      <Trash2 size={18} color={AnimoColors.white} />
+                    ) : (
+                      <Archive size={18} color={AnimoColors.white} />
+                    )}
+                    <AnimoText variant="button" color={AnimoColors.white}>
+                      {confirmAction === "delete" ? "Tanggalin" : "I-archive"}
+                    </AnimoText>
+                  </>
+                )}
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={actionBusy}
+                onPress={() => setConfirmAction(null)}
+                style={({ pressed }) => [styles.cancelDismissBtn, pressed && styles.pressed]}>
+                <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
+                  Huwag Muna
+                </AnimoText>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <FeedbackModal
+        visible={actionSuccess !== null}
+        tone="success"
+        title={actionSuccess === "delete" ? "Natanggal ang Listing" : "Na-archive ang Listing"}
+        message={
+          actionSuccess === "delete"
+            ? "Permanenteng natanggal ang listing."
+            : "Nakatago na ang listing sa mga mamimili."
+        }
+        confirmLabel="Sige"
+        onConfirm={() => {
+          setActionSuccess(null);
+          router.replace("/(farmer)/(tabs)/palengke");
+        }}
       />
     </SafeAreaView>
   );

@@ -18,11 +18,12 @@ export type PurchaseRequestRow = {
   status: PurchaseRequestStatus;
   accepted_quantity_kg: number | null;
   submitted_at: string;
+  updated_at: string;
   cancel_deadline: string | null;
 };
 
 export const PURCHASE_REQUEST_COLUMNS =
-  'request_id, listing_id, buyer_id, requested_quantity_kg, status, accepted_quantity_kg, submitted_at, cancel_deadline' as const;
+  'request_id, listing_id, buyer_id, requested_quantity_kg, status, accepted_quantity_kg, submitted_at, updated_at, cancel_deadline' as const;
 
 export function mapPurchaseRequest(row: PurchaseRequestRow): PurchaseRequest {
   return {
@@ -33,6 +34,7 @@ export function mapPurchaseRequest(row: PurchaseRequestRow): PurchaseRequest {
     acceptedQuantityKg: row.accepted_quantity_kg === null ? null : Number(row.accepted_quantity_kg),
     status: row.status,
     submittedAt: row.submitted_at,
+    updatedAt: row.updated_at,
     cancelDeadline: row.cancel_deadline,
   };
 }
@@ -165,19 +167,40 @@ export async function fetchListingPurchaseRequests(listingId: string): Promise<P
  * One round trip of listing_id only; RLS scopes rows to listings the farmer owns.
  */
 export async function fetchPendingPurchaseRequestCountsByListing(): Promise<Map<string, number>> {
+  const { pendingCounts } = await fetchPurchaseRequestRollupByListing();
+  return pendingCounts;
+}
+
+/**
+ * Farmer Transaksyon overview rollup inputs: pending PR counts plus the
+ * latest purchaserequest.updated_at per listing (any status). One round trip;
+ * RLS scopes rows to listings the farmer owns.
+ */
+export async function fetchPurchaseRequestRollupByListing(): Promise<{
+  pendingCounts: Map<string, number>;
+  latestUpdatedAt: Map<string, string>;
+}> {
   const { data, error } = await supabase
     .from('purchaserequest')
-    .select('listing_id')
-    .eq('status', 'Pending');
+    .select('listing_id, status, updated_at');
 
   if (error) throw error;
 
-  const counts = new Map<string, number>();
+  const pendingCounts = new Map<string, number>();
+  const latestUpdatedAt = new Map<string, string>();
   for (const row of data ?? []) {
-    const id = (row as { listing_id: string }).listing_id;
-    counts.set(id, (counts.get(id) ?? 0) + 1);
+    const { listing_id, status, updated_at } = row as {
+      listing_id: string;
+      status: string;
+      updated_at: string;
+    };
+    if (status === 'Pending') {
+      pendingCounts.set(listing_id, (pendingCounts.get(listing_id) ?? 0) + 1);
+    }
+    const prev = latestUpdatedAt.get(listing_id);
+    if (!prev || updated_at > prev) latestUpdatedAt.set(listing_id, updated_at);
   }
-  return counts;
+  return { pendingCounts, latestUpdatedAt };
 }
 
 /** Farmer accepts (fully or partially) a pending request. Returns the new transaction_id. */

@@ -31,6 +31,7 @@ export type TransactionMatchRow = {
   transaction_id: string;
   listing_id: string;
   created_at: string;
+  updated_at: string;
   request_id: string;
   buyer_id: string;
   farmer_id: string;
@@ -42,7 +43,7 @@ export type TransactionMatchRow = {
 };
 
 export const TRANSACTION_COLUMNS =
-  'transaction_id, listing_id, created_at, request_id, buyer_id, farmer_id, agreed_price_per_kg, quantity_kg, total_amount, status, date_completed' as const;
+  'transaction_id, listing_id, created_at, updated_at, request_id, buyer_id, farmer_id, agreed_price_per_kg, quantity_kg, total_amount, status, date_completed' as const;
 
 export type PaymentRow = {
   payment_id: string;
@@ -74,6 +75,7 @@ export function mapTransaction(row: TransactionMatchRow): TransactionMatch {
     status: row.status,
     dateCompleted: row.date_completed,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -220,6 +222,42 @@ export async function fetchListingTransactions(listingId: string): Promise<Trans
   return (data as unknown as TransactionMatchWithPaymentsRow[]).map(mapTransactionWithPayment);
 }
 
+/** Latest ISO timestamp among non-null candidates (ISO strings compare lexicographically). */
+function maxIsoTimestamp(candidates: Array<string | null | undefined>): string {
+  let best = '';
+  for (const value of candidates) {
+    if (value && value > best) best = value;
+  }
+  return best;
+}
+
+/** Most recent activity on a matched transaction (row updates + payment stamps). */
+export function transactionLastActivityAt(tx: TransactionWithPayment): string {
+  return maxIsoTimestamp([
+    tx.updatedAt,
+    tx.createdAt,
+    tx.dateCompleted,
+    tx.payment?.buyerConfirmedAt,
+    tx.payment?.farmerConfirmedAt,
+  ]);
+}
+
+/**
+ * Most recent activity for a purchase-request / transaction feed row.
+ * Prefer updated_at (migration 0028); include payment confirm stamps as a
+ * belt-and-suspenders signal for the buyer-marked-paid path.
+ */
+export function outcomeLastActivityAt(outcome: PurchaseOutcome): string {
+  const candidates: Array<string | null | undefined> = [
+    outcome.request.updatedAt,
+    outcome.request.submittedAt,
+  ];
+  if (outcome.kind === 'matched') {
+    candidates.push(transactionLastActivityAt(outcome.transaction));
+  }
+  return maxIsoTimestamp(candidates);
+}
+
 function combineOutcomes(
   requests: Awaited<ReturnType<typeof fetchBuyerPurchaseRequests>>,
   transactions: TransactionWithPayment[],
@@ -231,7 +269,27 @@ function combineOutcomes(
       const transaction = transactionByRequestId.get(request.id);
       return transaction ? { kind: 'matched', request, transaction } : { kind: 'unmatched', request };
     })
-    .sort((a, b) => (a.request.submittedAt < b.request.submittedAt ? 1 : -1));
+    .sort((a, b) => (outcomeLastActivityAt(a) < outcomeLastActivityAt(b) ? 1 : -1));
+}
+
+/**
+ * Max activity timestamp across a listing's purchase requests and transactions.
+ * Falls back to `listingDateListed` when the listing has no PR/TM activity yet.
+ */
+export function listingLastActivityAt(
+  listingId: string,
+  listingDateListed: string,
+  prLatestUpdatedAt: Map<string, string>,
+  transactions: TransactionWithPayment[],
+): string {
+  const candidates: Array<string | null | undefined> = [
+    listingDateListed,
+    prLatestUpdatedAt.get(listingId),
+  ];
+  for (const tx of transactions) {
+    if (tx.listingId === listingId) candidates.push(transactionLastActivityAt(tx));
+  }
+  return maxIsoTimestamp(candidates);
 }
 
 /** Live sum of completed kg sold for one listing (no stored column). */

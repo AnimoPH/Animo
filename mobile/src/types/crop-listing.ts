@@ -9,7 +9,7 @@
  *
  * There is no listing-verification/AI-grading state in this schema (the
  * Aug 2026 data dictionary revision dropped FraudDetectionRecord) — `status`
- * only ever moves Draft → Available → Sold_Out, or → Cancelled.
+ * only ever moves Draft → Available → Sold_Out, or → Cancelled / Archived.
  */
 
 export type DeclaredVariety =
@@ -23,7 +23,7 @@ export type MoistureType = 'Dry' | 'Wet';
 
 export type PurityGrade = 'A' | 'B' | 'C' | 'Ungraded';
 
-export type ListingStatus = 'Draft' | 'Available' | 'Sold_Out' | 'Cancelled';
+export type ListingStatus = 'Draft' | 'Available' | 'Sold_Out' | 'Cancelled' | 'Archived';
 
 /** Options for the "Gumawa ng Listing" form — `value` is exactly what's sent to the DB. */
 export const VARIETY_OPTIONS: { value: DeclaredVariety; label: string }[] = [
@@ -170,6 +170,7 @@ export const STATUS_LABELS: Record<ListingStatus, string> = {
   Available: 'Available',
   Sold_Out: 'Naubos',
   Cancelled: 'Tinanggal',
+  Archived: 'Naka-archive',
 };
 
 /**

@@ -14,6 +14,7 @@ export default function FarmerStackLayout() {
       <Stack.Screen name="account-information" />
       <Stack.Screen name="advisory" />
       <Stack.Screen name="creation-listing" />
+      <Stack.Screen name="edit-listing" />
       <Stack.Screen name="listing-detail" />
       <Stack.Screen name="listing-result" />
       <Stack.Screen name="listing-uploading" />

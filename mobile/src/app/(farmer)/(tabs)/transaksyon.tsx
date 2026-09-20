@@ -24,9 +24,10 @@ import {
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
 import { fetchMyCropListings } from '@/services/crop-listing-service';
-import { fetchPendingPurchaseRequestCountsByListing } from '@/services/purchase-request-service';
+import { fetchPurchaseRequestRollupByListing } from '@/services/purchase-request-service';
 import {
   fetchFarmerTransactions,
+  listingLastActivityAt,
   sumCompletedEarnings,
   sumCompletedSoldKg,
 } from '@/services/transaction-service';
@@ -50,6 +51,7 @@ type ListingRollup = {
   earnings: number;
   pendingCount: number;
   varietyLine: string;
+  lastActivityAt: string;
 };
 
 /** Farmer Transaksyon — per-listing rollups (kg left / sold / Buong Kita). */
@@ -62,6 +64,7 @@ export default function FarmerTransactionsScreen() {
   const [listings, setListings] = useState<CropListing[]>([]);
   const [transactions, setTransactions] = useState<TransactionWithPayment[]>([]);
   const [pendingCounts, setPendingCounts] = useState<Map<string, number>>(new Map());
+  const [prLatestUpdatedAt, setPrLatestUpdatedAt] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,14 +78,18 @@ export default function FarmerTransactionsScreen() {
     else setLoading(true);
     setError(null);
     try {
-      const [myListings, txs, counts] = await Promise.all([
+      const [myListings, txs, prRollup] = await Promise.all([
         fetchMyCropListings(),
         fetchFarmerTransactions(),
-        fetchPendingPurchaseRequestCountsByListing().catch(() => new Map<string, number>()),
+        fetchPurchaseRequestRollupByListing().catch(() => ({
+          pendingCounts: new Map<string, number>(),
+          latestUpdatedAt: new Map<string, string>(),
+        })),
       ]);
       setListings(myListings);
       setTransactions(txs);
-      setPendingCounts(counts);
+      setPendingCounts(prRollup.pendingCounts);
+      setPrLatestUpdatedAt(prRollup.latestUpdatedAt);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Hindi ma-load ang mga transaksyon.');
     } finally {
@@ -97,7 +104,7 @@ export default function FarmerTransactionsScreen() {
 
   const rollups = useMemo((): ListingRollup[] => {
     return listings
-      .filter((listing) => listing.status !== 'Draft' && listing.status !== 'Cancelled')
+      .filter((listing) => listing.status !== 'Draft' && listing.status !== 'Cancelled' && listing.status !== 'Archived')
       .map((listing) => {
         const specific = specificVarietyDisplay(listing);
         const variety = varietyLabel(listing);
@@ -107,9 +114,16 @@ export default function FarmerTransactionsScreen() {
           earnings: sumCompletedEarnings(transactions, listing.id),
           pendingCount: pendingCounts.get(listing.id) ?? 0,
           varietyLine: specific ? `${variety} (${specific})` : variety,
+          lastActivityAt: listingLastActivityAt(
+            listing.id,
+            listing.dateListed,
+            prLatestUpdatedAt,
+            transactions,
+          ),
         };
-      });
-  }, [listings, transactions, pendingCounts]);
+      })
+      .sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : -1));
+  }, [listings, transactions, pendingCounts, prLatestUpdatedAt]);
 
   const filteredData = useMemo(() => {
     return rollups.filter((item) => {

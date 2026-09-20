@@ -63,6 +63,8 @@ export type TransactionMatch = {
   status: TransactionMatchStatus;
   dateCompleted: string | null;
   createdAt: string;
+  /** Last row change (status transitions, payment-sent touch, etc.) — migration 0028. */
+  updatedAt: string;
 };
 
 /** Every screen actually wants the transaction with its most recent payment row joined. */
