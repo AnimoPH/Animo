@@ -1,7 +1,7 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Bell, ChevronLeft, ChevronRight, ClipboardList, Filter, Search, X } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -26,6 +26,7 @@ import {
 } from '@/components/animo/spotlight-tour';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useLanguage } from '@/hooks/use-language';
 import { fetchCropListingsByIds } from '@/services/crop-listing-service';
 import {
@@ -134,9 +135,13 @@ export default function BuyerTransactionsScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    load(false);
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load(false);
+    }, [load]),
+  );
+
+  useAutoRefresh(useCallback(() => load(true), [load]));
 
   const items = useMemo(
     () =>

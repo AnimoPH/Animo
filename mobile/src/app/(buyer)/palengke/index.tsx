@@ -33,6 +33,7 @@ import {
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useLanguage } from '@/hooks/use-language';
 import { fetchCoverPhotos } from '@/services/crop-listing-service';
 import {
@@ -153,6 +154,8 @@ export default function MarketplaceScreen() {
       load();
     }, [load]),
   );
+
+  useAutoRefresh(load);
 
   const applyFilters = () => {
     setLoading(true);

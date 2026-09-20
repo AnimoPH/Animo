@@ -23,6 +23,7 @@ import {
 } from '@/components/animo/spotlight-tour';
 import { StatusBadge, type BadgeTone } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
 import { fetchCoverPhotos, fetchMyCropListings } from '@/services/crop-listing-service';
@@ -237,6 +238,8 @@ export default function FarmerPalengkeScreen() {
       load();
     }, [load]),
   );
+
+  useAutoRefresh(load);
 
   const activeFilterCount = countActiveFilters(appliedFilters);
 

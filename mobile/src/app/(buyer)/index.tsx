@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   Bell,
@@ -11,7 +11,7 @@ import {
   TrendingUp,
   Wheat,
 } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -24,6 +24,7 @@ import {
   TUTORIAL_STORAGE_KEY,
 } from '@/components/animo/spotlight-tour';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useLanguage } from '@/hooks/use-language';
 import { fetchCoverPhotos } from '@/services/crop-listing-service';
 import {
@@ -64,10 +65,7 @@ export default function BuyerHomeScreen() {
   const bellRef = useRef<View>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  useEffect(() => {
-    // Force spotlight tour visible for preview
-    setShowTutorial(true);
-
+  const load = useCallback(() => {
     fetchMarketPopularityInsights()
       .then((data) => {
         if (data) setInsights(data);
@@ -86,6 +84,19 @@ export default function BuyerHomeScreen() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    // Force spotlight tour visible for preview
+    setShowTutorial(true);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
+
+  useAutoRefresh(load);
 
   const buyerTourSteps: SpotlightStep[] = [
     {

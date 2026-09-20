@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus,
@@ -8,6 +8,7 @@ import {
 
 import { ConsoleLayout } from '@/components/console-layout';
 import type { Farmer } from '@/constants/dashboard';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import {
   fetchLguFarmerRegistry,
   formatRegisteredDate,
@@ -57,7 +58,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
   const [selectedBarangay, setSelectedBarangay] = useState('Lahat');
   const [selectedStatus, setSelectedStatus] = useState('Lahat');
 
-  useEffect(() => {
+  const loadFarmers = useCallback(() => {
     let cancelled = false;
     setLoading(true);
     setLoadError(null);
@@ -79,6 +80,10 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => loadFarmers(), [loadFarmers]);
+
+  useAutoRefresh(loadFarmers);
 
   const barangayOptions = useMemo(() => {
     const unique = [...new Set(farmersList.map((f) => f.barangay))].sort();

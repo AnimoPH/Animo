@@ -1,7 +1,7 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Bell, ClipboardList, Filter, Search, X } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -22,6 +22,7 @@ import {
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
+import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useLanguage } from '@/hooks/use-language';
 import { fetchMyCropListings } from '@/services/crop-listing-service';
 import { fetchPendingPurchaseRequestCountsByListing } from '@/services/purchase-request-service';
@@ -91,9 +92,13 @@ export default function FarmerTransactionsScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    load(false);
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load(false);
+    }, [load]),
+  );
+
+  useAutoRefresh(useCallback(() => load(true), [load]));
 
   const rollups = useMemo((): ListingRollup[] => {
     return listings
