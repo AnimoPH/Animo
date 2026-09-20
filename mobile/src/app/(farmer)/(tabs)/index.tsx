@@ -32,6 +32,7 @@ import {
   FARMER_TUTORIAL_STORAGE_KEY,
 } from '@/components/animo/spotlight-tour';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useLanguage } from '@/hooks/use-language';
 import {
   fetchFarmerHomeData,
@@ -100,6 +101,8 @@ export default function FarmerHomeScreen() {
       load(false);
     }, [load]),
   );
+
+  useAutoRefresh(useCallback(() => load(true), [load]));
 
   // Shown once, first run only — the tour itself has no way to check this,
   // so the parent screen owns reading the "already seen" flag it writes.
