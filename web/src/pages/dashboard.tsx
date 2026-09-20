@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useAuth } from '@/lib/auth-context';
 import {
   activateNfaInterventionWindow,
@@ -69,6 +70,8 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
   useEffect(() => {
     void loadDashboard();
   }, []);
+
+  useAutoRefresh(() => void loadDashboard());
 
   async function handlePsaSync() {
     setSyncing(true);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus,
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import {
   fetchLguBuyerRegistry,
   formatRegisteredDate,
@@ -60,7 +61,7 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('Lahat');
 
-  useEffect(() => {
+  const loadBuyers = useCallback(() => {
     let cancelled = false;
     setLoading(true);
     setLoadError(null);
@@ -82,6 +83,10 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => loadBuyers(), [loadBuyers]);
+
+  useAutoRefresh(loadBuyers);
 
   const filteredBuyers = useMemo(() => {
     return buyersList.filter((b) => {
