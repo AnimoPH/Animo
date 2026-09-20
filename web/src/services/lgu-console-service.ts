@@ -52,6 +52,8 @@ export type LguUserProfile = {
   completedTransactions: number;
   reviewCount: number;
   averageRating: number | null;
+  suspensionReason: string | null;
+  suspendedAt: string | null;
 };
 
 export type LguUserReview = {
@@ -367,7 +369,7 @@ export async function fetchLguBuyerRegistry(): Promise<LguBuyerRow[]> {
 export async function fetchLguUserProfile(userId: string): Promise<LguUserProfile | null> {
   const { data: user, error } = await supabase
     .from('user')
-    .select('user_id, full_name, contact_number, role, account_status, date_registered')
+    .select('user_id, full_name, contact_number, role, account_status, date_registered, suspension_reason, suspended_at')
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -413,7 +415,20 @@ export async function fetchLguUserProfile(userId: string): Promise<LguUserProfil
     completedTransactions: txns?.length ?? 0,
     reviewCount: scores.length,
     averageRating,
+    suspensionReason: (user.suspension_reason as string | null) ?? null,
+    suspendedAt: (user.suspended_at as string | null) ?? null,
   };
+}
+
+/** LGU-only — suspend_account (migration 0028) checks is_lgu_official() itself; RLS is not the gate here. */
+export async function suspendAccount(userId: string, reason: string): Promise<void> {
+  const { error } = await supabase.rpc('suspend_account', { p_user_id: userId, p_reason: reason });
+  if (error) throw error;
+}
+
+export async function unsuspendAccount(userId: string): Promise<void> {
+  const { error } = await supabase.rpc('unsuspend_account', { p_user_id: userId });
+  if (error) throw error;
 }
 
 export async function fetchLguUserReviews(userId: string): Promise<LguUserReview[]> {
