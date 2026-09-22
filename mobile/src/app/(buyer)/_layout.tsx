@@ -16,7 +16,7 @@ const BUYER_TAB_DEFS: Omit<TabItem, 'showBadge'>[] = [
     name: 'palengke',
     label: 'Palengke',
     labelKey: 'tab.market',
-    icon: { outline: 'bag-outline', filled: 'bag' },
+    icon: { outline: 'bag-handle-outline', filled: 'bag-handle' },
     rootScreen: 'index',
   },
   { name: 'transaksyon', label: 'Transaksyon', labelKey: 'tab.transactions', icon: { outline: 'receipt-outline', filled: 'receipt' } },
