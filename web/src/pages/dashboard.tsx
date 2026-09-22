@@ -18,6 +18,7 @@ import {
   activateNfaInterventionWindow,
   deactivateNfaInterventionWindows,
   fetchMarketPriceFeed,
+  fetchMarketStatus,
   fetchNfaInterventionWindows,
   fetchRizalPriceHistory,
   syncPsaPrices,
@@ -27,6 +28,7 @@ import {
   priceDelta,
   toMonthlyBars,
   type MarketPriceFeed,
+  type MarketStatus,
   type PriceHistoryPoint,
 } from '@/services/lgu-console-service';
 
@@ -40,6 +42,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
   const [priceFeed, setPriceFeed] = useState<MarketPriceFeed | null>(null);
   const [priceHistory, setPriceHistory] = useState<PriceHistoryPoint[]>([]);
   const [nfaActive, setNfaActive] = useState(false);
+  const [marketStatus, setMarketStatus] = useState<MarketStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -52,6 +55,14 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
   function loadDashboard() {
     setLoading(true);
     setLoadError(null);
+
+    // Market status is fetched separately from the rest: it depends on a
+    // temporary demo-only tunnel (Sec. 21.16/21.17) that's often not
+    // running, so its own unavailability must never block or error out the
+    // rest of the dashboard.
+    fetchMarketStatus()
+      .then(setMarketStatus)
+      .catch(() => setMarketStatus({ available: false, reason: 'Hindi ma-check ang market status.' }));
 
     return Promise.all([fetchMarketPriceFeed(), fetchRizalPriceHistory(12), fetchNfaInterventionWindows()])
       .then(([feed, history, windows]) => {
@@ -301,7 +312,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           monthlyBars={monthlyBars}
           effectiveDate={priceFeed?.effectiveDate ?? latestHistory?.month ?? null}
         />
-        <PricingConfidenceCard nfaActive={nfaActive} />
+        <MarketPricingConfidenceCard nfaActive={nfaActive} marketStatus={marketStatus} />
       </section>
 
       {showNfaModal ? (
@@ -460,32 +471,81 @@ function PriceBenchmarkCard({
   );
 }
 
-function PricingConfidenceCard({ nfaActive }: { nfaActive: boolean }) {
+/**
+ * One combined confidence signal, from two independent sources: whether an
+ * LGU official has manually flagged NFA intervention volatility
+ * (`nfa_intervention_window`), and whether the pricing model's automated
+ * check (`get-market-status`) independently detects a real deviation in the
+ * PSA price data. Shown together, plain-language, so an LGU official reading
+ * this doesn't need to know what an RF/SVR model or an edge function is —
+ * only "may we trust the current price, and why or why not."
+ */
+function MarketPricingConfidenceCard({
+  nfaActive,
+  marketStatus,
+}: {
+  nfaActive: boolean;
+  marketStatus: MarketStatus | null;
+}) {
+  const checkLoading = marketStatus === null;
+  const anomalyFlagged = marketStatus?.available === true && marketStatus.flagged;
+  const elevated = nfaActive || anomalyFlagged;
+
   return (
     <article className="animo-card" style={styles.panel}>
       <div style={styles.panelHead}>
         <div>
           <h2 style={styles.panelTitle}>Market Pricing Confidence</h2>
-          <p style={styles.panelSubtitle}>NFA intervention window signal</p>
+          <p style={styles.panelSubtitle}>Opisyal na alerto + awtomatikong pagsusuri ng presyo</p>
         </div>
-        <span style={nfaActive ? styles.warningBadge : styles.normalBadge}>
-          {nfaActive ? 'Elevated' : 'Normal'}
+        <span style={elevated ? styles.warningBadge : styles.normalBadge}>
+          {elevated ? 'May Alerto' : 'Normal'}
         </span>
       </div>
 
       <div style={styles.meterTrack}>
-        <span style={{ ...styles.meterSegment, background: nfaActive ? 'var(--animo-border)' : 'var(--animo-green)' }} />
-        <span style={{ ...styles.meterSegment, background: nfaActive ? 'var(--animo-warning)' : 'var(--animo-border)' }} />
+        <span style={{ ...styles.meterSegment, background: elevated ? 'var(--animo-border)' : 'var(--animo-green)' }} />
+        <span style={{ ...styles.meterSegment, background: elevated ? 'var(--animo-warning)' : 'var(--animo-border)' }} />
         <span style={{ ...styles.meterSegment, background: 'var(--animo-border)' }} />
       </div>
 
       <dl style={styles.statList}>
         <StatRow
-          label="Kasalukuyang katayuan"
-          value={nfaActive ? 'May aktibong NFA window' : 'Normal — walang aktibong window'}
+          label="Opisyal na NFA Alert"
+          value={nfaActive ? '● May aktibong NFA window' : '○ Walang aktibong NFA window'}
         />
-        <StatRow label="Pinagmulan" value="nfa_intervention_window (LGU toggle)" />
+        <StatRow
+          label="Awtomatikong Pagsusuri"
+          value={
+            checkLoading
+              ? 'Sinusuri…'
+              : marketStatus.available
+                ? anomalyFlagged
+                  ? `● May naramdamang biglaang pagbabago (${marketStatus.deviationPct.toFixed(1)}%)`
+                  : `○ Normal na pagbabago ng presyo (${marketStatus.deviationPct.toFixed(1)}%)`
+                : 'Hindi available ngayon'
+          }
+        />
       </dl>
+
+      {!checkLoading && marketStatus.available ? (
+        <div style={anomalyFlagged ? styles.calloutWarningBox : styles.calloutInfoBox}>
+          <TriangleAlert
+            size={20}
+            color={anomalyFlagged ? 'var(--animo-warning)' : '#2563EB'}
+            style={{ flexShrink: 0 }}
+          />
+          <span>{marketStatus.statusLabel}</span>
+        </div>
+      ) : !checkLoading ? (
+        <div style={styles.calloutInfoBox}>
+          <TriangleAlert size={20} color="#2563EB" style={{ flexShrink: 0 }} />
+          <span>
+            Hindi pa magagamit ang awtomatikong pagsusuri ngayon. Ang alerto mula sa NFA toggle sa itaas ang
+            magiging basehan hangga't hindi ito available.
+          </span>
+        </div>
+      ) : null}
     </article>
   );
 }

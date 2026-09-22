@@ -208,6 +208,57 @@ export async function syncPsaPrices(): Promise<{
   };
 }
 
+export type MarketStatus =
+  | { available: true; deviationPct: number; thresholdPct: number; flagged: boolean; statusLabel: string }
+  | { available: false; reason: string };
+
+/**
+ * `functions.invoke()` collapses any non-2xx response to a generic message —
+ * the real `{ error }` body has to be read off `error.context` instead.
+ */
+async function unwrapFunctionErrorMessage(error: unknown): Promise<string> {
+  const context = (error as { context?: Response } | undefined)?.context;
+  if (context && typeof context.json === 'function') {
+    try {
+      const body = await context.json();
+      if (body?.error) return String(body.error);
+    } catch {
+      // Response body wasn't JSON — fall through to the generic message below.
+    }
+  }
+  return error instanceof Error ? error.message : 'Hindi ma-check ang market status.';
+}
+
+/**
+ * LGU dashboard anomaly signal (`get-market-status`, RF/SVR layer over the
+ * pricing service). Not tied to a specific listing, mobile never calls this.
+ *
+ * `PRICING_SERVICE_URL` only points at a live host when the temporary
+ * Cloudflare tunnel (`pricing/start-tunnel.sh`) is running for a demo/defense
+ * session — so "not configured" and "insufficient price history" are
+ * expected, common states here, not exceptional errors the dashboard should
+ * crash on. Only a genuinely unexpected failure throws.
+ */
+export async function fetchMarketStatus(): Promise<MarketStatus> {
+  const { data, error } = await supabase.functions.invoke('get-market-status', { method: 'POST' });
+  if (error) {
+    const message = await unwrapFunctionErrorMessage(error);
+    if (/PRICING_SERVICE_URL|insufficient price history|non-2xx|404|not found|failed to send/i.test(message)) {
+      return { available: false, reason: message };
+    }
+    throw new Error(message);
+  }
+  if (data?.error) return { available: false, reason: String(data.error) };
+
+  return {
+    available: true,
+    deviationPct: Number(data?.deviation_pct) || 0,
+    thresholdPct: Number(data?.threshold_pct) || 0,
+    flagged: Boolean(data?.flagged),
+    statusLabel: (data?.status_label as string) ?? 'Unknown',
+  };
+}
+
 export async function fetchNfaInterventionWindows(): Promise<NfaWindow[]> {
   const { data, error } = await supabase
     .from('nfa_intervention_window')
