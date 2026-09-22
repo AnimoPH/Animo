@@ -518,7 +518,14 @@ export async function fetchLguUserTransactions(
   });
 }
 
-export function toWeeklyBars(points: PriceHistoryPoint[], take = 7) {
+/**
+ * `palay_price_history` is monthly (`price_month` always day 1 of the
+ * month), not daily — this used to label each bar with a weekday
+ * abbreviation ("Mon", "Tue"...) derived from the 1st of each month, which
+ * has no relationship to the actual data and misrepresented several months
+ * of history as a "weekly" trend. Labels the month instead.
+ */
+export function toMonthlyBars(points: PriceHistoryPoint[], take = 7) {
   const slice = points.slice(-take);
   if (slice.length === 0) return [];
 
@@ -528,10 +535,10 @@ export function toWeeklyBars(points: PriceHistoryPoint[], take = 7) {
   const range = max - min || 1;
 
   return slice.map((point, index) => {
-    const date = new Date(`${point.month}T00:00:00`);
-    const day = date.toLocaleDateString('en-PH', { weekday: 'short' }).slice(0, 3);
+    const monthIndex = Number(point.month.slice(5, 7)) - 1;
+    const label = FILIPINO_MONTHS[monthIndex]?.slice(0, 3) ?? point.month;
     return {
-      day,
+      day: label,
       pricePerKg: point.pricePerKg,
       level: 0.35 + ((point.pricePerKg - min) / range) * 0.65,
       active: index === slice.length - 1,

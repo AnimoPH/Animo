@@ -25,7 +25,7 @@ import {
   formatSyncTimestamp,
   isNfaWindowActiveToday,
   priceDelta,
-  toWeeklyBars,
+  toMonthlyBars,
   type MarketPriceFeed,
   type PriceHistoryPoint,
 } from '@/services/lgu-console-service';
@@ -118,7 +118,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
     }
   }
 
-  const weeklyBars = useMemo(() => toWeeklyBars(priceHistory, 7), [priceHistory]);
+  const monthlyBars = useMemo(() => toMonthlyBars(priceHistory, 7), [priceHistory]);
   const latestHistory = priceHistory.at(-1);
   const previousHistory = priceHistory.at(-2);
   const psaFarmgate = latestHistory?.pricePerKg ?? null;
@@ -298,7 +298,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
       <section style={styles.midRow}>
         <PriceBenchmarkCard
           dryBase={dryBase}
-          weeklyBars={weeklyBars}
+          monthlyBars={monthlyBars}
           effectiveDate={priceFeed?.effectiveDate ?? latestHistory?.month ?? null}
         />
         <PricingConfidenceCard nfaActive={nfaActive} />
@@ -412,11 +412,11 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
 
 function PriceBenchmarkCard({
   dryBase,
-  weeklyBars,
+  monthlyBars,
   effectiveDate,
 }: {
   dryBase: number | null;
-  weeklyBars: ReturnType<typeof toWeeklyBars>;
+  monthlyBars: ReturnType<typeof toMonthlyBars>;
   effectiveDate: string | null;
 }) {
   return (
@@ -438,10 +438,10 @@ function PriceBenchmarkCard({
       </div>
 
       <div style={styles.chart}>
-        {weeklyBars.length === 0 ? (
+        {monthlyBars.length === 0 ? (
           <span style={styles.priceSource}>Walang price history pa.</span>
         ) : (
-          weeklyBars.map((bar) => (
+          monthlyBars.map((bar) => (
             <div key={`${bar.day}-${bar.pricePerKg}`} style={styles.chartColumn}>
               {bar.active ? <span style={styles.chartValue}>{formatPeso(bar.pricePerKg)}</span> : null}
               <div
