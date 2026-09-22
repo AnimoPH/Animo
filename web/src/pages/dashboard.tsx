@@ -149,14 +149,14 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
         <article className="animo-card" style={styles.metricCard}>
           <div style={styles.metricTop}>
             <div style={styles.metricHead}>
-              <span style={styles.metricLabel}>Model dry base (cached)</span>
+              <span style={styles.metricLabel}>Presyo ng Modelo ng ANIMO</span>
               <span style={styles.metricIcon}>
                 <TrendingUp size={20} color="var(--animo-green)" />
               </span>
             </div>
             <div style={styles.metricValue}>{dryBase != null ? formatPeso(dryBase) : '—'}</div>
             <div style={styles.comparisonRow}>
-              <span style={styles.comparisonText}>marketpricefeed · LSTM-GRU nowcast</span>
+              <span style={styles.comparisonText}>Awtomatikong pagtantiya batay sa datos ng PSA</span>
             </div>
           </div>
           <div style={styles.metricBottom}>
@@ -192,7 +192,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                 <span>kada kilo · PSA OpenSTAT · Rizal province</span>
               ) : (
                 <span>
-                  Walang talaan sa palay_price_history — kailangan ng PSA sync (LGU auth) o manual insert ng Rizal row.
+                  Wala pang PSA price history para sa Rizal. I-click ang "I-sync mula sa PSA" sa ibaba.
                 </span>
               )}
             </div>
@@ -281,8 +281,8 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           </div>
 
           <p style={styles.actionCardDesc}>
-            Hinahatak ang Rizal farmgate prices mula sa PSA OpenSTAT papunta sa palay_price_history.
-            Pagkatapos, sinusubukang i-refresh ang model dry base.
+            Kinukuha ang pinakabagong Rizal farmgate prices mula sa PSA. Pagkatapos, awtomatikong
+            iaaply ito sa presyo ng modelo ng ANIMO.
           </p>
 
           <div style={styles.actionCardStatusRow}>
@@ -351,7 +351,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
               <div style={nfaActive ? styles.calloutInfoBox : styles.calloutWarningBox}>
                 <TriangleAlert
                   size={20}
-                  color={nfaActive ? '#2563EB' : 'var(--animo-warning)'}
+                  color={nfaActive ? 'var(--animo-green)' : 'var(--animo-warning)'}
                   style={{ flexShrink: 0 }}
                 />
                 <span>
@@ -434,7 +434,7 @@ function PriceBenchmarkCard({
     <article className="animo-card" style={styles.panel}>
       <div>
         <h2 style={styles.panelTitle}>Benchmark ng Presyo sa Rehiyon</h2>
-        <p style={styles.panelSubtitle}>PSA Rizal · cached model dry base</p>
+        <p style={styles.panelSubtitle}>Kasaysayan ng PSA farmgate price sa Rizal</p>
       </div>
 
       <div style={styles.priceHeadline}>
@@ -444,7 +444,7 @@ function PriceBenchmarkCard({
 
       <div style={styles.priceMeta}>
         <span style={styles.priceSource}>
-          Sanggunian: marketpricefeed{effectiveDate ? ` · ${effectiveDate}` : ''}
+          Sanggunian: Presyo ng Modelo ng ANIMO{effectiveDate ? ` · ${effectiveDate}` : ''}
         </span>
       </div>
 
@@ -532,14 +532,14 @@ function MarketPricingConfidenceCard({
         <div style={anomalyFlagged ? styles.calloutWarningBox : styles.calloutInfoBox}>
           <TriangleAlert
             size={20}
-            color={anomalyFlagged ? 'var(--animo-warning)' : '#2563EB'}
+            color={anomalyFlagged ? 'var(--animo-warning)' : 'var(--animo-green)'}
             style={{ flexShrink: 0 }}
           />
           <span>{marketStatus.statusLabel}</span>
         </div>
       ) : !checkLoading ? (
         <div style={styles.calloutInfoBox}>
-          <TriangleAlert size={20} color="#2563EB" style={{ flexShrink: 0 }} />
+          <TriangleAlert size={20} color="var(--animo-green)" style={{ flexShrink: 0 }} />
           <span>
             Hindi pa magagamit ang awtomatikong pagsusuri ngayon. Ang alerto mula sa NFA toggle sa itaas ang
             magiging basehan hangga't hindi ito available.
@@ -922,11 +922,11 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 12,
     padding: '14px 16px',
     borderRadius: 'var(--animo-radius-md)',
-    background: '#EFF6FF',
-    border: '1px solid #BFDBFE',
+    background: 'var(--animo-green-tint)',
+    border: '1px solid var(--animo-green-disabled)',
     fontSize: 14,
     lineHeight: '20px',
-    color: '#1E40AF',
+    color: 'var(--animo-green-dark)',
   },
   modalOverlay: {
     position: 'fixed',
