@@ -272,7 +272,7 @@ export default function PalayListingScreen() {
                   style={[styles.photoTile, failed && styles.photoTileFailed]}
                 >
                   {localUri ? (
-                    <>
+                    <View style={styles.photoTileImageWrap}>
                       <Image
                         source={{ uri: localUri }}
                         style={styles.photoTileImage}
@@ -286,10 +286,12 @@ export default function PalayListingScreen() {
                       >
                         <X size={12} color={AnimoColors.textHighEmphasisInverse} />
                       </Pressable>
-                    </>
+                    </View>
                   ) : (
-                    <View style={styles.photoTileIconWrap}>
-                      <Camera size={20} color={AnimoColors.accentPrimary} />
+                    <View style={styles.photoTileEmptyWrap}>
+                      <View style={styles.photoTileIconWrap}>
+                        <Camera size={25} color={AnimoColors.accentPrimary} />
+                      </View>
                     </View>
                   )}
                   <AnimoText
@@ -498,11 +500,10 @@ const styles = StyleSheet.create({
   },
   photoRow: {
     flexDirection: "row",
-    gap: AnimoSpacing.md,
+    gap: AnimoSpacing.sm,
   },
   photoTile: {
     flex: 1,
-    aspectRatio: 1,
     borderRadius: AnimoRadius.lg,
     borderWidth: 1.5,
     borderColor: AnimoColors.accentPrimary,
@@ -511,19 +512,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    padding: AnimoSpacing.xs,
+    padding: AnimoSpacing.sm,
   },
   photoTileFailed: {
     borderColor: AnimoColors.danger,
     borderStyle: "solid",
   },
   photoTileIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: AnimoRadius.pill,
+    width: 60,
+    height: 60,
+    borderRadius: AnimoRadius.lg,
     backgroundColor: AnimoColors.accentPrimaryLight,
     alignItems: "center",
     justifyContent: "center",
+  },
+  photoTileEmptyWrap: {
+    width: "100%",
+    height: 70,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoTileImageWrap: {
+    width: "100%",
+    height: 70,
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: AnimoRadius.md,
   },
   photoTileImage: {
     ...StyleSheet.absoluteFillObject,
