@@ -141,6 +141,34 @@ export function getDisplayStageLabel(stage: DisplayStage, lang: 'tl' | 'en' = 't
   return (lang === 'en' ? DISPLAY_STAGE_LABELS_EN[stage] : DISPLAY_STAGE_LABELS[stage]) ?? DISPLAY_STAGE_LABELS[stage];
 }
 
+/**
+ * Stages where the buyer must act (pay / arrange or complete pickup).
+ * Single source for Transaksyon cards and the bottom-nav attention badge.
+ */
+export const BUYER_NEEDS_ACTION: Partial<Record<DisplayStage, true>> = {
+  awaiting_payment: true,
+  payment_confirmed: true,
+  delivered: true,
+};
+
+/**
+ * Stages where the farmer must act on a Part B / detail row.
+ * Pending pre-match requests are also surfaced via listing rollups separately.
+ */
+export const FARMER_NEEDS_ACTION: Partial<Record<DisplayStage, true>> = {
+  request_pending: true,
+  payment_sent: true,
+  payment_confirmed: true,
+};
+
+export function isBuyerNeedsActionStage(stage: DisplayStage): boolean {
+  return BUYER_NEEDS_ACTION[stage] === true;
+}
+
+export function isFarmerNeedsActionStage(stage: DisplayStage): boolean {
+  return FARMER_NEEDS_ACTION[stage] === true;
+}
+
 /** Pure derivation — no I/O. This is what replaces both old stage enums. */
 export function deriveDisplayStage(outcome: PurchaseOutcome): DisplayStage {
   if (outcome.kind === 'unmatched') {

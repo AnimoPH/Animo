@@ -1,17 +1,26 @@
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, Tabs, useFocusEffect } from 'expo-router';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import { Home, ShoppingBag, ReceiptText, User } from 'lucide-react-native';
+import { useCallback, useMemo, useState } from 'react';
 
 import { AnimoTabBar, type TabItem } from '@/components/animo/animo-tab-bar';
 import { homeRouteForRole } from '@/constants/roles';
+import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useSession } from '@/hooks/use-session';
+import { fetchBuyerPurchaseOutcomes } from '@/services/transaction-service';
+import { deriveDisplayStage, isBuyerNeedsActionStage } from '@/types/transaction';
 
 /** Bottom navigation for the buyer (Mamimili) module. */
-const BUYER_TABS: TabItem[] = [
-  { name: 'index', label: 'Tahanan', labelKey: 'tab.home', icon: Home },
-  { name: 'palengke', label: 'Palengke', labelKey: 'tab.market', icon: ShoppingBag, rootScreen: 'index' },
-  { name: 'transaksyon', label: 'Transaksyon', labelKey: 'tab.transactions', icon: ReceiptText },
-  { name: 'profile', label: 'Profile', labelKey: 'tab.profile', icon: User },
+const BUYER_TAB_DEFS: Omit<TabItem, 'showBadge'>[] = [
+  { name: 'index', label: 'Tahanan', labelKey: 'tab.home', icon: { outline: 'home-outline', filled: 'home' } },
+  {
+    name: 'palengke',
+    label: 'Palengke',
+    labelKey: 'tab.market',
+    icon: { outline: 'bag-outline', filled: 'bag' },
+    rootScreen: 'index',
+  },
+  { name: 'transaksyon', label: 'Transaksyon', labelKey: 'tab.transactions', icon: { outline: 'receipt-outline', filled: 'receipt' } },
+  { name: 'profile', label: 'Profile', labelKey: 'tab.profile', icon: { outline: 'person-outline', filled: 'person' } },
 ];
 
 /**
@@ -28,6 +37,41 @@ const TRANSAKSYON_FULLSCREEN = ['[id]'];
 
 export default function BuyerLayout() {
   const { status, account } = useSession();
+  const [transaksyonNeedsAction, setTransaksyonNeedsAction] = useState(false);
+
+  const isBuyerSession = status === 'authenticated' && account?.role === 'mamimili';
+
+  const checkNeedsAction = useCallback(async () => {
+    if (!isBuyerSession) return;
+    try {
+      const outcomes = await fetchBuyerPurchaseOutcomes();
+      setTransaksyonNeedsAction(
+        outcomes.some((outcome) => isBuyerNeedsActionStage(deriveDisplayStage(outcome))),
+      );
+    } catch {
+      // Keep the last known badge state on transient failures.
+    }
+  }, [isBuyerSession]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void checkNeedsAction();
+    }, [checkNeedsAction]),
+  );
+
+  useAutoRefresh(
+    useCallback(() => {
+      void checkNeedsAction();
+    }, [checkNeedsAction]),
+  );
+
+  const items = useMemo<TabItem[]>(
+    () =>
+      BUYER_TAB_DEFS.map((tab) =>
+        tab.name === 'transaksyon' ? { ...tab, showBadge: transaksyonNeedsAction } : tab,
+      ),
+    [transaksyonNeedsAction],
+  );
 
   // Guards the group against deep-links — an unauthenticated user or a
   // signed-in farmer landing here gets bounced to the right screen instead of
@@ -42,7 +86,7 @@ export default function BuyerLayout() {
   return (
     <Tabs
       screenOptions={{ headerShown: false }}
-      tabBar={(props) => <AnimoTabBar {...props} items={BUYER_TABS} />}>
+      tabBar={(props) => <AnimoTabBar {...props} items={items} />}>
       <Tabs.Screen name="index" />
       <Tabs.Screen
         name="palengke"

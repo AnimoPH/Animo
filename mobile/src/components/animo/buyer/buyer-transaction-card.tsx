@@ -4,14 +4,11 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
-import type { DisplayStage, PaymentMode } from '@/types/transaction';
-
-/** Buyer must pay, or arrange / complete pickup. */
-const NEEDS_ACTION: Partial<Record<DisplayStage, true>> = {
-  awaiting_payment: true,
-  payment_confirmed: true,
-  delivered: true,
-};
+import {
+  isBuyerNeedsActionStage,
+  type DisplayStage,
+  type PaymentMode,
+} from '@/types/transaction';
 
 const DOT_TONE: Partial<Record<DisplayStage, string>> = {
   request_pending: AnimoColors.moderate,
@@ -45,7 +42,7 @@ export type BuyerTransactionCardProps = {
 /** Buyer Transaksyon overview card — listing-first layout with farmer + status. */
 export function BuyerTransactionCard({ item, onPress }: BuyerTransactionCardProps) {
   const isDone = item.stage === 'completed';
-  const needsAction = NEEDS_ACTION[item.stage] === true;
+  const needsAction = isBuyerNeedsActionStage(item.stage);
   const dotColor = DOT_TONE[item.stage];
 
   const handlePress = () => {
