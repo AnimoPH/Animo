@@ -18,6 +18,7 @@ import {
   activateNfaInterventionWindow,
   deactivateNfaInterventionWindows,
   fetchMarketPriceFeed,
+  fetchMarketStatus,
   fetchNfaInterventionWindows,
   fetchRizalPriceHistory,
   syncPsaPrices,
@@ -25,8 +26,9 @@ import {
   formatSyncTimestamp,
   isNfaWindowActiveToday,
   priceDelta,
-  toWeeklyBars,
+  toMonthlyBars,
   type MarketPriceFeed,
+  type MarketStatus,
   type PriceHistoryPoint,
 } from '@/services/lgu-console-service';
 
@@ -40,6 +42,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
   const [priceFeed, setPriceFeed] = useState<MarketPriceFeed | null>(null);
   const [priceHistory, setPriceHistory] = useState<PriceHistoryPoint[]>([]);
   const [nfaActive, setNfaActive] = useState(false);
+  const [marketStatus, setMarketStatus] = useState<MarketStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -52,6 +55,14 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
   function loadDashboard() {
     setLoading(true);
     setLoadError(null);
+
+    // Market status is fetched separately from the rest: it depends on a
+    // temporary demo-only tunnel (Sec. 21.16/21.17) that's often not
+    // running, so its own unavailability must never block or error out the
+    // rest of the dashboard.
+    fetchMarketStatus()
+      .then(setMarketStatus)
+      .catch(() => setMarketStatus({ available: false, reason: 'Hindi ma-check ang market status.' }));
 
     return Promise.all([fetchMarketPriceFeed(), fetchRizalPriceHistory(12), fetchNfaInterventionWindows()])
       .then(([feed, history, windows]) => {
@@ -118,7 +129,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
     }
   }
 
-  const weeklyBars = useMemo(() => toWeeklyBars(priceHistory, 7), [priceHistory]);
+  const monthlyBars = useMemo(() => toMonthlyBars(priceHistory, 7), [priceHistory]);
   const latestHistory = priceHistory.at(-1);
   const previousHistory = priceHistory.at(-2);
   const psaFarmgate = latestHistory?.pricePerKg ?? null;
@@ -138,14 +149,14 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
         <article className="animo-card" style={styles.metricCard}>
           <div style={styles.metricTop}>
             <div style={styles.metricHead}>
-              <span style={styles.metricLabel}>Model dry base (cached)</span>
+              <span style={styles.metricLabel}>Presyo ng Modelo ng ANIMO</span>
               <span style={styles.metricIcon}>
                 <TrendingUp size={20} color="var(--animo-green)" />
               </span>
             </div>
             <div style={styles.metricValue}>{dryBase != null ? formatPeso(dryBase) : '—'}</div>
             <div style={styles.comparisonRow}>
-              <span style={styles.comparisonText}>marketpricefeed · LSTM-GRU nowcast</span>
+              <span style={styles.comparisonText}>Awtomatikong pagtantiya batay sa datos ng PSA</span>
             </div>
           </div>
           <div style={styles.metricBottom}>
@@ -181,7 +192,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                 <span>kada kilo · PSA OpenSTAT · Rizal province</span>
               ) : (
                 <span>
-                  Walang talaan sa palay_price_history — kailangan ng PSA sync (LGU auth) o manual insert ng Rizal row.
+                  Wala pang PSA price history para sa Rizal. I-click ang "I-sync mula sa PSA" sa ibaba.
                 </span>
               )}
             </div>
@@ -270,8 +281,8 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           </div>
 
           <p style={styles.actionCardDesc}>
-            Hinahatak ang Rizal farmgate prices mula sa PSA OpenSTAT papunta sa palay_price_history.
-            Pagkatapos, sinusubukang i-refresh ang model dry base.
+            Kinukuha ang pinakabagong Rizal farmgate prices mula sa PSA. Pagkatapos, awtomatikong
+            iaaply ito sa presyo ng modelo ng ANIMO.
           </p>
 
           <div style={styles.actionCardStatusRow}>
@@ -298,10 +309,10 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
       <section style={styles.midRow}>
         <PriceBenchmarkCard
           dryBase={dryBase}
-          weeklyBars={weeklyBars}
+          monthlyBars={monthlyBars}
           effectiveDate={priceFeed?.effectiveDate ?? latestHistory?.month ?? null}
         />
-        <PricingConfidenceCard nfaActive={nfaActive} />
+        <MarketPricingConfidenceCard nfaActive={nfaActive} marketStatus={marketStatus} />
       </section>
 
       {showNfaModal ? (
@@ -340,7 +351,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
               <div style={nfaActive ? styles.calloutInfoBox : styles.calloutWarningBox}>
                 <TriangleAlert
                   size={20}
-                  color={nfaActive ? '#2563EB' : 'var(--animo-warning)'}
+                  color={nfaActive ? 'var(--animo-green)' : 'var(--animo-warning)'}
                   style={{ flexShrink: 0 }}
                 />
                 <span>
@@ -412,18 +423,18 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
 
 function PriceBenchmarkCard({
   dryBase,
-  weeklyBars,
+  monthlyBars,
   effectiveDate,
 }: {
   dryBase: number | null;
-  weeklyBars: ReturnType<typeof toWeeklyBars>;
+  monthlyBars: ReturnType<typeof toMonthlyBars>;
   effectiveDate: string | null;
 }) {
   return (
     <article className="animo-card" style={styles.panel}>
       <div>
         <h2 style={styles.panelTitle}>Benchmark ng Presyo sa Rehiyon</h2>
-        <p style={styles.panelSubtitle}>PSA Rizal · cached model dry base</p>
+        <p style={styles.panelSubtitle}>Kasaysayan ng PSA farmgate price sa Rizal</p>
       </div>
 
       <div style={styles.priceHeadline}>
@@ -433,15 +444,15 @@ function PriceBenchmarkCard({
 
       <div style={styles.priceMeta}>
         <span style={styles.priceSource}>
-          Sanggunian: marketpricefeed{effectiveDate ? ` · ${effectiveDate}` : ''}
+          Sanggunian: Presyo ng Modelo ng ANIMO{effectiveDate ? ` · ${effectiveDate}` : ''}
         </span>
       </div>
 
       <div style={styles.chart}>
-        {weeklyBars.length === 0 ? (
+        {monthlyBars.length === 0 ? (
           <span style={styles.priceSource}>Walang price history pa.</span>
         ) : (
-          weeklyBars.map((bar) => (
+          monthlyBars.map((bar) => (
             <div key={`${bar.day}-${bar.pricePerKg}`} style={styles.chartColumn}>
               {bar.active ? <span style={styles.chartValue}>{formatPeso(bar.pricePerKg)}</span> : null}
               <div
@@ -460,32 +471,81 @@ function PriceBenchmarkCard({
   );
 }
 
-function PricingConfidenceCard({ nfaActive }: { nfaActive: boolean }) {
+/**
+ * One combined confidence signal, from two independent sources: whether an
+ * LGU official has manually flagged NFA intervention volatility
+ * (`nfa_intervention_window`), and whether the pricing model's automated
+ * check (`get-market-status`) independently detects a real deviation in the
+ * PSA price data. Shown together, plain-language, so an LGU official reading
+ * this doesn't need to know what an RF/SVR model or an edge function is —
+ * only "may we trust the current price, and why or why not."
+ */
+function MarketPricingConfidenceCard({
+  nfaActive,
+  marketStatus,
+}: {
+  nfaActive: boolean;
+  marketStatus: MarketStatus | null;
+}) {
+  const checkLoading = marketStatus === null;
+  const anomalyFlagged = marketStatus?.available === true && marketStatus.flagged;
+  const elevated = nfaActive || anomalyFlagged;
+
   return (
     <article className="animo-card" style={styles.panel}>
       <div style={styles.panelHead}>
         <div>
           <h2 style={styles.panelTitle}>Market Pricing Confidence</h2>
-          <p style={styles.panelSubtitle}>NFA intervention window signal</p>
+          <p style={styles.panelSubtitle}>Opisyal na alerto + awtomatikong pagsusuri ng presyo</p>
         </div>
-        <span style={nfaActive ? styles.warningBadge : styles.normalBadge}>
-          {nfaActive ? 'Elevated' : 'Normal'}
+        <span style={elevated ? styles.warningBadge : styles.normalBadge}>
+          {elevated ? 'May Alerto' : 'Normal'}
         </span>
       </div>
 
       <div style={styles.meterTrack}>
-        <span style={{ ...styles.meterSegment, background: nfaActive ? 'var(--animo-border)' : 'var(--animo-green)' }} />
-        <span style={{ ...styles.meterSegment, background: nfaActive ? 'var(--animo-warning)' : 'var(--animo-border)' }} />
+        <span style={{ ...styles.meterSegment, background: elevated ? 'var(--animo-border)' : 'var(--animo-green)' }} />
+        <span style={{ ...styles.meterSegment, background: elevated ? 'var(--animo-warning)' : 'var(--animo-border)' }} />
         <span style={{ ...styles.meterSegment, background: 'var(--animo-border)' }} />
       </div>
 
       <dl style={styles.statList}>
         <StatRow
-          label="Kasalukuyang katayuan"
-          value={nfaActive ? 'May aktibong NFA window' : 'Normal — walang aktibong window'}
+          label="Opisyal na NFA Alert"
+          value={nfaActive ? '● May aktibong NFA window' : '○ Walang aktibong NFA window'}
         />
-        <StatRow label="Pinagmulan" value="nfa_intervention_window (LGU toggle)" />
+        <StatRow
+          label="Awtomatikong Pagsusuri"
+          value={
+            checkLoading
+              ? 'Sinusuri…'
+              : marketStatus.available
+                ? anomalyFlagged
+                  ? `● May naramdamang biglaang pagbabago (${marketStatus.deviationPct.toFixed(1)}%)`
+                  : `○ Normal na pagbabago ng presyo (${marketStatus.deviationPct.toFixed(1)}%)`
+                : 'Hindi available ngayon'
+          }
+        />
       </dl>
+
+      {!checkLoading && marketStatus.available ? (
+        <div style={anomalyFlagged ? styles.calloutWarningBox : styles.calloutInfoBox}>
+          <TriangleAlert
+            size={20}
+            color={anomalyFlagged ? 'var(--animo-warning)' : 'var(--animo-green)'}
+            style={{ flexShrink: 0 }}
+          />
+          <span>{marketStatus.statusLabel}</span>
+        </div>
+      ) : !checkLoading ? (
+        <div style={styles.calloutInfoBox}>
+          <TriangleAlert size={20} color="var(--animo-green)" style={{ flexShrink: 0 }} />
+          <span>
+            Hindi pa magagamit ang awtomatikong pagsusuri ngayon. Ang alerto mula sa NFA toggle sa itaas ang
+            magiging basehan hangga't hindi ito available.
+          </span>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -862,11 +922,11 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 12,
     padding: '14px 16px',
     borderRadius: 'var(--animo-radius-md)',
-    background: '#EFF6FF',
-    border: '1px solid #BFDBFE',
+    background: 'var(--animo-green-tint)',
+    border: '1px solid var(--animo-green-disabled)',
     fontSize: 14,
     lineHeight: '20px',
-    color: '#1E40AF',
+    color: 'var(--animo-green-dark)',
   },
   modalOverlay: {
     position: 'fixed',
