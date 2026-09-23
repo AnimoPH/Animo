@@ -26,6 +26,7 @@ import {
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useLanguage } from '@/hooks/use-language';
+import { fetchMyBuyerPreferences } from '@/services/buyer-preferences-service';
 import { fetchCoverPhotos } from '@/services/crop-listing-service';
 import {
   fetchMarketPopularityInsights,
@@ -71,7 +72,14 @@ export default function BuyerHomeScreen() {
         if (data) setInsights(data);
       })
       .catch(() => {});
-    fetchMarketplaceListings({})
+    fetchMyBuyerPreferences()
+      .catch(() => null)
+      .then((preferences) =>
+        fetchMarketplaceListings({
+          variety: preferences?.preferredVariety ?? undefined,
+          moisture: preferences?.preferredMoisture ?? undefined,
+        }),
+      )
       .then(async (ranked) => {
         const topFeatured = ranked.slice(0, 3);
         setFeatured(topFeatured);

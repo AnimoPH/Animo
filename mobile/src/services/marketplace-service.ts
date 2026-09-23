@@ -88,13 +88,10 @@ export async function fetchMarketplaceListings(
     query = query.lte('computed_price_per_kg', filters.maxPricePerKg);
   }
 
-  if (filters.variety !== undefined) {
-    query = query.eq('declared_variety', filters.variety);
-  }
-
-  if (filters.moisture !== undefined) {
-    query = query.eq('declared_moisture', filters.moisture);
-  }
+  // Variety and moisture are WPM ranking preferences, not hard filters (see
+  // marketplace-filter.ts's own doc comment and the Palengke filter modal's
+  // "hindi nawawala ang iba pang resulta" copy) — `rankListings` downweights
+  // a non-matching row via SCORE_FLOOR instead of the query excluding it.
 
   // Oldest first, which `rankListings` relies on for its stable tiebreak;
   // listing_id is a deterministic last resort for identical timestamps.
