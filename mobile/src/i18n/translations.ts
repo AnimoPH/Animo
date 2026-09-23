@@ -4,7 +4,7 @@ export const TRANSLATIONS = {
   tl: {
     // Brand & Landing
     'app.name': 'Animo',
-    'landing.tagline': 'Para sa Makatarungang Palengke\nat Pagbangon ng Bukid',
+    'landing.tagline': 'Para sa Makatarungang Presyo ng Palay',
     'landing.subtitle': 'Direktang ugnayan ng magsasaka at mamimili sa patas at transparent na presyo.',
     'landing.getStarted': 'Magsimula',
     'landing.signIn': 'Mag-sign In',
@@ -234,7 +234,7 @@ export const TRANSLATIONS = {
   en: {
     // Brand & Landing
     'app.name': 'Animo',
-    'landing.tagline': 'For a Fair Agricultural Market\nand Thriving Rice Farms',
+    'landing.tagline': 'For Fair Rice Prices',
     'landing.subtitle': 'Direct connection between farmers and buyers with transparent, fair market prices.',
     'landing.getStarted': 'Get Started',
     'landing.signIn': 'Sign In',

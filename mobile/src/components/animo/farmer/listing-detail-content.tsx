@@ -47,7 +47,7 @@ const PHOTO_TYPE_DETAILS: {
 }[] = [
   {
     type: "Overview",
-    title: "Pangkalahatang Larawan",
+    title: "Pangkalahatan",
     shortLabel: "Overview",
     subtitle: "Kabuuang ani at sako ng palay",
   },
