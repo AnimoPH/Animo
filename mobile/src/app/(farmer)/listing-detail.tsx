@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Archive, Check, Inbox, PackageSearch, TriangleAlert, Trash2, UserRound, X } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
@@ -511,7 +511,7 @@ export default function ListingDetailScreen() {
         canDelete={canDelete}
         onEdit={() => {
           setActionsOpen(false);
-          if (id) router.push({ pathname: "/(farmer)/edit-listing", params: { id } });
+          if (id) router.push({ pathname: "/(farmer)/edit-listing" as any, params: { id } });
         }}
         onArchive={() => {
           setActionsOpen(false);

@@ -13,6 +13,7 @@ import {
 
 import { ConsoleLayout } from '@/components/console-layout';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/lib/auth-context';
 import {
   activateNfaInterventionWindow,
@@ -39,6 +40,7 @@ export type DashboardPageProps = {
 /** LGU monitoring dashboard — live price feed and PSA history from Supabase (auth stub unchanged). */
 export function DashboardPage({ onSignOut }: DashboardPageProps) {
   const { session } = useAuth();
+  const { t } = useLanguage();
   const [priceFeed, setPriceFeed] = useState<MarketPriceFeed | null>(null);
   const [priceHistory, setPriceHistory] = useState<PriceHistoryPoint[]>([]);
   const [nfaActive, setNfaActive] = useState(false);
@@ -62,7 +64,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
     // rest of the dashboard.
     fetchMarketStatus()
       .then(setMarketStatus)
-      .catch(() => setMarketStatus({ available: false, reason: 'Hindi ma-check ang market status.' }));
+      .catch(() => setMarketStatus({ available: false, reason: t('common.notAvailable') }));
 
     return Promise.all([fetchMarketPriceFeed(), fetchRizalPriceHistory(12), fetchNfaInterventionWindows()])
       .then(([feed, history, windows]) => {
@@ -71,7 +73,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
         setNfaActive(isNfaWindowActiveToday(windows));
       })
       .catch((error) => {
-        setLoadError(error instanceof Error ? error.message : 'Hindi ma-load ang dashboard data.');
+        setLoadError(error instanceof Error ? error.message : t('common.error'));
       })
       .finally(() => {
         setLoading(false);
@@ -102,7 +104,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
   }
 
   async function handleToggleNfaConfirm() {
-    const userId = session?.user.id;
+    const userId = session?.userId;
     if (!userId) {
       setLoadError('Kailangan ng LGU login para i-toggle ang NFA window.');
       setShowNfaModal(false);
@@ -135,21 +137,21 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
   const psaFarmgate = latestHistory?.pricePerKg ?? null;
   const dryBase = priceFeed?.dryBasePerKg ?? latestHistory?.pricePerKg ?? null;
   const benchmarkDelta = dryBase != null ? priceDelta(dryBase, previousHistory?.pricePerKg) : null;
-  const lastSyncTime = latestHistory ? formatSyncTimestamp(latestHistory.month) : 'Walang talaan pa';
+  const lastSyncTime = latestHistory ? formatSyncTimestamp(latestHistory.month) : t('common.none');
 
   return (
     <ConsoleLayout
-      title="Dashboard"
-      subtitle={`Pangunahing Tanaw · Rizal · ${priceFeed?.effectiveDate ?? '—'}`}
+      title={t('dash.title')}
+      subtitle={`${t('dash.subtitle')} · Rizal · ${priceFeed?.effectiveDate ?? '—'}`}
       onSignOut={onSignOut}>
-      {loading ? <p style={styles.loadNotice}>Naglo-load ng datos mula sa Supabase…</p> : null}
+      {loading ? <p style={styles.loadNotice}>{t('common.loading')}</p> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
       {/* Top Cards Grid */}
       <section style={styles.topCardsGrid}>
         <article className="animo-card" style={styles.metricCard}>
           <div style={styles.metricTop}>
             <div style={styles.metricHead}>
-              <span style={styles.metricLabel}>Presyo ng Modelo ng ANIMO</span>
+              <span style={styles.metricLabel}>{t('dash.marketDryBase')}</span>
               <span style={styles.metricIcon}>
                 <TrendingUp size={20} color="var(--animo-green)" />
               </span>
@@ -161,7 +163,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           </div>
           <div style={styles.metricBottom}>
             <div style={styles.metricDelta}>
-              <span>Wet base (survey): {priceFeed ? formatPeso(priceFeed.wetBasePerKg) : '—'}</span>
+              <span>{t('dash.marketWetBase')} (survey): {priceFeed ? formatPeso(priceFeed.wetBasePerKg) : '—'}</span>
             </div>
           </div>
         </article>
@@ -169,7 +171,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
         <article className="animo-card" style={styles.metricCard}>
           <div style={styles.metricTop}>
             <div style={styles.metricHead}>
-              <span style={styles.metricLabel}>PSA Rizal farmgate</span>
+              <span style={styles.metricLabel}>PSA Rizal Farmgate</span>
               <span style={styles.metricIcon}>
                 <Coins size={20} color="var(--animo-green)" />
               </span>
@@ -213,10 +215,10 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                   nfaActive ? styles.actionBadgeActive : styles.actionBadgeInactive
                 }>
                 {nfaActive
-                  ? 'NFA Volatility Alert · Aktibo'
-                  : 'NFA Intervention Fallback'}
+                  ? t('dash.nfaActiveStatus')
+                  : t('dash.nfaControlTitle')}
               </span>
-              <h3 style={styles.actionCardTitle}>NFA Price Volatility Alert</h3>
+              <h3 style={styles.actionCardTitle}>{t('dash.nfaControlTitle')}</h3>
             </div>
             <span
               style={
@@ -232,18 +234,17 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           </div>
 
           <p style={styles.actionCardDesc}>
-            Minsan ay biglaang nagbabago ang presyo ng NFA at hindi ito agad nadidiskubre ng sistema.
-            Gamitin ang fallback na ito upang abisuhan ang algorithm na mataas ang volatility sa merkado.
+            {nfaActive ? t('dash.nfaActiveDesc') : t('dash.nfaInactiveDesc')}
           </p>
 
           <div style={styles.actionCardStatusRow}>
-            <span style={styles.actionStatusLabel}>Katayuan ng Alerto:</span>
+            <span style={styles.actionStatusLabel}>{t('common.status')}:</span>
             <span
               style={{
                 ...styles.actionStatusValue,
                 color: nfaActive ? 'var(--animo-green)' : 'var(--animo-muted)',
               }}>
-              {nfaActive ? '● Aktibo ang Safeguards' : '○ Standby (Hindi Aktibo)'}
+              {nfaActive ? `● ${t('common.active')}` : `○ ${t('common.inactive')}`}
             </span>
           </div>
 

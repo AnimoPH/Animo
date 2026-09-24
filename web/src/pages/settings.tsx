@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/lib/auth-context';
 import { APP_INFO, LEGAL_LINKS } from '@/constants/dashboard';
 import {
@@ -27,9 +28,10 @@ const LEGAL_ICONS = {
   database: Database,
 } as const;
 
-/** Account details, security options and legal links for the LGU officer. */
+/** Account details, language settings, security options and legal links for the LGU officer. */
 export function SettingsPage({ onSignOut }: SettingsPageProps) {
   const { session } = useAuth();
+  const { t, language, setLanguage } = useLanguage();
   const [contactNumber, setContactNumber] = useState<string>('—');
   const [registeredDate, setRegisteredDate] = useState<string>('—');
   const [barangayCoverage, setBarangayCoverage] = useState<string>('—');
@@ -55,7 +57,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
       })
       .catch((error) => {
         if (!cancelled) {
-          setLoadError(error instanceof Error ? error.message : 'Hindi ma-load ang profile.');
+          setLoadError(error instanceof Error ? error.message : t('common.error'));
         }
       })
       .finally(() => {
@@ -65,7 +67,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [session?.userId]);
+  }, [session?.userId, t]);
 
   const fullName = session?.fullName ?? '—';
   const email = session?.email ?? '—';
@@ -82,21 +84,21 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
 
   return (
     <ConsoleLayout
-      title="Mga Setting"
-      subtitle="Settings · Personal na detalye at legal"
+      title={t('settings.title')}
+      subtitle={t('settings.subtitle')}
       onSignOut={onSignOut}>
-      {loading ? <p style={styles.loadNotice}>Naglo-load ng profile mula sa Supabase…</p> : null}
+      {loading ? <p style={styles.loadNotice}>{t('common.loading')}</p> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
 
       <div style={styles.grid}>
         <article className="animo-card" style={styles.panel}>
           <div style={styles.panelHead}>
             <div>
-              <h2 style={styles.panelTitle}>Personal na Detalye</h2>
-              <p style={styles.panelSubtitle}>Personal details</p>
+              <h2 style={styles.panelTitle}>{t('settings.personalDetails')}</h2>
+              <p style={styles.panelSubtitle}>{t('settings.personalSubtitle')}</p>
             </div>
-            <button type="button" disabled style={{ ...styles.editButton, opacity: 0.5, cursor: 'not-allowed' }} title="Paparating">
-              Baguhin
+            <button type="button" disabled style={{ ...styles.editButton, opacity: 0.5, cursor: 'not-allowed' }} title={t('common.comingSoon')}>
+              {t('common.comingSoon')}
             </button>
           </div>
 
@@ -112,16 +114,52 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
           </div>
 
           <dl style={styles.detailList}>
-            <DetailRow label="Buong pangalan" value={fullName} />
-            <DetailRow label="Posisyon" value="LGU Official" />
-            <DetailRow label="Email" value={email} />
-            <DetailRow label="Numero ng telepono" value={contactNumber} />
-            <DetailRow label="Petsa ng rehistro" value={registeredDate} />
-            <DetailRow label="LGU" value="San Mateo, Rizal" />
-            <DetailRow label="Saklaw na barangay" value={barangayCoverage} />
+            <DetailRow label={t('settings.fullName')} value={fullName} />
+            <DetailRow label={t('settings.position')} value="Municipal Agriculture Officer" />
+            <DetailRow label={t('common.email')} value={email} />
+            <DetailRow label={t('settings.contact')} value={contactNumber} />
+            <DetailRow label="Petsa ng Rehistro" value={registeredDate} />
+            <DetailRow label={t('settings.office')} value="San Mateo, Rizal" />
+            <DetailRow label={t('settings.coverage')} value={barangayCoverage} />
           </dl>
 
-          <h3 style={styles.sectionHeading}>Seguridad</h3>
+          {/* Language Preference Section */}
+          <div style={{ marginTop: 16 }}>
+            <h3 style={styles.sectionHeading}>{t('settings.languageSection')}</h3>
+            <p style={{ ...styles.panelSubtitle, marginBottom: 12 }}>{t('settings.languageSubtitle')}</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => setLanguage('tl')}
+                style={{
+                  ...styles.langCard,
+                  ...(language === 'tl' ? styles.langCardActive : styles.langCardInactive),
+                }}>
+                <div style={styles.langCardTop}>
+                  <span style={styles.langFlag}>🇵🇭</span>
+                  <span style={styles.langTitle}>{t('settings.tagalogOption')}</span>
+                </div>
+                <p style={styles.langDesc}>{t('settings.tagalogDesc')}</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLanguage('en')}
+                style={{
+                  ...styles.langCard,
+                  ...(language === 'en' ? styles.langCardActive : styles.langCardInactive),
+                }}>
+                <div style={styles.langCardTop}>
+                  <span style={styles.langFlag}>🌐</span>
+                  <span style={styles.langTitle}>{t('settings.englishOption')}</span>
+                </div>
+                <p style={styles.langDesc}>{t('settings.englishDesc')}</p>
+              </button>
+            </div>
+          </div>
+
+          <h3 style={{ ...styles.sectionHeading, marginTop: 24 }}>Seguridad</h3>
           <div style={styles.actionList}>
             <ActionRow
               icon={<Lock size={20} color="var(--animo-black-secondary)" />}
@@ -141,9 +179,9 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
         <aside style={styles.sideColumn}>
           <article className="animo-card" style={styles.panel}>
             <div>
-              <h2 style={styles.panelTitle}>Legal</h2>
+              <h2 style={styles.panelTitle}>{t('settings.legalSection')}</h2>
               <p style={styles.panelSubtitle}>
-                Terms and Conditions at Privacy Policy
+                {t('settings.legalSubtitle')}
               </p>
             </div>
 
@@ -163,7 +201,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
             </div>
 
             <div>
-              <h3 style={styles.sectionHeading}>Tungkol sa app</h3>
+              <h3 style={styles.sectionHeading}>{t('settings.appInfo')}</h3>
               <dl style={styles.detailList}>
                 {APP_INFO.map((info) => (
                   <DetailRow
@@ -176,7 +214,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
             </div>
 
             <button type="button" onClick={onSignOut} style={styles.signOutButton}>
-              Mag-sign out
+              {t('nav.signOut')}
             </button>
 
             <div style={styles.warning}>
@@ -375,5 +413,45 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     lineHeight: '18px',
     color: 'var(--animo-black-secondary)',
+  },
+  langCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+    padding: '16px',
+    borderRadius: 'var(--animo-radius-md)',
+    cursor: 'pointer',
+    textAlign: 'left',
+    fontFamily: 'inherit',
+    transition: 'all 0.2s ease',
+  },
+  langCardActive: {
+    background: 'var(--animo-green-tint, #e8f5e9)',
+    border: '2px solid var(--animo-green, #1e5a22)',
+    boxShadow: '0 2px 8px rgba(30, 90, 34, 0.12)',
+  },
+  langCardInactive: {
+    background: 'var(--animo-surface, #f9fafb)',
+    border: '1px solid var(--animo-border, #e5e7eb)',
+    opacity: 0.8,
+  },
+  langCardTop: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  langFlag: {
+    fontSize: 20,
+  },
+  langTitle: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: 'var(--animo-black)',
+  },
+  langDesc: {
+    margin: 0,
+    fontSize: 13,
+    color: 'var(--animo-black-secondary)',
+    lineHeight: '18px',
   },
 };

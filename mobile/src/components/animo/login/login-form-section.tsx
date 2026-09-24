@@ -11,6 +11,7 @@ import {
   AnimoRadius,
   AnimoSpacing,
 } from "@/constants/animo";
+import { useLanguage } from "@/hooks/use-language";
 
 export type LoginFormSectionProps = {
   phone: string;
@@ -40,16 +41,18 @@ export function LoginFormSection({
   footer,
   devSlot,
 }: LoginFormSectionProps) {
+  const { t } = useLanguage();
+
   return (
     <View style={styles.container}>
       <View style={styles.contentGroup}>
         {/* Header title */}
         <View style={styles.headingBlock}>
           <AnimoText variant="h1" color={AnimoLoginColors.textOnGreen}>
-            Welcome to Animo
+            {t('login.welcomeTitle')}
           </AnimoText>
           <AnimoText variant="body" color={AnimoLoginColors.textOnGreen}>
-            Sign in now and start exploring our app.
+            {t('login.welcomeSubtitle')}
           </AnimoText>
         </View>
 
@@ -60,7 +63,7 @@ export function LoginFormSection({
             {/* Input Form */}
             <View style={styles.labelRow}>
               <AnimoText variant="button" color={AnimoColors.surfacePrimary}>
-                Numero ng Telepono
+                {t('login.phoneLabel')}
               </AnimoText>
               <Pressable
                 accessibilityRole="link"
@@ -73,7 +76,7 @@ export function LoginFormSection({
                   color={AnimoLoginColors.linkOnGreen}
                   style={styles.link}
                 >
-                  Ibang account?
+                  {t('login.differentAccount')}
                 </AnimoText>
               </Pressable>
             </View>
@@ -81,7 +84,6 @@ export function LoginFormSection({
             <LoginPhoneInput
               value={phone}
               onChangeText={onChangePhone}
-              // hint="Padadalhan namin ng OTP sa numerong ito."
               hintColor={AnimoLoginColors.textOnGreen}
               error={Boolean(errorMessage)}
             />
@@ -105,7 +107,7 @@ export function LoginFormSection({
 
             <View style={styles.registerRow}>
               <AnimoText variant="body" color={AnimoLoginColors.textOnGreen}>
-                Wala pang account?{" "}
+                {t('login.noAccount')}{" "}
               </AnimoText>
               <Pressable
                 accessibilityRole="link"
@@ -118,7 +120,7 @@ export function LoginFormSection({
                   color={AnimoLoginColors.linkOnGreen}
                   style={styles.link}
                 >
-                  Mag-register
+                  {t('login.register')}
                 </AnimoText>
               </Pressable>
             </View>

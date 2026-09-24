@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, Globe } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -20,9 +20,10 @@ import { LoginFooterSection } from '@/components/animo/login/login-footer-sectio
 import { LoginFormSection } from '@/components/animo/login/login-form-section';
 import { LoginHeroSection } from '@/components/animo/login/login-hero-section';
 import { OtpVerification } from '@/components/animo/otp-verification';
-import { AnimoColors, AnimoLoginColors, AnimoSpacing } from '@/constants/animo';
+import { AnimoColors, AnimoLoginColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { homeRouteForRole, type RoleId } from '@/constants/roles';
 import { fetchMyProfile, sendOtp, signInDevAccount, verifyOtp } from '@/services/auth-service';
+import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
 
 const OTP_LENGTH = 6;
@@ -34,6 +35,7 @@ const OTP_LENGTH = 6;
  */
 export default function LoginScreen() {
   const { refresh } = useSession();
+  const { t, language, setLanguage, isTagalog } = useLanguage();
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
@@ -47,6 +49,10 @@ export default function LoginScreen() {
   const phoneValid = phone.replace(/\D/g, '').length === 10;
   const otpFilled = otp.length === OTP_LENGTH;
 
+  const toggleLanguage = () => {
+    setLanguage(language === 'tl' ? 'en' : 'tl');
+  };
+
   const handlePrimary = async () => {
     if (step === 'phone') {
       setSubmitting(true);
@@ -56,7 +62,7 @@ export default function LoginScreen() {
         setStep('otp');
       } catch (err) {
         setPhoneError(
-          err instanceof Error ? err.message : 'Hindi mahanap ang numerong ito. Mag-register muna.',
+          err instanceof Error ? err.message : t('login.invalidNumberError'),
         );
       } finally {
         setSubmitting(false);
@@ -111,7 +117,11 @@ export default function LoginScreen() {
   };
 
   const primaryLabel =
-    step === 'phone' ? 'Mag-Login' : otpError ? 'Humiling ng Bagong OTP' : 'Kumpirmahin';
+    step === 'phone'
+      ? t('login.signInBtn')
+      : otpError
+        ? t('login.requestNewOtp')
+        : t('login.confirmBtn');
   const primaryDisabled = step === 'phone' ? !phoneValid : !otpError && !otpFilled;
   const primaryVariant = step === 'otp' && otpError ? 'secondary' : 'primary';
 
@@ -123,7 +133,7 @@ export default function LoginScreen() {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        {step === 'otp' && (
+        {step === 'otp' ? (
           <View style={styles.headerBar}>
             <Pressable
               onPress={() => {
@@ -137,9 +147,29 @@ export default function LoginScreen() {
               <ChevronLeft size={26} color={AnimoColors.black} />
             </Pressable>
             <AnimoText variant="h1" color={AnimoColors.green} style={styles.headerTitle}>
-              OTP
+              {t('login.otpHeader')}
             </AnimoText>
             <View style={styles.backButton} />
+          </View>
+        ) : (
+          <View style={styles.loginTopRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.replace('/')}
+              hitSlop={10}
+              style={styles.backButton}>
+              <ChevronLeft size={24} color={AnimoColors.black} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Switch language to ${isTagalog ? 'English' : 'Tagalog'}`}
+              onPress={toggleLanguage}
+              style={({ pressed }) => [styles.langTogglePill, pressed && styles.pressed]}>
+              <Globe size={14} color={AnimoColors.green} />
+              <AnimoText variant="tag" color={AnimoColors.green} style={styles.langToggleText}>
+                {isTagalog ? '🇵🇭 Tagalog' : '🌐 English'}
+              </AnimoText>
+            </Pressable>
           </View>
         )}
 
@@ -209,7 +239,7 @@ export default function LoginScreen() {
         {step === 'otp' && (
           <View style={styles.footer}>
             <AnimoText variant="caption" color={AnimoColors.muted} style={styles.centerText}>
-              Hindi natanggap ang SMS? Suriin ang signal o humiling ng bagong OTP.
+              {t('login.smsNotReceived')}
             </AnimoText>
             <AnimoButton
               label={primaryLabel}
@@ -241,6 +271,32 @@ const styles = StyleSheet.create({
   },
   phoneStepContent: {
     flexGrow: 1,
+  },
+  loginTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingTop: AnimoSpacing.xs,
+    paddingBottom: AnimoSpacing.xs,
+  },
+  langTogglePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: AnimoRadius.pill,
+    backgroundColor: AnimoColors.greenTint,
+    borderWidth: 1,
+    borderColor: 'rgba(46, 125, 50, 0.25)',
+  },
+  langToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  pressed: {
+    opacity: 0.75,
   },
   headerBar: {
     flexDirection: 'row',

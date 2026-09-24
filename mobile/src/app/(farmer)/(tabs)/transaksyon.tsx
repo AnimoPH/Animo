@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Bell, ClipboardList, Filter, Search, X } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -246,7 +246,7 @@ export default function FarmerTransactionsScreen() {
               needsAction={item.pendingCount > 0}
               onPress={() =>
                 router.push({
-                  pathname: '/(farmer)/transaksyon/listing/[id]',
+                  pathname: '/(farmer)/transaksyon/listing/[id]' as any,
                   params: { id: item.listing.id },
                 })
               }

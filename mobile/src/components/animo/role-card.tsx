@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import type { Role } from '@/constants/roles';
+import { useLanguage } from '@/hooks/use-language';
 
 export type RoleCardProps = {
   role: Role;
@@ -27,11 +28,17 @@ function withAlpha(hex: string, alpha: number): string {
  * accent fill and a green border when selected.
  */
 export function RoleCard({ role, selected, onPress }: RoleCardProps) {
+  const { t } = useLanguage();
+
+  const title = role.id === 'magsasaka' ? t('role.farmer') : t('role.buyer');
+  const description =
+    role.id === 'magsasaka' ? t('role.farmerDesc') : t('role.buyerDesc');
+
   return (
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected }}
-      accessibilityLabel={role.title}
+      accessibilityLabel={title}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
@@ -44,10 +51,10 @@ export function RoleCard({ role, selected, onPress }: RoleCardProps) {
       </View>
       <View style={styles.textCol}>
         <AnimoText variant="h3" color={AnimoColors.black}>
-          {role.title}
+          {title}
         </AnimoText>
         <AnimoText variant="caption" color={AnimoColors.blackSecondary} style={styles.description}>
-          {role.description}
+          {description}
         </AnimoText>
       </View>
     </Pressable>

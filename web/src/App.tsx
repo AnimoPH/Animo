@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
+import { LanguageProvider } from '@/context/language-context';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { AccountReviewPage } from '@/pages/account-review';
 import { AdvisoryPage } from '@/pages/advisory';
@@ -52,10 +53,12 @@ function ConsoleRoutes() {
 /** LGU Console shell with Supabase email/password auth. */
 export function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <ConsoleRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <ConsoleRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }

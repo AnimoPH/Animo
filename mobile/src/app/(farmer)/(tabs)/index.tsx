@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   Bell,
@@ -204,7 +204,7 @@ export default function FarmerHomeScreen() {
           ) : currentAdvisory?.kind === 'awaiting_advisory' ? (
             <AdvisoryPendingCard onPress={() => router.push('/(farmer)/advisory')} />
           ) : (
-            <AdvisoryEmptyCard onPress={() => router.push('/(farmer)/itala-taniman')} />
+            <AdvisoryEmptyCard onPress={() => router.push('/(farmer)/itala-taniman' as Href)} />
           )}
         </View>
 
@@ -283,7 +283,7 @@ export default function FarmerHomeScreen() {
           // has never logged a planting yet. Not shown once they've already
           // planted, even if the advisory itself is still pending.
           if (!loading && currentAdvisory?.kind === 'no_cropcycle') {
-            router.push('/(farmer)/itala-taniman');
+            router.push('/(farmer)/itala-taniman' as Href);
           }
         }}
       />

@@ -4,6 +4,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
 
 export type FilterModalProps = {
   visible: boolean;
@@ -26,8 +27,11 @@ export function FilterModal({
   onApply,
   activeCount = 0,
   children,
-  title = 'Mga Filter',
+  title,
 }: FilterModalProps) {
+  const { t } = useLanguage();
+  const displayTitle = title ?? t('filter.modalTitle');
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
@@ -36,12 +40,12 @@ export function FilterModal({
             <View style={styles.modalHeaderTitleRow}>
               <SlidersHorizontal size={20} color={AnimoColors.accentPrimary} />
               <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-                {title}
+                {displayTitle}
               </AnimoText>
               {activeCount > 0 ? (
                 <View style={styles.modalActiveBadge}>
                   <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
-                    {activeCount} aktibo
+                    {t('filter.activeCount', { count: activeCount })}
                   </AnimoText>
                 </View>
               ) : null}
@@ -49,7 +53,7 @@ export function FilterModal({
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Isara"
+              accessibilityLabel={t('common.close')}
               onPress={onClose}
               hitSlop={10}
               style={styles.closeBtn}>
@@ -64,12 +68,12 @@ export function FilterModal({
           <View style={styles.modalFooter}>
             <Pressable accessibilityRole="button" onPress={onReset} style={styles.resetButton}>
               <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
-                Clear All
+                {t('filter.clearAll')}
               </AnimoText>
             </Pressable>
             <Pressable accessibilityRole="button" onPress={onApply} style={styles.applyButton}>
               <AnimoText variant="button" color={AnimoColors.white}>
-                Apply Filter
+                {t('filter.applyFilter')}
               </AnimoText>
             </Pressable>
           </View>

@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Plus,
   Search,
   X,
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { useLanguage } from '@/hooks/use-language';
 import {
   fetchLguBuyerRegistry,
   formatRegisteredDate,
@@ -29,8 +29,6 @@ type DisplayBuyer = {
   completedTransactions: number;
   reportedReviews: number;
 };
-
-const STATUS_OPTIONS = ['Lahat', 'Aktibo', 'Suspendido'];
 
 function toDisplayBuyer(row: LguBuyerRow): DisplayBuyer {
   const initials = row.name
@@ -55,11 +53,18 @@ function toDisplayBuyer(row: LguBuyerRow): DisplayBuyer {
 /** Registry of buyers with search, filtering, and account review links (live Supabase read). */
 export function BuyersPage({ onSignOut }: BuyersPageProps) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [buyersList, setBuyersList] = useState<DisplayBuyer[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('Lahat');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+
+  const statusOptions = [
+    { key: 'all', label: t('common.all') },
+    { key: 'active', label: t('common.active') },
+    { key: 'suspended', label: t('common.suspended') },
+  ];
 
   const loadBuyers = useCallback(() => {
     let cancelled = false;
@@ -72,7 +77,7 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
       })
       .catch((error) => {
         if (!cancelled) {
-          setLoadError(error instanceof Error ? error.message : 'Hindi ma-load ang registry.');
+          setLoadError(error instanceof Error ? error.message : t('common.error'));
         }
       })
       .finally(() => {
@@ -82,7 +87,7 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => loadBuyers(), [loadBuyers]);
 
@@ -96,9 +101,9 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
         b.phone.includes(searchQuery);
 
       const matchesStatus =
-        selectedStatus === 'Lahat' ||
-        (selectedStatus === 'Aktibo' && b.status === 'active') ||
-        (selectedStatus === 'Suspendido' && b.status === 'suspended');
+        selectedStatus === 'all' ||
+        (selectedStatus === 'active' && b.status === 'active') ||
+        (selectedStatus === 'suspended' && b.status === 'suspended');
 
       return matchesSearch && matchesStatus;
     });
@@ -109,40 +114,31 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
 
   return (
     <ConsoleLayout
-      title="Mga Mamimili"
-      subtitle="Buyers · Rehistro at pagsusuri ng mga nakarehistrong mamimili"
+      title={t('buyers.title')}
+      subtitle={t('buyers.subtitle')}
       onSignOut={onSignOut}>
       <section style={styles.summaryRow}>
         <SummaryCard label="Kabuuang Nakarehistro" value={String(buyersList.length)} unit="mamimili" />
-        <SummaryCard label="Aktibo" value={String(activeCount)} unit="aktibong bumibili" />
+        <SummaryCard label={t('common.active')} value={String(activeCount)} unit="aktibong bumibili" />
         <SummaryCard
-          label="Suspendido"
+          label={t('common.suspended')}
           value={String(suspendedCount)}
           unit="may paglabag"
           unitColor="var(--animo-danger)"
         />
       </section>
 
-      {loading ? <p style={styles.loadNotice}>Naglo-load ng registry mula sa Supabase…</p> : null}
+      {loading ? <p style={styles.loadNotice}>{t('common.loading')}</p> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
 
       <article className="animo-card" style={styles.panel}>
         <div style={styles.panelHead}>
           <div>
-            <h2 style={styles.panelTitle}>Listahan ng mga Mamimili</h2>
+            <h2 style={styles.panelTitle}>{t('buyers.title')}</h2>
             <p style={styles.panelSubtitle}>
               Buyer registry & account verification · LGU San Mateo, Rizal
             </p>
           </div>
-
-          <button
-            type="button"
-            disabled
-            title="Kailangan ng LGU auth bago magrehistro ng bagong mamimili"
-            style={{ ...styles.addBuyerBtn, opacity: 0.5, cursor: 'not-allowed' }}>
-            <Plus size={18} />
-            Magrehistro ng Mamimili
-          </button>
         </div>
 
         <div style={styles.toolbar}>
@@ -150,7 +146,7 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
             <Search size={18} color="var(--animo-muted)" />
             <input
               type="text"
-              placeholder="Maghanap ayon sa pangalan, ID, o numero..."
+              placeholder={t('buyers.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={styles.searchInput}
@@ -164,14 +160,14 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
 
           <div style={styles.filterGroup}>
             <div style={styles.selectWrap}>
-              <span style={styles.filterLabel}>Katayuan:</span>
+              <span style={styles.filterLabel}>{t('common.status')}:</span>
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
                 style={styles.filterSelect}>
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
+                {statusOptions.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.label}
                   </option>
                 ))}
               </select>
@@ -183,7 +179,7 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
           <table style={styles.table}>
             <thead>
               <tr>
-                {['Buyer ID', 'Mamimili', 'Numero', 'Natapos na Txn', 'Katayuan', 'Aksyon'].map(
+                {['ID', t('buyers.colName'), t('buyers.colPhone'), t('buyers.colTransactions'), t('common.status'), t('common.actions')].map(
                   (heading) => (
                     <th key={heading} style={styles.th}>
                       {heading.toUpperCase()}
@@ -203,7 +199,7 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
                       color: 'var(--animo-muted)',
                       padding: '30px 0',
                     }}>
-                    Walang nahanap na mamimili sa iyong pamantayan.
+                    {t('buyers.noResults')}
                   </td>
                 </tr>
               ) : (

@@ -1,10 +1,10 @@
 import { CalendarDays, Clock, Users } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { useLanguage } from '@/hooks/use-language';
 import {
   BARANGAY_ADVISORIES,
   SEVERITY_COLOR,
-  SEVERITY_LABEL,
   type BarangayAdvisory,
   type Severity,
 } from '@/constants/dashboard';
@@ -19,14 +19,22 @@ const SEVERITY_ORDER: Severity[] = ['severe', 'moderate', 'mild', 'clear'];
  * Advisory monitoring — current advisory status per barangay.
  */
 export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
+  const { t } = useLanguage();
   const activeCount = BARANGAY_ADVISORIES.filter(
     (item) => item.status === 'active',
   ).length;
 
+  const severityLabels: Record<Severity, string> = {
+    severe: t('advisory.severitySevere'),
+    moderate: t('advisory.severityModerate'),
+    mild: t('advisory.severityMild'),
+    clear: t('advisory.severityClear'),
+  };
+
   return (
     <ConsoleLayout
-      title="Pagsubaybay sa Payo"
-      subtitle="Advisory Monitoring · Kasalukuyang katayuan kada barangay"
+      title={t('advisory.title')}
+      subtitle={t('advisory.subtitle')}
       onSignOut={onSignOut}>
       <div style={styles.toolbar}>
         <span style={styles.rangePill}>
@@ -52,7 +60,7 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
                     background: SEVERITY_COLOR[severity],
                   }}
                 />
-                {SEVERITY_LABEL[severity]}
+                {severityLabels[severity]}
               </span>
               <span style={styles.summaryCount}>{count}</span>
               <span style={styles.summaryUnit}>barangay</span>
@@ -64,10 +72,12 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
       <article className="animo-card" style={styles.panel}>
         <div style={styles.panelHead}>
           <div>
-            <h2 style={styles.panelTitle}>Katayuan ng Payo kada Barangay</h2>
-            <p style={styles.panelSubtitle}>Advisory status by barangay</p>
+            <h2 style={styles.panelTitle}>{t('advisory.panelTitle')}</h2>
+            <p style={styles.panelSubtitle}>{t('advisory.panelSubtitle')}</p>
           </div>
-          <span style={styles.activeBadge}>{activeCount} aktibo</span>
+          <span style={styles.activeBadge}>
+            {t('advisory.activeCount', { count: activeCount })}
+          </span>
         </div>
 
         <div style={styles.advisoryList}>
@@ -81,6 +91,7 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
 }
 
 function AdvisoryRow({ item }: { item: BarangayAdvisory }) {
+  const { t } = useLanguage();
   const isActive = item.status === 'active';
 
   return (
@@ -110,7 +121,7 @@ function AdvisoryRow({ item }: { item: BarangayAdvisory }) {
         </span>
         <span style={styles.metaItem}>
           <Users size={15} color="var(--animo-muted)" />
-          {item.total} magsasaka
+          {t('advisory.deliveredTo', { delivered: item.delivered, total: item.total })}
         </span>
       </div>
     </div>

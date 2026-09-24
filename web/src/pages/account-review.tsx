@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { useLanguage } from '@/hooks/use-language';
 import {
   fetchLguUserProfile,
   fetchLguUserReviews,
@@ -62,6 +63,7 @@ const STAR_GOLD = '#F59E0B';
 export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
   const { type = 'farmer', id } = useParams<{ type?: string; id?: string }>();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const isFarmer = type === 'farmer';
   const userId = id ?? '';
 
@@ -99,7 +101,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
       .then(([loadedProfile, loadedReviews, loadedTransactions]) => {
         if (cancelled) return;
         if (!loadedProfile) {
-          setLoadError('Hindi mahanap ang account sa registry.');
+          setLoadError(t('common.error'));
           setProfile(null);
           return;
         }
@@ -111,7 +113,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
       })
       .catch((error) => {
         if (!cancelled) {
-          setLoadError(error instanceof Error ? error.message : 'Hindi ma-load ang account.');
+          setLoadError(error instanceof Error ? error.message : t('common.error'));
         }
       })
       .finally(() => {
@@ -121,7 +123,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [userId, isFarmer]);
+  }, [userId, isFarmer, t]);
 
   const reports = useMemo<DisplayReport[]>(() => {
     return reviews
@@ -161,10 +163,10 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
       setSuspensionReason(reason);
       setShowSuspendModal(false);
       setInputReason('');
-      setToastMessage(`Matagumpay na nasuspinde ang account ni ${name}.`);
+      setToastMessage(t('review.toastSuspended'));
       setTimeout(() => setToastMessage(null), 4000);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Hindi na-suspinde ang account.');
+      setActionError(error instanceof Error ? error.message : t('common.error'));
     } finally {
       setSuspending(false);
     }
@@ -177,10 +179,10 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
       await unsuspendAccount(userId);
       setAccountStatus('active');
       setShowUnsuspendModal(false);
-      setToastMessage(`Matagumpay na naibalik ang account ni ${name} sa aktibong katayuan.`);
+      setToastMessage(t('review.toastUnsuspended'));
       setTimeout(() => setToastMessage(null), 4000);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Hindi naibalik ang account.');
+      setActionError(error instanceof Error ? error.message : t('common.error'));
     } finally {
       setSuspending(false);
     }
@@ -194,10 +196,10 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
 
   return (
     <ConsoleLayout
-      title={`Pagsusuri ng Account: ${name}`}
-      subtitle={`Account Review · ${isFarmer ? 'Magsasaka' : 'Mamimili'} (${userId})`}
+      title={`${t('review.title')}: ${name}`}
+      subtitle={`${t('review.subtitle')} · ${isFarmer ? t('review.farmerRole') : t('review.buyerRole')} (${userId})`}
       onSignOut={onSignOut}>
-      {loading ? <p style={styles.loadNotice}>Naglo-load ng account mula sa Supabase…</p> : null}
+      {loading ? <p style={styles.loadNotice}>{t('common.loading')}</p> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
 
       {/* Back Button */}
@@ -207,7 +209,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
           onClick={() => navigate(isFarmer ? '/farmers' : '/buyers')}
           style={styles.backButton}>
           <ArrowLeft size={18} />
-          Bumalik sa {isFarmer ? 'Listahan ng Magsasaka' : 'Listahan ng Mamimili'}
+          {t('review.backToList')}
         </button>
       </div>
 
@@ -224,7 +226,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
         <div style={styles.suspendedBanner}>
           <AlertOctagon size={24} color="var(--animo-danger)" style={{ flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
-            <h3 style={styles.suspendedBannerTitle}>Kasalukuyang Suspendido ang Account</h3>
+            <h3 style={styles.suspendedBannerTitle}>{t('review.statusSuspended')}</h3>
             <p style={styles.suspendedBannerText}>
               <strong>Dahilan:</strong> {suspensionReason}
             </p>
@@ -234,7 +236,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
             onClick={() => setShowUnsuspendModal(true)}
             style={styles.unsuspendBannerBtn}>
             <RotateCcw size={16} />
-            Ibalik ang Account
+            {t('review.unsuspendBtn')}
           </button>
         </div>
       )}

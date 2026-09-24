@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { useLanguage } from '@/hooks/use-language';
 import {
   DELIVERY_CHANNELS,
   TRIGGER_ALERTS,
@@ -77,6 +78,7 @@ const ALERT_STYLE: Record<
 
 /** Notification feed of automatic advisory and price triggers with detailed interactive modal. */
 export function MessagesPage({ onSignOut }: MessagesPageProps) {
+  const { t } = useLanguage();
   const [alerts, setAlerts] = useState(TRIGGER_ALERTS);
   const [selectedAlert, setSelectedAlert] = useState<TriggerAlert | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -97,14 +99,14 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
 
   const handleSendFollowUp = () => {
     setSelectedAlert(null);
-    setToastMessage('Matagumpay na naipadala ang follow-up SMS broadcast sa mga rehistradong magsasaka.');
+    setToastMessage(t('messages.followUpSuccess'));
     setTimeout(() => setToastMessage(null), 4000);
   };
 
   return (
     <ConsoleLayout
-      title="Mensahe"
-      subtitle="Notification · Mga trigger ng rain advisory, NFA, at presyo"
+      title={t('messages.title')}
+      subtitle={t('messages.subtitle')}
       onSignOut={onSignOut}>
       {toastMessage && (
         <div style={styles.toast}>
@@ -117,11 +119,11 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
         <article className="animo-card" style={styles.panel}>
           <div style={styles.panelHead}>
             <div>
-              <h2 style={styles.panelTitle}>Trigger Alerts & Notifications</h2>
-              <p style={styles.panelSubtitle}>Feed ng mga awtomatikong babala at ulat</p>
+              <h2 style={styles.panelTitle}>{t('messages.title')}</h2>
+              <p style={styles.panelSubtitle}>{t('messages.subtitle')}</p>
             </div>
             {unread > 0 ? (
-              <span style={styles.unreadBadge}>{unread} bago</span>
+              <span style={styles.unreadBadge}>{unread} {t('header.unread')}</span>
             ) : null}
           </div>
 
@@ -158,7 +160,7 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
             <div style={styles.divider} />
 
             <div>
-              <h3 style={styles.sectionHeading}>Paraan ng pagpapadala</h3>
+              <h3 style={styles.sectionHeading}>{t('messages.allChannels')}</h3>
               <ul style={styles.channelList}>
                 {DELIVERY_CHANNELS.map((channel) => (
                   <li key={channel.label} style={styles.channelRow}>
@@ -171,7 +173,7 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
 
             <button type="button" onClick={handleMarkAllRead} style={styles.markRead}>
               <CheckCheck size={18} />
-              Markahan lahat bilang nabasa
+              {t('messages.markAll')}
             </button>
           </article>
         </aside>

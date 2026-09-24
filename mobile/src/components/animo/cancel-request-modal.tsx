@@ -3,6 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
 
 export type CancelRequestModalProps = {
   visible: boolean;
@@ -36,6 +37,8 @@ export function CancelRequestModal({
   onDismiss,
   onConfirm,
 }: CancelRequestModalProps) {
+  const { t } = useLanguage();
+
   return (
     <Modal
       visible={visible}
@@ -93,7 +96,7 @@ export function CancelRequestModal({
             onPress={onDismiss}
             style={({ pressed }) => [styles.dismissButton, pressed && styles.pressed]}>
             <AnimoText variant="button" color={AnimoColors.black}>
-              Huwag ituloy
+              {t('modal.dontProceed')}
             </AnimoText>
           </Pressable>
         </View>

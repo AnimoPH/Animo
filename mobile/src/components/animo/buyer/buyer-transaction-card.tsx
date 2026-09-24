@@ -9,6 +9,7 @@ import {
   type DisplayStage,
   type PaymentMode,
 } from '@/types/transaction';
+import { useLanguage } from '@/hooks/use-language';
 
 const DOT_TONE: Partial<Record<DisplayStage, string>> = {
   request_pending: AnimoColors.moderate,
@@ -41,6 +42,7 @@ export type BuyerTransactionCardProps = {
 
 /** Buyer Transaksyon overview card — listing-first layout with farmer + status. */
 export function BuyerTransactionCard({ item, onPress }: BuyerTransactionCardProps) {
+  const { t } = useLanguage();
   const isDone = item.stage === 'completed';
   const needsAction = isBuyerNeedsActionStage(item.stage);
   const dotColor = DOT_TONE[item.stage];
@@ -147,7 +149,7 @@ export function BuyerTransactionCard({ item, onPress }: BuyerTransactionCardProp
         <View style={styles.actionBanner}>
           <AlertCircle size={14} color={AnimoColors.moderate} />
           <AnimoText variant="caption" color={AnimoColors.moderate} style={styles.actionText}>
-            Kailangan ng aksyon
+            {t('action.needsAction')}
           </AnimoText>
         </View>
       ) : null}

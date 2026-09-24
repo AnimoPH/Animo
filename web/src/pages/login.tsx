@@ -13,6 +13,8 @@ import {
 import { AnimoWordmark } from '@/components/animo-mark';
 import { FarmBackdrop } from '@/components/farm-backdrop';
 import { LabeledInput } from '@/components/labeled-input';
+import { LanguageSwitch } from '@/components/language-switch';
+import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/lib/auth-context';
 import {
   getDefaultLguCredentials,
@@ -22,22 +24,23 @@ import {
 
 const defaults = getDefaultLguCredentials();
 
-const HIGHLIGHTS = [
-  { icon: CloudDrizzle, label: 'Real-time na advisory kada barangay' },
-  { icon: Users, label: 'Tugon ng magsasaka sa bawat payo' },
-  { icon: TrendingUp, label: 'Benchmark ng presyo ng palay' },
-];
-
 /** LGU Console sign-in — Supabase email/password for LGU_Official accounts. */
 export function LoginPage() {
   const navigate = useNavigate();
   const { refresh } = useAuth();
+  const { t } = useLanguage();
   const [email, setEmail] = useState(defaults.email);
   const [password, setPassword] = useState(defaults.password);
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const highlights = [
+    { icon: CloudDrizzle, label: t('login.highlight1') },
+    { icon: Users, label: t('login.highlight2') },
+    { icon: TrendingUp, label: t('login.highlight3') },
+  ];
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -49,7 +52,7 @@ export function LoginPage() {
       await refresh();
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      setError(err instanceof LguAuthError ? err.message : 'Hindi makapag-login.');
+      setError(err instanceof LguAuthError ? err.message : t('login.invalidCredentials'));
     } finally {
       setSubmitting(false);
     }
@@ -63,15 +66,14 @@ export function LoginPage() {
           <AnimoWordmark height={52} />
 
           <div>
-            <h1 style={styles.brandTitle}>LGU Console</h1>
+            <h1 style={styles.brandTitle}>{t('login.title')}</h1>
             <p style={styles.brandSubtitle}>
-              Pagsubaybay sa payo, tugon ng magsasaka, at presyo ng palay — sa
-              isang dashboard.
+              {t('login.subtitle')}
             </p>
           </div>
 
           <ul style={styles.highlightList}>
-            {HIGHLIGHTS.map(({ icon: Icon, label }) => (
+            {highlights.map(({ icon: Icon, label }) => (
               <li key={label} style={styles.highlightItem}>
                 <Icon size={18} color="rgba(255,255,255,0.85)" strokeWidth={2} />
                 <span>{label}</span>
@@ -82,17 +84,21 @@ export function LoginPage() {
       </aside>
 
       <main style={styles.formPanel}>
+        <div style={styles.topLangBar}>
+          <LanguageSwitch variant="login" />
+        </div>
+
         <form style={styles.form} onSubmit={handleSubmit}>
           <div>
-            <h2 style={styles.formTitle}>Mag-login</h2>
+            <h2 style={styles.formTitle}>{t('login.formTitle')}</h2>
             <p style={styles.formSubtitle}>
-              Gamitin ang iyong opisyal na LGU email.
+              {t('login.formSubtitle')}
             </p>
           </div>
 
           <LabeledInput
             id="email"
-            label="Email"
+            label={t('login.emailLabel')}
             type="email"
             autoComplete="email"
             placeholder="ma.reyes@sanmateo.gov.ph"
@@ -103,7 +109,7 @@ export function LoginPage() {
 
           <LabeledInput
             id="password"
-            label="Password"
+            label={t('login.passwordLabel')}
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
             placeholder="••••••••"
@@ -133,15 +139,12 @@ export function LoginPage() {
                 onChange={(event) => setRemember(event.target.checked)}
                 style={styles.checkbox}
               />
-              Alalahanin ako
+              {t('login.rememberMe')}
             </label>
-            <a href="#reset" style={styles.forgotLink}>
-              Nakalimutan ang password?
-            </a>
           </div>
 
           <button type="submit" className="animo-button" disabled={submitting}>
-            {submitting ? 'Naglo-login…' : 'Mag-login'}
+            {submitting ? t('login.submittingBtn') : t('login.submitBtn')}
           </button>
 
           {error ? <p style={styles.errorNotice}>{error}</p> : null}
@@ -210,10 +213,18 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 12,
   },
   formPanel: {
+    position: 'relative',
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 48,
+  },
+  topLangBar: {
+    position: 'absolute',
+    top: 24,
+    right: 32,
+    zIndex: 10,
   },
   form: {
     display: 'flex',
