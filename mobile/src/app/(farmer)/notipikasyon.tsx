@@ -18,6 +18,8 @@ import { BackHeader } from '@/components/animo/back-header';
 import { FilterChips } from '@/components/animo/filter-chips';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 
+import { useLanguage } from '@/hooks/use-language';
+
 type NotificationCategory = 'lahat' | 'transaksyon' | 'palengke' | 'sistema';
 
 type NotificationItem = {
@@ -31,7 +33,7 @@ type NotificationItem = {
   targetRoute?: string;
 };
 
-const SAMPLE_FARMER_NOTIFICATIONS: NotificationItem[] = [
+const SAMPLE_FARMER_NOTIFICATIONS_TL: NotificationItem[] = [
   {
     id: 'fn-1',
     category: 'transaksyon',
@@ -94,32 +96,107 @@ const SAMPLE_FARMER_NOTIFICATIONS: NotificationItem[] = [
   },
 ];
 
-const CATEGORY_FILTERS: { value: NotificationCategory; label: string }[] = [
-  { value: 'lahat', label: 'Lahat' },
-  { value: 'transaksyon', label: 'Transaksyon' },
-  { value: 'palengke', label: 'Palengke' },
-  { value: 'sistema', label: 'Sistema' },
+const SAMPLE_FARMER_NOTIFICATIONS_EN: NotificationItem[] = [
+  {
+    id: 'fn-1',
+    category: 'transaksyon',
+    title: 'New Purchase Request!',
+    message: 'Mateo Santos submitted a purchase request for 300 kg of Inbred (RC 218).',
+    timeAgo: '5 minutes ago',
+    read: false,
+    type: 'request',
+    targetRoute: '/(farmer)/transaksyon/t-1',
+  },
+  {
+    id: 'fn-2',
+    category: 'transaksyon',
+    title: 'Pickup Schedule Set',
+    message: 'Pickup and inspection scheduled tomorrow, 08:00 AM - 10:00 AM at your farm in Brgy. San Jose, Antipolo.',
+    timeAgo: '1 hour ago',
+    read: false,
+    type: 'schedule',
+    targetRoute: '/(farmer)/transaksyon/t-1',
+  },
+  {
+    id: 'fn-3',
+    category: 'transaksyon',
+    title: 'Buyer Payment Confirmed',
+    message: 'Successfully received ₱13,800.00 from Bulacan Rice Traders via GCash.',
+    timeAgo: '3 hours ago',
+    read: false,
+    type: 'payment',
+    targetRoute: '/(farmer)/transaksyon/t-2',
+  },
+  {
+    id: 'fn-4',
+    category: 'transaksyon',
+    title: 'New Rating and Feedback',
+    message: 'Maria Santos left a 5.0 ★ review: "Excellent quality and accurate sack weight."',
+    timeAgo: '1 day ago',
+    read: true,
+    type: 'review',
+    targetRoute: '/(farmer)/(tabs)/profile',
+  },
+  {
+    id: 'fn-5',
+    category: 'palengke',
+    title: 'High Demand for Palay',
+    message: 'High demand for dry Palay RC 160 and NSIC Rc222 in Antipolo and surrounding areas this week.',
+    timeAgo: '1 day ago',
+    read: true,
+    type: 'market',
+    targetRoute: '/(farmer)/(tabs)/palengke',
+  },
+  {
+    id: 'fn-6',
+    category: 'sistema',
+    title: 'Official LGU Antipolo Price',
+    message: 'The Agriculture Office released the latest suggested farmgate price bulletin for palay in Rizal.',
+    timeAgo: '3 days ago',
+    read: true,
+    type: 'system',
+    targetRoute: '/(farmer)/advisory',
+  },
 ];
 
 /**
  * Mga Notipikasyon — Farmer notifications screen formatted identically to the buyer module.
  */
 export default function FarmerNotificationsScreen() {
+  const { isTagalog } = useLanguage();
   const [filter, setFilter] = useState<NotificationCategory>('lahat');
-  const [notifications, setNotifications] = useState(SAMPLE_FARMER_NOTIFICATIONS);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set(['fn-4', 'fn-5', 'fn-6']));
+
+  const baseNotifications = isTagalog ? SAMPLE_FARMER_NOTIFICATIONS_TL : SAMPLE_FARMER_NOTIFICATIONS_EN;
+  const notifications = baseNotifications.map((n) => ({
+    ...n,
+    read: readIds.has(n.id),
+  }));
+
+  const categoryFilters: { value: NotificationCategory; label: string }[] = isTagalog
+    ? [
+        { value: 'lahat', label: 'Lahat' },
+        { value: 'transaksyon', label: 'Transaksyon' },
+        { value: 'palengke', label: 'Palengke' },
+        { value: 'sistema', label: 'Sistema' },
+      ]
+    : [
+        { value: 'lahat', label: 'All' },
+        { value: 'transaksyon', label: 'Transactions' },
+        { value: 'palengke', label: 'Marketplace' },
+        { value: 'sistema', label: 'System' },
+      ];
 
   const filteredItems = notifications.filter(
     (n) => filter === 'lahat' || n.category === filter
   );
 
   const handleMarkAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setReadIds(new Set(baseNotifications.map((n) => n.id)));
   };
 
   const handleNotificationPress = (item: NotificationItem) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === item.id ? { ...n, read: true } : n))
-    );
+    setReadIds((prev) => new Set([...prev, item.id]));
     if (item.targetRoute) {
       router.push(item.targetRoute as any);
     }
@@ -160,17 +237,17 @@ export default function FarmerNotificationsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title="Mga Notipikasyon" />
+      <BackHeader title={isTagalog ? 'Mga Notipikasyon' : 'Notifications'} />
 
       <View style={styles.filterBar}>
         <FilterChips
-          options={CATEGORY_FILTERS}
+          options={categoryFilters}
           value={filter}
           onChange={setFilter}
         />
         <Pressable onPress={handleMarkAllAsRead} hitSlop={8} style={styles.readAllButton}>
           <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
-            Basahin Lahat
+            {isTagalog ? 'Basahin Lahat' : 'Mark all as read'}
           </AnimoText>
         </Pressable>
       </View>

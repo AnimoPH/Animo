@@ -29,6 +29,7 @@ import { BackHeader } from '@/components/animo/back-header';
 import { TransactionCard, type FarmerTransactionCardItem } from '@/components/animo/farmer/transaction-card';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
 import { fetchCropListing } from '@/services/crop-listing-service';
 import {
   fetchCounterpartNames,
@@ -56,14 +57,11 @@ import {
 
 const SCREEN_PADDING = AnimoSpacing.lg;
 
-type FilterValue = 'Lahat' | 'Kasalukuyan' | 'Tapos na';
-
-const FILTERS: FilterValue[] = ['Lahat', 'Kasalukuyan', 'Tapos na'];
-
 function toCardItem(
   outcome: PurchaseOutcome,
   listing: CropListing | undefined,
   buyerName?: string,
+  lang: 'tl' | 'en' = 'tl',
 ): FarmerTransactionCardItem {
   const stage = deriveDisplayStage(outcome);
   const quantityKg =
@@ -79,27 +77,35 @@ function toCardItem(
       outcome.kind === 'matched' ? 'TXN' : 'PR',
     ),
     stage,
-    statusLabel: getFarmerListingTxnStageLabel(stage),
-    variety: listing ? varietyLabel(listing) : 'Palay',
-    moisture: listing ? moistureLabel(listing.declaredMoisture) : '—',
+    statusLabel: getFarmerListingTxnStageLabel(stage, lang),
+    variety: listing ? varietyLabel(listing, lang) : 'Palay',
+    moisture: listing ? moistureLabel(listing.declaredMoisture, lang) : '—',
     price: formatPeso(total),
     weight: `${quantityKg} kg`,
     pricePerKg: `${formatPeso(pricePerKg)}/kg`,
     paymentMode: outcome.kind === 'matched' ? (outcome.transaction.payment?.paymentMode ?? null) : null,
-    buyer: buyerName || 'Mamimili',
-    date: formatDate(outcome.request.submittedAt),
+    buyer: buyerName || (lang === 'en' ? 'Buyer' : 'Mamimili'),
+    date: formatDate(outcome.request.submittedAt, lang),
     time: formatTime(outcome.request.submittedAt),
   };
 }
 
 /** Per-listing merged list: pending PRs + matched transactions. */
 export default function FarmerListingTransactionsScreen() {
+  const { t, language, isTagalog } = useLanguage();
   const params = useLocalSearchParams<{ id: string }>();
   const listingId = Array.isArray(params.id) ? params.id[0] : params.id;
 
+  type FilterKey = 'all' | 'ongoing' | 'completed';
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<FilterValue>('Lahat');
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const [infoExpanded, setInfoExpanded] = useState(true);
+
+  const filters: { key: FilterKey; label: string }[] = [
+    { key: 'all', label: isTagalog ? 'Lahat' : 'All' },
+    { key: 'ongoing', label: isTagalog ? 'Kasalukuyan' : 'Ongoing' },
+    { key: 'completed', label: isTagalog ? 'Tapos na' : 'Completed' },
+  ];
 
   const [listing, setListing] = useState<CropListing | null>(null);
   const [outcomes, setOutcomes] = useState<PurchaseOutcome[]>([]);
@@ -111,7 +117,7 @@ export default function FarmerListingTransactionsScreen() {
   const load = useCallback(
     async (isRefresh: boolean) => {
       if (!listingId) {
-        setError('Walang listing ID.');
+        setError(isTagalog ? 'Walang listing ID.' : 'Missing listing ID.');
         setLoading(false);
         return;
       }
@@ -124,7 +130,7 @@ export default function FarmerListingTransactionsScreen() {
           fetchListingPurchaseOutcomes(listingId),
         ]);
         if (!listingResult) {
-          setError('Hindi makita ang listing.');
+          setError(isTagalog ? 'Hindi makita ang listing.' : 'Listing not found.');
           setListing(null);
           setOutcomes([]);
           return;
@@ -138,13 +144,19 @@ export default function FarmerListingTransactionsScreen() {
         const names = await fetchCounterpartNames(buyerIds);
         setBuyerNamesById(names);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Hindi ma-load ang listahan ng transaksyon.');
+        setError(
+          e instanceof Error
+            ? e.message
+            : isTagalog
+              ? 'Hindi ma-load ang listahan ng transaksyon.'
+              : 'Could not load transaction list.',
+        );
       } finally {
         if (isRefresh) setRefreshing(false);
         else setLoading(false);
       }
     },
-    [listingId],
+    [listingId, isTagalog],
   );
 
   useEffect(() => {
@@ -156,17 +168,17 @@ export default function FarmerListingTransactionsScreen() {
       const buyerId = outcome.kind === 'matched' ? outcome.transaction.buyerId : outcome.request.buyerId;
       return {
         outcome,
-        card: toCardItem(outcome, listing ?? undefined, buyerNamesById.get(buyerId)),
+        card: toCardItem(outcome, listing ?? undefined, buyerNamesById.get(buyerId), language),
       };
     });
-  }, [outcomes, listing, buyerNamesById]);
+  }, [outcomes, listing, buyerNamesById, language]);
 
   const filteredData = useMemo(() => {
     return items.filter(({ outcome, card }) => {
       const matchesFilter = (() => {
-        if (activeFilter === 'Lahat') return true;
-        if (activeFilter === 'Kasalukuyan') return isListingTxnOngoing(outcome);
-        if (activeFilter === 'Tapos na') return isListingTxnCompleted(outcome);
+        if (activeFilter === 'all') return true;
+        if (activeFilter === 'ongoing') return isListingTxnOngoing(outcome);
+        if (activeFilter === 'completed') return isListingTxnCompleted(outcome);
         return true;
       })();
 
@@ -186,7 +198,7 @@ export default function FarmerListingTransactionsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <BackHeader title="Listahan ng Transaksyon" />
+      <BackHeader title={isTagalog ? 'Listahan ng Transaksyon' : 'Transaction List'} />
 
       {loading ? (
         <View style={styles.centerFill}>
@@ -229,6 +241,8 @@ export default function FarmerListingTransactionsScreen() {
                   listing={listing}
                   expanded={infoExpanded}
                   onToggle={() => setInfoExpanded((v) => !v)}
+                  lang={language}
+                  isTagalog={isTagalog}
                 />
               ) : null}
 
@@ -236,7 +250,11 @@ export default function FarmerListingTransactionsScreen() {
                 <Search size={18} color={AnimoColors.objectLowEmphasis} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Maghanap ng pangalan, presyo, katayuan..."
+                  placeholder={
+                    isTagalog
+                      ? 'Maghanap ng pangalan, presyo, katayuan...'
+                      : 'Search name, price, status...'
+                  }
                   placeholderTextColor={AnimoColors.textDisabled}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
@@ -246,7 +264,7 @@ export default function FarmerListingTransactionsScreen() {
                 {searchQuery.length > 0 ? (
                   <TouchableOpacity
                     accessibilityRole="button"
-                    accessibilityLabel="I-clear ang search"
+                    accessibilityLabel={isTagalog ? 'I-clear ang search' : 'Clear search'}
                     onPress={() => setSearchQuery('')}
                     activeOpacity={0.85}
                     hitSlop={8}>
@@ -260,20 +278,20 @@ export default function FarmerListingTransactionsScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.filters}
                 style={styles.filterScroll}>
-                {FILTERS.map((filter) => {
-                  const active = activeFilter === filter;
+                {filters.map((filter) => {
+                  const active = activeFilter === filter.key;
                   return (
                     <TouchableOpacity
-                      key={filter}
+                      key={filter.key}
                       accessibilityRole="button"
                       accessibilityState={{ selected: active }}
-                      onPress={() => setActiveFilter(filter)}
+                      onPress={() => setActiveFilter(filter.key)}
                       activeOpacity={0.85}
                       style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}>
                       <AnimoText
                         variant="bodyEmphasis"
                         color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
-                        {filter}
+                        {filter.label}
                       </AnimoText>
                     </TouchableOpacity>
                   );
@@ -285,13 +303,21 @@ export default function FarmerListingTransactionsScreen() {
             <View style={styles.empty}>
               <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
                 {searchQuery.trim()
-                  ? `Walang resulta para sa "${searchQuery}"`
-                  : 'Wala pang transaksyon sa listing na ito'}
+                  ? isTagalog
+                    ? `Walang resulta para sa "${searchQuery}"`
+                    : `No results for "${searchQuery}"`
+                  : isTagalog
+                    ? 'Wala pang transaksyon sa listing na ito'
+                    : 'No transactions for this listing yet'}
               </AnimoText>
               <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
                 {searchQuery.trim()
-                  ? 'Subukan ang ibang keyword o i-clear ang search.'
-                  : 'Kapag may bumili, lalabas dito ang kanilang mga kahilingan at bayad.'}
+                  ? isTagalog
+                    ? 'Subukan ang ibang keyword o i-clear ang search.'
+                    : 'Try another keyword or clear search.'
+                  : isTagalog
+                    ? 'Kapag may bumili, lalabas dito ang kanilang mga kahilingan at bayad.'
+                    : 'When buyers place requests, their orders and payments will appear here.'}
               </AnimoText>
             </View>
           }
@@ -305,25 +331,29 @@ function PalayInformationCard({
   listing,
   expanded,
   onToggle,
+  lang = 'tl',
+  isTagalog = true,
 }: {
   listing: CropListing;
   expanded: boolean;
   onToggle: () => void;
+  lang?: 'tl' | 'en';
+  isTagalog?: boolean;
 }) {
   const specificVariety = specificVarietyDisplay(listing);
   const rows: { key: string; icon: ReactNode; label: string; value: string }[] = [
     {
       key: 'variety',
       icon: <Sprout size={16} color={AnimoColors.textMediumEmphasis} />,
-      label: 'Uri ng palay',
-      value: varietyLabel(listing),
+      label: isTagalog ? 'Uri ng palay' : 'Palay variety',
+      value: varietyLabel(listing, lang),
     },
     ...(specificVariety
       ? [
           {
             key: 'specificVariety',
             icon: <Sprout size={16} color={AnimoColors.textMediumEmphasis} />,
-            label: 'Tiyak na uri ng palay',
+            label: isTagalog ? 'Tiyak na uri ng palay' : 'Specific variety',
             value: specificVariety,
           },
         ]
@@ -332,18 +362,18 @@ function PalayInformationCard({
       key: 'moisture',
       icon: <Droplets size={16} color={AnimoColors.textMediumEmphasis} />,
       label: 'Moisture',
-      value: moistureLabel(listing.declaredMoisture),
+      value: moistureLabel(listing.declaredMoisture, lang),
     },
     {
       key: 'purity',
       icon: <ShieldCheck size={16} color={AnimoColors.textMediumEmphasis} />,
-      label: 'Kalidad',
-      value: purityLabel(listing.declaredPurityGrade),
+      label: isTagalog ? 'Kalidad' : 'Quality grade',
+      value: purityLabel(listing.declaredPurityGrade, lang),
     },
     {
       key: 'weight',
       icon: <Scale size={16} color={AnimoColors.textMediumEmphasis} />,
-      label: 'Aktwal na timbang',
+      label: isTagalog ? 'Aktwal na timbang' : 'Actual weight',
       value: `${listing.netWeightKg} kg`,
     },
   ];
@@ -352,7 +382,7 @@ function PalayInformationCard({
     <View style={styles.infoCard}>
       <Pressable accessibilityRole="button" onPress={onToggle} style={styles.infoHeader}>
         <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-          Impormasyon ng Palay
+          {isTagalog ? 'Impormasyon ng Palay' : 'Palay Information'}
         </AnimoText>
         {expanded ? (
           <ChevronUp size={20} color={AnimoColors.textMediumEmphasis} />
@@ -367,7 +397,7 @@ function PalayInformationCard({
             {listingTitle(listing)}
           </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.infoSectionLabel}>
-            Ibang Impormasyon:
+            {isTagalog ? 'Ibang Impormasyon:' : 'Other Information:'}
           </AnimoText>
           {rows.map((row) => (
             <View key={row.key} style={styles.infoRow}>
@@ -384,7 +414,7 @@ function PalayInformationCard({
           ))}
           <View style={styles.priceFooter}>
             <AnimoText variant="body" color={AnimoColors.textHighEmphasisInverse}>
-              Patas na presyo:
+              {isTagalog ? 'Patas na presyo:' : 'Fair price:'}
             </AnimoText>
             <AnimoText variant="h3" color={AnimoColors.textHighEmphasisInverse}>
               {listing.pricePerKg !== null ? `${formatPeso(listing.pricePerKg)}/kg` : '—'}

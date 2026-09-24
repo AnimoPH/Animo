@@ -34,8 +34,8 @@ import { useSession } from '@/hooks/use-session';
 import type { CompleteRegistrationInput } from '@/types/auth';
 import { BackHeader } from '@/components/animo/back-header';
 import { supabase } from '@/lib/supabase';
+import { useLanguage } from '@/hooks/use-language';
 
-const STEPS: Step[] = [{ label: 'Numero' }, { label: 'OTP' }, { label: 'Profile' }];
 const OTP_LENGTH = 6;
 /** Survives app restarts between OTP verification and profile submission. */
 const PENDING_ROLE_KEY = 'animo.registration.pendingRole';
@@ -68,6 +68,13 @@ export default function RegisterScreen() {
   const params = useLocalSearchParams<{ role?: RoleId; resume?: string }>();
   const isResuming = params.resume === '1';
   const { refresh } = useSession();
+  const { t } = useLanguage();
+
+  const steps: Step[] = [
+    { label: t('register.stepPhone') },
+    { label: t('register.stepOtp') },
+    { label: t('register.stepProfile') },
+  ];
 
   const [roleId, setRoleId] = useState<RoleId | null>(params.role ?? null);
   const role = getRole(roleId ?? undefined);
@@ -180,12 +187,12 @@ export default function RegisterScreen() {
 
   const primaryLabel =
     step === 0
-      ? 'Ipadala ang OTP'
+      ? t('register.sendOtpBtn')
       : step === 1
         ? otpError
-          ? 'Humiling ng Bagong OTP'
-          : 'Kumpirmahin'
-        : 'Tapusin ang Pagre-register';
+          ? t('login.requestNewOtp')
+          : t('login.confirmBtn')
+        : t('register.completeRegistrationBtn');
 
   const primaryDisabled =
     step === 0 ? !phoneValid : step === 1 ? !otpError && !otpFilled : !profileValid;
@@ -199,10 +206,10 @@ export default function RegisterScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* Header: back + title */}
-        <BackHeader title="Rehistro" />
+        <BackHeader title={t('register.title')} />
 
         <View style={styles.stepIndicatorWrap}>
-          <StepIndicator steps={STEPS} current={step} />
+          <StepIndicator steps={steps} current={step} />
         </View>
 
         <ScrollView
@@ -256,20 +263,20 @@ export default function RegisterScreen() {
         <View style={styles.footer}>
           {step === 0 && (
             <AnimoText variant="caption" color={AnimoColors.muted} style={styles.terms}>
-              Sa pagpatuloy, sumasang-ayon kayo sa aming{' '}
+              {t('register.termsAgreement')}{' '}
               <AnimoText variant="caption" color={AnimoColors.green}>
-                Terms of Service
+                {t('register.termsOfService')}
               </AnimoText>{' '}
-              at{' '}
+              {t('register.and')}{' '}
               <AnimoText variant="caption" color={AnimoColors.green}>
-                Privacy Policy
+                {t('register.privacyPolicy')}
               </AnimoText>
               .
             </AnimoText>
           )}
           {step > 0 && step < 2 && (
             <AnimoText variant="caption" color={AnimoColors.muted} style={styles.terms}>
-              Hindi natanggap ang SMS? Suriin ang signal o humiling ng bagong OTP.
+              {t('login.smsNotReceived')}
             </AnimoText>
           )}
           {step === 2 && phoneError && (
@@ -301,22 +308,24 @@ function StepNumero({
   onChangePhone: (v: string) => void;
   errorMessage?: string;
 }) {
+  const { t } = useLanguage();
+
   return (
     <View style={styles.stepBody}>
       <View style={styles.stepIntro}>
         <AnimoText variant="h2" color={AnimoColors.black}>
-          Ilagay ang inyong numero ng telepono
+          {t('register.phoneStepTitle')}
         </AnimoText>
         <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-          Padadalhan namin kayo ng One-Time Password (OTP) sa pamamagitan ng SMS.
+          {t('register.phoneStepSubtitle')}
         </AnimoText>
       </View>
 
       <LoginPhoneInput
-        label="Numero ng Telepono"
+        label={t('login.phoneLabel')}
         value={phone}
         onChangeText={onChangePhone}
-        hint="10-digit mobile number lamang."
+        hint={t('register.phoneInputHint')}
         error={Boolean(errorMessage)}
       />
       {errorMessage && (

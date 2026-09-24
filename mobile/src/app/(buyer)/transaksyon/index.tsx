@@ -46,6 +46,7 @@ import {
   deriveDisplayStage,
   formatDate,
   formatTime,
+  getDisplayStageLabel,
   requestTotal,
   type PurchaseOutcome,
 } from '@/types/transaction';
@@ -74,9 +75,9 @@ function toCardItem(
   return {
     id: outcome.request.id,
     stage,
-    statusLabel: getFarmerListingTxnStageLabel(stage),
-    listingName: listing ? listingTitle(listing) : 'Palay',
-    specificVariety: listing ? specificVarietyDisplay(listing) : null,
+    statusLabel: getDisplayStageLabel(stage, lang),
+    listingName: listing ? listingTitle(listing) : (lang === 'en' ? 'Palay Harvest' : 'Palay'),
+    specificVariety: listing ? specificVarietyDisplay(listing, lang) : null,
     price: formatPeso(total),
     weight: `${quantityKg} kg`,
     pricePerKg: `${formatPeso(pricePerKg)}/kg`,
@@ -89,7 +90,7 @@ function toCardItem(
 
 /** Buyer Transaksyon — requests & matched transactions matching farmer transaksyon UI layout. */
 export default function BuyerTransactionsScreen() {
-  const { language, t } = useLanguage();
+  const { language, isTagalog, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterValue>('Lahat');
   const [currentPage, setCurrentPage] = useState(1);
@@ -128,12 +129,18 @@ export default function BuyerTransactionsScreen() {
       setFarmerNamesByListing(farmerNames);
       setCounterpartNamesById(counterparts);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Hindi ma-load ang mga transaksyon.');
+      setError(
+        e instanceof Error
+          ? e.message
+          : isTagalog
+            ? 'Hindi ma-load ang mga transaksyon.'
+            : 'Failed to load transactions.',
+      );
     } finally {
       if (isRefresh) setRefreshing(false);
       else setLoading(false);
     }
-  }, []);
+  }, [isTagalog]);
 
   useFocusEffect(
     useCallback(() => {
@@ -243,7 +250,7 @@ export default function BuyerTransactionsScreen() {
         <Search size={18} color={AnimoColors.objectLowEmphasis} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Maghanap ng transaksyon..."
+          placeholder={isTagalog ? 'Maghanap ng transaksyon...' : 'Search transactions...'}
           placeholderTextColor={AnimoColors.textDisabled}
           value={searchQuery}
           onChangeText={handleSearchChange}
@@ -253,7 +260,7 @@ export default function BuyerTransactionsScreen() {
         {searchQuery.length > 0 ? (
           <TouchableOpacity
             accessibilityRole="button"
-            accessibilityLabel="I-clear ang search"
+            accessibilityLabel={isTagalog ? 'I-clear ang search' : 'Clear search'}
             onPress={() => handleSearchChange('')}
             activeOpacity={0.85}
             hitSlop={8}>
@@ -290,6 +297,18 @@ export default function BuyerTransactionsScreen() {
                 style={styles.filterScroll}>
                 {FILTERS.map((filter) => {
                   const active = activeFilter === filter;
+                  const label =
+                    filter === 'Lahat'
+                      ? isTagalog
+                        ? 'Lahat'
+                        : 'All'
+                      : filter === 'Kasalukuyan'
+                        ? isTagalog
+                          ? 'Kasalukuyan'
+                          : 'Active'
+                        : isTagalog
+                          ? 'Tapos na'
+                          : 'Completed';
                   return (
                     <TouchableOpacity
                       key={filter}
@@ -301,7 +320,7 @@ export default function BuyerTransactionsScreen() {
                       <AnimoText
                         variant="bodyEmphasis"
                         color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
-                        {filter}
+                        {label}
                       </AnimoText>
                     </TouchableOpacity>
                   );
@@ -316,13 +335,18 @@ export default function BuyerTransactionsScreen() {
               totalItems={filteredData.length}
               pageSize={PAGE_SIZE}
               onPageChange={setCurrentPage}
+              isTagalog={isTagalog}
             />
           }
           ListEmptyComponent={
             searchQuery.trim() !== '' ? (
-              <SearchEmptyState query={searchQuery} onClear={() => handleSearchChange('')} />
+              <SearchEmptyState
+                query={searchQuery}
+                onClear={() => handleSearchChange('')}
+                isTagalog={isTagalog}
+              />
             ) : (
-              <EmptyState />
+              <EmptyState isTagalog={isTagalog} />
             )
           }
         />
@@ -343,12 +367,14 @@ function PaginationControls({
   totalItems,
   pageSize,
   onPageChange,
+  isTagalog,
 }: {
   currentPage: number;
   totalPages: number;
   totalItems: number;
   pageSize: number;
   onPageChange: (page: number) => void;
+  isTagalog: boolean;
 }) {
   if (totalPages <= 1) return null;
 
@@ -358,13 +384,15 @@ function PaginationControls({
   return (
     <View style={styles.paginationWrap}>
       <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.paginationSummary}>
-        Ipinapakita ang {startItem}-{endItem} ng {totalItems} na transaksyon
+        {isTagalog
+          ? `Ipinapakita ang ${startItem}-${endItem} ng ${totalItems} na transaksyon`
+          : `Showing ${startItem}-${endItem} of ${totalItems} transactions`}
       </AnimoText>
 
       <View style={styles.paginationRow}>
         <TouchableOpacity
           accessibilityRole="button"
-          accessibilityLabel="Nakaraang pahina"
+          accessibilityLabel={isTagalog ? 'Nakaraang pahina' : 'Previous page'}
           disabled={currentPage <= 1}
           onPress={() => onPageChange(currentPage - 1)}
           activeOpacity={0.8}
@@ -376,7 +404,7 @@ function PaginationControls({
           <AnimoText
             variant="bodyEmphasis"
             color={currentPage <= 1 ? AnimoColors.textDisabled : AnimoColors.textHighEmphasis}>
-            Nakaraan
+            {isTagalog ? 'Nakaraan' : 'Prev'}
           </AnimoText>
         </TouchableOpacity>
 
@@ -387,7 +415,7 @@ function PaginationControls({
               <TouchableOpacity
                 key={pageNum}
                 accessibilityRole="button"
-                accessibilityLabel={`Pahina ${pageNum}`}
+                accessibilityLabel={isTagalog ? `Pahina ${pageNum}` : `Page ${pageNum}`}
                 onPress={() => onPageChange(pageNum)}
                 activeOpacity={0.8}
                 style={[styles.pageNumberBtn, isActive && styles.pageNumberBtnActive]}>
@@ -403,7 +431,7 @@ function PaginationControls({
 
         <TouchableOpacity
           accessibilityRole="button"
-          accessibilityLabel="Susunod na pahina"
+          accessibilityLabel={isTagalog ? 'Susunod na pahina' : 'Next page'}
           disabled={currentPage >= totalPages}
           onPress={() => onPageChange(currentPage + 1)}
           activeOpacity={0.8}
@@ -411,7 +439,7 @@ function PaginationControls({
           <AnimoText
             variant="bodyEmphasis"
             color={currentPage >= totalPages ? AnimoColors.textDisabled : AnimoColors.textHighEmphasis}>
-            Susunod
+            {isTagalog ? 'Susunod' : 'Next'}
           </AnimoText>
           <ChevronRight
             size={16}
@@ -423,15 +451,25 @@ function PaginationControls({
   );
 }
 
-function SearchEmptyState({ query, onClear }: { query: string; onClear: () => void }) {
+function SearchEmptyState({
+  query,
+  onClear,
+  isTagalog,
+}: {
+  query: string;
+  onClear: () => void;
+  isTagalog: boolean;
+}) {
   return (
     <View style={styles.empty}>
       <Search size={48} color={AnimoColors.accentPrimaryLight} />
       <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
-        Walang resulta para sa &quot;{query}&quot;
+        {isTagalog ? `Walang resulta para sa "${query}"` : `No results for "${query}"`}
       </AnimoText>
       <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
-        Subukan ang ibang keyword o i-clear ang search.
+        {isTagalog
+          ? 'Subukan ang ibang keyword o i-clear ang search.'
+          : 'Try another keyword or clear your search.'}
       </AnimoText>
       <TouchableOpacity
         accessibilityRole="button"
@@ -439,22 +477,24 @@ function SearchEmptyState({ query, onClear }: { query: string; onClear: () => vo
         onPress={onClear}
         style={styles.searchEmptyCta}>
         <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
-          I-clear ang Search
+          {isTagalog ? 'I-clear ang Search' : 'Clear Search'}
         </AnimoText>
       </TouchableOpacity>
     </View>
   );
 }
 
-function EmptyState() {
+function EmptyState({ isTagalog }: { isTagalog: boolean }) {
   return (
     <View style={styles.empty}>
       <ClipboardList size={64} color={AnimoColors.accentPrimaryLight} />
       <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
-        Wala pang transaksyon
+        {isTagalog ? 'Wala pang transaksyon' : 'No transactions yet'}
       </AnimoText>
       <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
-        Mag-browse ng mga magsasaka at palay sa palengke upang makapag-order.
+        {isTagalog
+          ? 'Mag-browse ng mga magsasaka at palay sa palengke upang makapag-order.'
+          : 'Browse farmers and palay in the marketplace to place an order.'}
       </AnimoText>
       <TouchableOpacity
         accessibilityRole="button"
@@ -462,7 +502,7 @@ function EmptyState() {
         onPress={() => router.push('/(buyer)/palengke')}
         style={styles.emptyCta}>
         <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
-          Pumunta sa Palengke
+          {isTagalog ? 'Pumunta sa Palengke' : 'Go to Marketplace'}
         </AnimoText>
       </TouchableOpacity>
     </View>

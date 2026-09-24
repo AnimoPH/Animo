@@ -10,7 +10,8 @@ import { FormCard } from '@/components/animo/form-card';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { SelectField } from '@/components/animo/select-field';
 import { AnimoColors, AnimoSpacing } from '@/constants/animo';
-import { BARANGAYS, FARM_SIZES, PALAY_VARIETIES } from '@/constants/profile-options';
+import { BARANGAYS, getFarmSizes, getPalayVarieties } from '@/constants/profile-options';
+import { useLanguage } from '@/hooks/use-language';
 
 function formatPhoneDisplay(local: string): string {
   return local ? `+63 ${local}` : '';
@@ -70,6 +71,8 @@ export function ProfileForm({
   values,
   onChange,
 }: ProfileFormProps) {
+  const { t, isTagalog } = useLanguage();
+
   // Small helper to update a single field immutably.
   const set = <K extends keyof ProfileValues>(key: K, value: ProfileValues[K]) =>
     onChange({ ...values, [key]: value });
@@ -78,68 +81,68 @@ export function ProfileForm({
     <View style={styles.body}>
       <View style={styles.intro}>
         <AnimoText variant="h2" color={AnimoColors.black}>
-          Kumpletuhin ang inyong profile
+          {t('register.completeProfileTitle')}
         </AnimoText>
         <AnimoText variant="body" color={AnimoColors.blackSecondary}>
           {roleTitle
-            ? `Nagrerehistro bilang ${roleTitle}. Kailangan namin ng ilang impormasyon para makapaglingkod sa inyo nang tama.`
-            : 'Kailangan namin ng ilang impormasyon para makapaglingkod sa inyo nang tama.'}
+            ? (showFarmerFields ? t('register.introFarmer') : t('register.introBuyer'))
+            : t('register.introFarmer')}
         </AnimoText>
       </View>
 
-      <FormCard title="Personal na Impormasyon">
+      <FormCard title={t('register.personalInfo')}>
         <LabeledInput
-          label="Buong Pangalan"
+          label={t('register.fullName')}
           placeholder="Juan Dela Cruz"
           autoCapitalize="words"
           value={values.fullName}
           onChangeText={(t) => set('fullName', t)}
-          hint="Ito ang lalabas sa inyong mga listing at transaksyon."
+          hint={t('register.fullNameHint')}
         />
       </FormCard>
 
-      <FormCard title="Contact Information">
+      <FormCard title={t('register.contactInfo')}>
         <LabeledInput
-          label="Numero ng Telepono"
+          label={t('login.phoneLabel')}
           value={formatPhoneDisplay(phoneNumber)}
           editable={false}
         />
 
         <LabeledInput
-          label="GCash Account Number"
+          label={t('register.gcashNumber')}
           placeholder="09XXXXXXXXX"
           keyboardType="number-pad"
           maxLength={11}
           value={values.gcashNumber}
           onChangeText={(t) => set('gcashNumber', t.replace(/\D/g, ''))}
+          hint={t('register.gcashHint')}
         />
-
       </FormCard>
 
       {showFarmerFields && (
         <>
-          <FormCard title="Lokasyon ng Bukid">
+          <FormCard title={t('register.farmLocationTitle')}>
             <SelectField
-              label="Barangay"
-              placeholder="Pumili ng barangay"
+              label={t('register.barangay')}
+              placeholder={t('register.selectBarangayPlaceholder')}
               options={BARANGAYS}
               value={values.barangay}
               onChange={(v) => set('barangay', v)}
             />
           </FormCard>
 
-          <FormCard title="Detalye ng Bukid">
+          <FormCard title={t('register.farmDetailsTitle')}>
             <SelectField
-              label="Laki ng Bukid"
-              placeholder="Pumili ng laki ng bukid"
-              options={FARM_SIZES}
+              label={t('register.farmSize')}
+              placeholder={t('register.farmSizePlaceholder')}
+              options={getFarmSizes(isTagalog)}
               value={values.farmSize}
               onChange={(v) => set('farmSize', v)}
             />
             <SelectField
-              label="Uri ng Palay na Karaniwang Itinatanim"
-              placeholder="Pumili ng uri"
-              options={PALAY_VARIETIES}
+              label={t('register.typicalVarietyLabel')}
+              placeholder={t('register.riceVarietyPlaceholder')}
+              options={getPalayVarieties(isTagalog)}
               value={values.riceVariety}
               onChange={(v) => set('riceVariety', v)}
             />

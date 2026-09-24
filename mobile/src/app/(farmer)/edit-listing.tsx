@@ -16,6 +16,7 @@ import { SelectField } from '@/components/animo/select-field';
 import { SpecificVarietyField } from '@/components/animo/specific-variety-field';
 import { SegmentedChoice } from '@/components/animo/segmented-choice';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
 import {
   fetchCropListing,
   fetchListingPhotos,
@@ -24,13 +25,13 @@ import {
   uploadListingPhoto,
 } from '@/services/crop-listing-service';
 import {
-  HYBRID_SPECIFIC_VARIETY_OPTIONS,
-  INBRED_SPECIFIC_VARIETY_OPTIONS,
-  MOISTURE_OPTIONS,
-  PHOTO_SLOTS,
-  PURITY_OPTIONS,
   SPECIFIC_VARIETY_OTHER,
-  VARIETY_OPTIONS,
+  getHybridSpecificVarieties,
+  getInbredSpecificVarieties,
+  getMoistureOptions,
+  getPhotoSlots,
+  getPurityOptions,
+  getVarietyOptions,
   type DeclaredVariety,
   type MoistureType,
   type PhotoType,
@@ -56,14 +57,15 @@ function resolveSpecificVariety(
   variety: DeclaredVariety,
   name: string | null,
   custom: string | null,
+  lang: 'tl' | 'en' = 'tl',
 ): SpecificVarietyOption | null {
   if (!name || (variety !== 'Inbred' && variety !== 'Hybrid')) return null;
   const options =
-    variety === 'Inbred' ? INBRED_SPECIFIC_VARIETY_OPTIONS : HYBRID_SPECIFIC_VARIETY_OPTIONS;
+    variety === 'Inbred' ? getInbredSpecificVarieties(lang) : getHybridSpecificVarieties(lang);
   const found = options.find((o) => o.value === name);
   if (found) return found;
   if (name === SPECIFIC_VARIETY_OTHER) {
-    return { value: SPECIFIC_VARIETY_OTHER, label: 'Iba pa', varietyCode: 'OTHER' };
+    return { value: SPECIFIC_VARIETY_OTHER, label: lang === 'en' ? 'Other' : 'Iba pa', varietyCode: 'OTHER' };
   }
   return null;
 }
@@ -71,6 +73,7 @@ function resolveSpecificVariety(
 /** Edit an existing listing — same fields as create; locks non-cosmetic when an active deal exists. */
 export default function EditListingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { language, isTagalog } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | undefined>();
   const [cosmeticOnly, setCosmeticOnly] = useState(false);
@@ -109,11 +112,11 @@ export default function EditListingScreen() {
         ]);
         if (cancelled) return;
         if (!listing) {
-          setLoadError('Hindi nahanap ang listing.');
+          setLoadError(isTagalog ? 'Hindi nahanap ang listing.' : 'Listing not found.');
           return;
         }
         if (listing.status === 'Archived') {
-          setLoadError('Hindi na maaaring i-edit ang naka-archive na listing.');
+          setLoadError(isTagalog ? 'Hindi na maaaring i-edit ang naka-archive na listing.' : 'Archived listings cannot be edited.');
           return;
         }
 
@@ -126,6 +129,7 @@ export default function EditListingScreen() {
             listing.declaredVariety,
             listing.specificVarietyName,
             listing.specificVarietyNameCustom,
+            language,
           ),
         );
         setSpecificVarietyCustom(listing.specificVarietyNameCustom ?? '');
@@ -143,7 +147,7 @@ export default function EditListingScreen() {
         setPhotos(photoMap);
       } catch (err) {
         if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Hindi ma-load ang listing.');
+          setLoadError(err instanceof Error ? err.message : (isTagalog ? 'Hindi ma-load ang listing.' : 'Failed to load listing.'));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -153,15 +157,15 @@ export default function EditListingScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, language, isTagalog]);
 
   const netWeight = Math.max(0, (parseFloat(grossWeight) || 0) - (parseFloat(tareWeight) || 0));
   const needsSpecificVariety = variety === 'Inbred' || variety === 'Hybrid';
   const specificVarietyOptions =
     variety === 'Inbred'
-      ? INBRED_SPECIFIC_VARIETY_OPTIONS
+      ? getInbredSpecificVarieties(language)
       : variety === 'Hybrid'
-        ? HYBRID_SPECIFIC_VARIETY_OPTIONS
+        ? getHybridSpecificVarieties(language)
         : [];
   const varietyCode: VarietyCode = needsSpecificVariety
     ? (specificVariety?.varietyCode ?? 'OTHER')
@@ -204,8 +208,8 @@ export default function EditListingScreen() {
     if (!permission.granted) {
       setErrorMessage(
         permission.canAskAgain
-          ? 'Kailangan ng pahintulot para makakuha ng larawan.'
-          : 'Kailangan ng pahintulot. Buksan ang Settings ng telepono para payagan ang ANIMO.',
+          ? (isTagalog ? 'Kailangan ng pahintulot para makakuha ng larawan.' : 'Permission required to capture photos.')
+          : (isTagalog ? 'Kailangan ng pahintulot. Buksan ang Settings ng telepono para payagan ang ANIMO.' : 'Permission required. Open phone Settings to allow ANIMO.'),
       );
       return;
     }
@@ -227,7 +231,7 @@ export default function EditListingScreen() {
       setDirtyPhotoSlots((prev) => new Set(prev).add(slot));
       setErrorMessage(undefined);
     } catch {
-      setErrorMessage('Hindi maproseso ang larawan. Subukan muli.');
+      setErrorMessage(isTagalog ? 'Hindi maproseso ang larawan. Subukan muli.' : 'Failed to process photo. Please try again.');
     }
   };
 
@@ -269,23 +273,29 @@ export default function EditListingScreen() {
         );
         const failed = slotsToUpload.filter((_, i) => results[i].status === 'rejected');
         if (failed.length > 0) {
-          setErrorMessage(`Hindi na-upload ang ${failed.length} larawan. Subukan muli.`);
+          setErrorMessage(
+            isTagalog
+              ? `Hindi na-upload ang ${failed.length} larawan. Subukan muli.`
+              : `Failed to upload ${failed.length} photo(s). Try again.`,
+          );
           return;
         }
       }
 
       router.replace({ pathname: '/(farmer)/listing-detail', params: { id } });
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Hindi na-save ang pagbabago.');
+      setErrorMessage(err instanceof Error ? err.message : (isTagalog ? 'Hindi na-save ang pagbabago.' : 'Failed to save changes.'));
     } finally {
       setSubmitting(false);
     }
   };
 
+  const photoSlots = getPhotoSlots(language);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <BackHeader title="I-edit ang Listing" />
+        <BackHeader title={isTagalog ? 'I-edit ang Listing' : 'Edit Listing'} />
         <View style={styles.center}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -296,7 +306,7 @@ export default function EditListingScreen() {
   if (loadError) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <BackHeader title="I-edit ang Listing" />
+        <BackHeader title={isTagalog ? 'I-edit ang Listing' : 'Edit Listing'} />
         <View style={styles.center}>
           <AnimoText variant="body" color={AnimoColors.danger}>
             {loadError}
@@ -308,24 +318,25 @@ export default function EditListingScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <BackHeader title="I-edit ang Listing" />
+      <BackHeader title={isTagalog ? 'I-edit ang Listing' : 'Edit Listing'} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {cosmeticOnly ? (
           <View style={[styles.card, styles.shadow]}>
             <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-              May aktibong request o transaksyon ang listing na ito. Maaari mo lang baguhin ang
-              pangalan at mga larawan; presyo, dami, uri, moisture, at kalinisan ay naka-lock.
+              {isTagalog
+                ? 'May aktibong request o transaksyon ang listing na ito. Maaari mo lang baguhin ang pangalan at mga larawan; presyo, dami, uri, moisture, at kalinisan ay naka-lock.'
+                : 'This listing has active requests or deals. Only the title and photos can be edited; price, weight, variety, moisture, and purity grade are locked.'}
             </AnimoText>
           </View>
         ) : null}
 
         <View style={[styles.card, styles.shadow]}>
           <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            Mga Larawan ng Palay
+            {isTagalog ? 'Mga Larawan ng Palay' : 'Harvest Photos'}
           </AnimoText>
           <View style={styles.photoRow}>
-            {PHOTO_SLOTS.map((slot) => {
+            {photoSlots.map((slot) => {
               const localUri = photos[slot.value];
               return (
                 <Pressable
@@ -365,18 +376,18 @@ export default function EditListingScreen() {
 
         <View style={[styles.card, styles.shadow]}>
           <LabeledInput
-            label="Pangalan ng Listing"
+            label={isTagalog ? 'Pangalan ng Listing' : 'Listing Name'}
             value={listingName}
             onChangeText={setListingName}
-            placeholder="Hal. Palay Listing"
+            placeholder={isTagalog ? 'Hal. Palay Listing' : 'e.g. Palay Listing'}
           />
 
           <View pointerEvents={cosmeticOnly ? 'none' : 'auto'} style={cosmeticOnly ? styles.locked : undefined}>
             <View style={styles.inlineFieldSpacing}>
               <SelectField
-                label="Uri ng Palay"
-                placeholder="Pumili ng uri ng palay"
-                options={VARIETY_OPTIONS}
+                label={isTagalog ? 'Uri ng Palay' : 'Rice Variety'}
+                placeholder={isTagalog ? 'Pumili ng uri ng palay' : 'Select rice variety'}
+                options={getVarietyOptions(language)}
                 value={variety || null}
                 onChange={(value) => {
                   const next = value as DeclaredVariety;
@@ -393,7 +404,7 @@ export default function EditListingScreen() {
                 <LabeledInput
                   value={customVariety}
                   onChangeText={setCustomVariety}
-                  placeholder="Ilagay ang pangalan ng uri"
+                  placeholder={isTagalog ? 'Ilagay ang pangalan ng uri' : 'Enter variety name'}
                   editable={!cosmeticOnly}
                 />
               </View>
@@ -401,8 +412,8 @@ export default function EditListingScreen() {
             {needsSpecificVariety ? (
               <View style={styles.inlineFieldSpacing}>
                 <SpecificVarietyField
-                  label="Tiyak na Uri ng Palay"
-                  placeholder="Pumili ng tiyak na uri"
+                  label={isTagalog ? 'Tiyak na Uri ng Palay' : 'Specific Rice Variety'}
+                  placeholder={isTagalog ? 'Pumili ng tiyak na uri' : 'Select specific variety'}
                   options={specificVarietyOptions}
                   value={specificVariety?.value ?? null}
                   open={cosmeticOnly ? false : specificVarietyOpen}
@@ -419,7 +430,7 @@ export default function EditListingScreen() {
                     <LabeledInput
                       value={specificVarietyCustom}
                       onChangeText={setSpecificVarietyCustom}
-                      placeholder="Ilagay ang tiyak na uri"
+                      placeholder={isTagalog ? 'Ilagay ang tiyak na uri' : 'Enter specific variety'}
                       editable={!cosmeticOnly}
                     />
                   </View>
@@ -429,15 +440,15 @@ export default function EditListingScreen() {
 
             <SegmentedChoice
               label="Moisture %"
-              options={MOISTURE_OPTIONS}
+              options={getMoistureOptions(language)}
               value={moistureType}
               onChange={setMoistureType}
             />
 
             <SelectField
-              label="Kalinisan (Purity Grade)"
-              placeholder="Pumili ng kalinisan ng palay"
-              options={PURITY_OPTIONS}
+              label={isTagalog ? 'Kalinisan (Purity Grade)' : 'Purity Grade'}
+              placeholder={isTagalog ? 'Pumili ng kalinisan ng palay' : 'Select purity grade'}
+              options={getPurityOptions(language)}
               value={purityGrade || null}
               onChange={(value) => setPurityGrade(value as PurityGrade)}
             />
@@ -448,33 +459,33 @@ export default function EditListingScreen() {
           pointerEvents={cosmeticOnly ? 'none' : 'auto'}
           style={[styles.card, styles.shadow, cosmeticOnly ? styles.locked : undefined]}>
           <LabeledInput
-            label="Timbang ng Palay (Gross Weight)"
+            label={isTagalog ? 'Timbang ng Palay (Gross Weight)' : 'Gross Weight'}
             value={grossWeight}
             onChangeText={setGrossWeight}
             keyboardType="numeric"
             placeholder="0"
-            suffixText="kilo/kg"
+            suffixText={isTagalog ? 'kilo/kg' : 'kg'}
             editable={!cosmeticOnly}
           />
           <LabeledInput
-            label="Timbang ng Sako at iba pa (Tare Weight)"
+            label={isTagalog ? 'Timbang ng Sako at iba pa (Tare Weight)' : 'Tare Weight (Sacks & deductibles)'}
             value={tareWeight}
             onChangeText={setTareWeight}
             keyboardType="numeric"
             placeholder="0"
-            suffixText="kilo/kg"
+            suffixText={isTagalog ? 'kilo/kg' : 'kg'}
             editable={!cosmeticOnly}
           />
           <View>
             <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
-              Kabuuan (Net Weight)
+              {isTagalog ? 'Kabuuan (Net Weight)' : 'Net Weight'}
             </AnimoText>
             <View style={styles.netWeightField}>
               <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
                 {netWeight}
               </AnimoText>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.textLowEmphasis}>
-                kilo/kg
+                {isTagalog ? 'kilo/kg' : 'kg'}
               </AnimoText>
             </View>
           </View>
@@ -487,7 +498,7 @@ export default function EditListingScreen() {
         ) : null}
 
         <AnimoButton
-          label="I-save"
+          label={isTagalog ? 'I-save' : 'Save Changes'}
           variant="primary"
           disabled={!canSubmit}
           loading={submitting}

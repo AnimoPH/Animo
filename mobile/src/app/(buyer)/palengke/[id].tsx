@@ -40,6 +40,7 @@ import {
 } from '@/services/farmer-public-profile';
 import { fetchMarketplaceListing } from '@/services/marketplace-service';
 import { fetchMyActiveRequestForListing } from '@/services/purchase-request-service';
+import { useLanguage } from '@/hooks/use-language';
 import {
   listingTitle,
   moistureLabel,
@@ -61,7 +62,7 @@ const DEFAULT_PALAY_PHOTOS: Record<PhotoType, string> = {
     'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=1200&auto=format&fit=crop&q=80',
 };
 
-const PHOTO_TYPE_DETAILS: {
+const PHOTO_TYPE_DETAILS_TL: {
   type: PhotoType;
   title: string;
   shortLabel: string;
@@ -87,6 +88,32 @@ const PHOTO_TYPE_DETAILS: {
   },
 ];
 
+const PHOTO_TYPE_DETAILS_EN: {
+  type: PhotoType;
+  title: string;
+  shortLabel: string;
+  subtitle: string;
+}[] = [
+  {
+    type: 'Overview',
+    title: 'Overview Photo',
+    shortLabel: 'Overview',
+    subtitle: 'Harvest and palay sacks',
+  },
+  {
+    type: 'BeforeHarvest',
+    title: 'Before Harvest (Field)',
+    shortLabel: 'Before Harvest',
+    subtitle: 'Condition of palay in the field',
+  },
+  {
+    type: 'AfterHarvestUnsacked',
+    title: 'After Harvest (Grains)',
+    shortLabel: 'Palay Grains',
+    subtitle: 'Close-up grain texture',
+  },
+];
+
 /**
  * Detalye ng Listing — one real `croplisting` row for a buyer.
  *
@@ -96,6 +123,7 @@ const PHOTO_TYPE_DETAILS: {
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const { language, isTagalog } = useLanguage();
 
   const [listing, setListing] = useState<CropListing | null>(null);
   const [farmerProfile, setFarmerProfile] = useState<FarmerPublicProfile | null>(null);
@@ -138,7 +166,13 @@ export default function ListingDetailScreen() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setErrorMessage(err instanceof Error ? err.message : 'Hindi ma-load ang listing.');
+          setErrorMessage(
+            err instanceof Error
+              ? err.message
+              : isTagalog
+                ? 'Hindi ma-load ang listing.'
+                : 'Failed to load listing.',
+          );
         }
       })
       .finally(() => {
@@ -147,23 +181,24 @@ export default function ListingDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, isTagalog]);
 
   // Construct 3 distinct images (with real photos or high-res fallbacks)
   const galleryItems = useMemo(() => {
-    return PHOTO_TYPE_DETAILS.map((slot) => {
+    const list = isTagalog ? PHOTO_TYPE_DETAILS_TL : PHOTO_TYPE_DETAILS_EN;
+    return list.map((slot) => {
       const found = photos.find((p) => p.photoType === slot.type);
       return {
         ...slot,
         url: found?.url || DEFAULT_PALAY_PHOTOS[slot.type],
       };
     });
-  }, [photos]);
+  }, [photos, isTagalog]);
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <BackHeader title="Detalye ng Listing" />
+        <BackHeader title={isTagalog ? 'Detalye ng Listing' : 'Listing Details'} />
         <View style={styles.centerState}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -174,10 +209,10 @@ export default function ListingDetailScreen() {
   if (errorMessage || !listing) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <BackHeader title="Detalye ng Listing" />
+        <BackHeader title={isTagalog ? 'Detalye ng Listing' : 'Listing Details'} />
         <View style={styles.centerState}>
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.centerText}>
-            {errorMessage ?? 'Hindi nahanap ang listing na ito.'}
+            {errorMessage ?? (isTagalog ? 'Hindi nahanap ang listing na ito.' : 'Listing could not be found.')}
           </AnimoText>
         </View>
       </SafeAreaView>
@@ -187,7 +222,7 @@ export default function ListingDetailScreen() {
   const activePhoto = galleryItems[selectedPhotoIndex] || galleryItems[0];
   const modalActivePhoto = galleryItems[modalPhotoIndex] || galleryItems[0];
   const locationText = farmerProfile?.location || '';
-  const specificVariety = specificVarietyDisplay(listing);
+  const specificVariety = specificVarietyDisplay(listing, language);
 
   const openModalAt = (index: number) => {
     setModalPhotoIndex(index);
@@ -205,7 +240,7 @@ export default function ListingDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title="Detalye ng Listing" />
+      <BackHeader title={isTagalog ? 'Detalye ng Listing' : 'Listing Details'} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* 3-Image Gallery Section */}
@@ -268,7 +303,9 @@ export default function ListingDetailScreen() {
           </View>
 
           <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.galleryHint}>
-            Pindutin ang larawan para palakihin at tingnan nang buo ang 3 anggulo ng palay.
+            {isTagalog
+              ? 'Pindutin ang larawan para palakihin at tingnan nang buo ang 3 anggulo ng palay.'
+              : 'Tap the photo to enlarge and view all 3 angles of the palay.'}
           </AnimoText>
         </View>
 
@@ -284,7 +321,7 @@ export default function ListingDetailScreen() {
           </View>
 
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-            {listing.remainingQuantityKg} kg na available
+            {listing.remainingQuantityKg} kg {isTagalog ? 'na available' : 'available'}
           </AnimoText>
 
           <View style={styles.priceBlock}>
@@ -292,7 +329,7 @@ export default function ListingDetailScreen() {
               variant="caption"
               color={AnimoColors.textHighEmphasisInverse}
               style={styles.priceLabel}>
-              Patas na Presyo
+              {isTagalog ? 'Patas na Presyo' : 'Fair Price'}
             </AnimoText>
             <View style={styles.priceRow}>
               <AnimoText variant="display" color={AnimoColors.textHighEmphasisInverse}>
@@ -303,14 +340,14 @@ export default function ListingDetailScreen() {
                 color={AnimoColors.textHighEmphasisInverse}
                 style={styles.priceUnit}>
                 {' '}
-                bawat kilo
+                {isTagalog ? 'bawat kilo' : 'per kg'}
               </AnimoText>
             </View>
             <AnimoText
               variant="caption"
               color={AnimoColors.textHighEmphasisInverse}
               style={styles.priceTotal}>
-              Kabuuang halaga ({listing.remainingQuantityKg}kg):{' '}
+              {isTagalog ? 'Kabuuang halaga' : 'Total value'} ({listing.remainingQuantityKg}kg):{' '}
               {listing.pricePerKg !== null
                 ? formatPeso(listing.pricePerKg * listing.remainingQuantityKg)
                 : '—'}
@@ -318,40 +355,40 @@ export default function ListingDetailScreen() {
           </View>
 
           <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-            Pinakamaliit na order: {listing.minimumRequestKg} kg
+            {isTagalog ? 'Pinakamaliit na order:' : 'Minimum order:'} {listing.minimumRequestKg} kg
           </AnimoText>
         </View>
 
         {/* Impormasyon ng Palay (with Green Icons) */}
         <View style={styles.section}>
           <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-            Impormasyon ng Palay
+            {isTagalog ? 'Impormasyon ng Palay' : 'Palay Information'}
           </AnimoText>
           <View style={styles.specGrid}>
             <SpecBox
               icon={<Sprout size={16} color={AnimoColors.accentPrimary} />}
-              label="Uri ng palay"
-              value={varietyLabel(listing)}
+              label={isTagalog ? 'Uri ng palay' : 'Palay variety'}
+              value={varietyLabel(listing, language)}
             />
             <SpecBox
               icon={<Scale size={16} color={AnimoColors.accentPrimary} />}
-              label="Aktwal na timbang"
+              label={isTagalog ? 'Aktwal na timbang' : 'Actual weight'}
               value={`${listing.netWeightKg} kg`}
             />
             <SpecBox
               icon={<Droplets size={16} color={AnimoColors.accentPrimary} />}
               label="Moisture"
-              value={moistureLabel(listing.declaredMoisture)}
+              value={moistureLabel(listing.declaredMoisture, language)}
             />
             <SpecBox
               icon={<ShieldCheck size={16} color={AnimoColors.accentPrimary} />}
-              label="Kalidad"
-              value={purityLabel(listing.declaredPurityGrade)}
+              label={isTagalog ? 'Kalidad' : 'Quality'}
+              value={purityLabel(listing.declaredPurityGrade, language)}
             />
             {locationText ? (
               <SpecBox
                 icon={<MapPin size={16} color={AnimoColors.accentPrimary} />}
-                label="Lokasyon"
+                label={isTagalog ? 'Lokasyon' : 'Location'}
                 value={locationText}
               />
             ) : null}
@@ -362,11 +399,11 @@ export default function ListingDetailScreen() {
         {farmerProfile ? (
           <View style={styles.section}>
             <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-              Profile ng Magsasaka
+              {isTagalog ? 'Profile ng Magsasaka' : 'Farmer Profile'}
             </AnimoText>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Tingnan ang buong profile ng magsasaka"
+              accessibilityLabel={isTagalog ? 'Tingnan ang buong profile ng magsasaka' : 'View full farmer profile'}
               onPress={() =>
                 router.push({
                   pathname: '/(buyer)/palengke/magsasaka/[id]',
@@ -405,7 +442,7 @@ export default function ListingDetailScreen() {
                       {farmerProfile.totalReviews > 0 ? farmerProfile.averageRating : '—'}
                     </AnimoText>
                     <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-                      ({farmerProfile.totalReviews} review)
+                      ({farmerProfile.totalReviews} {isTagalog ? 'review' : farmerProfile.totalReviews === 1 ? 'review' : 'reviews'})
                     </AnimoText>
                   </View>
                 </View>
@@ -425,11 +462,21 @@ export default function ListingDetailScreen() {
       <View style={styles.footer}>
         {activeRequest ? (
           <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.activeRequestNote}>
-            May aktibo ka nang request sa listing na ito.
+            {isTagalog
+              ? 'May aktibo ka nang request sa listing na ito.'
+              : 'You already have an active request for this listing.'}
           </AnimoText>
         ) : null}
         <AnimoButton
-          label={activeRequest ? 'May Aktibong Request Ka Na' : 'Bumili'}
+          label={
+            activeRequest
+              ? isTagalog
+                ? 'May Aktibong Request Ka Na'
+                : 'Active Request Exists'
+              : isTagalog
+                ? 'Bumili'
+                : 'Buy Now'
+          }
           disabled={activeRequest !== null}
           onPress={() =>
             router.push({ pathname: '/(buyer)/palengke/bid', params: { id: listing.id } })
@@ -455,12 +502,12 @@ export default function ListingDetailScreen() {
                 {modalActivePhoto.title}
               </AnimoText>
               <AnimoText variant="caption" color={AnimoColors.muted}>
-                {modalPhotoIndex + 1} ng {galleryItems.length} · {modalActivePhoto.subtitle}
+                {modalPhotoIndex + 1} {isTagalog ? 'ng' : 'of'} {galleryItems.length} · {modalActivePhoto.subtitle}
               </AnimoText>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Isara ang larawan"
+              accessibilityLabel={isTagalog ? 'Isara ang larawan' : 'Close photo'}
               hitSlop={16}
               onPress={() => setModalVisible(false)}
               style={styles.modalCloseBtn}>

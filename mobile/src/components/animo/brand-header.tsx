@@ -7,23 +7,30 @@ import { AnimoColors, AnimoSpacing } from '@/constants/animo';
 /** Small "🌾 Animo" lockup shown at the top of onboarding screens. */
 export function BrandHeader() {
   return (
-    <View style={styles.row}>
-      <View style={styles.badge}>
-        <Image
-          source={require('@/assets/images/animo/icon-green.png')}
-          style={styles.logo}
-          contentFit="contain"
-        />
+    <View style={styles.headerRow}>
+      <View style={styles.brand}>
+        <View style={styles.badge}>
+          <Image
+            source={require('@/assets/images/animo/icon-green.png')}
+            style={styles.logo}
+            contentFit="contain"
+          />
+        </View>
+        <AnimoText variant="h2" color={AnimoColors.green}>
+          Animo
+        </AnimoText>
       </View>
-      <AnimoText variant="h2" color={AnimoColors.green}>
-        Animo
-      </AnimoText>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  brand: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: AnimoSpacing.sm,

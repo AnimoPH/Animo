@@ -29,6 +29,7 @@ import {
 } from '@/services/transaction-service';
 import type { CropListing } from '@/types/crop-listing';
 import type { PurchaseRequest } from '@/types/purchase-request';
+import { useLanguage } from '@/hooks/use-language';
 import {
   DISPLAY_STAGE_LABELS,
   buildProgressSteps,
@@ -36,6 +37,7 @@ import {
   deriveDisplayStage,
   formatDateTime,
   formatReferenceId,
+  getDisplayStageLabel,
   requestTotal,
   type CancelPolicy,
   type PurchaseOutcome,
@@ -52,6 +54,7 @@ import {
  */
 export default function TransactionStatusScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { language, isTagalog } = useLanguage();
 
   const [outcome, setOutcome] = useState<PurchaseOutcome | null>(null);
   const [listing, setListing] = useState<CropListing | null>(null);
@@ -84,11 +87,17 @@ export default function TransactionStatusScreen() {
       setListing(listingResult);
       setCounterpart(counterpartResult);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Hindi ma-load ang transaksyon.');
+      setError(
+        e instanceof Error
+          ? e.message
+          : isTagalog
+            ? 'Hindi ma-load ang transaksyon.'
+            : 'Failed to load transaction.',
+      );
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, isTagalog]);
 
   useEffect(() => {
     load();
@@ -97,7 +106,7 @@ export default function TransactionStatusScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title="Katayuan ng Transaksyon" />
+        <BackHeader title={isTagalog ? 'Katayuan ng Transaksyon' : 'Transaction Status'} />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.green} />
         </View>
@@ -108,10 +117,10 @@ export default function TransactionStatusScreen() {
   if (!outcome || error) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title="Katayuan ng Transaksyon" />
+        <BackHeader title={isTagalog ? 'Katayuan ng Transaksyon' : 'Transaction Status'} />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            {error ?? 'Hindi nahanap ang transaksyon na ito.'}
+            {error ?? (isTagalog ? 'Hindi nahanap ang transaksyon na ito.' : 'Transaction could not be found.')}
           </AnimoText>
         </View>
       </SafeAreaView>
@@ -128,7 +137,7 @@ export default function TransactionStatusScreen() {
   }
 
   const isDead = stage === 'request_rejected' || stage === 'request_cancelled';
-  const policy = cancelPolicy(outcome);
+  const policy = cancelPolicy(outcome, undefined, language);
   const quantityKg = outcome.kind === 'matched' ? outcome.transaction.quantityKg : outcome.request.requestedQuantityKg;
   const total = outcome.kind === 'matched' ? requestTotal(outcome) : (listing?.pricePerKg ?? 0) * quantityKg;
   const pricePerKg = outcome.kind === 'matched' ? outcome.transaction.agreedPricePerKg : (listing?.pricePerKg ?? 0);
@@ -148,7 +157,13 @@ export default function TransactionStatusScreen() {
       setCancelling(false);
       setShowCancelledSuccessModal(true);
     } catch (e) {
-      setCancelError(e instanceof Error ? e.message : 'Hindi makansela ang transaksyon.');
+      setCancelError(
+        e instanceof Error
+          ? e.message
+          : isTagalog
+            ? 'Hindi makansela ang transaksyon.'
+            : 'Could not cancel transaction.',
+      );
       setCancelling(false);
     }
   };
@@ -156,23 +171,29 @@ export default function TransactionStatusScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title="Katayuan ng Transaksyon" />
+      <BackHeader title={isTagalog ? 'Katayuan ng Transaksyon' : 'Transaction Status'} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <StageBanner request={outcome.request} isDead={isDead} label={DISPLAY_STAGE_LABELS[stage]} />
+        <StageBanner
+          request={outcome.request}
+          isDead={isDead}
+          label={getDisplayStageLabel(stage, language)}
+          isTagalog={isTagalog}
+        />
         <AnimoText variant="caption" color={AnimoColors.muted} style={styles.referenceCaption}>
           {referenceId}
         </AnimoText>
         {listing ? (
           <RequestListingCard listing={listing} quantityKg={quantityKg} totalAmount={total} muted={isDead} />
         ) : null}
-        <ProgressTracker steps={buildProgressSteps(outcome, 'buyer')} />
+        <ProgressTracker steps={buildProgressSteps(outcome, 'buyer', language)} />
         <PaymentSummary
+          title={isTagalog ? 'Buod ng Bayad' : 'Payment Summary'}
           rows={[
-            { label: 'Dami ng Palay', amount: quantityKg },
-            { label: 'Presyo bawat kilo', amount: pricePerKg },
+            { label: isTagalog ? 'Dami ng Palay' : 'Palay Quantity', amount: `${quantityKg} kg` },
+            { label: isTagalog ? 'Presyo bawat kilo' : 'Price per kg', amount: pricePerKg },
           ]}
-          total={{ label: 'Kabuuang babayaran', amount: total }}
+          total={{ label: isTagalog ? 'Kabuuang babayaran' : 'Total Payable', amount: total }}
         />
 
         {counterpart ? <FarmerCard farmer={counterpart} /> : <LockedFarmerCard />}
@@ -185,12 +206,14 @@ export default function TransactionStatusScreen() {
 
         {isDead ? (
           <NoticeBanner tone="neutral" icon={<Info size={16} color={AnimoColors.muted} />}>
-            Walang parusa sa pagkansela nito. Muling nakalista ang palay para sa ibang mamimili.
+            {isTagalog
+              ? 'Walang parusa sa pagkansela nito. Muling nakalista ang palay para sa ibang mamimili.'
+              : 'No penalty for this cancellation. The palay has been relisted for other buyers.'}
           </NoticeBanner>
         ) : null}
       </ScrollView>
 
-      <StageFooter isDead={isDead} policy={policy} onCancel={() => setCancelling(true)} />
+      <StageFooter isDead={isDead} policy={policy} onCancel={() => setCancelling(true)} isTagalog={isTagalog} />
 
       <CancelRequestModal
         visible={cancelling}
@@ -205,8 +228,12 @@ export default function TransactionStatusScreen() {
       <FeedbackModal
         visible={showCancelledSuccessModal}
         tone="danger"
-        title="Matagumpay na Nakansela"
-        message="Nakansela na ang transaksyong ito. Muling nakalista ang palay para sa ibang mamimili."
+        title={isTagalog ? 'Matagumpay na Nakansela' : 'Successfully Cancelled'}
+        message={
+          isTagalog
+            ? 'Nakansela na ang transaksyong ito. Muling nakalista ang palay para sa ibang mamimili.'
+            : 'This transaction has been cancelled. The palay is now available for other buyers.'
+        }
         confirmLabel="OK"
         onConfirm={() => {
           setShowCancelledSuccessModal(false);
@@ -218,7 +245,17 @@ export default function TransactionStatusScreen() {
 }
 
 /** Top status card — icon, headline and the stage pill. */
-function StageBanner({ request, isDead, label }: { request: PurchaseRequest; isDead: boolean; label: string }) {
+function StageBanner({
+  request,
+  isDead,
+  label,
+  isTagalog,
+}: {
+  request: PurchaseRequest;
+  isDead: boolean;
+  label: string;
+  isTagalog: boolean;
+}) {
   if (isDead) {
     return (
       <View style={styles.bannerCard}>
@@ -228,7 +265,13 @@ function StageBanner({ request, isDead, label }: { request: PurchaseRequest; isD
           </View>
           <View style={styles.bannerText}>
             <AnimoText variant="h3" color={AnimoColors.black}>
-              {request.status === 'Rejected' ? 'Tinanggihan ang Request' : 'Nakansela ang Transaksyon'}
+              {request.status === 'Rejected'
+                ? isTagalog
+                  ? 'Tinanggihan ang Request'
+                  : 'Request Rejected'
+                : isTagalog
+                  ? 'Nakansela ang Transaksyon'
+                  : 'Transaction Cancelled'}
             </AnimoText>
           </View>
         </View>
@@ -247,10 +290,10 @@ function StageBanner({ request, isDead, label }: { request: PurchaseRequest; isD
         </View>
         <View style={styles.bannerText}>
           <AnimoText variant="h3" color={AnimoColors.black}>
-            Naipadala ang Purchase Request
+            {isTagalog ? 'Naipadala ang Purchase Request' : 'Purchase Request Sent'}
           </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.muted}>
-            Naghihintay ng pag-accept ng magsasaka
+            {isTagalog ? 'Naghihintay ng pag-accept ng magsasaka' : 'Waiting for farmer to accept'}
           </AnimoText>
         </View>
       </View>
@@ -258,7 +301,7 @@ function StageBanner({ request, isDead, label }: { request: PurchaseRequest; isD
         <StatusBadge label={label} tone="warning" />
       </View>
       <View style={styles.divider} />
-      <MetaRow label="Naipadala" value={formatDateTime(request.submittedAt)} />
+      <MetaRow label={isTagalog ? 'Naipadala' : 'Sent'} value={formatDateTime(request.submittedAt)} />
     </View>
   );
 }
@@ -268,17 +311,23 @@ function StageFooter({
   isDead,
   policy,
   onCancel,
+  isTagalog,
 }: {
   isDead: boolean;
   policy: CancelPolicy;
   onCancel: () => void;
+  isTagalog: boolean;
 }) {
   if (isDead) {
     return (
       <View style={styles.footerStack}>
-        <AnimoButton label="Mag-browse ng Ibang Listing" icon={Check} onPress={() => router.replace('/(buyer)/palengke')} />
         <AnimoButton
-          label="Tingnan ang Kasaysayan"
+          label={isTagalog ? 'Mag-browse ng Ibang Listing' : 'Browse Other Listings'}
+          icon={Check}
+          onPress={() => router.replace('/(buyer)/palengke')}
+        />
+        <AnimoButton
+          label={isTagalog ? 'Tingnan ang Kasaysayan' : 'View History'}
           variant="secondary"
           onPress={() => router.replace('/(buyer)/transaksyon')}
         />

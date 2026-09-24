@@ -17,7 +17,7 @@ import type {
   TransactionMatchStatus,
   TransactionWithPayment,
 } from '@/types/transaction';
-import { DISPLAY_STAGE_LABELS, deriveDisplayStage } from '@/types/transaction';
+import { DISPLAY_STAGE_LABELS, DISPLAY_STAGE_LABELS_EN, deriveDisplayStage } from '@/types/transaction';
 
 /**
  * Transaction/payment service — `transactionmatch` rows are only ever
@@ -319,8 +319,19 @@ const FARMER_LISTING_TXN_STAGE_LABELS: Partial<Record<DisplayStage, string>> = {
   completed: 'Tapos na',
 };
 
-export function getFarmerListingTxnStageLabel(stage: DisplayStage): string {
-  return FARMER_LISTING_TXN_STAGE_LABELS[stage] ?? DISPLAY_STAGE_LABELS[stage];
+const FARMER_LISTING_TXN_STAGE_LABELS_EN: Partial<Record<DisplayStage, string>> = {
+  request_pending: 'Awaiting response',
+  awaiting_payment: 'Awaiting payment',
+  payment_sent: 'Awaiting payment',
+  payment_confirmed: 'Awaiting pickup',
+  delivered: 'Awaiting pickup',
+  completed: 'Completed',
+};
+
+export function getFarmerListingTxnStageLabel(stage: DisplayStage, lang: 'tl' | 'en' = 'tl'): string {
+  const map = lang === 'en' ? FARMER_LISTING_TXN_STAGE_LABELS_EN : FARMER_LISTING_TXN_STAGE_LABELS;
+  const fallback = lang === 'en' ? DISPLAY_STAGE_LABELS_EN[stage] : DISPLAY_STAGE_LABELS[stage];
+  return map[stage] ?? fallback ?? DISPLAY_STAGE_LABELS[stage];
 }
 
 export const LISTING_TXN_ONGOING_STAGES: DisplayStage[] = [

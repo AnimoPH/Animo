@@ -10,6 +10,7 @@ import { BackHeader } from '@/components/animo/back-header';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { AnimoColors, AnimoType, AnimoSpacing, AnimoRadius } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
 import { fetchCropListing } from '@/services/crop-listing-service';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
@@ -45,6 +46,7 @@ const POLYGONSCAN_TX_URL = 'https://amoy.polygonscan.com/tx/';
 export default function BuyerReceiptScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { account } = useSession();
+  const { language, isTagalog } = useLanguage();
 
   const [outcome, setOutcome] = useState<PurchaseOutcome | null>(null);
   const [listing, setListing] = useState<CropListing | null>(null);
@@ -95,20 +97,22 @@ export default function BuyerReceiptScreen() {
       setCounterpart(counterpartResult);
       if (transaction.status === 'Completed') ensureReceipt(transaction.id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Hindi ma-load ang resibo.');
+      setError(e instanceof Error ? e.message : (isTagalog ? 'Hindi ma-load ang resibo.' : 'Failed to load receipt.'));
     } finally {
       setLoading(false);
     }
-  }, [id, ensureReceipt]);
+  }, [id, ensureReceipt, isTagalog]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  const screenTitle = isTagalog ? 'Digital na Resibo' : 'Digital Receipt';
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title="Digital na Resibo" />
+        <BackHeader title={screenTitle} />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -120,9 +124,9 @@ export default function BuyerReceiptScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        <BackHeader title="Digital na Resibo" />
+        <BackHeader title={screenTitle} />
         <View style={styles.missing}>
-          <Text style={styles.missingText}>{error ?? 'Hindi nahanap ang transaksyon na ito.'}</Text>
+          <Text style={styles.missingText}>{error ?? (isTagalog ? 'Hindi nahanap ang transaksyon na ito.' : 'Transaction not found.')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -135,21 +139,21 @@ export default function BuyerReceiptScreen() {
   const total = requestTotal(outcome);
 
   const detailRows: { label: string; value: string }[] = [
-    { label: 'Transaction ID', value: formatReferenceId(transaction.id, 'TXN') },
-    { label: 'Uri ng Palay', value: listing ? varietyLabel(listing) : 'Palay' },
-    { label: 'Dami', value: `${transaction.quantityKg} kg` },
-    { label: 'Presyo bawat kilo', value: `${formatPeso(transaction.agreedPricePerKg)}/kg` },
-    { label: 'Paraan ng Bayad', value: payment?.paymentMode ?? '—' },
-    ...(payment?.gcashReferenceNumber ? [{ label: 'Reference No.', value: payment.gcashReferenceNumber }] : []),
-    { label: 'Magsasaka', value: counterpart?.name ?? 'Magsasaka' },
-    { label: 'Mamimili', value: account?.fullName ?? 'Ikaw' },
-    { label: 'Petsa', value: formatDate(transaction.createdAt) },
+    { label: isTagalog ? 'Transaction ID' : 'Transaction ID', value: formatReferenceId(transaction.id, 'TXN') },
+    { label: isTagalog ? 'Uri ng Palay' : 'Crop Variety', value: listing ? varietyLabel(listing, language) : (isTagalog ? 'Palay' : 'Paddy') },
+    { label: isTagalog ? 'Dami' : 'Quantity', value: `${transaction.quantityKg} kg` },
+    { label: isTagalog ? 'Presyo bawat kilo' : 'Price per kg', value: `${formatPeso(transaction.agreedPricePerKg)}/kg` },
+    { label: isTagalog ? 'Paraan ng Bayad' : 'Payment Method', value: payment?.paymentMode ?? '—' },
+    ...(payment?.gcashReferenceNumber ? [{ label: isTagalog ? 'Reference No.' : 'Reference No.', value: payment.gcashReferenceNumber }] : []),
+    { label: isTagalog ? 'Magsasaka' : 'Farmer', value: counterpart?.name ?? (isTagalog ? 'Magsasaka' : 'Farmer') },
+    { label: isTagalog ? 'Mamimili' : 'Buyer', value: account?.fullName ?? (isTagalog ? 'Ikaw' : 'You') },
+    { label: isTagalog ? 'Petsa' : 'Date', value: formatDate(transaction.createdAt) },
   ];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <BackHeader title="Digital na Resibo" />
+      <BackHeader title={screenTitle} />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Hero — banner reflects real stage, not an assumed instant completion. */}
@@ -158,19 +162,25 @@ export default function BuyerReceiptScreen() {
             {isCompleted ? <CheckCircle size={40} color={AnimoColors.white} /> : <Clock size={40} color={AnimoColors.white} />}
           </View>
           <Text style={styles.heroTitle}>
-            {isCompleted ? 'Kumpleto ang Transaksyon!' : 'Naipadala ang Bayad'}
+            {isCompleted
+              ? (isTagalog ? 'Kumpleto ang Transaksyon!' : 'Transaction Completed!')
+              : (isTagalog ? 'Naipadala ang Bayad' : 'Payment Sent')}
           </Text>
           <Text style={styles.heroSubtitle}>
             {isCompleted
-              ? 'Nakumpirma ang buong bayad.'
-              : 'Naghihintay ng kumpirmasyon ng magsasaka na natanggap ang bayad.'}
+              ? (isTagalog ? 'Nakumpirma ang buong bayad.' : 'Full payment confirmed.')
+              : (isTagalog ? 'Naghihintay ng kumpirmasyon ng magsasaka na natanggap ang bayad.' : 'Awaiting confirmation from the farmer that payment was received.')}
           </Text>
         </View>
 
         <View style={styles.receiptCard}>
           <View style={styles.statusRow}>
             <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>{isCompleted ? 'Kumpleto' : 'Naghihintay ng Kumpirmasyon'}</Text>
+              <Text style={styles.statusBadgeText}>
+                {isCompleted
+                  ? (isTagalog ? 'Kumpleto' : 'Completed')
+                  : (isTagalog ? 'Naghihintay ng Kumpirmasyon' : 'Awaiting Confirmation')}
+              </Text>
             </View>
           </View>
 
@@ -195,7 +205,7 @@ export default function BuyerReceiptScreen() {
               onPress={() => Linking.openURL(`${POLYGONSCAN_TX_URL}${receipt.txHash}`).catch(() => {})}
               style={styles.blockchainRow}
             >
-              <Text style={styles.detailLabel}>Katibayan</Text>
+              <Text style={styles.detailLabel}>{isTagalog ? 'Katibayan' : 'Proof of Record'}</Text>
               <View style={styles.blockchainValueGroup}>
                 <Text style={styles.detailValue}>{shortenTxHash(receipt.txHash)}</Text>
                 <ExternalLink size={14} color={AnimoColors.accentPrimary} />
@@ -203,7 +213,7 @@ export default function BuyerReceiptScreen() {
             </Pressable>
           ) : receiptPending ? (
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Katibayan</Text>
+              <Text style={styles.detailLabel}>{isTagalog ? 'Katibayan' : 'Proof of Record'}</Text>
               <ActivityIndicator size="small" color={AnimoColors.accentPrimary} />
             </View>
           ) : null}
@@ -212,19 +222,19 @@ export default function BuyerReceiptScreen() {
         <View style={styles.actions}>
           {isCompleted ? (
             <AnimoButton
-              label="Suriin ang Magsasaka"
+              label={isTagalog ? 'Suriin ang Magsasaka' : 'Review Farmer'}
               icon={Star}
               onPress={() => router.push(`/(buyer)/transaksyon/${outcome.request.id}/review`)}
             />
           ) : null}
           <AnimoButton
-            label="I-download ang Resibo"
+            label={isTagalog ? 'I-download ang Resibo' : 'Download Receipt'}
             variant="secondary"
             icon={Download}
             onPress={() => setShowDownloadModal(true)}
           />
           <AnimoButton
-            label="Bumalik sa Transaksyon"
+            label={isTagalog ? 'Bumalik sa Transaksyon' : 'Back to Transactions'}
             variant="neutralOutline"
             onPress={() => router.replace('/(buyer)/transaksyon')}
           />
@@ -234,8 +244,12 @@ export default function BuyerReceiptScreen() {
       <FeedbackModal
         visible={showDownloadModal}
         tone="success"
-        title="Na-save ang Resibo!"
-        message="Matagumpay na nai-save ang digital na resibo sa iyong device."
+        title={isTagalog ? 'Na-save ang Resibo!' : 'Receipt Saved!'}
+        message={
+          isTagalog
+            ? 'Matagumpay na nai-save ang digital na resibo sa iyong device.'
+            : 'The digital receipt was successfully saved to your device.'
+        }
         confirmLabel="OK"
         onConfirm={() => setShowDownloadModal(false)}
       />

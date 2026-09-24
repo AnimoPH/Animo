@@ -32,6 +32,7 @@ import {
   MOISTURE_OPTIONS,
   STATUS_LABELS,
   VARIETY_OPTIONS,
+  getStatusLabel,
   listingTitle,
   moistureLabel,
   purityLabel,
@@ -187,7 +188,7 @@ function listingMatchesSearch(listing: CropListing, searchQuery: string): boolea
  * and marketplace-style cards.
  */
 export default function FarmerPalengkeScreen() {
-  const { t } = useLanguage();
+  const { t, language, isTagalog } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [appliedFilters, setAppliedFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
   const [draftFilters, setDraftFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
@@ -227,13 +228,13 @@ export default function FarmerPalengkeScreen() {
     } catch (err) {
       if (latestRequestId.current === requestId) {
         setErrorMessage(
-          err instanceof Error ? err.message : 'Hindi ma-load ang mga listing.',
+          err instanceof Error ? err.message : (isTagalog ? 'Hindi ma-load ang mga listing.' : 'Could not load listings.'),
         );
       }
     } finally {
       if (latestRequestId.current === requestId) setLoading(false);
     }
-  }, []);
+  }, [isTagalog]);
 
   useFocusEffect(
     useCallback(() => {
@@ -255,10 +256,10 @@ export default function FarmerPalengkeScreen() {
 
   const emptyMessage =
     searchQuery.trim().length > 0
-      ? `Walang nakitang listing para sa "${searchQuery}".`
+      ? (isTagalog ? `Walang nakitang listing para sa "${searchQuery}".` : `No listings found for "${searchQuery}".`)
       : activeFilterCount > 0
-        ? 'Walang listing sa filter na ito.'
-        : 'Wala ka pang listing. Gumawa ng una mong listing ng palay.';
+        ? (isTagalog ? 'Walang listing sa filter na ito.' : 'No listings match this filter.')
+        : (isTagalog ? 'Wala ka pang listing. Gumawa ng una mong listing ng palay.' : 'You have no listings yet. Create your first palay listing.');
 
   const openModal = () => {
     setDraftFilters(appliedFilters);
@@ -318,7 +319,7 @@ export default function FarmerPalengkeScreen() {
         <SearchFilterBar
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Maghanap ng ani, uri, at..."
+          placeholder={isTagalog ? "Maghanap ng ani, uri, at..." : "Search crops, variety, etc..."}
           activeFilterCount={activeFilterCount}
           onFilterPress={openModal}
         />
@@ -330,33 +331,45 @@ export default function FarmerPalengkeScreen() {
         onReset={resetFilters}
         onApply={applyFilters}
         activeCount={activeFilterCount}
-        title="Mga Filter ng Ani"
+        title={isTagalog ? "Mga Filter ng Ani" : "Crop Filters"}
       >
         <View style={styles.filterSection}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-            Katayuan
+            {isTagalog ? "Katayuan" : "Status"}
           </AnimoText>
           <View style={styles.chipsWrap}>
-            {STATUS_FILTER_OPTIONS.map((choice) => (
-              <FilterChoiceChip
-                key={choice.value}
-                label={choice.label}
-                active={draftFilters.status === choice.value}
-                onPress={() =>
-                  setDraftFilters((prev) => ({ ...prev, status: choice.value }))
-                }
-              />
-            ))}
+            {STATUS_FILTER_OPTIONS.map((choice) => {
+              const label =
+                choice.value === 'Lahat'
+                  ? (isTagalog ? 'Lahat' : 'All')
+                  : choice.value === 'Sold_Out'
+                    ? (isTagalog ? 'Naubos' : 'Sold Out')
+                    : choice.value === 'Cancelled'
+                      ? (isTagalog ? 'Tinanggal' : 'Cancelled')
+                      : choice.value === 'Archived'
+                        ? (isTagalog ? 'Naka-archive' : 'Archived')
+                        : choice.label;
+              return (
+                <FilterChoiceChip
+                  key={choice.value}
+                  label={label}
+                  active={draftFilters.status === choice.value}
+                  onPress={() =>
+                    setDraftFilters((prev) => ({ ...prev, status: choice.value }))
+                  }
+                />
+              );
+            })}
           </View>
         </View>
 
         <View style={styles.filterSection}>
           <LabeledInput
-            label="Pinakamababang Dami (kg)"
-            hint="Ipakita lamang ang mga listing na may natitirang timbang na ito."
+            label={isTagalog ? "Pinakamababang Dami (kg)" : "Minimum Quantity (kg)"}
+            hint={isTagalog ? "Ipakita lamang ang mga listing na may natitirang timbang na ito." : "Only show listings with at least this remaining weight."}
             keyboardType="numeric"
             suffixText="kg"
-            placeholder="Halimbawa: 100"
+            placeholder={isTagalog ? "Halimbawa: 100" : "e.g. 100"}
             value={draftFilters.quantityText}
             onChangeText={(quantityText) =>
               setDraftFilters((prev) => ({ ...prev, quantityText }))
@@ -366,15 +379,15 @@ export default function FarmerPalengkeScreen() {
 
         <View style={styles.filterSection}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-            Presyo bawat Kilo (₱)
+            {isTagalog ? "Presyo bawat Kilo (₱)" : "Price per Kilogram (₱)"}
           </AnimoText>
           <View style={styles.filterPriceRow}>
             <View style={styles.filterPriceField}>
               <LabeledInput
-                label="Pinakamababa"
+                label={isTagalog ? "Pinakamababa" : "Minimum"}
                 keyboardType="numeric"
                 prefixText="₱"
-                placeholder="Halimbawa: 15"
+                placeholder={isTagalog ? "Halimbawa: 15" : "e.g. 15"}
                 value={draftFilters.minPriceText}
                 onChangeText={(minPriceText) =>
                   setDraftFilters((prev) => ({ ...prev, minPriceText }))
@@ -383,10 +396,10 @@ export default function FarmerPalengkeScreen() {
             </View>
             <View style={styles.filterPriceField}>
               <LabeledInput
-                label="Pinakamataas"
+                label={isTagalog ? "Pinakamataas" : "Maximum"}
                 keyboardType="numeric"
                 prefixText="₱"
-                placeholder="Halimbawa: 25"
+                placeholder={isTagalog ? "Halimbawa: 25" : "e.g. 25"}
                 value={draftFilters.maxPriceText}
                 onChangeText={(maxPriceText) =>
                   setDraftFilters((prev) => ({ ...prev, maxPriceText }))
@@ -398,37 +411,59 @@ export default function FarmerPalengkeScreen() {
 
         <View style={styles.filterSection}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-            Uri ng Palay
+            {isTagalog ? "Uri ng Palay" : "Rice Variety"}
           </AnimoText>
           <View style={styles.chipsWrap}>
-            {VARIETY_CHOICES.map((choice) => (
-              <FilterChoiceChip
-                key={choice.value}
-                label={choice.label}
-                active={draftFilters.variety === choice.value}
-                onPress={() =>
-                  setDraftFilters((prev) => ({ ...prev, variety: choice.value }))
-                }
-              />
-            ))}
+            {VARIETY_CHOICES.map((choice) => {
+              const label =
+                choice.value === 'Lahat'
+                  ? (isTagalog ? 'Lahat' : 'All')
+                  : choice.value === 'Traditional_or_Heirloom'
+                    ? (isTagalog ? 'Tradisyonal o Pamana' : 'Traditional / Heirloom')
+                    : choice.value === 'Mix_of_Varieties'
+                      ? (isTagalog ? 'Halo-halong Uri' : 'Mixed Varieties')
+                      : choice.value === 'Others'
+                        ? (isTagalog ? 'Iba pa' : 'Others')
+                        : choice.label;
+              return (
+                <FilterChoiceChip
+                  key={choice.value}
+                  label={label}
+                  active={draftFilters.variety === choice.value}
+                  onPress={() =>
+                    setDraftFilters((prev) => ({ ...prev, variety: choice.value }))
+                  }
+                />
+              );
+            })}
           </View>
         </View>
 
         <View style={styles.filterSection}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-            Antas ng Moisture
+            {isTagalog ? "Antas ng Moisture" : "Moisture Level"}
           </AnimoText>
           <View style={styles.chipsWrap}>
-            {MOISTURE_CHOICES.map((choice) => (
-              <FilterChoiceChip
-                key={choice.value}
-                label={choice.label}
-                active={draftFilters.moisture === choice.value}
-                onPress={() =>
-                  setDraftFilters((prev) => ({ ...prev, moisture: choice.value }))
-                }
-              />
-            ))}
+            {MOISTURE_CHOICES.map((choice) => {
+              const label =
+                choice.value === 'Lahat'
+                  ? (isTagalog ? 'Lahat' : 'All')
+                  : choice.value === 'Dry'
+                    ? (isTagalog ? 'Tuyo (Dry)' : 'Dry')
+                    : choice.value === 'Wet'
+                      ? (isTagalog ? 'Basa (Wet)' : 'Wet')
+                      : choice.label;
+              return (
+                <FilterChoiceChip
+                  key={choice.value}
+                  label={label}
+                  active={draftFilters.moisture === choice.value}
+                  onPress={() =>
+                    setDraftFilters((prev) => ({ ...prev, moisture: choice.value }))
+                  }
+                />
+              );
+            })}
           </View>
         </View>
       </FilterModal>
@@ -549,6 +584,8 @@ function FarmerMarketplaceCard({
   onPress: () => void;
   onPressOrders: () => void;
 }) {
+  const { language, isTagalog } = useLanguage();
+
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -563,7 +600,7 @@ function FarmerMarketplaceCard({
         )}
         <View style={styles.statusBadgeWrap}>
           <StatusBadge
-            label={STATUS_LABELS[listing.status]}
+            label={getStatusLabel(listing.status, language)}
             tone={STATUS_TONES[listing.status]}
           />
         </View>
@@ -585,14 +622,14 @@ function FarmerMarketplaceCard({
           </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
             {' '}
-            bawat kilo
+            {isTagalog ? 'bawat kilo' : '/ kg'}
           </AnimoText>
         </View>
 
         <View style={styles.footerCol}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${pendingCount} nakabinbing kahilingan`}
+            accessibilityLabel={`${pendingCount} ${isTagalog ? 'nakabinbing kahilingan' : 'pending requests'}`}
             hitSlop={8}
             onPress={onPressOrders}>
             <AnimoText
@@ -600,17 +637,17 @@ function FarmerMarketplaceCard({
               color={AnimoColors.textMediumEmphasis}
               numberOfLines={2}
               style={styles.pendingText}>
-              {pendingCount} nakabinbing kahilingan
+              {pendingCount} {isTagalog ? 'nakabinbing kahilingan' : 'pending requests'}
             </AnimoText>
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Tingnan ang listing"
+            accessibilityLabel={isTagalog ? "Tingnan ang listing" : "View listing"}
             hitSlop={8}
             onPress={onPress}
             style={styles.tingnanPressable}>
             <AnimoText variant="bodyEmphasis" color={AnimoColors.accentPrimary} style={styles.tingnanText}>
-              Tingnan
+              {isTagalog ? 'Tingnan' : 'View'}
             </AnimoText>
           </Pressable>
         </View>

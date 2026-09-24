@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Plus,
   Search,
   X,
 } from 'lucide-react';
@@ -9,6 +8,7 @@ import {
 import { ConsoleLayout } from '@/components/console-layout';
 import type { Farmer } from '@/constants/dashboard';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { useLanguage } from '@/hooks/use-language';
 import {
   fetchLguFarmerRegistry,
   formatRegisteredDate,
@@ -19,9 +19,7 @@ export type FarmersPageProps = {
   onSignOut: () => void;
 };
 
-const STATUS_OPTIONS = ['Lahat', 'Aktibo', 'Hindi aktibo'];
-
-function toDisplayFarmer(row: LguFarmerRow): Farmer {
+function toDisplayFarmer(row: LguFarmerRow, isTagalog: boolean): Farmer {
   const initials = row.name
     .split(' ')
     .map((part) => part[0])
@@ -35,8 +33,8 @@ function toDisplayFarmer(row: LguFarmerRow): Farmer {
     initials: initials || '—',
     barangay: row.barangay,
     phone: '—',
-    farmSize: `${row.activeListings} aktibo / ${row.totalListings} kabuuan`,
-    registeredDate: formatRegisteredDate(row.dateRegistered),
+    farmSize: `${row.activeListings} / ${row.totalListings}`,
+    registeredDate: formatRegisteredDate(row.dateRegistered, isTagalog),
     status: row.activeListings > 0 ? 'active' : 'inactive',
     rating: 0,
     totalTransactions: 0,
@@ -49,14 +47,21 @@ function toDisplayFarmer(row: LguFarmerRow): Farmer {
 /** Registry of farmers with search, filtering, and account review links (live Supabase read). */
 export function FarmersPage({ onSignOut }: FarmersPageProps) {
   const navigate = useNavigate();
+  const { t, isTagalog } = useLanguage();
   const [farmersList, setFarmersList] = useState<Farmer[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const statusOptions = [
+    { key: 'all', label: t('common.all') },
+    { key: 'active', label: t('common.active') },
+    { key: 'inactive', label: t('common.inactive') },
+  ];
+
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedBarangay, setSelectedBarangay] = useState('Lahat');
-  const [selectedStatus, setSelectedStatus] = useState('Lahat');
+  const [selectedBarangay, setSelectedBarangay] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
 
   const loadFarmers = useCallback(() => {
     let cancelled = false;
@@ -65,11 +70,11 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
 
     fetchLguFarmerRegistry()
       .then((rows) => {
-        if (!cancelled) setFarmersList(rows.map(toDisplayFarmer));
+        if (!cancelled) setFarmersList(rows.map((r) => toDisplayFarmer(r, isTagalog)));
       })
       .catch((error) => {
         if (!cancelled) {
-          setLoadError(error instanceof Error ? error.message : 'Hindi ma-load ang registry.');
+          setLoadError(error instanceof Error ? error.message : t('common.error'));
         }
       })
       .finally(() => {
@@ -79,7 +84,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isTagalog, t]);
 
   useEffect(() => loadFarmers(), [loadFarmers]);
 
@@ -87,8 +92,8 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
 
   const barangayOptions = useMemo(() => {
     const unique = [...new Set(farmersList.map((f) => f.barangay))].sort();
-    return ['Lahat', ...unique];
-  }, [farmersList]);
+    return [{ key: 'all', label: t('common.all') }, ...unique.map((b) => ({ key: b, label: b }))];
+  }, [farmersList, t]);
 
   const filteredFarmers = useMemo(() => {
     return farmersList.filter((f) => {
@@ -97,12 +102,12 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
         f.id.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesBarangay =
-        selectedBarangay === 'Lahat' || f.barangay === selectedBarangay;
+        selectedBarangay === 'all' || f.barangay === selectedBarangay;
 
       const matchesStatus =
-        selectedStatus === 'Lahat' ||
-        (selectedStatus === 'Aktibo' && f.status === 'active') ||
-        (selectedStatus === 'Hindi aktibo' && f.status === 'inactive');
+        selectedStatus === 'all' ||
+        (selectedStatus === 'active' && f.status === 'active') ||
+        (selectedStatus === 'inactive' && f.status === 'inactive');
 
       return matchesSearch && matchesBarangay && matchesStatus;
     });
@@ -113,37 +118,42 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
 
   return (
     <ConsoleLayout
-      title="Mga Magsasaka"
-      subtitle="Farmers · Rehistro at pagsusuri ng mga nakarehistrong magsasaka"
+      title={t('farmers.title')}
+      subtitle={t('farmers.subtitle')}
       onSignOut={onSignOut}>
       {/* Metric summary row */}
       <section style={styles.summaryRow}>
-        <SummaryCard label="Kabuuang Nakarehistro" value={String(farmersList.length)} unit="magsasaka" />
-        <SummaryCard label="Aktibo" value={String(activeCount)} unit="may available na listing" />
-        <SummaryCard label="Saklaw" value={String(barangaysCount)} unit="barangay" />
+        <SummaryCard
+          label={isTagalog ? 'Kabuuang Nakarehistro' : 'Total Registered'}
+          value={String(farmersList.length)}
+          unit={isTagalog ? 'magsasaka' : 'farmers'}
+        />
+        <SummaryCard
+          label={isTagalog ? 'Aktibo' : 'Active'}
+          value={String(activeCount)}
+          unit={isTagalog ? 'may available na listing' : 'with active listings'}
+        />
+        <SummaryCard
+          label={isTagalog ? 'Saklaw' : 'Coverage'}
+          value={String(barangaysCount)}
+          unit={isTagalog ? 'barangay' : 'barangays'}
+        />
       </section>
 
-      {loading ? <p style={styles.loadNotice}>Naglo-load ng registry mula sa Supabase…</p> : null}
+      {loading ? <p style={styles.loadNotice}>{t('common.loading')}</p> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
 
       {/* Main Table Card */}
       <article className="animo-card" style={styles.panel}>
         <div style={styles.panelHead}>
           <div>
-            <h2 style={styles.panelTitle}>Listahan ng Magsasaka</h2>
+            <h2 style={styles.panelTitle}>{t('farmers.title')}</h2>
             <p style={styles.panelSubtitle}>
-              Farmer registry & account verification · LGU San Mateo, Rizal
+              {isTagalog
+                ? 'Talaan ng mga magsasaka at pag-verify ng account · LGU San Mateo, Rizal'
+                : 'Farmer registry & account verification · LGU San Mateo, Rizal'}
             </p>
           </div>
-
-          <button
-            type="button"
-            disabled
-            title="Kailangan ng LGU auth bago magrehistro ng bagong magsasaka"
-            style={{ ...styles.addFarmerBtn, opacity: 0.5, cursor: 'not-allowed' }}>
-            <Plus size={18} />
-            Magrehistro ng Magsasaka
-          </button>
         </div>
 
         {/* Search & Filter Toolbar */}
@@ -152,7 +162,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
             <Search size={18} color="var(--animo-muted)" />
             <input
               type="text"
-              placeholder="Maghanap ayon sa pangalan, ID, o numero..."
+              placeholder={t('farmers.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={styles.searchInput}
@@ -169,28 +179,28 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
 
           <div style={styles.filterGroup}>
             <div style={styles.selectWrap}>
-              <span style={styles.filterLabel}>Barangay:</span>
+              <span style={styles.filterLabel}>{t('farmers.filterBarangay')}</span>
               <select
                 value={selectedBarangay}
                 onChange={(e) => setSelectedBarangay(e.target.value)}
                 style={styles.filterSelect}>
                 {barangayOptions.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
+                  <option key={b.key} value={b.key}>
+                    {b.label}
                   </option>
                 ))}
               </select>
             </div>
 
             <div style={styles.selectWrap}>
-              <span style={styles.filterLabel}>Katayuan:</span>
+              <span style={styles.filterLabel}>{t('farmers.filterStatus')}</span>
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
                 style={styles.filterSelect}>
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
+                {statusOptions.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.label}
                   </option>
                 ))}
               </select>
@@ -203,7 +213,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
           <table style={styles.table}>
             <thead>
               <tr>
-                {['Farmer ID', 'Magsasaka', 'Barangay', 'Numero', 'Mga Listing', 'Katayuan', 'Aksyon'].map(
+                {['ID', t('farmers.colName'), t('farmers.colBarangay'), t('common.phone'), t('farmers.colListings'), t('common.status'), t('common.actions')].map(
                   (heading) => (
                     <th key={heading} style={styles.th}>
                       {heading.toUpperCase()}
@@ -216,7 +226,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
               {filteredFarmers.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ ...styles.td, textAlign: 'center', color: 'var(--animo-muted)', padding: '30px 0' }}>
-                    Walang nahanap na magsasaka sa iyong pamantayan.
+                    {t('farmers.noResults')}
                   </td>
                 </tr>
               ) : (
@@ -224,6 +234,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
                   <FarmerRow
                     key={farmer.id}
                     farmer={farmer}
+                    isTagalog={isTagalog}
                     onReview={() => navigate(`/account-review/farmer/${farmer.id}`)}
                   />
                 ))
@@ -258,9 +269,11 @@ function SummaryCard({
 
 function FarmerRow({
   farmer,
+  isTagalog,
   onReview,
 }: {
   farmer: Farmer;
+  isTagalog: boolean;
   onReview: () => void;
 }) {
   const isActive = farmer.status === 'active';
@@ -279,7 +292,7 @@ function FarmerRow({
             <span style={styles.farmerName}>{farmer.name}</span>
             {farmer.reports && farmer.reports.length > 0 && (
               <span style={styles.reportCountDot} title={`${farmer.reports.length} report(s)`}>
-                ⚠ {farmer.reports.length} ulat
+                ⚠ {farmer.reports.length} {isTagalog ? 'ulat' : 'reports'}
               </span>
             )}
           </div>
@@ -298,7 +311,11 @@ function FarmerRow({
                 ? styles.statusSuspended
                 : styles.statusInactive),
           }}>
-          {isActive ? 'Aktibo' : isSuspended ? 'Suspendido' : 'Hindi aktibo'}
+          {isActive
+            ? (isTagalog ? 'Aktibo' : 'Active')
+            : isSuspended
+              ? (isTagalog ? 'Suspendido' : 'Suspended')
+              : (isTagalog ? 'Hindi aktibo' : 'Inactive')}
         </span>
       </td>
       <td style={styles.td}>
@@ -306,7 +323,7 @@ function FarmerRow({
           type="button"
           onClick={onReview}
           style={styles.reviewAccountBtn}>
-          Suriin ang Account &rarr;
+          {isTagalog ? 'Suriin ang Account \u2192' : 'Review Account \u2192'}
         </button>
       </td>
     </tr>

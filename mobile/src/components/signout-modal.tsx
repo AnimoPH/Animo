@@ -17,6 +17,8 @@ import {
   AnimoRadius,
 } from '../constants/animo';
 
+import { useLanguage } from '@/hooks/use-language';
+
 interface SignOutModalProps {
   visible: boolean;
   onConfirm: () => void;
@@ -24,14 +26,14 @@ interface SignOutModalProps {
 }
 
 /**
- * Branded sign-out confirmation modal. Tapping the overlay or Huwag na cancels;
- * Mag-sign Out confirms. Logout is left to the caller.
+ * Branded sign-out confirmation modal. Fully localized for Tagalog and English.
  */
 export default function SignOutModal({
   visible,
   onConfirm,
   onCancel,
 }: SignOutModalProps) {
+  const { isTagalog } = useLanguage();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -69,9 +71,13 @@ export default function SignOutModal({
             <LogOut size={32} color={AnimoColors.caution} />
           </View>
 
-          <Text style={styles.title}>Mag-sign Out?</Text>
+          <Text style={styles.title}>
+            {isTagalog ? 'Mag-sign Out?' : 'Sign Out?'}
+          </Text>
           <Text style={styles.body}>
-            Sigurado ka bang nais mong mag-logout sa iyong account?
+            {isTagalog
+              ? 'Sigurado ka bang nais mong mag-logout sa iyong account?'
+              : 'Are you sure you want to sign out of your account?'}
           </Text>
 
           {/* <View style={styles.divider} /> */}
@@ -81,13 +87,17 @@ export default function SignOutModal({
               accessibilityRole="button"
               onPress={onCancel}
               style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
-              <Text style={styles.cancelLabel}>Cancel</Text>
+              <Text style={styles.cancelLabel}>
+                {isTagalog ? 'Kanselahin' : 'Cancel'}
+              </Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
               onPress={onConfirm}
               style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}>
-              <Text style={styles.confirmLabel}>Confirm</Text>
+              <Text style={styles.confirmLabel}>
+                {isTagalog ? 'Kumpirmahin' : 'Confirm'}
+              </Text>
               <LogOut size={16} color={AnimoColors.white} />
             </Pressable>
           </View>

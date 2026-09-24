@@ -16,8 +16,9 @@ import {
 } from 'lucide-react';
 
 import { AnimoMark } from '@/components/animo-mark';
+import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/lib/auth-context';
-import { NAV_ITEMS, TRIGGER_ALERTS } from '@/constants/dashboard';
+import { getTriggerAlerts } from '@/constants/dashboard';
 
 const NAV_ICONS = {
   dashboard: Layers,
@@ -45,6 +46,17 @@ export function ConsoleLayout({
   children,
 }: ConsoleLayoutProps) {
   const { session } = useAuth();
+  const { t, language } = useLanguage();
+
+  const navItems = [
+    { key: 'dashboard', label: t('nav.dashboard'), sublabel: t('nav.dashboardSub'), path: '/dashboard' },
+    { key: 'advisory', label: t('nav.advisory'), sublabel: t('nav.advisorySub'), path: '/advisory' },
+    { key: 'messages', label: t('nav.messages'), sublabel: t('nav.messagesSub'), path: '/messages' },
+    { key: 'farmers', label: t('nav.farmers'), sublabel: t('nav.farmersSub'), path: '/farmers' },
+    { key: 'buyers', label: t('nav.buyers'), sublabel: t('nav.buyersSub'), path: '/buyers' },
+    { key: 'settings', label: t('nav.settings'), sublabel: t('nav.settingsSub'), path: '/settings' },
+  ] as const;
+
   const officerInitials =
     session?.fullName
       .split(' ')
@@ -52,11 +64,15 @@ export function ConsoleLayout({
       .join('')
       .toUpperCase()
       .slice(0, 2) ?? '—';
-  const officerName = session?.fullName ?? 'LGU Officer';
+  const officerName = session?.fullName ?? t('header.officer');
 
   const [showNotifications, setShowNotifications] = useState(false);
-  const [alerts, setAlerts] = useState(TRIGGER_ALERTS);
+  const [alerts, setAlerts] = useState(() => getTriggerAlerts(language));
   const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setAlerts(getTriggerAlerts(language));
+  }, [language]);
 
   const unreadCount = alerts.filter((a) => a.unread).length;
 
@@ -99,18 +115,18 @@ export function ConsoleLayout({
     <div style={styles.shell}>
       <aside style={styles.sidebar}>
         {/* Quick Action: ANIMO brand links directly to Dashboard */}
-        <Link to="/dashboard" style={styles.sidebarBrandLink} title="Pumunta sa Dashboard">
+        <Link to="/dashboard" style={styles.sidebarBrandLink} title={t('nav.dashboard')}>
           <AnimoMark size={44} tone="green" />
           <div>
             <div style={styles.sidebarBrandName}>ANIMO</div>
-            <div style={styles.sidebarBrandSub}>LGU Console</div>
+            <div style={styles.sidebarBrandSub}>{t('brand.console')}</div>
           </div>
         </Link>
 
         <div style={styles.navSection}>
           <div style={styles.navHeading}>MENU</div>
           <nav style={styles.nav}>
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const Icon = NAV_ICONS[item.key as keyof typeof NAV_ICONS];
               return (
                 <NavLink
@@ -144,7 +160,7 @@ export function ConsoleLayout({
 
         <div style={styles.sidebarFooter}>
           {/* Quick Action: Sidebar User links directly to Settings */}
-          <Link to="/settings" style={styles.sidebarUserLink} title="Pumunta sa Mga Setting">
+          <Link to="/settings" style={styles.sidebarUserLink} title={t('nav.settings')}>
             <span style={styles.avatar}>{officerInitials}</span>
             <span>
               <span style={styles.userName}>{officerName}</span>
@@ -153,7 +169,7 @@ export function ConsoleLayout({
           </Link>
           <button type="button" onClick={onSignOut} style={styles.signOut}>
             <LogOut size={20} />
-            Mag-sign out
+            {t('nav.signOut')}
           </button>
         </div>
       </aside>
@@ -174,7 +190,7 @@ export function ConsoleLayout({
                   ...styles.iconButton,
                   ...(showNotifications ? styles.iconButtonActive : null),
                 }}
-                aria-label="Mga notification">
+                aria-label={t('header.notifications')}>
                 <Bell size={20} color="var(--animo-black)" />
                 {unreadCount > 0 && (
                   <span style={styles.bellBadge}>{unreadCount}</span>
@@ -186,11 +202,11 @@ export function ConsoleLayout({
                 <div style={styles.notifPopover}>
                   <div style={styles.notifHeader}>
                     <div>
-                      <h3 style={styles.notifTitle}>Mga Abiso at Alerto</h3>
+                      <h3 style={styles.notifTitle}>{t('header.notifications')}</h3>
                       <p style={styles.notifSub}>
                         {unreadCount > 0
-                          ? `${unreadCount} bagong abiso`
-                          : 'Walang bagong abiso'}
+                          ? `${unreadCount} ${t('header.unread')}`
+                          : t('header.noNotifications')}
                       </p>
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -199,7 +215,7 @@ export function ConsoleLayout({
                           type="button"
                           onClick={handleMarkAllRead}
                           style={styles.markReadBtn}
-                          title="Markahan bilang nabasa">
+                          title={t('header.markAllRead')}>
                           <CheckCheck size={16} />
                         </button>
                       )}
@@ -244,7 +260,7 @@ export function ConsoleLayout({
                       to="/messages"
                       onClick={() => setShowNotifications(false)}
                       style={styles.viewAllLink}>
-                      Tingnan ang lahat ng mensahe &rarr;
+                      {t('header.viewAll')} &rarr;
                     </Link>
                   </div>
                 </div>
@@ -252,7 +268,7 @@ export function ConsoleLayout({
             </div>
 
             {/* Quick Action: Header Profile links directly to Settings */}
-            <Link to="/settings" style={styles.topUserLink} title="Pumunta sa Mga Setting">
+            <Link to="/settings" style={styles.topUserLink} title={t('nav.settings')}>
               <span style={styles.avatar}>{officerInitials}</span>
               <span>
                 <span style={styles.userName}>{officerName}</span>

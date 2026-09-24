@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Bell, ClipboardList, Filter, Search, X } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -57,7 +57,7 @@ type ListingRollup = {
 
 /** Farmer Transaksyon — per-listing rollups (kg left / sold / Buong Kita). */
 export default function FarmerTransactionsScreen() {
-  const { t } = useLanguage();
+  const { t, language, isTagalog } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterValue>('Lahat');
   const [showTutorial, setShowTutorial] = useState(true);
@@ -92,12 +92,12 @@ export default function FarmerTransactionsScreen() {
       setPendingCounts(prRollup.pendingCounts);
       setPrLatestUpdatedAt(prRollup.latestUpdatedAt);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Hindi ma-load ang mga transaksyon.');
+      setError(e instanceof Error ? e.message : (isTagalog ? 'Hindi ma-load ang mga transaksyon.' : 'Could not load transactions.'));
     } finally {
       if (isRefresh) setRefreshing(false);
       else setLoading(false);
     }
-  }, []);
+  }, [isTagalog]);
 
   useFocusEffect(
     useCallback(() => {
@@ -111,8 +111,8 @@ export default function FarmerTransactionsScreen() {
     return listings
       .filter((listing) => listing.status !== 'Draft' && listing.status !== 'Cancelled' && listing.status !== 'Archived')
       .map((listing) => {
-        const specific = specificVarietyDisplay(listing);
-        const variety = varietyLabel(listing);
+        const specific = specificVarietyDisplay(listing, language);
+        const variety = varietyLabel(listing, language);
         return {
           listing,
           soldKg: sumCompletedSoldKg(transactions, listing.id),
@@ -128,7 +128,7 @@ export default function FarmerTransactionsScreen() {
         };
       })
       .sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : -1));
-  }, [listings, transactions, pendingCounts, prLatestUpdatedAt]);
+  }, [listings, transactions, pendingCounts, prLatestUpdatedAt, language]);
 
   const filteredData = useMemo(() => {
     return rollups.filter((item) => {
@@ -202,7 +202,7 @@ export default function FarmerTransactionsScreen() {
         <Search size={18} color={AnimoColors.objectLowEmphasis} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Maghanap ng listing..."
+          placeholder={isTagalog ? "Maghanap ng listing..." : "Search listings..."}
           placeholderTextColor={AnimoColors.textDisabled}
           value={searchQuery}
           onChangeText={handleSearchChange}
@@ -212,7 +212,7 @@ export default function FarmerTransactionsScreen() {
         {searchQuery.length > 0 ? (
           <TouchableOpacity
             accessibilityRole="button"
-            accessibilityLabel="I-clear ang search"
+            accessibilityLabel={isTagalog ? "I-clear ang search" : "Clear search"}
             onPress={() => handleSearchChange('')}
             activeOpacity={0.85}
             hitSlop={8}>
@@ -246,7 +246,7 @@ export default function FarmerTransactionsScreen() {
               needsAction={item.pendingCount > 0}
               onPress={() =>
                 router.push({
-                  pathname: '/(farmer)/transaksyon/listing/[id]',
+                  pathname: '/(farmer)/transaksyon/listing/[id]' as any,
                   params: { id: item.listing.id },
                 })
               }
@@ -264,6 +264,12 @@ export default function FarmerTransactionsScreen() {
                 style={styles.filterScroll}>
                 {FILTERS.map((filter) => {
                   const active = activeFilter === filter;
+                  const label =
+                    filter === 'Lahat'
+                      ? (isTagalog ? 'Lahat' : 'All')
+                      : filter === 'Kasalukuyan'
+                        ? (isTagalog ? 'Kasalukuyan' : 'Active')
+                        : (isTagalog ? 'Tapos na' : 'Completed');
                   return (
                     <TouchableOpacity
                       key={filter}
@@ -275,7 +281,7 @@ export default function FarmerTransactionsScreen() {
                       <AnimoText
                         variant="bodyEmphasis"
                         color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
-                        {filter}
+                        {label}
                       </AnimoText>
                     </TouchableOpacity>
                   );
@@ -285,9 +291,9 @@ export default function FarmerTransactionsScreen() {
           }
           ListEmptyComponent={
             searchQuery.trim() !== '' ? (
-              <SearchEmptyState query={searchQuery} onClear={() => handleSearchChange('')} />
+              <SearchEmptyState query={searchQuery} onClear={() => handleSearchChange('')} isTagalog={isTagalog} />
             ) : (
-              <EmptyState />
+              <EmptyState isTagalog={isTagalog} />
             )
           }
         />
@@ -302,34 +308,34 @@ export default function FarmerTransactionsScreen() {
   );
 }
 
-function SearchEmptyState({ query, onClear }: { query: string; onClear: () => void }) {
+function SearchEmptyState({ query, onClear, isTagalog }: { query: string; onClear: () => void; isTagalog: boolean }) {
   return (
     <View style={styles.empty}>
       <Search size={48} color={AnimoColors.accentPrimaryLight} />
       <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
-        Walang resulta para sa &quot;{query}&quot;
+        {isTagalog ? `Walang resulta para sa "${query}"` : `No results for "${query}"`}
       </AnimoText>
       <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
-        Subukan ang ibang keyword o i-clear ang search.
+        {isTagalog ? "Subukan ang ibang keyword o i-clear ang search." : "Try a different keyword or clear search."}
       </AnimoText>
       <TouchableOpacity accessibilityRole="button" activeOpacity={0.85} onPress={onClear} style={styles.searchEmptyCta}>
         <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
-          I-clear ang Search
+          {isTagalog ? "I-clear ang Search" : "Clear Search"}
         </AnimoText>
       </TouchableOpacity>
     </View>
   );
 }
 
-function EmptyState() {
+function EmptyState({ isTagalog }: { isTagalog: boolean }) {
   return (
     <View style={styles.empty}>
       <ClipboardList size={64} color={AnimoColors.accentPrimaryLight} />
       <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
-        Wala pang listing
+        {isTagalog ? "Wala pang listing" : "No listings yet"}
       </AnimoText>
       <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
-        Maglista ng palay para magsimulang makatanggap ng mga kahilingan.
+        {isTagalog ? "Maglista ng palay para magsimulang makatanggap ng mga kahilingan." : "List your harvest to start receiving purchase requests."}
       </AnimoText>
       <TouchableOpacity
         accessibilityRole="button"
@@ -337,7 +343,7 @@ function EmptyState() {
         onPress={() => router.push('/(farmer)/(tabs)/palengke')}
         style={styles.emptyCta}>
         <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
-          Maglista ng Palay
+          {isTagalog ? "Maglista ng Palay" : "List Palay"}
         </AnimoText>
       </TouchableOpacity>
     </View>

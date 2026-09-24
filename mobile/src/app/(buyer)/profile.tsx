@@ -293,9 +293,13 @@ export default function BuyerProfileScreen() {
               <Sprout size={20} color={AnimoColors.objectMediumEmphasis} />
             </View>
             <View style={styles.accountCopy}>
-              <Text style={styles.accountTitle}>Kagustuhan sa Pagbili</Text>
+              <Text style={styles.accountTitle}>
+                {isTagalog ? 'Kagustuhan sa Pagbili' : 'Buying Preferences'}
+              </Text>
               <Text style={styles.accountCaption}>
-                Uri ng palay, moisture, at karaniwang dami na binibili
+                {isTagalog
+                  ? 'Uri ng palay, moisture, at karaniwang dami na binibili'
+                  : 'Rice variety, moisture, and target purchase volumes'}
               </Text>
             </View>
             <ChevronRight size={18} color={AnimoColors.objectLowEmphasis} />
@@ -324,7 +328,9 @@ export default function BuyerProfileScreen() {
             </View>
             <View style={styles.paymentCopy}>
               <Text style={styles.paymentTitle}>Cash</Text>
-              <Text style={styles.paymentCaption}>Personal na bayaran sa pickup</Text>
+              <Text style={styles.paymentCaption}>
+                {isTagalog ? 'Personal na bayaran sa pickup' : 'In-person payment upon pickup'}
+              </Text>
             </View>
           </View>
         </View>
@@ -353,7 +359,7 @@ export default function BuyerProfileScreen() {
               <Text style={styles.settingLabel}>{t('profile.language')}</Text>
               <View style={styles.langBadge}>
                 <Text style={styles.langBadgeText}>
-                  {isTagalog ? '🇵🇭 Tagalog' : '🌐 English'}
+                  {isTagalog ? 'Tagalog' : 'English'}
                 </Text>
               </View>
             </View>
@@ -454,7 +460,6 @@ export default function BuyerProfileScreen() {
                   language === 'tl' && styles.langOptionActive,
                 ]}>
                 <View style={styles.langOptionLeft}>
-                  <Text style={styles.langFlag}>🇵🇭</Text>
                   <View>
                     <Text style={styles.langOptionTitle}>Tagalog (Filipino)</Text>
                     <Text style={styles.langOptionSubtitle}>Pangunahing wika sa app</Text>
@@ -475,7 +480,6 @@ export default function BuyerProfileScreen() {
                   language === 'en' && styles.langOptionActive,
                 ]}>
                 <View style={styles.langOptionLeft}>
-                  <Text style={styles.langFlag}>🌐</Text>
                   <View>
                     <Text style={styles.langOptionTitle}>English</Text>
                     <Text style={styles.langOptionSubtitle}>Switch interface to English</Text>
@@ -626,7 +630,7 @@ export default function BuyerProfileScreen() {
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
             <AnimoText variant="h2" color={AnimoColors.black}>
-              Kagustuhan sa Pagbili
+              {isTagalog ? 'Kagustuhan sa Pagbili' : 'Buying Preferences'}
             </AnimoText>
             <Pressable
               onPress={() => setShowBuyerPreferencesModal(false)}
@@ -641,7 +645,7 @@ export default function BuyerProfileScreen() {
             showsVerticalScrollIndicator={false}>
             {buyerPreferencesLoading ? (
               <AnimoText variant="body" color={AnimoColors.muted}>
-                Ikinakarga...
+                {isTagalog ? 'Ikinakarga...' : 'Loading...'}
               </AnimoText>
             ) : (
               <BuyerPreferencesForm values={buyerPreferences} onChange={setBuyerPreferences} />
@@ -655,7 +659,7 @@ export default function BuyerProfileScreen() {
 
           <View style={styles.modalFooter}>
             <AnimoButton
-              label="I-save"
+              label={isTagalog ? 'I-save' : 'Save Preferences'}
               onPress={handleSaveBuyerPreferences}
               loading={buyerPreferencesSaving}
               disabled={buyerPreferencesLoading}
@@ -673,7 +677,7 @@ export default function BuyerProfileScreen() {
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
             <AnimoText variant="h2" color={AnimoColors.black}>
-              Rating at Feedback (Top 5)
+              {isTagalog ? 'Rating at Feedback (Top 5)' : 'Ratings & Feedback (Top 5)'}
             </AnimoText>
             <Pressable
               onPress={() => setShowFeedbacksModal(false)}
@@ -696,7 +700,9 @@ export default function BuyerProfileScreen() {
                 </View>
               </View>
               <Text style={styles.ratingSubCaption}>
-                840 kabuuang review mula sa mga magsasaka sa Antipolo at Rizal
+                {isTagalog
+                  ? '840 kabuuang review mula sa mga magsasaka sa Antipolo at Rizal'
+                  : '840 total reviews from farmers in Antipolo and Rizal'}
               </Text>
             </View>
 
@@ -736,7 +742,7 @@ export default function BuyerProfileScreen() {
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
             <AnimoText variant="h2" color={AnimoColors.black}>
-              Kamakailang Transaksyon (Top 5)
+              {isTagalog ? 'Kamakailang Transaksyon (Top 5)' : 'Recent Transactions (Top 5)'}
             </AnimoText>
             <Pressable
               onPress={() => setShowRecentTxnsModal(false)}
@@ -754,7 +760,9 @@ export default function BuyerProfileScreen() {
                 <View style={styles.txHeader}>
                   <View style={styles.flex}>
                     <Text style={styles.txVariety}>{tx.variety}</Text>
-                    <Text style={styles.txSubtitle}>Magsasaka: {tx.farmer} · {tx.date}</Text>
+                    <Text style={styles.txSubtitle}>
+                      {isTagalog ? 'Magsasaka' : 'Farmer'}: {tx.farmer} · {tx.date}
+                    </Text>
                   </View>
                   <View style={styles.txStatusBadge}>
                     <Text style={styles.txStatusText}>{tx.status}</Text>
@@ -787,9 +795,13 @@ export default function BuyerProfileScreen() {
       <FeedbackModal
         visible={showHelpModal}
         tone="info"
-        title="Tulong at Suporta"
-        message="Maaari kang makipag-ugnayan sa Tanggapan ng Pagsasaka (LGU Antipolo) o sa ANIMO Support Hotline sa 0917 123 4567 para sa anumang katanungan ukol sa kalakalan."
-        confirmLabel="OK"
+        title={isTagalog ? 'Tulong at Suporta' : 'Help & Support'}
+        message={
+          isTagalog
+            ? 'Maaari kang makipag-ugnayan sa Tanggapan ng Pagsasaka (LGU Antipolo) o sa ANIMO Support Hotline sa 0917 123 4567 para sa anumang katanungan ukol sa kalakalan.'
+            : 'You can contact the Municipal Agriculture Office (LGU Antipolo) or ANIMO Support Hotline at 0917 123 4567 for any trading inquiries.'
+        }
+        confirmLabel={isTagalog ? 'OK' : 'Understood'}
         onConfirm={() => setShowHelpModal(false)}
       />
 
@@ -797,9 +809,13 @@ export default function BuyerProfileScreen() {
       <FeedbackModal
         visible={showTermsModal}
         tone="info"
-        title="Patakaran sa Privacy"
-        message="Protektado ang iyong datos alinsunod sa Data Privacy Act ng Pilipinas. Ginagamit lamang ang iyong impormasyon para sa opisyal na transaksyon sa agrikultura."
-        confirmLabel="Naiintindihan Ko"
+        title={isTagalog ? 'Patakaran sa Privacy' : 'Privacy Policy'}
+        message={
+          isTagalog
+            ? 'Protektado ang iyong datos alinsunod sa Data Privacy Act ng Pilipinas. Ginagamit lamang ang iyong impormasyon para sa opisyal na transaksyon sa agrikultura.'
+            : 'Your data is protected in accordance with the Data Privacy Act of the Philippines. Your information is strictly used for official agricultural transactions.'
+        }
+        confirmLabel={isTagalog ? 'Naiintindihan Ko' : 'I Understand'}
         onConfirm={() => setShowTermsModal(false)}
       />
     </View>

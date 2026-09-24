@@ -8,13 +8,14 @@ import { SegmentedChoice } from '@/components/animo/segmented-choice';
 import { SelectField } from '@/components/animo/select-field';
 import { SpecificVarietyField } from '@/components/animo/specific-variety-field';
 import { AnimoColors, AnimoSpacing } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
 import type { BuyerPreferences, UpsertBuyerPreferencesInput } from '@/types/buyer-preferences';
 import {
-  HYBRID_SPECIFIC_VARIETY_OPTIONS,
-  INBRED_SPECIFIC_VARIETY_OPTIONS,
-  MOISTURE_OPTIONS,
   SPECIFIC_VARIETY_OTHER,
-  VARIETY_OPTIONS,
+  getHybridSpecificVarieties,
+  getInbredSpecificVarieties,
+  getMoistureOptions,
+  getVarietyOptions,
   type DeclaredVariety,
   type MoistureType,
   type SpecificVarietyOption,
@@ -79,24 +80,18 @@ export type BuyerPreferencesFormProps = {
  * and typical order size a buyer usually looks for. Storage only — nothing
  * here affects search/ranking. Reused as-is on the onboarding Profile step
  * (register.tsx) and from the buyer Profile tab.
- *
- * Reuses the farmer listing flow's own two-modal variety picker
- * (VARIETY_OPTIONS + INBRED/HYBRID_SPECIFIC_VARIETY_OPTIONS +
- * SpecificVarietyField) rather than a second copy of those lists. Unlike the
- * farmer flow, the specific-variety pick is stored as its actual label text
- * (`preferredVarietyCode`), not reduced to a '218'/'OTHER' price code — that
- * reduction is CROPLISTING's pricing concern, not a buyer preference.
  */
 export function BuyerPreferencesForm({ values, onChange }: BuyerPreferencesFormProps) {
+  const { language, isTagalog } = useLanguage();
   const [specificVarietyOpen, setSpecificVarietyOpen] = useState(false);
 
   const needsSpecificVariety =
     values.preferredVariety === 'Inbred' || values.preferredVariety === 'Hybrid';
   const specificVarietyOptions: SpecificVarietyOption[] =
     values.preferredVariety === 'Inbred'
-      ? INBRED_SPECIFIC_VARIETY_OPTIONS
+      ? getInbredSpecificVarieties(language)
       : values.preferredVariety === 'Hybrid'
-        ? HYBRID_SPECIFIC_VARIETY_OPTIONS
+        ? getHybridSpecificVarieties(language)
         : [];
 
   // preferredVarietyCode holds free text, not an option value — resolve back
@@ -115,16 +110,18 @@ export function BuyerPreferencesForm({ values, onChange }: BuyerPreferencesFormP
   const customVarietyText = matchedOption ? '' : values.preferredVarietyCode ?? '';
 
   return (
-    <FormCard title="Kagustuhan sa Pagbili">
+    <FormCard title={isTagalog ? 'Kagustuhan sa Pagbili' : 'Buyer Preferences'}>
       <AnimoText variant="caption" color={AnimoColors.muted}>
-        Opsyonal — maaari niyo itong laktawan o baguhin balang araw sa Profile.
+        {isTagalog
+          ? 'Opsyonal — maaari niyo itong laktawan o baguhin balang araw sa Profile.'
+          : 'Optional — you may skip or update this anytime in your Profile.'}
       </AnimoText>
 
       <View>
         <SelectField
-          label="Uri ng Palay"
-          placeholder="Pumili ng uri ng palay"
-          options={VARIETY_OPTIONS}
+          label={isTagalog ? 'Uri ng Palay' : 'Rice Variety'}
+          placeholder={isTagalog ? 'Pumili ng uri ng palay' : 'Select rice variety'}
+          options={getVarietyOptions(language)}
           value={values.preferredVariety}
           onChange={(value) => {
             const next = value as DeclaredVariety;
@@ -138,8 +135,8 @@ export function BuyerPreferencesForm({ values, onChange }: BuyerPreferencesFormP
         {needsSpecificVariety ? (
           <View style={styles.inlineFieldSpacing}>
             <SpecificVarietyField
-              label="Tiyak na Uri ng Palay"
-              placeholder="Pumili ng tiyak na uri"
+              label={isTagalog ? 'Tiyak na Uri ng Palay' : 'Specific Rice Variety'}
+              placeholder={isTagalog ? 'Pumili ng tiyak na uri' : 'Select specific variety'}
               options={specificVarietyOptions}
               value={specificFieldValue}
               open={specificVarietyOpen}
@@ -156,7 +153,7 @@ export function BuyerPreferencesForm({ values, onChange }: BuyerPreferencesFormP
                 <LabeledInput
                   value={customVarietyText}
                   onChangeText={(text) => onChange({ ...values, preferredVarietyCode: text })}
-                  placeholder="Ilagay ang tiyak na uri (opsyonal)"
+                  placeholder={isTagalog ? 'Ilagay ang tiyak na uri (opsyonal)' : 'Enter specific variety (optional)'}
                 />
               </View>
             ) : null}
@@ -165,17 +162,17 @@ export function BuyerPreferencesForm({ values, onChange }: BuyerPreferencesFormP
       </View>
 
       <SegmentedChoice
-        label="Kagustuhan sa Halumigmig"
-        options={MOISTURE_OPTIONS}
+        label={isTagalog ? 'Kagustuhan sa Halumigmig' : 'Preferred Moisture Level'}
+        options={getMoistureOptions(language)}
         value={values.preferredMoisture}
         onChange={(value) => onChange({ ...values, preferredMoisture: value })}
       />
 
       <LabeledInput
-        label="Karaniwang Dami na Binibili"
+        label={isTagalog ? 'Karaniwang Dami na Binibili' : 'Typical Purchase Quantity'}
         placeholder="0"
         keyboardType="numeric"
-        suffixText="kilo/kg"
+        suffixText={isTagalog ? 'kilo/kg' : 'kg'}
         value={values.typicalQuantityKg}
         onChangeText={(text) => onChange({ ...values, typicalQuantityKg: text })}
       />

@@ -19,6 +19,7 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import { fetchOwnRatingForTransaction, submitRating } from '@/services/rating-service';
 import { fetchTransactionByRequestId, fetchTransactionCounterpart } from '@/services/transaction-service';
@@ -26,13 +27,22 @@ import type { Rating } from '@/types/rating';
 import type { PurchaseOutcome, TransactionCounterpart } from '@/types/transaction';
 import { BackHeader } from '@/components/animo/back-header';
 
-const RATING_MOODS: Record<number, string> = {
+const RATING_MOODS_TL: Record<number, string> = {
   5: 'Napakahusay!',
   4: 'Magaling!',
   3: 'Katamtaman',
   2: 'Kulang pa',
   1: 'Hindi maganda',
   0: 'Pumili ng marka',
+};
+
+const RATING_MOODS_EN: Record<number, string> = {
+  5: 'Outstanding!',
+  4: 'Great!',
+  3: 'Average',
+  2: 'Needs Improvement',
+  1: 'Poor',
+  0: 'Select a rating',
 };
 
 const STAR_GOLD = '#F5A623';
@@ -43,6 +53,7 @@ const STAR_GOLD = '#F5A623';
  */
 export default function ReviewFarmerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { isTagalog } = useLanguage();
 
   const [outcome, setOutcome] = useState<PurchaseOutcome | null>(null);
   const [counterpart, setCounterpart] = useState<TransactionCounterpart | null>(null);
@@ -80,20 +91,23 @@ export default function ReviewFarmerScreen() {
         setComment(already.comment ?? '');
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Hindi ma-load ang transaksyon.');
+      setError(e instanceof Error ? e.message : (isTagalog ? 'Hindi ma-load ang transaksyon.' : 'Failed to load transaction.'));
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, isTagalog]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  const screenTitle = isTagalog ? 'Suriin ang Magsasaka' : 'Review Farmer';
+  const ratingMoods = isTagalog ? RATING_MOODS_TL : RATING_MOODS_EN;
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title="Suriin ang Magsasaka" />
+        <BackHeader title={screenTitle} />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.green} />
         </View>
@@ -104,17 +118,17 @@ export default function ReviewFarmerScreen() {
   if (!outcome || outcome.kind !== 'matched' || error) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title="Suriin ang Magsasaka" />
+        <BackHeader title={screenTitle} />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            {error ?? 'Hindi nahanap ang transaksyon na ito.'}
+            {error ?? (isTagalog ? 'Hindi nahanap ang transaksyon na ito.' : 'Transaction not found.')}
           </AnimoText>
         </View>
       </SafeAreaView>
     );
   }
 
-  const farmerName = counterpart?.name ?? 'Magsasaka';
+  const farmerName = counterpart?.name ?? (isTagalog ? 'Magsasaka' : 'Farmer');
 
   const handleSubmit = async () => {
     if (existing || submitting) return;
@@ -129,7 +143,7 @@ export default function ReviewFarmerScreen() {
       });
       setShowSuccessModal(true);
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Hindi naisumite ang review.');
+      setSubmitError(e instanceof Error ? e.message : (isTagalog ? 'Hindi naisumite ang review.' : 'Failed to submit review.'));
     } finally {
       setSubmitting(false);
     }
@@ -142,7 +156,7 @@ export default function ReviewFarmerScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title="Suriin ang Magsasaka" />
+      <BackHeader title={screenTitle} />
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -162,7 +176,7 @@ export default function ReviewFarmerScreen() {
                   {farmerName}
                 </AnimoText>
                 <AnimoText variant="caption" color={AnimoColors.muted}>
-                  Magsasaka
+                  {isTagalog ? 'Magsasaka' : 'Farmer'}
                 </AnimoText>
               </View>
             </View>
@@ -170,10 +184,10 @@ export default function ReviewFarmerScreen() {
 
           <View style={[styles.card, styles.centerCard]}>
             <AnimoText variant="caption" color={AnimoColors.muted} style={styles.textCenter}>
-              Pangkalahatang Marka
+              {isTagalog ? 'Pangkalahatang Marka' : 'Overall Rating'}
             </AnimoText>
             <AnimoText variant="h1" color={AnimoColors.black} style={styles.textCenter}>
-              {RATING_MOODS[overallRating]}
+              {ratingMoods[overallRating]}
             </AnimoText>
 
             <View style={styles.starRowBig}>
@@ -187,22 +201,22 @@ export default function ReviewFarmerScreen() {
 
           <View style={styles.card}>
             <AnimoText variant="h3" color={AnimoColors.black}>
-              Detalyadong Marka
+              {isTagalog ? 'Detalyadong Marka' : 'Detailed Rating'}
             </AnimoText>
-            <StarCriterionRow label="Kalidad ng palay" value={qualityRating} onChange={setQualityRating} disabled={!!existing} />
-            <StarCriterionRow label="Tugma ang timbang" value={weightRating} onChange={setWeightRating} disabled={!!existing} />
-            <StarCriterionRow label="Komunikasyon" value={communicationRating} onChange={setCommunicationRating} disabled={!!existing} />
-            <StarCriterionRow label="Pagiging maagap" value={timelinessRating} onChange={setTimelinessRating} disabled={!!existing} />
+            <StarCriterionRow label={isTagalog ? 'Kalidad ng palay' : 'Paddy quality'} value={qualityRating} onChange={setQualityRating} disabled={!!existing} />
+            <StarCriterionRow label={isTagalog ? 'Tugma ang timbang' : 'Accurate weight'} value={weightRating} onChange={setWeightRating} disabled={!!existing} />
+            <StarCriterionRow label={isTagalog ? 'Komunikasyon' : 'Communication'} value={communicationRating} onChange={setCommunicationRating} disabled={!!existing} />
+            <StarCriterionRow label={isTagalog ? 'Pagiging maagap' : 'Punctuality'} value={timelinessRating} onChange={setTimelinessRating} disabled={!!existing} />
           </View>
 
           <View style={styles.card}>
             <AnimoText variant="h3" color={AnimoColors.black}>
-              Magdagdag ng komento (opsyonal)
+              {isTagalog ? 'Magdagdag ng komento (opsyonal)' : 'Add a comment (optional)'}
             </AnimoText>
             <View style={styles.textareaContainer}>
               <TextInput
                 style={styles.textarea}
-                placeholder="Ikwento ang iyong karanasan sa magsasaka..."
+                placeholder={isTagalog ? 'Ikwento ang iyong karanasan sa magsasaka...' : 'Share your experience with the farmer...'}
                 placeholderTextColor={AnimoColors.muted}
                 multiline
                 numberOfLines={4}
@@ -219,8 +233,8 @@ export default function ReviewFarmerScreen() {
 
           <NoticeBanner tone="info" icon={<Lock size={16} color="#2563A8" />}>
             {existing
-              ? 'Naisumite mo na ang review para sa transaksyong ito.'
-              : 'Makikita ng ibang mamimili ang review na ito sa profile ng magsasaka.'}
+              ? (isTagalog ? 'Naisumite mo na ang review para sa transaksyong ito.' : 'You have already submitted a review for this transaction.')
+              : (isTagalog ? 'Makikita ng ibang mamimili ang review na ito sa profile ng magsasaka.' : 'Other buyers will see this review on the farmer\'s profile.')}
           </NoticeBanner>
         </ScrollView>
 
@@ -231,17 +245,17 @@ export default function ReviewFarmerScreen() {
             </AnimoText>
           ) : null}
           {existing ? (
-            <AnimoButton label="Bumalik sa Transaksyon" icon={Check} onPress={handleSkip} />
+            <AnimoButton label={isTagalog ? 'Bumalik sa Transaksyon' : 'Back to Transactions'} icon={Check} onPress={handleSkip} />
           ) : (
             <>
               <AnimoButton
-                label="Isumite ang Review"
+                label={isTagalog ? 'Isumite ang Review' : 'Submit Review'}
                 icon={Check}
                 onPress={handleSubmit}
                 loading={submitting}
                 disabled={submitting}
               />
-              <AnimoButton label="Laktawan Muna" variant="secondary" icon={X} onPress={handleSkip} />
+              <AnimoButton label={isTagalog ? 'Laktawan Muna' : 'Skip for Now'} variant="secondary" icon={X} onPress={handleSkip} />
             </>
           )}
         </View>
@@ -250,9 +264,13 @@ export default function ReviewFarmerScreen() {
       <FeedbackModal
         visible={showSuccessModal}
         tone="success"
-        title="Salamat sa Review!"
-        message={`Matagumpay na naitala ang iyong marka at komento para kay ${farmerName}.`}
-        confirmLabel="Bumalik sa Transaksyon"
+        title={isTagalog ? 'Salamat sa Review!' : 'Thank You for the Review!'}
+        message={
+          isTagalog
+            ? `Matagumpay na naitala ang iyong marka at komento para kay ${farmerName}.`
+            : `Your rating and comment for ${farmerName} have been recorded successfully.`
+        }
+        confirmLabel={isTagalog ? 'Bumalik sa Transaksyon' : 'Back to Transactions'}
         onConfirm={() => {
           setShowSuccessModal(false);
           router.replace('/(buyer)/transaksyon');

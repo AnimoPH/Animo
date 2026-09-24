@@ -14,12 +14,25 @@ import { requireAuthUserId } from '@/services/crop-listing-service';
 
 export type RiceTypeCategory = 'Hybrid' | 'Inbred' | 'Organic' | 'Specialty';
 
-export const RICE_TYPE_OPTIONS: { value: RiceTypeCategory; label: string }[] = [
+export const RICE_TYPE_OPTIONS_TL: { value: RiceTypeCategory; label: string }[] = [
+  { value: 'Inbred', label: 'Inbred' },
+  { value: 'Hybrid', label: 'Hybrid' },
+  { value: 'Organic', label: 'Organiko (Organic)' },
+  { value: 'Specialty', label: 'Espesyal (Specialty)' },
+];
+
+export const RICE_TYPE_OPTIONS_EN: { value: RiceTypeCategory; label: string }[] = [
   { value: 'Inbred', label: 'Inbred' },
   { value: 'Hybrid', label: 'Hybrid' },
   { value: 'Organic', label: 'Organic' },
   { value: 'Specialty', label: 'Specialty' },
 ];
+
+export const RICE_TYPE_OPTIONS = RICE_TYPE_OPTIONS_TL;
+
+export function getRiceTypeOptions(lang: 'tl' | 'en' = 'tl'): { value: RiceTypeCategory; label: string }[] {
+  return lang === 'en' ? RICE_TYPE_OPTIONS_EN : RICE_TYPE_OPTIONS_TL;
+}
 
 const MATURITY_DAYS: Record<RiceTypeCategory, number> = {
   Hybrid: 110,
@@ -36,8 +49,15 @@ const ACTION_LABELS: Record<RecommendedAction, string> = {
   No_Action_Needed: 'Walang Kailangang Gawin',
 };
 
-export function actionLabel(action: RecommendedAction): string {
-  return ACTION_LABELS[action] ?? action;
+const ACTION_LABELS_EN: Record<RecommendedAction, string> = {
+  Advance_Cut: 'Early Harvest (Advance Cut)',
+  Delayed_Harvest: 'Delay Harvest',
+  No_Action_Needed: 'No Action Needed',
+};
+
+export function actionLabel(action: RecommendedAction, lang: 'tl' | 'en' = 'tl'): string {
+  const dict = lang === 'en' ? ACTION_LABELS_EN : ACTION_LABELS;
+  return dict[action] ?? action;
 }
 
 /** Fraction of maturity days elapsed since planting — display-only, same formula refresh-advisory uses to decide. */

@@ -9,6 +9,7 @@ import {
   type DisplayStage,
   type PaymentMode,
 } from '@/types/transaction';
+import { useLanguage } from '@/hooks/use-language';
 
 const DOT_TONE: Partial<Record<DisplayStage, string>> = {
   request_pending: AnimoColors.moderate,
@@ -42,6 +43,7 @@ export type TransactionCardProps = {
 
 /** Farmer Part B list card: buyer, amount, kg, payment, ref, status, date/time. */
 export function TransactionCard({ item, onPress }: TransactionCardProps) {
+  const { t } = useLanguage();
   const isDone = item.stage === 'completed';
   const needsAction = isFarmerNeedsActionStage(item.stage);
   const dotColor = DOT_TONE[item.stage];
@@ -110,7 +112,7 @@ export function TransactionCard({ item, onPress }: TransactionCardProps) {
         <View style={styles.actionBanner}>
           <AlertCircle size={14} color={AnimoColors.moderate} />
           <AnimoText variant="caption" color={AnimoColors.moderate} style={styles.actionText}>
-            Kailangan ng aksyon
+            {t('action.needsAction')}
           </AnimoText>
         </View>
       ) : null}

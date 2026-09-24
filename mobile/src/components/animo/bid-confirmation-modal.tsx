@@ -6,6 +6,7 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useCountdownTo } from '@/hooks/use-countdown-to';
+import { useLanguage } from '@/hooks/use-language';
 
 const SUCCESS_HOLD_MS = 1600; // how long the success message shows before redirect
 
@@ -38,6 +39,7 @@ export function BidConfirmationModal({
   onCancel,
   onComplete,
 }: BidConfirmationModalProps) {
+  const { isTagalog } = useLanguage();
   const secondsLeft = useCountdownTo(visible ? cancelDeadline : null);
   const [phase, setPhase] = useState<Phase>('counting');
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -71,7 +73,13 @@ export function BidConfirmationModal({
     } catch (error) {
       // The deadline may have lapsed server-side between the last tick and
       // this tap — surface it and let the countdown's own effect take over.
-      setCancelError(error instanceof Error ? error.message : 'Hindi makansela ang request.');
+      setCancelError(
+        error instanceof Error
+          ? error.message
+          : isTagalog
+            ? 'Hindi makansela ang request.'
+            : 'Could not cancel request.',
+      );
       setPhase('counting');
     }
   };
@@ -89,7 +97,7 @@ export function BidConfirmationModal({
                 <CheckCircle2 size={32} color={AnimoColors.green} />
               </View>
               <AnimoText variant="h2" color={AnimoColors.black} style={styles.center}>
-                Naipadala ang iyong request!
+                {isTagalog ? 'Naipadala ang iyong request!' : 'Your request was sent!'}
               </AnimoText>
 
               <View style={styles.summaryBox}>
@@ -102,7 +110,7 @@ export function BidConfirmationModal({
               </View>
 
               <AnimoText variant="caption" color={AnimoColors.muted} style={styles.center}>
-                Inililipat kayo sa mga transaksyon…
+                {isTagalog ? 'Inililipat kayo sa mga transaksyon…' : 'Redirecting you to transactions…'}
               </AnimoText>
             </>
           ) : (
@@ -112,7 +120,7 @@ export function BidConfirmationModal({
               </View>
 
               <AnimoText variant="h2" color={AnimoColors.black} style={styles.center}>
-                Naipadala ang iyong request
+                {isTagalog ? 'Naipadala ang iyong request' : 'Request Submitted'}
               </AnimoText>
 
               <View style={styles.countdown}>
@@ -121,7 +129,7 @@ export function BidConfirmationModal({
                 </AnimoText>
                 <AnimoText variant="body" color={AnimoColors.blackSecondary}>
                   {' '}
-                  segundo
+                  {isTagalog ? 'segundo' : secondsLeft === 1 ? 'second' : 'seconds'}
                 </AnimoText>
               </View>
 
@@ -154,7 +162,13 @@ export function BidConfirmationModal({
                 ]}>
                 <X size={20} color={AnimoColors.danger} />
                 <AnimoText variant="button" color={AnimoColors.danger}>
-                  {phase === 'cancelling' ? 'Kinakansela…' : 'Kanselahin'}
+                  {phase === 'cancelling'
+                    ? isTagalog
+                      ? 'Kinakansela…'
+                      : 'Cancelling…'
+                    : isTagalog
+                      ? 'Kanselahin'
+                      : 'Cancel Request'}
                 </AnimoText>
               </Pressable>
             </>

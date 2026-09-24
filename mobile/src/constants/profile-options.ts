@@ -34,6 +34,19 @@ export const FARM_SIZES: SelectOption[] = [
   { value: 'gt-5', label: 'Higit sa 5 ektarya' },
 ];
 
+export const FARM_SIZES_EN: SelectOption[] = [
+  { value: 'lt-0.5', label: 'Less than 0.5 hectare' },
+  { value: '0.5-1', label: '0.5 to 1 hectare' },
+  { value: '1-3', label: '1 to 3 hectares' },
+  { value: '3-5', label: '3 to 5 hectares' },
+  { value: 'gt-5', label: 'More than 5 hectares' },
+];
+
+export function getFarmSizes(lang: 'tl' | 'en' | boolean = 'tl'): SelectOption[] {
+  const isTagalog = typeof lang === 'boolean' ? lang : lang === 'tl';
+  return isTagalog ? FARM_SIZES : FARM_SIZES_EN;
+}
+
 export const PALAY_VARIETIES: SelectOption[] = [
   { value: 'inbred', label: 'Inbred' },
   { value: 'hybrid', label: 'Hybrid' },
@@ -41,3 +54,16 @@ export const PALAY_VARIETIES: SelectOption[] = [
   { value: 'mixed', label: 'Halo-halong Uri' },
   { value: 'other', label: 'Iba Pa' },
 ];
+
+export const PALAY_VARIETIES_EN: SelectOption[] = [
+  { value: 'inbred', label: 'Inbred' },
+  { value: 'hybrid', label: 'Hybrid' },
+  { value: 'traditional-heirloom', label: 'Traditional or Heirloom' },
+  { value: 'mixed', label: 'Mixed Varieties' },
+  { value: 'other', label: 'Other' },
+];
+
+export function getPalayVarieties(lang: 'tl' | 'en' | boolean = 'tl'): SelectOption[] {
+  const isTagalog = typeof lang === 'boolean' ? lang : lang === 'tl';
+  return isTagalog ? PALAY_VARIETIES : PALAY_VARIETIES_EN;
+}

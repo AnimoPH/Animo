@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Archive, Check, Inbox, PackageSearch, TriangleAlert, Trash2, UserRound, X } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
@@ -25,6 +25,7 @@ import { ListingDetailContent } from "@/components/animo/farmer/listing-detail-c
 import { StatusBadge } from "@/components/animo/status-badge";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
 import { formatPeso } from "@/constants/marketplace";
+import { useLanguage } from "@/hooks/use-language";
 import {
   archiveCropListing,
   deleteCropListing,
@@ -45,16 +46,24 @@ import type { PurchaseRequest } from "@/types/purchase-request";
 type DetailTab = "detalye" | "orders";
 type ConfirmAction = "archive" | "delete" | null;
 
-const REJECTION_REASONS = [
+const REJECTION_REASONS_TL = [
   "Kulang ang natitirang stock o naubos na",
   "Hindi tugma ang iskedyul ng pickup",
   "Masyadong mababa ang itinakdang dami",
   "Iba pang dahilan",
 ];
 
+const REJECTION_REASONS_EN = [
+  "Insufficient or depleted stock",
+  "Pickup schedule does not match",
+  "Requested quantity is too low",
+  "Other reason",
+];
+
 /** Palay Listing detail — quality/price summary plus real purchase requests, oldest first. */
 export default function ListingDetailScreen() {
   const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
+  const { language, isTagalog } = useLanguage();
   const [activeTab, setActiveTab] = useState<DetailTab>(tab === "orders" ? "orders" : "detalye");
   const [listing, setListing] = useState<CropListing | null>(null);
   const [photos, setPhotos] = useState<ListingPhoto[]>([]);
@@ -82,8 +91,9 @@ export default function ListingDetailScreen() {
   const [acceptError, setAcceptError] = useState<string | undefined>();
   const [acceptedRequest, setAcceptedRequest] = useState<PurchaseRequest | null>(null);
 
+  const rejectionReasons = isTagalog ? REJECTION_REASONS_TL : REJECTION_REASONS_EN;
   const [rejectingRequest, setRejectingRequest] = useState<PurchaseRequest | null>(null);
-  const [selectedReason, setSelectedReason] = useState(REJECTION_REASONS[0]);
+  const [selectedReason, setSelectedReason] = useState(rejectionReasons[0]);
   const [customReasonNote, setCustomReasonNote] = useState("");
   const [rejectSuccessVisible, setRejectSuccessVisible] = useState(false);
 
@@ -162,7 +172,7 @@ export default function ListingDetailScreen() {
     if (!acceptingRequest) return;
     const quantity = parseFloat(acceptQuantityText) || 0;
     if (quantity <= 0) {
-      setAcceptError("Dapat mas malaki sa 0 ang tatanggaping dami.");
+      setAcceptError(isTagalog ? "Dapat mas malaki sa 0 ang tatanggaping dami." : "Quantity must be greater than 0.");
       return;
     }
     try {
@@ -177,13 +187,13 @@ export default function ListingDetailScreen() {
         fetchCropListing(id).then((result) => result && setListing(result)),
       ]);
     } catch (err) {
-      setAcceptError(err instanceof Error ? err.message : "Hindi matanggap ang kahilingan.");
+      setAcceptError(err instanceof Error ? err.message : (isTagalog ? "Hindi matanggap ang kahilingan." : "Failed to accept request."));
     }
   };
 
   const handleOpenReject = (request: PurchaseRequest) => {
     setRejectingRequest(request);
-    setSelectedReason(REJECTION_REASONS[0]);
+    setSelectedReason(rejectionReasons[0]);
     setCustomReasonNote("");
   };
 
@@ -196,7 +206,7 @@ export default function ListingDetailScreen() {
       await loadOrders();
     } catch (err) {
       setRejectingRequest(null);
-      setOrdersError(err instanceof Error ? err.message : "Hindi matanggihan ang kahilingan.");
+      setOrdersError(err instanceof Error ? err.message : (isTagalog ? "Hindi matanggihan ang kahilingan." : "Failed to reject request."));
     }
   };
 
@@ -220,7 +230,7 @@ export default function ListingDetailScreen() {
         setActionSuccess("delete");
       }
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Hindi natapos ang aksyon.");
+      setActionError(err instanceof Error ? err.message : (isTagalog ? "Hindi natapos ang aksyon." : "Action failed."));
     } finally {
       setActionBusy(false);
     }
@@ -230,7 +240,7 @@ export default function ListingDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <StatusBar style="dark" />
-        <BackHeader title="Detalye ng Listing" />
+        <BackHeader title={isTagalog ? "Detalye ng Listing" : "Listing Details"} />
         <View style={styles.centerState}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -242,23 +252,23 @@ export default function ListingDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <StatusBar style="dark" />
-        <BackHeader title="Detalye ng Listing" />
+        <BackHeader title={isTagalog ? "Detalye ng Listing" : "Listing Details"} />
         <View style={styles.emptyScreen}>
           <View style={styles.emptyIconWrap}>
             <PackageSearch size={32} color={AnimoColors.accentPrimary} />
           </View>
           <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
-            Hindi nahanap ang listing
+            {isTagalog ? "Hindi nahanap ang listing" : "Listing not found"}
           </AnimoText>
           <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
-            {errorMessage ?? "Hindi nahanap ang listing na ito. Maaaring natanggal na ito o hindi ito sa iyo."}
+            {errorMessage ?? (isTagalog ? "Hindi nahanap ang listing na ito. Maaaring natanggal na ito o hindi ito sa iyo." : "This listing could not be found.")}
           </AnimoText>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.replace("/(farmer)/(tabs)/palengke")}
             style={({ pressed }) => [styles.emptyCta, pressed && styles.pressed]}>
             <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
-              Bumalik sa Aking Ani
+              {isTagalog ? "Bumalik sa Aking Ani" : "Back to My Harvest"}
             </AnimoText>
           </Pressable>
         </View>
@@ -272,7 +282,7 @@ export default function ListingDetailScreen() {
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
       <StatusBar style="dark" />
       <BackHeader
-        title="Detalye ng Listing"
+        title={isTagalog ? "Detalye ng Listing" : "Listing Details"}
         rightAction={
           canEdit || canArchive || canDelete ? (
             <ListingOverflowButton onPress={() => setActionsOpen(true)} />
@@ -287,7 +297,7 @@ export default function ListingDetailScreen() {
             onPress={() => setActiveTab("detalye")}
             style={[styles.tab, activeTab === "detalye" && styles.tabActive]}>
             <AnimoText variant="bodyEmphasis" color={activeTab === "detalye" ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
-              Detalye ng Listing
+              {isTagalog ? "Detalye ng Listing" : "Listing Details"}
             </AnimoText>
           </Pressable>
           <Pressable
@@ -295,7 +305,7 @@ export default function ListingDetailScreen() {
             onPress={() => setActiveTab("orders")}
             style={[styles.tab, activeTab === "orders" && styles.tabActive]}>
             <AnimoText variant="bodyEmphasis" color={activeTab === "orders" ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
-              Mga Orders {pendingCount > 0 ? `(${pendingCount})` : ""}
+              {isTagalog ? "Mga Orders" : "Orders"} {pendingCount > 0 ? `(${pendingCount})` : ""}
             </AnimoText>
           </Pressable>
         </View>
@@ -317,15 +327,15 @@ export default function ListingDetailScreen() {
         ) : (
           <View style={styles.ordersSection}>
             {orderedRequests.length === 0 ? (
-              <OrdersEmptyState />
+              <OrdersEmptyState lang={language} />
             ) : (
               <>
                 <View style={styles.ordersHeaderRow}>
                   <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-                    Mga Kahilingan
+                    {isTagalog ? "Mga Kahilingan" : "Purchase Requests"}
                   </AnimoText>
                   <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-                    {orderedRequests.length} kabuuan
+                    {orderedRequests.length} {isTagalog ? "kabuuan" : "total"}
                   </AnimoText>
                 </View>
                 {orderedRequests.map((request) => (
@@ -334,6 +344,7 @@ export default function ListingDetailScreen() {
                     request={request}
                     pricePerKg={listing.pricePerKg ?? 0}
                     trustStats={trustByBuyer.get(request.buyerId)}
+                    lang={language}
                     onAccept={() => openAcceptModal(request)}
                     onReject={() => handleOpenReject(request)}
                   />
@@ -353,11 +364,12 @@ export default function ListingDetailScreen() {
             </View>
             <View style={styles.rejectHeaderGroup}>
               <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.textCenter}>
-                Tanggapin ang Kahilingan?
+                {isTagalog ? "Tanggapin ang Kahilingan?" : "Accept Request?"}
               </AnimoText>
               <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
-                Hiniling: {acceptingRequest?.requestedQuantityKg} kg. Maaari mong baguhin kung nais mong
-                bahagyang tanggapin lamang.
+                {isTagalog
+                  ? `Hiniling: ${acceptingRequest?.requestedQuantityKg} kg. Maaari mong baguhin kung nais mong bahagyang tanggapin lamang.`
+                  : `Requested: ${acceptingRequest?.requestedQuantityKg} kg. You can adjust if you wish to accept partially.`}
               </AnimoText>
             </View>
 
@@ -367,7 +379,7 @@ export default function ListingDetailScreen() {
                 keyboardType="numeric"
                 value={acceptQuantityText}
                 onChangeText={(t) => setAcceptQuantityText(t.replace(/[^0-9.]/g, ""))}
-                placeholder="Dami (kg)"
+                placeholder={isTagalog ? "Dami (kg)" : "Quantity (kg)"}
               />
             </View>
             {acceptError ? (
@@ -383,7 +395,7 @@ export default function ListingDetailScreen() {
                 style={({ pressed }) => [styles.acceptModalBtn, pressed && styles.pressed]}>
                 <Check size={18} color={AnimoColors.white} />
                 <AnimoText variant="button" color={AnimoColors.white}>
-                  Tanggapin
+                  {isTagalog ? "Tanggapin" : "Accept"}
                 </AnimoText>
               </Pressable>
               <Pressable
@@ -391,7 +403,7 @@ export default function ListingDetailScreen() {
                 onPress={() => setAcceptingRequest(null)}
                 style={({ pressed }) => [styles.cancelDismissBtn, pressed && styles.pressed]}>
                 <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
-                  Huwag Muna
+                  {isTagalog ? "Huwag Muna" : "Not Now"}
                 </AnimoText>
               </Pressable>
             </View>
@@ -402,15 +414,17 @@ export default function ListingDetailScreen() {
       <FeedbackModal
         visible={acceptedRequest !== null}
         tone="success"
-        title="Tinanggap ang Kahilingan!"
+        title={isTagalog ? "Tinanggap ang Kahilingan!" : "Request Accepted!"}
         message={
           acceptedRequest
-            ? `Matagumpay mong tinanggap ang kahilingan para sa ${acceptedRequest.requestedQuantityKg} kg. Makikita na ito sa iyong mga transaksyon.`
+            ? (isTagalog
+                ? `Matagumpay mong tinanggap ang kahilingan para sa ${acceptedRequest.requestedQuantityKg} kg. Makikita na ito sa iyong mga transaksyon.`
+                : `You successfully accepted the request for ${acceptedRequest.requestedQuantityKg} kg. It will now appear in your transactions.`)
             : ""
         }
-        confirmLabel="Sige, Salamat"
+        confirmLabel={isTagalog ? "Sige, Salamat" : "OK, Thanks"}
         onConfirm={() => setAcceptedRequest(null)}
-        secondaryLabel="Tingnan sa Transaksyon"
+        secondaryLabel={isTagalog ? "Tingnan sa Transaksyon" : "View in Transactions"}
         onSecondary={() => {
           setAcceptedRequest(null);
           router.push("/(farmer)/(tabs)/transaksyon");
@@ -427,15 +441,17 @@ export default function ListingDetailScreen() {
 
             <View style={styles.rejectHeaderGroup}>
               <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.textCenter}>
-                Tanggihan ang Kahilingan?
+                {isTagalog ? "Tanggihan ang Kahilingan?" : "Reject Request?"}
               </AnimoText>
               <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
-                Pumili o maglagay ng dahilan (para sa iyong sariling talaan lamang):
+                {isTagalog
+                  ? "Pumili o maglagay ng dahilan (para sa iyong sariling talaan lamang):"
+                  : "Select or enter a reason (for your records only):"}
               </AnimoText>
             </View>
 
             <View style={styles.reasonsList}>
-              {REJECTION_REASONS.map((reason) => {
+              {rejectionReasons.map((reason) => {
                 const isSelected = selectedReason === reason;
                 return (
                   <Pressable
@@ -457,11 +473,11 @@ export default function ListingDetailScreen() {
               })}
             </View>
 
-            {selectedReason === "Iba pang dahilan" ? (
+            {selectedReason === (isTagalog ? "Iba pang dahilan" : "Other reason") ? (
               <View style={styles.customInputWrap}>
                 <TextInput
                   style={styles.customInput}
-                  placeholder="Isulat ang partikular na dahilan dito..."
+                  placeholder={isTagalog ? "Isulat ang partikular na dahilan dito..." : "Specify reason here..."}
                   placeholderTextColor={AnimoColors.textLowEmphasis}
                   value={customReasonNote}
                   onChangeText={setCustomReasonNote}
@@ -478,7 +494,7 @@ export default function ListingDetailScreen() {
                 style={({ pressed }) => [styles.confirmRejectBtn, pressed && styles.pressed]}>
                 <X size={18} color={AnimoColors.white} />
                 <AnimoText variant="button" color={AnimoColors.white}>
-                  Tanggihan ang Order
+                  {isTagalog ? "Tanggihan ang Order" : "Reject Order"}
                 </AnimoText>
               </Pressable>
 
@@ -487,7 +503,7 @@ export default function ListingDetailScreen() {
                 onPress={() => setRejectingRequest(null)}
                 style={({ pressed }) => [styles.cancelDismissBtn, pressed && styles.pressed]}>
                 <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
-                  Bumalik
+                  {isTagalog ? "Bumalik" : "Back"}
                 </AnimoText>
               </Pressable>
             </View>
@@ -498,9 +514,9 @@ export default function ListingDetailScreen() {
       <FeedbackModal
         visible={rejectSuccessVisible}
         tone="info"
-        title="Tinanggihan ang Kahilingan"
-        message="Naitala ang iyong sagot."
-        confirmLabel="Naiintindihan Ko"
+        title={isTagalog ? "Tinanggihan ang Kahilingan" : "Request Rejected"}
+        message={isTagalog ? "Naitala ang iyong sagot." : "Your response has been recorded."}
+        confirmLabel={isTagalog ? "Naiintindihan Ko" : "I Understand"}
         onConfirm={() => setRejectSuccessVisible(false)}
       />
 
@@ -511,7 +527,7 @@ export default function ListingDetailScreen() {
         canDelete={canDelete}
         onEdit={() => {
           setActionsOpen(false);
-          if (id) router.push({ pathname: "/(farmer)/edit-listing", params: { id } });
+          if (id) router.push({ pathname: "/(farmer)/edit-listing" as any, params: { id } });
         }}
         onArchive={() => {
           setActionsOpen(false);
@@ -542,12 +558,18 @@ export default function ListingDetailScreen() {
             </View>
             <View style={styles.rejectHeaderGroup}>
               <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.textCenter}>
-                {confirmAction === "delete" ? "Tanggalin ang Listing?" : "I-archive ang Listing?"}
+                {confirmAction === "delete"
+                  ? (isTagalog ? "Tanggalin ang Listing?" : "Delete Listing?")
+                  : (isTagalog ? "I-archive ang Listing?" : "Archive Listing?")}
               </AnimoText>
               <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
                 {confirmAction === "delete"
-                  ? "Permanenteng mabubura ang listing at mga larawan nito. Hindi na ito mababawi."
-                  : "Itatago ang listing sa mga mamimili. Hindi ito mabubura — makikita mo pa rin ito sa Aking Ani bilang Naka-archive."}
+                  ? (isTagalog
+                      ? "Permanenteng mabubura ang listing at mga larawan nito. Hindi na ito mababawi."
+                      : "The listing and its photos will be permanently deleted. This cannot be undone.")
+                  : (isTagalog
+                      ? "Itatago ang listing sa mga mamimili. Hindi ito mabubura — makikita mo pa rin ito sa Aking Ani bilang Naka-archive."
+                      : "The listing will be hidden from buyers. It will remain in My Harvest as Archived.")}
               </AnimoText>
             </View>
             {actionError ? (
@@ -574,7 +596,9 @@ export default function ListingDetailScreen() {
                       <Archive size={18} color={AnimoColors.white} />
                     )}
                     <AnimoText variant="button" color={AnimoColors.white}>
-                      {confirmAction === "delete" ? "Tanggalin" : "I-archive"}
+                      {confirmAction === "delete"
+                        ? (isTagalog ? "Tanggalin" : "Delete")
+                        : (isTagalog ? "I-archive" : "Archive")}
                     </AnimoText>
                   </>
                 )}
@@ -585,7 +609,7 @@ export default function ListingDetailScreen() {
                 onPress={() => setConfirmAction(null)}
                 style={({ pressed }) => [styles.cancelDismissBtn, pressed && styles.pressed]}>
                 <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
-                  Huwag Muna
+                  {isTagalog ? "Huwag Muna" : "Not Now"}
                 </AnimoText>
               </Pressable>
             </View>
@@ -596,13 +620,17 @@ export default function ListingDetailScreen() {
       <FeedbackModal
         visible={actionSuccess !== null}
         tone="success"
-        title={actionSuccess === "delete" ? "Natanggal ang Listing" : "Na-archive ang Listing"}
+        title={
+          actionSuccess === "delete"
+            ? (isTagalog ? "Natanggal ang Listing" : "Listing Deleted")
+            : (isTagalog ? "Na-archive ang Listing" : "Listing Archived")
+        }
         message={
           actionSuccess === "delete"
-            ? "Permanenteng natanggal ang listing."
-            : "Nakatago na ang listing sa mga mamimili."
+            ? (isTagalog ? "Permanenteng natanggal ang listing." : "The listing was permanently deleted.")
+            : (isTagalog ? "Nakatago na ang listing sa mga mamimili." : "The listing is now hidden from buyers.")
         }
-        confirmLabel="Sige"
+        confirmLabel={isTagalog ? "Sige" : "OK"}
         onConfirm={() => {
           setActionSuccess(null);
           router.replace("/(farmer)/(tabs)/palengke");
@@ -612,18 +640,20 @@ export default function ListingDetailScreen() {
   );
 }
 
-function OrdersEmptyState() {
+function OrdersEmptyState({ lang = "tl" }: { lang?: "tl" | "en" }) {
+  const isEn = lang === "en";
   return (
     <View style={styles.emptyCard}>
       <View style={styles.emptyIconWrap}>
         <Inbox size={32} color={AnimoColors.accentPrimary} />
       </View>
       <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
-        Wala pang kahilingan
+        {isEn ? "No purchase requests yet" : "Wala pang kahilingan"}
       </AnimoText>
       <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
-        Kapag may mamimiling interesado sa listing na ito, lalabas dito ang kanilang order.
-        Hintaying dumating ang unang kahilingan.
+        {isEn
+          ? "When a buyer requests to purchase from this listing, their order will appear here."
+          : "Kapag may mamimiling interesado sa listing na ito, lalabas dito ang kanilang order. Hintaying dumating ang unang kahilingan."}
       </AnimoText>
     </View>
   );
@@ -633,15 +663,18 @@ function PurchaseRequestCard({
   request,
   pricePerKg,
   trustStats,
+  lang = "tl",
   onAccept,
   onReject,
 }: {
   request: PurchaseRequest;
   pricePerKg: number;
   trustStats?: BuyerTrustStats;
+  lang?: "tl" | "en";
   onAccept: () => void;
   onReject: () => void;
 }) {
+  const isEn = lang === "en";
   const openBuyerProfile = () => {
     router.push({
       pathname: "/(farmer)/mamimili/[id]",
@@ -658,7 +691,7 @@ function PurchaseRequestCard({
       <View style={styles.requestTopRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Tingnan ang profile ng mamimili"
+          accessibilityLabel={isEn ? "View buyer profile" : "Tingnan ang profile ng mamimili"}
           hitSlop={8}
           onPress={openBuyerProfile}
           style={styles.requestAvatar}>
@@ -668,7 +701,7 @@ function PurchaseRequestCard({
           <View style={styles.requestInfoTop}>
             <Pressable accessibilityRole="button" hitSlop={8} onPress={openBuyerProfile}>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                Kahilingan ng Mamimili
+                {isEn ? "Buyer Request" : "Kahilingan ng Mamimili"}
               </AnimoText>
             </Pressable>
             <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
@@ -693,13 +726,13 @@ function PurchaseRequestCard({
           <Pressable accessibilityRole="button" onPress={onReject} style={({ pressed }) => [styles.rejectButton, pressed && styles.pressed]}>
             <X size={16} color={AnimoColors.caution} />
             <AnimoText variant="bodyEmphasis" color={AnimoColors.caution}>
-              Tanggihan
+              {isEn ? "Reject" : "Tanggihan"}
             </AnimoText>
           </Pressable>
           <Pressable accessibilityRole="button" onPress={onAccept} style={({ pressed }) => [styles.acceptButton, pressed && styles.pressed]}>
             <Check size={16} color={AnimoColors.white} />
             <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
-              Tanggapin
+              {isEn ? "Accept" : "Tanggapin"}
             </AnimoText>
           </Pressable>
         </View>

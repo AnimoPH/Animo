@@ -92,20 +92,37 @@ const FILIPINO_MONTHS = [
   'Disyembre',
 ];
 
+const ENGLISH_MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
 export function formatPeso(amount: number): string {
   return `₱${amount.toFixed(2)}`;
 }
 
-export function formatRegisteredDate(isoDate: string): string {
+export function formatRegisteredDate(isoDate: string, isTagalog = true): string {
   const date = new Date(`${isoDate}T00:00:00`);
   if (Number.isNaN(date.getTime())) return isoDate;
-  return `${FILIPINO_MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  const months = isTagalog ? FILIPINO_MONTHS : ENGLISH_MONTHS;
+  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 }
 
-export function formatReviewDate(isoDate: string): string {
+export function formatReviewDate(isoDate: string, isTagalog = true): string {
   const date = new Date(isoDate);
   if (Number.isNaN(date.getTime())) return isoDate;
-  return `${FILIPINO_MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  const months = isTagalog ? FILIPINO_MONTHS : ENGLISH_MONTHS;
+  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 }
 
 export function mapAccountStatus(status: string): 'active' | 'inactive' | 'suspended' {
@@ -114,9 +131,9 @@ export function mapAccountStatus(status: string): 'active' | 'inactive' | 'suspe
   return 'inactive';
 }
 
-export function mapRoleLabel(role: string): string {
-  if (role === 'Farmer') return 'Magsasaka';
-  if (role === 'Buyer') return 'Mamimili';
+export function mapRoleLabel(role: string, isTagalog = true): string {
+  if (role === 'Farmer') return isTagalog ? 'Magsasaka' : 'Farmer';
+  if (role === 'Buyer') return isTagalog ? 'Mamimili' : 'Buyer';
   return role;
 }
 
@@ -125,10 +142,10 @@ function asOne<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
-export function formatSyncTimestamp(isoDate: string): string {
+export function formatSyncTimestamp(isoDate: string, isTagalog = true): string {
   const date = new Date(`${isoDate}T12:00:00`);
   if (Number.isNaN(date.getTime())) return isoDate;
-  return date.toLocaleString('en-PH', {
+  return date.toLocaleString(isTagalog ? 'fil-PH' : 'en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -576,7 +593,7 @@ export async function fetchLguUserTransactions(
  * has no relationship to the actual data and misrepresented several months
  * of history as a "weekly" trend. Labels the month instead.
  */
-export function toMonthlyBars(points: PriceHistoryPoint[], take = 7) {
+export function toMonthlyBars(points: PriceHistoryPoint[], take = 7, isTagalog = true) {
   const slice = points.slice(-take);
   if (slice.length === 0) return [];
 
@@ -585,9 +602,11 @@ export function toMonthlyBars(points: PriceHistoryPoint[], take = 7) {
   const max = Math.max(...prices);
   const range = max - min || 1;
 
+  const months = isTagalog ? FILIPINO_MONTHS : ENGLISH_MONTHS;
+
   return slice.map((point, index) => {
     const monthIndex = Number(point.month.slice(5, 7)) - 1;
-    const label = FILIPINO_MONTHS[monthIndex]?.slice(0, 3) ?? point.month;
+    const label = months[monthIndex]?.slice(0, 3) ?? point.month;
     return {
       day: label,
       pricePerKg: point.pricePerKg,

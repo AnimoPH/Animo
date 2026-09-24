@@ -9,7 +9,7 @@ import {
   ShoppingBag,
   Star,
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,6 +17,7 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { FilterChips } from '@/components/animo/filter-chips';
 import { BackHeader } from '@/components/animo/back-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
 
 type NotificationCategory = 'lahat' | 'transaksyon' | 'palengke' | 'sistema';
 
@@ -31,7 +32,7 @@ type NotificationItem = {
   targetRoute?: string;
 };
 
-const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
+const SAMPLE_NOTIFICATIONS_TL: NotificationItem[] = [
   {
     id: 'n-1',
     category: 'transaksyon',
@@ -40,7 +41,7 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
     timeAgo: '5 minuto ang nakalipas',
     read: false,
     type: 'accepted',
-    targetRoute: '/(buyer)/transaksyon/pr-scheduled/pickup',
+    targetRoute: '/(buyer)/transaksyon',
   },
   {
     id: 'n-2',
@@ -50,7 +51,7 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
     timeAgo: '1 oras ang nakalipas',
     read: false,
     type: 'schedule',
-    targetRoute: '/(buyer)/transaksyon/pr-scheduled/pickup',
+    targetRoute: '/(buyer)/transaksyon',
   },
   {
     id: 'n-3',
@@ -60,7 +61,7 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
     timeAgo: '2 oras ang nakalipas',
     read: false,
     type: 'payment',
-    targetRoute: '/(buyer)/transaksyon/pr-completed/resibo',
+    targetRoute: '/(buyer)/transaksyon',
   },
   {
     id: 'n-4',
@@ -70,7 +71,7 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
     timeAgo: '1 araw ang nakalipas',
     read: true,
     type: 'review',
-    targetRoute: '/(buyer)/transaksyon/pr-completed/review',
+    targetRoute: '/(buyer)/transaksyon',
   },
   {
     id: 'n-5',
@@ -93,19 +94,97 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
   },
 ];
 
-const CATEGORY_FILTERS: { value: NotificationCategory; label: string }[] = [
+const SAMPLE_NOTIFICATIONS_EN: NotificationItem[] = [
+  {
+    id: 'n-1',
+    category: 'transaksyon',
+    title: 'Your Order was Accepted!',
+    message: 'Juan Dela Cruz accepted your order for 500 kg of Palay RC160.',
+    timeAgo: '5 minutes ago',
+    read: false,
+    type: 'accepted',
+    targetRoute: '/(buyer)/transaksyon',
+  },
+  {
+    id: 'n-2',
+    category: 'transaksyon',
+    title: 'Pickup Scheduled',
+    message: 'Pickup is scheduled for tomorrow, Oct 18 from 8:00 AM - 10:00 AM at Farm 1A, Antipolo.',
+    timeAgo: '1 hour ago',
+    read: false,
+    type: 'schedule',
+    targetRoute: '/(buyer)/transaksyon',
+  },
+  {
+    id: 'n-3',
+    category: 'transaksyon',
+    title: 'Payment Confirmed',
+    message: '₱8,000.00 was successfully received via GCash (GC-8846702).',
+    timeAgo: '2 hours ago',
+    read: false,
+    type: 'payment',
+    targetRoute: '/(buyer)/transaksyon',
+  },
+  {
+    id: 'n-4',
+    category: 'transaksyon',
+    title: 'Leave a Review',
+    message: 'Your transaction with Juan Dela Cruz is complete. Share your experience!',
+    timeAgo: '1 day ago',
+    read: true,
+    type: 'review',
+    targetRoute: '/(buyer)/transaksyon',
+  },
+  {
+    id: 'n-5',
+    category: 'palengke',
+    title: 'New Harvest on Marketplace',
+    message: 'Pedro Ramos listed 200 kg of Palay RC 638 SR in Antipolo at ₱15.50/kg.',
+    timeAgo: '1 day ago',
+    read: true,
+    type: 'listing',
+    targetRoute: '/(buyer)/palengke',
+  },
+  {
+    id: 'n-6',
+    category: 'sistema',
+    title: 'Official LGU Price Released',
+    message: 'The Municipal Agriculture Office has published this week\'s official suggested retail price for paddy in Antipolo and Rizal.',
+    timeAgo: '3 days ago',
+    read: true,
+    type: 'system',
+  },
+];
+
+const CATEGORY_FILTERS_TL: { value: NotificationCategory; label: string }[] = [
   { value: 'lahat', label: 'Lahat' },
   { value: 'transaksyon', label: 'Transaksyon' },
   { value: 'palengke', label: 'Palengke' },
   { value: 'sistema', label: 'Sistema' },
 ];
 
+const CATEGORY_FILTERS_EN: { value: NotificationCategory; label: string }[] = [
+  { value: 'lahat', label: 'All' },
+  { value: 'transaksyon', label: 'Transactions' },
+  { value: 'palengke', label: 'Marketplace' },
+  { value: 'sistema', label: 'System' },
+];
+
 /**
  * Mga Notipikasyon — Buyer notifications screen with filter chips and sample updates.
  */
 export default function NotificationsScreen() {
+  const { isTagalog } = useLanguage();
   const [filter, setFilter] = useState<NotificationCategory>('lahat');
-  const [notifications, setNotifications] = useState(SAMPLE_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState(
+    isTagalog ? SAMPLE_NOTIFICATIONS_TL : SAMPLE_NOTIFICATIONS_EN
+  );
+
+  useEffect(() => {
+    setNotifications(isTagalog ? SAMPLE_NOTIFICATIONS_TL : SAMPLE_NOTIFICATIONS_EN);
+  }, [isTagalog]);
+
+  const categoryFilters = isTagalog ? CATEGORY_FILTERS_TL : CATEGORY_FILTERS_EN;
 
   const filteredItems = notifications.filter(
     (n) => filter === 'lahat' || n.category === filter
@@ -159,17 +238,17 @@ export default function NotificationsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title="Mga Notipikasyon" />
+      <BackHeader title={isTagalog ? 'Mga Notipikasyon' : 'Notifications'} />
 
       <View style={styles.filterBar}>
         <FilterChips
-          options={CATEGORY_FILTERS}
+          options={categoryFilters}
           value={filter}
           onChange={setFilter}
         />
         <Pressable onPress={handleMarkAllAsRead} hitSlop={8} style={styles.readAllButton}>
           <AnimoText variant="caption" color={AnimoColors.green}>
-            Basahin Lahat
+            {isTagalog ? 'Basahin Lahat' : 'Mark all as read'}
           </AnimoText>
         </Pressable>
       </View>
@@ -177,47 +256,55 @@ export default function NotificationsScreen() {
       <ScrollView
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}>
-        {filteredItems.map((item) => (
-          <Pressable
-            key={item.id}
-            style={[
-              styles.notificationCard,
-              !item.read && styles.unreadCard,
-            ]}
-            onPress={() => handleNotificationPress(item)}>
-            <View
+        {filteredItems.length === 0 ? (
+          <View style={styles.emptyState}>
+            <AnimoText variant="body" color={AnimoColors.muted} style={styles.emptyText}>
+              {isTagalog ? 'Walang mga notipikasyon sa kategoryang ito.' : 'No notifications in this category.'}
+            </AnimoText>
+          </View>
+        ) : (
+          filteredItems.map((item) => (
+            <Pressable
+              key={item.id}
               style={[
-                styles.iconCircle,
-                { backgroundColor: getIconBg(item.type) },
-              ]}>
-              {getIcon(item.type)}
-            </View>
-
-            <View style={styles.textWrap}>
-              <View style={styles.topRow}>
-                <AnimoText
-                  variant="bodyEmphasis"
-                  color={AnimoColors.black}
-                  style={styles.flex}>
-                  {item.title}
-                </AnimoText>
-                {!item.read && <View style={styles.unreadDot} />}
+                styles.notificationCard,
+                !item.read && styles.unreadCard,
+              ]}
+              onPress={() => handleNotificationPress(item)}>
+              <View
+                style={[
+                  styles.iconCircle,
+                  { backgroundColor: getIconBg(item.type) },
+                ]}>
+                {getIcon(item.type)}
               </View>
 
-              <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                {item.message}
-              </AnimoText>
+              <View style={styles.textWrap}>
+                <View style={styles.topRow}>
+                  <AnimoText
+                    variant="bodyEmphasis"
+                    color={AnimoColors.black}
+                    style={styles.flex}>
+                    {item.title}
+                  </AnimoText>
+                  {!item.read && <View style={styles.unreadDot} />}
+                </View>
 
-              <AnimoText variant="tag" color={AnimoColors.muted}>
-                {item.timeAgo}
-              </AnimoText>
-            </View>
+                <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+                  {item.message}
+                </AnimoText>
 
-            {item.targetRoute && (
-              <ChevronRight size={18} color={AnimoColors.muted} />
-            )}
-          </Pressable>
-        ))}
+                <AnimoText variant="tag" color={AnimoColors.muted}>
+                  {item.timeAgo}
+                </AnimoText>
+              </View>
+
+              {item.targetRoute && (
+                <ChevronRight size={18} color={AnimoColors.muted} />
+              )}
+            </Pressable>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -282,4 +369,13 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: AnimoColors.green,
   },
+  emptyState: {
+    paddingVertical: AnimoSpacing.xxl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    textAlign: 'center',
+  },
 });
+

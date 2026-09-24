@@ -87,62 +87,67 @@ export type BarangayAdvisory = {
   status: AdvisoryStatus;
 };
 
-export const BARANGAY_ADVISORIES: BarangayAdvisory[] = [
-  {
-    barangay: 'Brgy. San Jose',
-    severity: 'severe',
-    advisory: 'Rain Advisory — Malubha',
-    issued: 'Okt 12 · 06:00 AM',
-    delivered: 38,
-    total: 38,
-    status: 'active',
-  },
-  {
-    barangay: 'Brgy. Concepcion',
-    severity: 'mild',
-    advisory: 'Rain Advisory — Banayad',
-    issued: 'Okt 12 · 06:00 AM',
-    delivered: 27,
-    total: 27,
-    status: 'active',
-  },
-  {
-    barangay: 'Brgy. Sta. Cruz',
-    severity: 'moderate',
-    advisory: 'Rain Advisory — Katamtaman',
-    issued: 'Okt 11 · 05:30 PM',
-    delivered: 24,
-    total: 24,
-    status: 'active',
-  },
-  {
-    barangay: 'Brgy. Tibag',
-    severity: 'mild',
-    advisory: 'Rain Advisory — Banayad',
-    issued: 'Okt 11 · 05:30 PM',
-    delivered: 19,
-    total: 19,
-    status: 'done',
-  },
-  {
-    barangay: 'Brgy. Pagala',
-    severity: 'clear',
-    advisory: 'Walang babala',
-    issued: 'Okt 10 · 06:00 AM',
-    delivered: 31,
-    total: 31,
-    status: 'done',
-  },
-  {
-    barangay: 'Brgy. Makinabang',
-    severity: 'clear',
-    advisory: 'Walang babala',
-    issued: 'Okt 10 · 06:00 AM',
-    delivered: 22,
-    total: 22,
-    status: 'done',
-  },
-];
+export function getBarangayAdvisories(lang: 'tl' | 'en' = 'tl'): BarangayAdvisory[] {
+  const isEn = lang === 'en';
+  return [
+    {
+      barangay: 'Brgy. San Jose',
+      severity: 'severe',
+      advisory: isEn ? 'Rain Advisory — Severe' : 'Payo sa Ulan — Malubha',
+      issued: isEn ? 'Oct 12 · 06:00 AM' : 'Okt 12 · 06:00 AM',
+      delivered: 38,
+      total: 38,
+      status: 'active',
+    },
+    {
+      barangay: 'Brgy. Concepcion',
+      severity: 'mild',
+      advisory: isEn ? 'Rain Advisory — Mild' : 'Payo sa Ulan — Banayad',
+      issued: isEn ? 'Oct 12 · 06:00 AM' : 'Okt 12 · 06:00 AM',
+      delivered: 27,
+      total: 27,
+      status: 'active',
+    },
+    {
+      barangay: 'Brgy. Sta. Cruz',
+      severity: 'moderate',
+      advisory: isEn ? 'Rain Advisory — Moderate' : 'Payo sa Ulan — Katamtaman',
+      issued: isEn ? 'Oct 11 · 05:30 PM' : 'Okt 11 · 05:30 PM',
+      delivered: 24,
+      total: 24,
+      status: 'active',
+    },
+    {
+      barangay: 'Brgy. Tibag',
+      severity: 'mild',
+      advisory: isEn ? 'Rain Advisory — Mild' : 'Payo sa Ulan — Banayad',
+      issued: isEn ? 'Oct 11 · 05:30 PM' : 'Okt 11 · 05:30 PM',
+      delivered: 19,
+      total: 19,
+      status: 'done',
+    },
+    {
+      barangay: 'Brgy. Pagala',
+      severity: 'clear',
+      advisory: isEn ? 'No Advisory' : 'Walang babala',
+      issued: isEn ? 'Oct 10 · 06:00 AM' : 'Okt 10 · 06:00 AM',
+      delivered: 31,
+      total: 31,
+      status: 'done',
+    },
+    {
+      barangay: 'Brgy. Makinabang',
+      severity: 'clear',
+      advisory: isEn ? 'No Advisory' : 'Walang babala',
+      issued: isEn ? 'Oct 10 · 06:00 AM' : 'Okt 10 · 06:00 AM',
+      delivered: 22,
+      total: 22,
+      status: 'done',
+    },
+  ];
+}
+
+export const BARANGAY_ADVISORIES: BarangayAdvisory[] = getBarangayAdvisories('tl');
 
 /* ---------------- Notifications ---------------- */
 
@@ -162,86 +167,112 @@ export type TriggerAlert = {
   recommendations?: string[];
 };
 
-export const TRIGGER_ALERTS: TriggerAlert[] = [
-  {
-    id: 'alert-1',
-    kind: 'severe',
-    title: 'Malubhang ulan sa Brgy. San Jose',
-    body: 'Umabot sa 42 mm/oras ang inaasahang ulan sa susunod na 6 na oras. Naipadala ang advisory sa 38 magsasaka.',
-    time: 'Okt 12 · 06:00 AM',
-    badge: 'Malubha',
-    unread: true,
-    barangay: 'Brgy. San Jose',
-    sender: 'PAGASA Doppler Radar & LGU Sensor Station #2',
-    recipientsCount: 38,
-    recommendations: [
-      'Iantala muna ang paggapas o anihan ng palay ngayong umaga.',
-      'Ilikas ang mga naani at nakabilad na palay sa mga sementadong bodega.',
-      'Suriin ang mga daluyan ng tubig at irigasyon upang maiwasan ang pagbaha sa bukid.',
-    ],
-  },
-  {
-    id: 'alert-2',
-    kind: 'nfa',
-    title: 'NFA Volatility Alert — Fallback Safeguard',
-    body: 'Na-activate ang fallback alert para sa biglaang pagbabago sa presyo ng NFA. Naka-clamp ang presyo para maiwasan ang market crash.',
-    time: 'Okt 12 · 07:30 AM',
-    badge: 'NFA Alerto',
-    unread: true,
-    barangay: 'Lahat ng Barangay',
-    sender: 'National Food Authority (NFA) Monitoring & LGU Agri Office',
-    recipientsCount: 161,
-    recommendations: [
-      'Awtomatikong inilapat ang minimum floor price clamp sa lahat ng bagong transaksyon sa Animo.',
-      'Aabisuhan ang mga rehistradong mamimili sa bagong pamantayan ng NFA.',
-    ],
-  },
-  {
-    id: 'alert-3',
-    kind: 'psa',
-    title: 'Na-sync ang Market Prices mula sa PSA',
-    body: 'Matagumpay na na-update ang average farmgate price benchmark (₱16.40/kg) batay sa pinakabagong lingguhang ulat ng PSA.',
-    time: 'Okt 12 · 08:00 AM',
-    badge: 'PSA Sync',
-    unread: true,
-    barangay: 'Region III & Rizal',
-    sender: 'Philippine Statistics Authority (PSA) Open API',
-    recipientsCount: 161,
-    recommendations: [
-      'Naka-calibrate ang system pricing algorithm para sa patas na komputasyon.',
-    ],
-  },
-  {
-    id: 'alert-4',
-    kind: 'moderate',
-    title: 'Katamtamang ulan sa Brgy. Sta. Cruz',
-    body: 'Inaasahang 24 mm/oras na ulan bukas ng umaga. Naipadala sa 24 magsasaka.',
-    time: 'Okt 11 · 05:30 PM',
-    badge: 'Katamtaman',
-    unread: false,
-    barangay: 'Brgy. Sta. Cruz',
-    sender: 'LGU Weather Advisory System',
-    recipientsCount: 24,
-    recommendations: [
-      'Maghanda ng mga trapal pantakip sa mga binhi at aning palay.',
-    ],
-  },
-  {
-    id: 'alert-5',
-    kind: 'price',
-    title: 'Nag-clamp ng presyo — Tier 2',
-    body: 'Na-clamp ang LST-2091 mula ₱17.80 patungong ₱16.90 dahil sa labis na volatility sa merkado.',
-    time: 'Okt 12 · 08:14 AM',
-    badge: 'Presyo',
-    unread: false,
-    barangay: 'Brgy. San Jose',
-    sender: 'ANIMO Automated Volatility Engine',
-    recipientsCount: 1,
-    recommendations: [
-      'Inabisuhan ang nagtitinda at ang mamimili kaugnay ng regulated price cap.',
-    ],
-  },
-];
+export function getTriggerAlerts(lang: 'tl' | 'en' = 'tl'): TriggerAlert[] {
+  const isEn = lang === 'en';
+  return [
+    {
+      id: 'alert-1',
+      kind: 'severe',
+      title: isEn ? 'Heavy Rainfall in Brgy. San Jose' : 'Malubhang ulan sa Brgy. San Jose',
+      body: isEn
+        ? 'Expected rainfall up to 42 mm/hr in the next 6 hours. Advisory dispatched to 38 farmers.'
+        : 'Umabot sa 42 mm/oras ang inaasahang ulan sa susunod na 6 na oras. Naipadala ang advisory sa 38 magsasaka.',
+      time: isEn ? 'Oct 12 · 06:00 AM' : 'Okt 12 · 06:00 AM',
+      badge: isEn ? 'Severe' : 'Malubha',
+      unread: true,
+      barangay: 'Brgy. San Jose',
+      sender: isEn ? 'PAGASA Doppler Radar & LGU Sensor Station #2' : 'PAGASA Doppler Radar & LGU Sensor Station #2',
+      recipientsCount: 38,
+      recommendations: isEn
+        ? [
+            'Postpone palay harvesting and grain drying operations this morning.',
+            'Move harvested and unsacked palay to covered concrete warehouses.',
+            'Inspect drainage channels and irrigation canals to prevent field flooding.',
+          ]
+        : [
+            'Iantala muna ang paggapas o anihan ng palay ngayong umaga.',
+            'Ilikas ang mga naani at nakabilad na palay sa mga sementadong bodega.',
+            'Suriin ang mga daluyan ng tubig at irigasyon upang maiwasan ang pagbaha sa bukid.',
+          ],
+    },
+    {
+      id: 'alert-2',
+      kind: 'nfa',
+      title: isEn ? 'NFA Volatility Alert — Fallback Safeguard' : 'NFA Volatility Alert — Fallback Safeguard',
+      body: isEn
+        ? 'Fallback safeguard activated due to sudden NFA price movement. Price floor clamped to prevent market crash.'
+        : 'Na-activate ang fallback alert para sa biglaang pagbabago sa presyo ng NFA. Naka-clamp ang presyo para maiwasan ang market crash.',
+      time: isEn ? 'Oct 12 · 07:30 AM' : 'Okt 12 · 07:30 AM',
+      badge: isEn ? 'NFA Alert' : 'NFA Alerto',
+      unread: true,
+      barangay: isEn ? 'All Barangays' : 'Lahat ng Barangay',
+      sender: 'National Food Authority (NFA) Monitoring & LGU Agri Office',
+      recipientsCount: 161,
+      recommendations: isEn
+        ? [
+            'Minimum floor price clamp automatically applied to all new transactions in Animo.',
+            'Registered buyers notified of updated NFA benchmark standards.',
+          ]
+        : [
+            'Awtomatikong inilapat ang minimum floor price clamp sa lahat ng bagong transaksyon sa Animo.',
+            'Aabisuhan ang mga rehistradong mamimili sa bagong pamantayan ng NFA.',
+          ],
+    },
+    {
+      id: 'alert-3',
+      kind: 'psa',
+      title: isEn ? 'Market Benchmark Prices Synced from PSA' : 'Na-sync ang Market Prices mula sa PSA',
+      body: isEn
+        ? 'Successfully updated average farmgate price benchmark (₱16.40/kg) based on latest weekly PSA report.'
+        : 'Matagumpay na na-update ang average farmgate price benchmark (₱16.40/kg) batay sa pinakabagong lingguhang ulat ng PSA.',
+      time: isEn ? 'Oct 12 · 08:00 AM' : 'Okt 12 · 08:00 AM',
+      badge: 'PSA Sync',
+      unread: true,
+      barangay: 'Region III & Rizal',
+      sender: 'Philippine Statistics Authority (PSA) Open API',
+      recipientsCount: 161,
+      recommendations: isEn
+        ? ['System pricing algorithms calibrated for fair farmgate computation.']
+        : ['Naka-calibrate ang system pricing algorithm para sa patas na komputasyon.'],
+    },
+    {
+      id: 'alert-4',
+      kind: 'moderate',
+      title: isEn ? 'Moderate Rainfall in Brgy. Sta. Cruz' : 'Katamtamang ulan sa Brgy. Sta. Cruz',
+      body: isEn
+        ? 'Expected 24 mm/hr rainfall tomorrow morning. Dispatched to 24 farmers.'
+        : 'Inaasahang 24 mm/oras na ulan bukas ng umaga. Naipadala sa 24 magsasaka.',
+      time: isEn ? 'Oct 11 · 05:30 PM' : 'Okt 11 · 05:30 PM',
+      badge: isEn ? 'Moderate' : 'Katamtaman',
+      unread: false,
+      barangay: 'Brgy. Sta. Cruz',
+      sender: 'LGU Weather Advisory System',
+      recipientsCount: 24,
+      recommendations: isEn
+        ? ['Prepare tarpaulins and protective covers for drying seeds and palay sacks.']
+        : ['Maghanda ng mga trapal pantakip sa mga binhi at aning palay.'],
+    },
+    {
+      id: 'alert-5',
+      kind: 'price',
+      title: isEn ? 'Price Clamped — Tier 2 Safeguard' : 'Nag-clamp ng presyo — Tier 2',
+      body: isEn
+        ? 'LST-2091 clamped from ₱17.80 to ₱16.90 due to excessive market volatility.'
+        : 'Na-clamp ang LST-2091 mula ₱17.80 patungong ₱16.90 dahil sa labis na volatility sa merkado.',
+      time: isEn ? 'Oct 12 · 08:14 AM' : 'Okt 12 · 08:14 AM',
+      badge: isEn ? 'Price' : 'Presyo',
+      unread: false,
+      barangay: 'Brgy. San Jose',
+      sender: 'ANIMO Automated Volatility Engine',
+      recipientsCount: 1,
+      recommendations: isEn
+        ? ['Seller and buyer notified of regulated price cap enforcement.']
+        : ['Inabisuhan ang nagtitinda at ang mamimili kaugnay ng regulated price cap.'],
+    },
+  ];
+}
+
+export const TRIGGER_ALERTS: TriggerAlert[] = getTriggerAlerts('tl');
 
 export type TriggerSummaryRow = {
   label: string;
@@ -249,19 +280,29 @@ export type TriggerSummaryRow = {
   count: number;
 };
 
-export const TRIGGER_SUMMARY: TriggerSummaryRow[] = [
-  { label: 'Malubha (Severe)', color: 'var(--animo-danger)', count: 3 },
-  { label: 'NFA / PSA Sync', color: '#2563EB', count: 4 },
-  { label: 'Katamtaman (Moderate)', color: 'var(--animo-warning)', count: 5 },
-  { label: 'Banayad (Mild)', color: 'var(--animo-caution)', count: 9 },
-  { label: 'Presyo (Tier 2 / 3)', color: '#3B82F6', count: 5 },
-];
+export function getTriggerSummary(lang: 'tl' | 'en' = 'tl'): TriggerSummaryRow[] {
+  const isEn = lang === 'en';
+  return [
+    { label: isEn ? 'Severe' : 'Malubha (Severe)', color: 'var(--animo-danger)', count: 3 },
+    { label: 'NFA / PSA Sync', color: '#2563EB', count: 4 },
+    { label: isEn ? 'Moderate' : 'Katamtaman (Moderate)', color: 'var(--animo-warning)', count: 5 },
+    { label: isEn ? 'Mild' : 'Banayad (Mild)', color: 'var(--animo-caution)', count: 9 },
+    { label: isEn ? 'Price Safeguard' : 'Presyo (Tier 2 / 3)', color: '#3B82F6', count: 5 },
+  ];
+}
 
-export const DELIVERY_CHANNELS = [
-  { label: 'SMS', value: '94.2% delivered' },
-  { label: 'In-app push', value: '88.0% delivered' },
-  { label: 'Barangay board', value: '100% delivered' },
-];
+export const TRIGGER_SUMMARY: TriggerSummaryRow[] = getTriggerSummary('tl');
+
+export function getDeliveryChannels(lang: 'tl' | 'en' = 'tl') {
+  const isEn = lang === 'en';
+  return [
+    { label: 'SMS', value: isEn ? '94.2% delivered' : '94.2% naipadala' },
+    { label: 'In-app push', value: isEn ? '88.0% delivered' : '88.0% naipadala' },
+    { label: isEn ? 'Barangay notice board' : 'Barangay board', value: isEn ? '100% posted' : '100% naipaskil' },
+  ];
+}
+
+export const DELIVERY_CHANNELS = getDeliveryChannels('tl');
 
 /* ---------------- Reviews & Reports Models ---------------- */
 
@@ -681,28 +722,38 @@ export const LGU_PROFILE = {
   barangayCount: 6,
 };
 
-export const LEGAL_LINKS = [
-  {
-    key: 'terms',
-    title: 'Terms and Conditions',
-    subtitle: 'Mga tuntunin ng paggamit',
-    icon: 'file' as const,
-  },
-  {
-    key: 'privacy',
-    title: 'Privacy Policy',
-    subtitle: 'Paano ginagamit ang datos',
-    icon: 'lock' as const,
-  },
-  {
-    key: 'data-sharing',
-    title: 'Data Sharing Agreement',
-    subtitle: 'LGU – DA – PhilRice',
-    icon: 'database' as const,
-  },
-];
+export function getLegalLinks(lang: 'tl' | 'en' = 'tl') {
+  const isEn = lang === 'en';
+  return [
+    {
+      key: 'terms',
+      title: 'Terms and Conditions',
+      subtitle: isEn ? 'Terms of use and agreement' : 'Mga tuntunin ng paggamit',
+      icon: 'file' as const,
+    },
+    {
+      key: 'privacy',
+      title: 'Privacy Policy',
+      subtitle: isEn ? 'How your data is protected' : 'Paano ginagamit ang datos',
+      icon: 'lock' as const,
+    },
+    {
+      key: 'data-sharing',
+      title: 'Data Sharing Agreement',
+      subtitle: 'LGU – DA – PhilRice',
+      icon: 'database' as const,
+    },
+  ];
+}
 
-export const APP_INFO = [
-  { label: 'Bersyon', value: 'ANIMO LGU 1.4.0' },
-  { label: 'Huling sync', value: 'Okt 12, 2025 · 09:05 AM' },
-];
+export const LEGAL_LINKS = getLegalLinks('tl');
+
+export function getAppInfo(lang: 'tl' | 'en' = 'tl') {
+  const isEn = lang === 'en';
+  return [
+    { label: isEn ? 'Version' : 'Bersyon', value: 'ANIMO LGU 1.4.0' },
+    { label: isEn ? 'Last sync' : 'Huling sync', value: isEn ? 'Oct 12, 2025 · 09:05 AM' : 'Okt 12, 2025 · 09:05 AM' },
+  ];
+}
+
+export const APP_INFO = getAppInfo('tl');

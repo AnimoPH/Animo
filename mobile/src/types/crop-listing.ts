@@ -60,6 +60,18 @@ export const INBRED_SPECIFIC_VARIETY_OPTIONS: SpecificVarietyOption[] = [
   { value: SPECIFIC_VARIETY_OTHER, label: 'Iba pa', varietyCode: 'OTHER' },
 ];
 
+export const INBRED_SPECIFIC_VARIETY_OPTIONS_EN: SpecificVarietyOption[] = [
+  { value: 'Rc218', label: 'NSIC Rc218', varietyCode: '218' },
+  { value: 'Rc216', label: 'NSIC Rc216', varietyCode: 'OTHER' },
+  { value: 'Rc160', label: 'NSIC Rc160', varietyCode: 'OTHER' },
+  { value: 'Rc222', label: 'NSIC Rc222', varietyCode: 'OTHER' },
+  { value: 'Rc300', label: 'NSIC Rc300', varietyCode: 'OTHER' },
+  { value: 'Rc512', label: 'NSIC Rc512', varietyCode: 'OTHER' },
+  { value: 'Rc508', label: 'NSIC Rc508', varietyCode: 'OTHER' },
+  { value: 'Rc480', label: 'NSIC Rc480', varietyCode: 'OTHER' },
+  { value: SPECIFIC_VARIETY_OTHER, label: 'Other', varietyCode: 'OTHER' },
+];
+
 /** Shown after "Uri ng Palay" resolves to Hybrid — maps to `variety_code` and `specific_variety_name`. */
 export const HYBRID_SPECIFIC_VARIETY_OPTIONS: SpecificVarietyOption[] = [
   { value: 'Rc204H', label: 'Mestizo 20 (NSIC Rc204H)', varietyCode: 'OTHER' },
@@ -67,21 +79,64 @@ export const HYBRID_SPECIFIC_VARIETY_OPTIONS: SpecificVarietyOption[] = [
   { value: SPECIFIC_VARIETY_OTHER, label: 'Iba pa', varietyCode: 'OTHER' },
 ];
 
+export const HYBRID_SPECIFIC_VARIETY_OPTIONS_EN: SpecificVarietyOption[] = [
+  { value: 'Rc204H', label: 'Mestizo 20 (NSIC Rc204H)', varietyCode: 'OTHER' },
+  { value: 'PSB Rc72H', label: 'Mestizo 1 (PSB Rc72H)', varietyCode: 'OTHER' },
+  { value: SPECIFIC_VARIETY_OTHER, label: 'Other', varietyCode: 'OTHER' },
+];
+
 const SPECIFIC_VARIETY_LABEL_BY_VALUE = new Map(
   [...INBRED_SPECIFIC_VARIETY_OPTIONS, ...HYBRID_SPECIFIC_VARIETY_OPTIONS].map((o) => [o.value, o.label]),
 );
 
 export const PURITY_OPTIONS: { value: PurityGrade; label: string }[] = [
-  { value: 'A', label: 'A' },
-  { value: 'B', label: 'B' },
-  { value: 'C', label: 'C' },
+  { value: 'A', label: 'Grade A' },
+  { value: 'B', label: 'Grade B' },
+  { value: 'C', label: 'Grade C' },
   { value: 'Ungraded', label: 'Walang Grado' },
+];
+
+export const PURITY_OPTIONS_EN: { value: PurityGrade; label: string }[] = [
+  { value: 'A', label: 'Grade A' },
+  { value: 'B', label: 'Grade B' },
+  { value: 'C', label: 'Grade C' },
+  { value: 'Ungraded', label: 'Ungraded' },
 ];
 
 export const MOISTURE_OPTIONS: { value: MoistureType; label: string }[] = [
   { value: 'Dry', label: 'Tuyo (Dry)' },
   { value: 'Wet', label: 'Basa (Wet)' },
 ];
+
+export const MOISTURE_OPTIONS_EN: { value: MoistureType; label: string }[] = [
+  { value: 'Dry', label: 'Dry' },
+  { value: 'Wet', label: 'Wet' },
+];
+
+export function getVarietyOptions(lang: 'tl' | 'en' | boolean = 'tl'): { value: DeclaredVariety; label: string }[] {
+  const isTagalog = typeof lang === 'boolean' ? lang : lang === 'tl';
+  return isTagalog ? VARIETY_OPTIONS : VARIETY_OPTIONS_EN;
+}
+
+export function getInbredSpecificVarieties(lang: 'tl' | 'en' | boolean = 'tl'): SpecificVarietyOption[] {
+  const isTagalog = typeof lang === 'boolean' ? lang : lang === 'tl';
+  return isTagalog ? INBRED_SPECIFIC_VARIETY_OPTIONS : INBRED_SPECIFIC_VARIETY_OPTIONS_EN;
+}
+
+export function getHybridSpecificVarieties(lang: 'tl' | 'en' | boolean = 'tl'): SpecificVarietyOption[] {
+  const isTagalog = typeof lang === 'boolean' ? lang : lang === 'tl';
+  return isTagalog ? HYBRID_SPECIFIC_VARIETY_OPTIONS : HYBRID_SPECIFIC_VARIETY_OPTIONS_EN;
+}
+
+export function getMoistureOptions(lang: 'tl' | 'en' | boolean = 'tl'): { value: MoistureType; label: string }[] {
+  const isTagalog = typeof lang === 'boolean' ? lang : lang === 'tl';
+  return isTagalog ? MOISTURE_OPTIONS : MOISTURE_OPTIONS_EN;
+}
+
+export function getPurityOptions(lang: 'tl' | 'en' | boolean = 'tl'): { value: PurityGrade; label: string }[] {
+  const isTagalog = typeof lang === 'boolean' ? lang : lang === 'tl';
+  return isTagalog ? PURITY_OPTIONS : PURITY_OPTIONS_EN;
+}
 
 /** Payload for `createCropListing` — exactly what the "Gumawa ng Listing" form collects. */
 export type CreateCropListingInput = {
@@ -138,30 +193,83 @@ export function listingTitle(listing: Pick<CropListing, 'listingName'>): string 
  */
 export function specificVarietyDisplay(
   listing: Pick<CropListing, 'specificVarietyName' | 'specificVarietyNameCustom'>,
+  lang: 'tl' | 'en' = 'tl',
 ): string | null {
   if (!listing.specificVarietyName) return null;
   if (listing.specificVarietyName === SPECIFIC_VARIETY_OTHER) {
-    return listing.specificVarietyNameCustom?.trim() || 'Iba pa';
+    return listing.specificVarietyNameCustom?.trim() || (lang === 'en' ? 'Other' : 'Iba pa');
   }
   return SPECIFIC_VARIETY_LABEL_BY_VALUE.get(listing.specificVarietyName) ?? listing.specificVarietyName;
 }
 
 /** Display label for `declaredVariety`, resolving the free-text custom name when set. */
+export const VARIETY_OPTIONS_EN: { value: DeclaredVariety; label: string }[] = [
+  { value: 'Inbred', label: 'Inbred' },
+  { value: 'Hybrid', label: 'Hybrid' },
+  { value: 'Traditional_or_Heirloom', label: 'Traditional or Heirloom' },
+  { value: 'Mix_of_Varieties', label: 'Mixed Varieties' },
+  { value: 'Others', label: 'Others' },
+];
+
 export function varietyLabel(
   listing: Pick<CropListing, 'declaredVariety' | 'declaredVarietyCustom'>,
+  lang: 'tl' | 'en' = 'tl',
 ): string {
   if (listing.declaredVariety === 'Others') {
-    return listing.declaredVarietyCustom?.trim() || 'Ibang Uri';
+    return listing.declaredVarietyCustom?.trim() || (lang === 'en' ? 'Other Variety' : 'Ibang Uri');
   }
-  return VARIETY_OPTIONS.find((o) => o.value === listing.declaredVariety)?.label ?? listing.declaredVariety;
+  const options = lang === 'en' ? VARIETY_OPTIONS_EN : VARIETY_OPTIONS;
+  return options.find((o) => o.value === listing.declaredVariety)?.label ?? listing.declaredVariety;
 }
 
-export function purityLabel(grade: PurityGrade): string {
-  return grade === 'Ungraded' ? 'Walang Grado' : `Grade ${grade}`;
+export function translateVarietyName(name: string | null | undefined, lang: 'tl' | 'en' | boolean = 'tl'): string {
+  if (!name) return '';
+  const isTag = typeof lang === 'boolean' ? lang : lang === 'tl';
+  const normalized = name.trim().toLowerCase();
+
+  if (
+    normalized === 'traditional_or_heirloom' ||
+    normalized === 'tradisyonal o pamana' ||
+    normalized === 'traditional or heirloom' ||
+    normalized === 'traditional / heirloom'
+  ) {
+    return isTag ? 'Tradisyonal o Pamana' : 'Traditional or Heirloom';
+  }
+  if (
+    normalized === 'mix_of_varieties' ||
+    normalized === 'halo-halong uri' ||
+    normalized === 'mixed varieties' ||
+    normalized === 'halo halong uri'
+  ) {
+    return isTag ? 'Halo-halong Uri' : 'Mixed Varieties';
+  }
+  if (normalized === 'inbred') {
+    return 'Inbred';
+  }
+  if (normalized === 'hybrid') {
+    return 'Hybrid';
+  }
+  if (
+    normalized === 'others' ||
+    normalized === 'iba pa' ||
+    normalized === 'ibang uri' ||
+    normalized === 'other variety'
+  ) {
+    return isTag ? 'Ibang Uri' : 'Other Variety';
+  }
+  return name;
 }
 
-export function moistureLabel(moisture: MoistureType): string {
-  return MOISTURE_OPTIONS.find((o) => o.value === moisture)?.label ?? moisture;
+export function purityLabel(grade: PurityGrade, lang: 'tl' | 'en' = 'tl'): string {
+  if (grade === 'Ungraded') {
+    return lang === 'en' ? 'Ungraded' : 'Walang Grado';
+  }
+  return `Grade ${grade}`;
+}
+
+export function moistureLabel(moisture: MoistureType, lang: 'tl' | 'en' = 'tl'): string {
+  const options = lang === 'en' ? MOISTURE_OPTIONS_EN : MOISTURE_OPTIONS;
+  return options.find((o) => o.value === moisture)?.label ?? moisture;
 }
 
 /** Tagalog label per real DB status — no "Rejected"/"Hinihintay ang Pag-verify" state exists (see file header). */
@@ -172,6 +280,19 @@ export const STATUS_LABELS: Record<ListingStatus, string> = {
   Cancelled: 'Tinanggal',
   Archived: 'Naka-archive',
 };
+
+export const STATUS_LABELS_EN: Record<ListingStatus, string> = {
+  Draft: 'Draft',
+  Available: 'Available',
+  Sold_Out: 'Sold Out',
+  Cancelled: 'Cancelled',
+  Archived: 'Archived',
+};
+
+export function getStatusLabel(status: ListingStatus, lang: 'tl' | 'en' = 'tl'): string {
+  const dict = lang === 'en' ? STATUS_LABELS_EN : STATUS_LABELS;
+  return dict[status] ?? status;
+}
 
 /**
  * §6 LISTINGPHOTO's `photo_type` — one of 3 slots per listing (unique per
@@ -186,6 +307,17 @@ export const PHOTO_SLOTS: { value: PhotoType; label: string }[] = [
   { value: 'AfterHarvestUnsacked', label: 'Pagkatapos Anihin (Hindi pa Nakasako)' },
   { value: 'BeforeHarvest', label: 'Bago Anihin (Taniman)' },
 ];
+
+export const PHOTO_SLOTS_EN: { value: PhotoType; label: string }[] = [
+  { value: 'Overview', label: 'Overview' },
+  { value: 'AfterHarvestUnsacked', label: 'After Harvest (Unsacked)' },
+  { value: 'BeforeHarvest', label: 'Before Harvest (Field)' },
+];
+
+export function getPhotoSlots(lang: 'tl' | 'en' | boolean = 'tl'): { value: PhotoType; label: string }[] {
+  const isTagalog = typeof lang === 'boolean' ? lang : lang === 'tl';
+  return isTagalog ? PHOTO_SLOTS : PHOTO_SLOTS_EN;
+}
 
 /** Preference order for picking a single cover photo out of whichever slots are filled. */
 export const COVER_PHOTO_PREFERENCE: PhotoType[] = ['Overview', 'AfterHarvestUnsacked', 'BeforeHarvest'];

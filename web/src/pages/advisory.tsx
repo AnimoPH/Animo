@@ -1,10 +1,10 @@
 import { CalendarDays, Clock, Users } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { useLanguage } from '@/hooks/use-language';
 import {
-  BARANGAY_ADVISORIES,
+  getBarangayAdvisories,
   SEVERITY_COLOR,
-  SEVERITY_LABEL,
   type BarangayAdvisory,
   type Severity,
 } from '@/constants/dashboard';
@@ -19,25 +19,34 @@ const SEVERITY_ORDER: Severity[] = ['severe', 'moderate', 'mild', 'clear'];
  * Advisory monitoring — current advisory status per barangay.
  */
 export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
-  const activeCount = BARANGAY_ADVISORIES.filter(
+  const { t, language, isTagalog } = useLanguage();
+  const advisories = getBarangayAdvisories(language);
+  const activeCount = advisories.filter(
     (item) => item.status === 'active',
   ).length;
 
+  const severityLabels: Record<Severity, string> = {
+    severe: t('advisory.severitySevere'),
+    moderate: t('advisory.severityModerate'),
+    mild: t('advisory.severityMild'),
+    clear: t('advisory.severityClear'),
+  };
+
   return (
     <ConsoleLayout
-      title="Pagsubaybay sa Payo"
-      subtitle="Advisory Monitoring · Kasalukuyang katayuan kada barangay"
+      title={t('advisory.title')}
+      subtitle={t('advisory.subtitle')}
       onSignOut={onSignOut}>
       <div style={styles.toolbar}>
         <span style={styles.rangePill}>
           <CalendarDays size={16} color="var(--animo-black-secondary)" />
-          Okt 6 – Okt 12, 2025
+          {isTagalog ? 'Okt 6 – Okt 12, 2025' : 'Oct 6 – Oct 12, 2025'}
         </span>
       </div>
 
       <section style={styles.summaryRow}>
         {SEVERITY_ORDER.map((severity) => {
-          const count = BARANGAY_ADVISORIES.filter(
+          const count = advisories.filter(
             (item) => item.severity === severity,
           ).length;
           return (
@@ -52,7 +61,7 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
                     background: SEVERITY_COLOR[severity],
                   }}
                 />
-                {SEVERITY_LABEL[severity]}
+                {severityLabels[severity]}
               </span>
               <span style={styles.summaryCount}>{count}</span>
               <span style={styles.summaryUnit}>barangay</span>
@@ -64,14 +73,16 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
       <article className="animo-card" style={styles.panel}>
         <div style={styles.panelHead}>
           <div>
-            <h2 style={styles.panelTitle}>Katayuan ng Payo kada Barangay</h2>
-            <p style={styles.panelSubtitle}>Advisory status by barangay</p>
+            <h2 style={styles.panelTitle}>{t('advisory.panelTitle')}</h2>
+            <p style={styles.panelSubtitle}>{t('advisory.panelSubtitle')}</p>
           </div>
-          <span style={styles.activeBadge}>{activeCount} aktibo</span>
+          <span style={styles.activeBadge}>
+            {t('advisory.activeCount', { count: activeCount })}
+          </span>
         </div>
 
         <div style={styles.advisoryList}>
-          {BARANGAY_ADVISORIES.map((item) => (
+          {advisories.map((item) => (
             <AdvisoryRow key={item.barangay} item={item} />
           ))}
         </div>
@@ -81,14 +92,10 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
 }
 
 function AdvisoryRow({ item }: { item: BarangayAdvisory }) {
-  const isActive = item.status === 'active';
+  const { t } = useLanguage();
 
   return (
-    <div
-      style={{
-        ...styles.advisoryCard,
-        ...(isActive ? styles.advisoryCardActive : null),
-      }}>
+    <div style={styles.advisoryCard}>
       <div style={styles.advisoryTop}>
         <span style={styles.advisoryName}>
           <span
@@ -110,7 +117,7 @@ function AdvisoryRow({ item }: { item: BarangayAdvisory }) {
         </span>
         <span style={styles.metaItem}>
           <Users size={15} color="var(--animo-muted)" />
-          {item.total} magsasaka
+          {t('advisory.deliveredTo', { delivered: item.delivered, total: item.total })}
         </span>
       </div>
     </div>

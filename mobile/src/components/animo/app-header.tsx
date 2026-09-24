@@ -4,7 +4,7 @@ import { Bell } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { AnimoColors, AnimoSpacing } from '@/constants/animo';
+import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 
 export type AppHeaderProps = {
   /** Optional larger screen title shown under the brand row. */
@@ -22,7 +22,7 @@ export type AppHeaderProps = {
 
 /**
  * Top app header used inside the tab modules: the "🌾 Animo" brand lockup with
- * a notification bell, and an optional big screen title below it.
+ * a quick language toggle, a notification bell, and an optional big screen title below it.
  */
 export function AppHeader({
   title,
@@ -49,17 +49,19 @@ export function AppHeader({
           </AnimoText>
         </View>
 
-        <View ref={bellRef} collapsable={false}>
-          <Pressable
-            onPress={handleBellPress}
-            hitSlop={8}
-            style={styles.bell}
-            accessibilityLabel="Mga abiso">
-            <Bell size={20} color={AnimoColors.black} />
-            {unreadCount > 0 && (
-              <View style={styles.unreadDot} />
-            )}
-          </Pressable>
+        <View style={styles.rightActions}>
+          <View ref={bellRef} collapsable={false}>
+            <Pressable
+              onPress={handleBellPress}
+              hitSlop={8}
+              style={styles.bell}
+              accessibilityLabel="Mga abiso">
+              <Bell size={20} color={AnimoColors.black} />
+              {unreadCount > 0 && (
+                <View style={styles.unreadDot} />
+              )}
+            </Pressable>
+          </View>
         </View>
       </View>
 
@@ -102,6 +104,11 @@ const styles = StyleSheet.create({
   logo: {
     width: 28,
     height: 28,
+  },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AnimoSpacing.sm,
   },
   bell: {
     width: 40,
