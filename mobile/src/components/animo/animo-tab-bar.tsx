@@ -1,6 +1,7 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { CommonActions, StackActions } from '@react-navigation/native';
-import type { LucideIcon } from 'lucide-react-native';
+import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,6 +9,14 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
 import type { TranslationKey } from '@/i18n/translations';
+
+type IoniconName = ComponentProps<typeof Ionicons>['name'];
+
+/** Outline (idle) + filled (focused) Ionicons pair for a single tab. */
+export type TabIonicon = {
+  outline: IoniconName;
+  filled: IoniconName;
+};
 
 export type TabItem = {
   /**
@@ -20,7 +29,9 @@ export type TabItem = {
   name: string;
   label: string;
   labelKey?: TranslationKey;
-  icon: LucideIcon;
+  icon: TabIonicon;
+  /** When true, shows a small attention dot on the icon (boolean, not a count). */
+  showBadge?: boolean;
 };
 
 /**
@@ -29,8 +40,9 @@ export type TabItem = {
  *
  *   <Tabs tabBar={(props) => <AnimoTabBar {...props} items={BUYER_TABS} />}>
  *
- * Rounded card, Lucide icons, brand-green active state. Routing/active state
- * come from the navigator, so it works with the back button out of the box.
+ * Rounded card, Ionicons (outline idle / filled focused), brand-green active
+ * state. Routing/active state come from the navigator, so it works with the
+ * back button out of the box.
  */
 export function AnimoTabBar({
   state,
@@ -58,7 +70,6 @@ export function AnimoTabBar({
 
           const focused = state.index === index;
           const color = focused ? AnimoColors.green : AnimoColors.muted;
-          const Icon = item.icon;
           const displayLabel = item.labelKey ? t(item.labelKey) : item.label;
 
           const onPress = () => {
@@ -101,7 +112,14 @@ export function AnimoTabBar({
               accessibilityLabel={displayLabel}
               onPress={onPress}
               style={styles.tab}>
-              <Icon size={24} color={color} strokeWidth={focused ? 2.4 : 2} />
+              <View style={styles.iconSlot}>
+                <Ionicons
+                  name={focused ? item.icon.filled : item.icon.outline}
+                  size={24}
+                  color={color}
+                />
+                {item.showBadge ? <View style={styles.needsActionDot} /> : null}
+              </View>
               <AnimoText variant="tag" color={color} style={styles.label}>
                 {displayLabel}
               </AnimoText>
@@ -136,6 +154,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
     paddingVertical: AnimoSpacing.xs,
+  },
+  /** Relative slot so the needs-action dot can sit on the glyph corner. */
+  iconSlot: {
+    position: 'relative',
+  },
+  /** Matches AppHeader notification bell unreadDot. */
+  needsActionDot: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: AnimoColors.danger,
+    borderWidth: 1.5,
+    borderColor: AnimoColors.white,
   },
   label: {
     fontSize: 12.5,

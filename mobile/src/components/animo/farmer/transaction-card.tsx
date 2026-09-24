@@ -4,14 +4,11 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
-import type { DisplayStage, PaymentMode } from '@/types/transaction';
-
-/** Which real `DisplayStage` values put a "needs your action" banner on the card. */
-const NEEDS_ACTION: Partial<Record<DisplayStage, true>> = {
-  request_pending: true,
-  payment_sent: true,
-  payment_confirmed: true,
-};
+import {
+  isFarmerNeedsActionStage,
+  type DisplayStage,
+  type PaymentMode,
+} from '@/types/transaction';
 
 const DOT_TONE: Partial<Record<DisplayStage, string>> = {
   request_pending: AnimoColors.moderate,
@@ -46,7 +43,7 @@ export type TransactionCardProps = {
 /** Farmer Part B list card: buyer, amount, kg, payment, ref, status, date/time. */
 export function TransactionCard({ item, onPress }: TransactionCardProps) {
   const isDone = item.stage === 'completed';
-  const needsAction = NEEDS_ACTION[item.stage] === true;
+  const needsAction = isFarmerNeedsActionStage(item.stage);
   const dotColor = DOT_TONE[item.stage];
 
   const openTransactionDetail = () => {

@@ -182,7 +182,7 @@ export type PhotoType = 'BeforeHarvest' | 'AfterHarvestUnsacked' | 'Overview';
 
 /** Capture slots for the "Gumawa ng Listing" form, in the order shown. */
 export const PHOTO_SLOTS: { value: PhotoType; label: string }[] = [
-  { value: 'Overview', label: 'Pangkalahatang Larawan (Overview)' },
+  { value: 'Overview', label: 'Pangkalahatan (Overview)' },
   { value: 'AfterHarvestUnsacked', label: 'Pagkatapos Anihin (Hindi pa Nakasako)' },
   { value: 'BeforeHarvest', label: 'Bago Anihin (Taniman)' },
 ];

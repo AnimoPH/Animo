@@ -1,16 +1,17 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import {
-  ArrowRight,
-  Globe,
-  Handshake,
-  ShieldCheck,
-  TrendingUp,
-} from 'lucide-react-native';
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { ArrowRight, Globe } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Ellipse, Line } from 'react-native-svg';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { DevLoginBar } from '@/components/animo/dev-login-bar';
@@ -21,19 +22,49 @@ import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
 import { signInDevAccount } from '@/services/auth-service';
 
+// Animation duration for the entrance .
+const ENTRANCE_EASE = { duration: 700 };
+
 /**
- * Elevated Landing / Splash Screen.
+ * Landing / Splash Screen.
  *
- * Rich branded aesthetic with dynamic bilingual support (TL/EN),
- * value proposition highlights, clear call-to-action buttons,
- * seamless role/session routing, and dev bypass shortcuts.
+ * Branded first screen: logo, tagline, subtitle, and sign-in CTA.
+ * Dev role bypass is gated by SHOW_DEV_TOOLS.
  */
 export default function LandingScreen() {
-  const { status, account, hasRegisteredOnDevice, refresh } = useSession();
+  const { refresh } = useSession();
   const { language, setLanguage, t, isTagalog } = useLanguage();
   const [submitting, setSubmitting] = useState(false);
   const [devRole, setDevRole] = useState<RoleId | null>(null);
   const [devError, setDevError] = useState<string | undefined>();
+
+  const logoOpacity = useSharedValue(0);
+  const logoScale = useSharedValue(0.9);
+  const textOpacity = useSharedValue(0);
+  const buttonOpacity = useSharedValue(0);
+  const buttonTranslateY = useSharedValue(14);
+
+  useEffect(() => {
+    logoOpacity.value = withTiming(1, ENTRANCE_EASE);
+    logoScale.value = withTiming(1, ENTRANCE_EASE);
+    textOpacity.value = withDelay(140, withTiming(1, ENTRANCE_EASE));
+    buttonOpacity.value = withDelay(300, withTiming(1, ENTRANCE_EASE));
+    buttonTranslateY.value = withDelay(300, withTiming(0, ENTRANCE_EASE));
+  }, [buttonOpacity, buttonTranslateY, logoOpacity, logoScale, textOpacity]);
+
+  const logoAnimStyle = useAnimatedStyle(() => ({
+    opacity: logoOpacity.value,
+    transform: [{ scale: logoScale.value }],
+  }));
+
+  const textAnimStyle = useAnimatedStyle(() => ({
+    opacity: textOpacity.value,
+  }));
+
+  const buttonAnimStyle = useAnimatedStyle(() => ({
+    opacity: buttonOpacity.value,
+    transform: [{ translateY: buttonTranslateY.value }],
+  }));
 
   const handleGetStarted = () => {
     router.replace('/login');
@@ -72,12 +103,13 @@ export default function LandingScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Ambient background decoration shapes */}
       <View style={styles.bgGlowTop} />
       <View style={styles.bgGlowBottom} />
+      <View style={styles.textureClip} pointerEvents="none">
+        <FieldTexture />
+      </View>
 
       <SafeAreaView style={styles.safeArea}>
-        {/* Top Bar with Language Toggle */}
         <View style={styles.topBar}>
           <Pressable
             accessibilityRole="button"
@@ -91,9 +123,8 @@ export default function LandingScreen() {
           </Pressable>
         </View>
 
-        {/* Center Hero Area */}
         <View style={styles.centerHero}>
-          <View style={styles.logoGlowRing}>
+          <Animated.View style={[styles.logoGlowRing, logoAnimStyle]}>
             <View style={styles.logoBadge}>
               <Image
                 source={require('@/assets/images/animo/icon-green.png')}
@@ -101,69 +132,47 @@ export default function LandingScreen() {
                 contentFit="contain"
               />
             </View>
-          </View>
+          </Animated.View>
 
-          <AnimoText variant="display" color={AnimoColors.white} style={styles.title}>
-            {t('app.name')}
-          </AnimoText>
+          <Animated.View style={[styles.textBlock, textAnimStyle]}>
+            <AnimoText variant="display" color={AnimoColors.white} style={styles.title}>
+              {t('app.name')}
+            </AnimoText>
 
-          <AnimoText variant="h3" color={AnimoColors.white} style={styles.tagline}>
-            {t('landing.tagline')}
-          </AnimoText>
+            <AnimoText variant="h3" color={AnimoColors.white} style={styles.tagline}>
+              {t('landing.tagline')}
+            </AnimoText>
 
-          <AnimoText variant="body" color="rgba(255,255,255,0.85)" style={styles.subtitle}>
-            {t('landing.subtitle')}
-          </AnimoText>
-
-          {/* Value Proposition Pills */}
-          <View style={styles.pillsContainer}>
-            <View style={styles.featurePill}>
-              <TrendingUp size={13} color={AnimoColors.white} />
-              <AnimoText variant="tag" color={AnimoColors.white}>
-                {t('landing.feature1')}
-              </AnimoText>
-            </View>
-
-            <View style={styles.featurePill}>
-              <Handshake size={13} color={AnimoColors.white} />
-              <AnimoText variant="tag" color={AnimoColors.white}>
-                {t('landing.feature2')}
-              </AnimoText>
-            </View>
-
-            <View style={styles.featurePill}>
-              <ShieldCheck size={13} color={AnimoColors.white} />
-              <AnimoText variant="tag" color={AnimoColors.white}>
-                {t('landing.feature3')}
-              </AnimoText>
-            </View>
-          </View>
+            <AnimoText variant="body" color="rgba(255,255,255,0.85)" style={styles.subtitle}>
+              {t('landing.subtitle')}
+            </AnimoText>
+          </Animated.View>
         </View>
 
-        {/* Bottom CTA Area & Dev Bypass */}
         <View style={styles.bottomArea}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('landing.signIn')}
-            onPress={handleGetStarted}
-            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-            <AnimoText variant="button" color={AnimoColors.green}>
-              {t('landing.getStarted')} / {t('landing.signIn')}
-            </AnimoText>
-            <ArrowRight size={18} color={AnimoColors.green} />
-          </Pressable>
+          <Animated.View style={[styles.ctaGroup, buttonAnimStyle]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('landing.signIn')}
+              onPress={handleGetStarted}
+              style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+              <AnimoText variant="button" color={AnimoColors.green}>
+                {t('landing.getStarted')} / {t('landing.signIn')}
+              </AnimoText>
+              <ArrowRight size={18} color={AnimoColors.green} />
+            </Pressable>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('role.title')}
-            onPress={handleRegister}
-            style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
-              {t('landing.roleSelect')}
-            </AnimoText>
-          </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('role.title')}
+              onPress={handleRegister}
+              style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+              <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
+                {t('landing.roleSelect')}
+              </AnimoText>
+            </Pressable>
+          </Animated.View>
 
-          {/* Development Quick Bypass */}
           {SHOW_DEV_TOOLS ? (
             <View style={styles.devBarContainer}>
               <DevLoginBar
@@ -180,10 +189,97 @@ export default function LandingScreen() {
   );
 }
 
+/**
+ * Low-contrast field-row + grain overlay — texture only, not a competing image.
+ * Sized via percentage + viewBox so it never contributes a fixed pixel width
+ * to layout (useWindowDimensions pixel width was overflowing on web preview).
+ */
+function FieldTexture() {
+  const { width, height } = useWindowDimensions();
+  // Guard against 0 during first layout; viewBox still needs positive dims.
+  const vbW = Math.max(width, 1);
+  const vbH = Math.max(height, 1);
+  const rowCount = 18;
+  const rowGap = vbH / (rowCount - 1);
+  const grainPositions = [
+    [0.12, 0.18],
+    [0.28, 0.42],
+    [0.45, 0.22],
+    [0.62, 0.55],
+    [0.78, 0.3],
+    [0.18, 0.68],
+    [0.55, 0.75],
+    [0.88, 0.62],
+    [0.35, 0.88],
+    [0.72, 0.12],
+    [0.95, 0.45],
+    [0.25, 0.95],
+    [0.55, 0.25],
+    [0.85, 0.55],
+    [0.15, 0.85],
+    [0.45, 0.15],
+    [0.75, 0.45],
+    [0.05, 0.75],
+    [0.35, 0.05],
+    [0.95, 0.65],
+    [0.25, 0.95],
+    [0.15, 0.30],
+    [0.15, 0.05],
+    [0.15, 0.60],
+    [0.45, 0.65],
+    [0.60, 0.60],
+  ] as const;
+
+  return (
+    <Svg
+      width="100%"
+      height="100%"
+      viewBox={`0 0 ${vbW} ${vbH}`}
+      preserveAspectRatio="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants">
+      {Array.from({ length: rowCount }, (_, i) => (
+        <Line
+          key={`row-${i}`}
+          x1={0}
+          y1={i * rowGap}
+          x2={vbW}
+          y2={i * rowGap + vbW * 0.05}
+          stroke="rgba(255,255,255,0.03)"
+          strokeWidth={2}
+        />
+      ))}
+      {/* Palay Grain */}
+      {grainPositions.map(([nx, ny], i) => (
+        <Ellipse
+          key={`grain-${i}`}
+          cx={nx * vbW}
+          cy={ny * vbH}
+          // Grain sizes
+          rx={9}
+          ry={3}
+          fill="rgba(255,255,255,0.06)"
+          rotation={-18 + (i % 5) * 8}
+          origin={`${nx * vbW}, ${ny * vbH}`}
+        />
+      ))}
+    </Svg>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#145319', // deep rich emerald brand green
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#145319',
+    // Clip glow circles (positioned with negative offsets) and any texture overflow
+    // so they cannot widen the layout past the screen — especially on web preview.
+    overflow: 'hidden',
+  },
+  textureClip: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
   },
   bgGlowTop: {
     position: 'absolute',
@@ -232,20 +328,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: AnimoSpacing.sm,
-    gap: AnimoSpacing.sm,
+    gap: AnimoSpacing.md,
   },
   logoGlowRing: {
-    width: 116,
-    height: 116,
-    borderRadius: 32,
+    width: 148,
+    height: 148,
+    borderRadius: 40,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoBadge: {
-    width: 96,
-    height: 96,
-    borderRadius: 24,
+    width: 124,
+    height: 124,
+    borderRadius: 32,
     backgroundColor: AnimoColors.white,
     alignItems: 'center',
     justifyContent: 'center',
@@ -256,8 +352,12 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   logo: {
-    width: 66,
-    height: 66,
+    width: 86,
+    height: 86,
+  },
+  textBlock: {
+    alignItems: 'center',
+    gap: AnimoSpacing.sm,
   },
   title: {
     fontSize: 36,
@@ -278,26 +378,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     maxWidth: 320,
   },
-  pillsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: AnimoSpacing.xs,
-    marginTop: AnimoSpacing.xs,
-  },
-  featurePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: 5,
-    borderRadius: AnimoRadius.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-  },
   bottomArea: {
     paddingBottom: AnimoSpacing.md,
+    gap: AnimoSpacing.xs,
+  },
+  ctaGroup: {
     gap: AnimoSpacing.xs,
   },
   primaryButton: {

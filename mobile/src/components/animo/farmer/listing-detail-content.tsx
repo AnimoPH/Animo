@@ -47,7 +47,7 @@ const PHOTO_TYPE_DETAILS: {
 }[] = [
   {
     type: "Overview",
-    title: "Pangkalahatang Larawan",
+    title: "Pangkalahatan",
     shortLabel: "Overview",
     subtitle: "Kabuuang ani at sako ng palay",
   },
@@ -289,7 +289,7 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
             color={AnimoColors.textHighEmphasisInverse}
             style={styles.priceTotal}
           >
-            Kabuuan na halaga ({listing.remainingQuantityKg}kg):{" "}
+            Kabuuang halaga ({listing.remainingQuantityKg}kg):{" "}
             {listing.pricePerKg !== null
               ? formatPeso(listing.pricePerKg * listing.remainingQuantityKg)
               : "—"}
