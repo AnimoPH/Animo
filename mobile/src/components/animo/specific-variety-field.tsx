@@ -3,6 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
 import type { SpecificVarietyOption } from '@/types/crop-listing';
 
 export type SpecificVarietyFieldProps = {
@@ -31,6 +32,7 @@ export function SpecificVarietyField({
   onOpenChange,
   onSelect,
 }: SpecificVarietyFieldProps) {
+  const { isTagalog } = useLanguage();
   const selected = options.find((o) => o.value === value);
 
   return (
@@ -56,7 +58,7 @@ export function SpecificVarietyField({
         <Pressable style={styles.backdrop} onPress={() => onOpenChange(false)}>
           <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
             <AnimoText variant="h3" color={AnimoColors.black} style={styles.sheetTitle}>
-              Piliin ang Tiyak na Uri ng Palay
+              {isTagalog ? 'Piliin ang Tiyak na Uri ng Palay' : 'Select Specific Rice Variety'}
             </AnimoText>
             <ScrollView bounces={false}>
               {options.map((option) => {

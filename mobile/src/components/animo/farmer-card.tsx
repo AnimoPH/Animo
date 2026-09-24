@@ -4,6 +4,7 @@ import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { AnimoText } from '@/components/animo/animo-text';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
 import type { TransactionCounterpart } from '@/types/transaction';
 
 export type FarmerCardProps = {
@@ -25,6 +26,7 @@ function initialsOf(name: string): string {
  * address (this schema has no farm-address column to reveal).
  */
 export function FarmerCard({ farmer }: FarmerCardProps) {
+  const { isTagalog } = useLanguage();
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -38,7 +40,7 @@ export function FarmerCard({ farmer }: FarmerCardProps) {
             {farmer.name}
           </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.muted}>
-            Magsasaka
+            {isTagalog ? 'Magsasaka' : 'Farmer'}
           </AnimoText>
         </View>
       </View>
@@ -54,7 +56,7 @@ export function FarmerCard({ farmer }: FarmerCardProps) {
         </View>
         <Pressable onPress={() => Linking.openURL(`tel:${farmer.phone.replace(/\s/g, '')}`)} hitSlop={8}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
-            Tumawag
+            {isTagalog ? 'Tumawag' : 'Call'}
           </AnimoText>
         </Pressable>
       </View>
@@ -64,19 +66,22 @@ export function FarmerCard({ farmer }: FarmerCardProps) {
 
 /** Placeholder shown while the farmer has not accepted the request yet. */
 export function LockedFarmerCard() {
+  const { isTagalog } = useLanguage();
+  const rows = isTagalog ? ['Pangalan', 'Kontak'] : ['Name', 'Contact'];
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.lockedTitle}>
           <Lock size={16} color={AnimoColors.blackSecondary} />
           <AnimoText variant="h3" color={AnimoColors.black}>
-            Detalye ng Magsasaka
+            {isTagalog ? 'Detalye ng Magsasaka' : 'Farmer Details'}
           </AnimoText>
         </View>
-        <StatusBadge label="Naka-lock" tone="neutral" />
+        <StatusBadge label={isTagalog ? 'Naka-lock' : 'Locked'} tone="neutral" />
       </View>
 
-      {['Pangalan', 'Contact'].map((label) => (
+      {rows.map((label) => (
         <View key={label} style={styles.detailRow}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.flex}>
             {label}
@@ -86,7 +91,9 @@ export function LockedFarmerCard() {
       ))}
 
       <AnimoText variant="caption" color={AnimoColors.muted}>
-        Mabubuksan ang buong detalye kapag tinanggap ng magsasaka ang request.
+        {isTagalog
+          ? 'Mabubuksan ang buong detalye kapag tinanggap ng magsasaka ang request.'
+          : 'Full details will be unlocked once the farmer accepts the request.'}
       </AnimoText>
     </View>
   );

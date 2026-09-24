@@ -144,7 +144,7 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
 
   const activePhoto = galleryItems[selectedPhotoIndex] ?? galleryItems[0];
   const modalActivePhoto = galleryItems[modalPhotoIndex] ?? galleryItems[0];
-  const specificVariety = specificVarietyDisplay(listing);
+  const specificVariety = specificVarietyDisplay(listing, language);
 
   const openModalAt = (index: number) => {
     setModalPhotoIndex(index);
@@ -164,7 +164,7 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
       key: "variety",
       icon: <Sprout size={16} color={AnimoColors.textMediumEmphasis} />,
       label: isTagalog ? "Uri ng palay" : "Rice Variety",
-      value: varietyLabel(listing),
+      value: varietyLabel(listing, language),
     },
     ...(specificVariety
       ? [
@@ -180,13 +180,13 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
       key: "moisture",
       icon: <Droplets size={16} color={AnimoColors.textMediumEmphasis} />,
       label: "Moisture",
-      value: moistureLabel(listing.declaredMoisture),
+      value: moistureLabel(listing.declaredMoisture, language),
     },
     {
       key: "purity",
       icon: <ShieldCheck size={16} color={AnimoColors.textMediumEmphasis} />,
       label: isTagalog ? "Kalidad" : "Quality Grade",
-      value: purityLabel(listing.declaredPurityGrade),
+      value: purityLabel(listing.declaredPurityGrade, language),
     },
     {
       key: "weight",

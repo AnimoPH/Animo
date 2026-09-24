@@ -251,7 +251,9 @@ export default function FarmerProfileScreen() {
             </View>
             <View style={styles.paymentCopy}>
               <Text style={styles.paymentTitle}>Cash</Text>
-              <Text style={styles.paymentCaption}>Personal na bayaran</Text>
+              <Text style={styles.paymentCaption}>
+                {isTagalog ? 'Personal na bayaran' : 'In-person payment'}
+              </Text>
             </View>
             <View style={styles.defaultBadge}>
               <Text style={styles.defaultBadgeText}>{t('profile.default')}</Text>
@@ -434,7 +436,7 @@ export default function FarmerProfileScreen() {
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
             <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-              Rating at Feedback (Top 5)
+              {isTagalog ? 'Rating at Feedback (Top 5)' : 'Ratings & Feedback (Top 5)'}
             </AnimoText>
             <Pressable
               accessibilityRole="button"
@@ -459,7 +461,9 @@ export default function FarmerProfileScreen() {
                 </View>
               </View>
               <Text style={styles.ratingSubCaption}>
-                1.2k kabuuang review mula sa mga mamimili at traders
+                {isTagalog
+                  ? '1.2k kabuuang review mula sa mga mamimili at traders'
+                  : '1.2k total reviews from buyers and traders'}
               </Text>
             </View>
 
@@ -499,7 +503,7 @@ export default function FarmerProfileScreen() {
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
             <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-              Kamakailang Transaksyon (Top 5)
+              {isTagalog ? 'Kamakailang Transaksyon (Top 5)' : 'Recent Transactions (Top 5)'}
             </AnimoText>
             <Pressable
               accessibilityRole="button"
@@ -519,7 +523,9 @@ export default function FarmerProfileScreen() {
                 <View style={styles.txHeader}>
                   <View style={styles.flex}>
                     <Text style={styles.txVariety}>{tx.variety}</Text>
-                    <Text style={styles.txSubtitle}>Mamimili: {tx.buyer} · {tx.date}</Text>
+                    <Text style={styles.txSubtitle}>
+                      {isTagalog ? 'Mamimili' : 'Buyer'}: {tx.buyer} · {tx.date}
+                    </Text>
                   </View>
                   <View style={styles.txStatusBadge}>
                     <Text style={styles.txStatusText}>{tx.status}</Text>
@@ -552,9 +558,13 @@ export default function FarmerProfileScreen() {
       <FeedbackModal
         visible={showHelpModal}
         tone="info"
-        title="Tulong at Suporta"
-        message="Maaari kang makipag-ugnayan sa Tanggapan ng Pagsasaka (LGU Antipolo) o sa ANIMO Support Hotline sa 0917 123 4567 para sa anumang katanungan."
-        confirmLabel="OK"
+        title={isTagalog ? 'Tulong at Suporta' : 'Help & Support'}
+        message={
+          isTagalog
+            ? 'Maaari kang makipag-ugnayan sa Tanggapan ng Pagsasaka (LGU Antipolo) o sa ANIMO Support Hotline sa 0917 123 4567 para sa anumang katanungan.'
+            : 'You can contact the Municipal Agriculture Office (LGU Antipolo) or ANIMO Support Hotline at 0917 123 4567 for any questions.'
+        }
+        confirmLabel={isTagalog ? 'OK' : 'Understood'}
         onConfirm={() => setShowHelpModal(false)}
       />
 
@@ -562,9 +572,13 @@ export default function FarmerProfileScreen() {
       <FeedbackModal
         visible={showTermsModal}
         tone="info"
-        title="Patakaran sa Privacy"
-        message="Protektado ang iyong datos alinsunod sa Data Privacy Act ng Pilipinas. Ginagamit lamang ang iyong impormasyon para sa opisyal na transaksyon sa agrikultura."
-        confirmLabel="Naiintindihan Ko"
+        title={isTagalog ? 'Patakaran sa Privacy' : 'Privacy Policy'}
+        message={
+          isTagalog
+            ? 'Protektado ang iyong datos alinsunod sa Data Privacy Act ng Pilipinas. Ginagamit lamang ang iyong impormasyon para sa opisyal na transaksyon sa agrikultura.'
+            : 'Your data is protected in accordance with the Data Privacy Act of the Philippines. Your information is strictly used for official agricultural transactions.'
+        }
+        confirmLabel={isTagalog ? 'Naiintindihan Ko' : 'I Understand'}
         onConfirm={() => setShowTermsModal(false)}
       />
     </View>

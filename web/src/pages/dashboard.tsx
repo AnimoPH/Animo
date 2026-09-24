@@ -40,7 +40,7 @@ export type DashboardPageProps = {
 /** LGU monitoring dashboard — live price feed and PSA history from Supabase (auth stub unchanged). */
 export function DashboardPage({ onSignOut }: DashboardPageProps) {
   const { session } = useAuth();
-  const { t } = useLanguage();
+  const { t, isTagalog } = useLanguage();
   const [priceFeed, setPriceFeed] = useState<MarketPriceFeed | null>(null);
   const [priceHistory, setPriceHistory] = useState<PriceHistoryPoint[]>([]);
   const [nfaActive, setNfaActive] = useState(false);
@@ -93,11 +93,25 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
       const result = await syncPsaPrices();
       await loadDashboard();
       const dryNote = result.dryBaseRefreshed
-        ? 'Na-refresh din ang model dry base.'
-        : 'Na-save ang PSA history; dry base nanatili (walang pricing service o kulang ang 12 buwan).';
-      setSyncNotice(`Na-sync ang ${result.syncedMonths} buwan mula sa PSA. ${dryNote}`);
+        ? isTagalog
+          ? 'Na-refresh din ang model dry base.'
+          : 'Model dry base refreshed.'
+        : isTagalog
+          ? 'Na-save ang PSA history; dry base nanatili (walang pricing service o kulang ang 12 buwan).'
+          : 'PSA history saved; dry base unchanged (no pricing service or fewer than 12 months).';
+      setSyncNotice(
+        isTagalog
+          ? `Na-sync ang ${result.syncedMonths} buwan mula sa PSA. ${dryNote}`
+          : `Synced ${result.syncedMonths} months from PSA. ${dryNote}`,
+      );
     } catch (error) {
-      setSyncNotice(error instanceof Error ? error.message : 'Hindi natapos ang PSA sync.');
+      setSyncNotice(
+        error instanceof Error
+          ? error.message
+          : isTagalog
+            ? 'Hindi natapos ang PSA sync.'
+            : 'PSA sync failed.',
+      );
     } finally {
       setSyncing(false);
     }
@@ -106,7 +120,11 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
   async function handleToggleNfaConfirm() {
     const userId = session?.userId;
     if (!userId) {
-      setLoadError('Kailangan ng LGU login para i-toggle ang NFA window.');
+      setLoadError(
+        isTagalog
+          ? 'Kailangan ng LGU login para i-toggle ang NFA window.'
+          : 'LGU login required to toggle NFA window.',
+      );
       setShowNfaModal(false);
       return;
     }
@@ -124,20 +142,26 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
       setShowNfaModal(false);
       setShowNfaSuccessModal(true);
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Hindi ma-update ang NFA window.');
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : isTagalog
+            ? 'Hindi ma-update ang NFA window.'
+            : 'Failed to update NFA window.',
+      );
       setShowNfaModal(false);
     } finally {
       setTogglingNfa(false);
     }
   }
 
-  const monthlyBars = useMemo(() => toMonthlyBars(priceHistory, 7), [priceHistory]);
+  const monthlyBars = useMemo(() => toMonthlyBars(priceHistory, 7, isTagalog), [priceHistory, isTagalog]);
   const latestHistory = priceHistory.at(-1);
   const previousHistory = priceHistory.at(-2);
   const psaFarmgate = latestHistory?.pricePerKg ?? null;
   const dryBase = priceFeed?.dryBasePerKg ?? latestHistory?.pricePerKg ?? null;
   const benchmarkDelta = dryBase != null ? priceDelta(dryBase, previousHistory?.pricePerKg) : null;
-  const lastSyncTime = latestHistory ? formatSyncTimestamp(latestHistory.month) : t('common.none');
+  const lastSyncTime = latestHistory ? formatSyncTimestamp(latestHistory.month, isTagalog) : t('common.none');
 
   return (
     <ConsoleLayout
@@ -151,19 +175,26 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
         <article className="animo-card" style={styles.metricCard}>
           <div style={styles.metricTop}>
             <div style={styles.metricHead}>
-              <span style={styles.metricLabel}>{t('dash.marketDryBase')}</span>
+              <span style={styles.metricLabel}>
+                {isTagalog ? 'Presyo ng Patuyong Palay (Dry Base)' : 'Dry Base Price'}
+              </span>
               <span style={styles.metricIcon}>
                 <TrendingUp size={20} color="var(--animo-green)" />
               </span>
             </div>
             <div style={styles.metricValue}>{dryBase != null ? formatPeso(dryBase) : '—'}</div>
             <div style={styles.comparisonRow}>
-              <span style={styles.comparisonText}>Awtomatikong pagtantiya batay sa datos ng PSA</span>
+              <span style={styles.comparisonText}>
+                {isTagalog ? 'Awtomatikong pagtantiya batay sa datos ng PSA' : 'Automated estimate based on PSA data'}
+              </span>
             </div>
           </div>
           <div style={styles.metricBottom}>
             <div style={styles.metricDelta}>
-              <span>{t('dash.marketWetBase')} (survey): {priceFeed ? formatPeso(priceFeed.wetBasePerKg) : '—'}</span>
+              <span>
+                {isTagalog ? 'Presyo ng Basang Palay (survey):' : 'Wet Base Price (survey):'}{' '}
+                {priceFeed ? formatPeso(priceFeed.wetBasePerKg) : '—'}
+              </span>
             </div>
           </div>
         </article>
@@ -171,7 +202,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
         <article className="animo-card" style={styles.metricCard}>
           <div style={styles.metricTop}>
             <div style={styles.metricHead}>
-              <span style={styles.metricLabel}>PSA Rizal Farmgate</span>
+              <span style={styles.metricLabel}>{isTagalog ? 'PSA Farmgate sa Rizal' : 'PSA Rizal Farmgate'}</span>
               <span style={styles.metricIcon}>
                 <Coins size={20} color="var(--animo-green)" />
               </span>
@@ -184,24 +215,28 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                 <span style={styles.trendPillGreen}>
                   <TrendingUp size={14} /> {benchmarkDelta}
                 </span>
-                <span style={styles.comparisonText}>vs nakaraang buwan sa talaan</span>
+                <span style={styles.comparisonText}>
+                  {isTagalog ? 'vs nakaraang buwan sa talaan' : 'vs previous month in record'}
+                </span>
               </div>
             ) : null}
           </div>
           <div style={styles.metricBottom}>
             <div style={styles.metricDelta}>
               {psaFarmgate != null ? (
-                <span>kada kilo · PSA OpenSTAT · Rizal province</span>
+                <span>{isTagalog ? 'kada kilo · PSA OpenSTAT · Lalawigan ng Rizal' : 'per kg · PSA OpenSTAT · Rizal province'}</span>
               ) : (
                 <span>
-                  Wala pang PSA price history para sa Rizal. I-click ang "I-sync mula sa PSA" sa ibaba.
+                  {isTagalog
+                    ? 'Wala pang PSA price history para sa Rizal. I-click ang "I-sync mula sa PSA" sa ibaba.'
+                    : 'No PSA price history for Rizal yet. Click "Sync from PSA" below.'}
                 </span>
               )}
             </div>
           </div>
         </article>
 
-        {/* NFA Volatility Fallback Card (Green borders & subtle tint when activated) */}
+        {/* NFA Volatility Fallback Card */}
         <article
           className="animo-card"
           style={{
@@ -215,10 +250,14 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                   nfaActive ? styles.actionBadgeActive : styles.actionBadgeInactive
                 }>
                 {nfaActive
-                  ? t('dash.nfaActiveStatus')
-                  : t('dash.nfaControlTitle')}
+                  ? isTagalog
+                    ? 'AKTIBO ANG NFA WINDOW'
+                    : 'NFA SAFEGUARD WINDOW IS ACTIVE'
+                  : isTagalog
+                    ? 'NFA Volatility Safeguard Window'
+                    : 'NFA Volatility Safeguard Window'}
               </span>
-              <h3 style={styles.actionCardTitle}>{t('dash.nfaControlTitle')}</h3>
+              <h3 style={styles.actionCardTitle}>NFA Volatility Safeguard Window</h3>
             </div>
             <span
               style={
@@ -234,17 +273,25 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           </div>
 
           <p style={styles.actionCardDesc}>
-            {nfaActive ? t('dash.nfaActiveDesc') : t('dash.nfaInactiveDesc')}
+            {nfaActive
+              ? isTagalog
+                ? 'Naka-clamp ang presyo sa merkado upang maprotektahan ang mga magsasaka laban sa pagbaba ng presyo.'
+                : 'Market prices are clamped with a price floor to protect farmers against extreme drops.'
+              : isTagalog
+                ? 'Standard na market pricing ang kasalukuyang umiiral nang walang artipisyal na floor clamp.'
+                : 'Standard market pricing is in effect without artificial price floor clamps.'}
           </p>
 
           <div style={styles.actionCardStatusRow}>
-            <span style={styles.actionStatusLabel}>{t('common.status')}:</span>
+            <span style={styles.actionStatusLabel}>{isTagalog ? 'Katayuan:' : 'Status:'}</span>
             <span
               style={{
                 ...styles.actionStatusValue,
                 color: nfaActive ? 'var(--animo-green)' : 'var(--animo-muted)',
               }}>
-              {nfaActive ? `● ${t('common.active')}` : `○ ${t('common.inactive')}`}
+              {nfaActive
+                ? `● ${isTagalog ? 'Aktibo' : 'Active'}`
+                : `○ ${isTagalog ? 'Hindi aktibo' : 'Inactive'}`}
             </span>
           </div>
 
@@ -255,7 +302,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
               disabled={togglingNfa}
               style={styles.actionButtonDisable}>
               <PauseCircle size={18} />
-              I-disable ang NFA Volatility Alert
+              {isTagalog ? 'I-disable ang NFA Volatility Alert' : 'Disable NFA Volatility Alert'}
             </button>
           ) : (
             <button
@@ -264,7 +311,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
               disabled={togglingNfa}
               style={styles.actionButtonGreen}>
               <Gavel size={18} />
-              I-activate ang NFA Volatility Alert
+              {isTagalog ? 'I-activate ang NFA Volatility Alert' : 'Activate NFA Volatility Alert'}
             </button>
           )}
         </article>
@@ -273,8 +320,12 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
         <article className="animo-card" style={styles.actionCard}>
           <div style={styles.actionCardHead}>
             <div>
-              <span style={styles.actionBadgePsa}>PSA Market Data</span>
-              <h3 style={styles.actionCardTitle}>Sync Market Prices</h3>
+              <span style={styles.actionBadgePsa}>
+                {isTagalog ? 'Datos ng Merkado mula sa PSA' : 'PSA Market Data'}
+              </span>
+              <h3 style={styles.actionCardTitle}>
+                {isTagalog ? 'I-sync ang Presyo sa Merkado' : 'Sync Market Prices'}
+              </h3>
             </div>
             <span style={styles.actionIconCirclePsa}>
               <Database size={22} color="var(--animo-green)" />
@@ -282,12 +333,13 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           </div>
 
           <p style={styles.actionCardDesc}>
-            Kinukuha ang pinakabagong Rizal farmgate prices mula sa PSA. Pagkatapos, awtomatikong
-            iaaply ito sa presyo ng modelo ng ANIMO.
+            {isTagalog
+              ? 'Kinukuha ang pinakabagong Rizal farmgate prices mula sa PSA. Pagkatapos, awtomatikong iaaply ito sa presyo ng modelo ng ANIMO.'
+              : 'Fetches the latest Rizal farmgate prices from PSA, then automatically applies them to the ANIMO pricing model.'}
           </p>
 
           <div style={styles.actionCardStatusRow}>
-            <span style={styles.actionStatusLabel}>Huling tala:</span>
+            <span style={styles.actionStatusLabel}>{isTagalog ? 'Huling tala:' : 'Last record:'}</span>
             <span style={styles.actionStatusValue}>{lastSyncTime}</span>
           </div>
 
@@ -302,7 +354,13 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
               ...(syncing ? { opacity: 0.7, cursor: 'wait' } : null),
             }}>
             <RefreshCw size={18} />
-            {syncing ? 'Sini-sync…' : 'I-sync mula sa PSA'}
+            {syncing
+              ? isTagalog
+                ? 'Sini-sync…'
+                : 'Syncing…'
+              : isTagalog
+                ? 'I-sync mula sa PSA'
+                : 'Sync from PSA'}
           </button>
         </article>
       </section>
@@ -312,8 +370,9 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           dryBase={dryBase}
           monthlyBars={monthlyBars}
           effectiveDate={priceFeed?.effectiveDate ?? latestHistory?.month ?? null}
+          isTagalog={isTagalog}
         />
-        <MarketPricingConfidenceCard nfaActive={nfaActive} marketStatus={marketStatus} />
+        <MarketPricingConfidenceCard nfaActive={nfaActive} marketStatus={marketStatus} isTagalog={isTagalog} />
       </section>
 
       {showNfaModal ? (
@@ -331,10 +390,16 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                 <div>
                   <h2 style={styles.modalTitle}>
                     {nfaActive
-                      ? 'I-disable ang NFA Volatility Alert?'
-                      : 'I-activate ang NFA Volatility Alert?'}
+                      ? isTagalog
+                        ? 'I-disable ang NFA Volatility Alert?'
+                        : 'Disable NFA Volatility Alert?'
+                      : isTagalog
+                        ? 'I-activate ang NFA Volatility Alert?'
+                        : 'Activate NFA Volatility Alert?'}
                   </h2>
-                  <p style={styles.modalSubtitle}>NFA Price Fallback Protocol</p>
+                  <p style={styles.modalSubtitle}>
+                    {isTagalog ? 'Protokol sa Pagbabago ng Presyo ng NFA' : 'NFA Price Fallback Protocol'}
+                  </p>
                 </div>
               </div>
               <button type="button" onClick={() => setShowNfaModal(false)} style={styles.closeBtn}>
@@ -345,8 +410,12 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
             <div style={styles.modalBody}>
               <p style={styles.modalText}>
                 {nfaActive
-                  ? 'Sigurado ka bang nais mong i-disable ang NFA Volatility Safeguard? Ibabalik ang karaniwang pricing algorithm sa platform.'
-                  : 'Sigurado ka bang nais mong ipaalam sa sistema na may biglaang pagbabago sa presyo ng NFA? Awtomatikong ia-activate ng algorithm ang price stabilization at volatility clamps para sa proteksyon ng merkado.'}
+                  ? isTagalog
+                    ? 'Sigurado ka bang nais mong i-disable ang NFA Volatility Safeguard? Ibabalik ang karaniwang pricing algorithm sa platform.'
+                    : 'Are you sure you want to disable the NFA Volatility Safeguard? Standard pricing algorithm will be restored.'
+                  : isTagalog
+                    ? 'Sigurado ka bang nais mong ipaalam sa sistema na may biglaang pagbabago sa presyo ng NFA? Awtomatikong ia-activate ng algorithm ang price stabilization at volatility clamps para sa proteksyon ng merkado.'
+                    : 'Are you sure you want to notify the system of sudden NFA price volatility? The algorithm will automatically activate price stabilization and volatility clamps to protect the market.'}
               </p>
 
               <div style={nfaActive ? styles.calloutInfoBox : styles.calloutWarningBox}>
@@ -357,15 +426,19 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                 />
                 <span>
                   {nfaActive
-                    ? 'Mananatiling sinusubaybayan ng sistema ang live PSA benchmarks kahit naka-disable ang emergency fallback.'
-                    : 'Awtomatikong magpapatupad ang ANIMO ng price clamps (Tier 2/3) upang protektahan ang mga magsasaka laban sa abnormal na pagbagsak o pagtaas ng presyo.'}
+                    ? isTagalog
+                      ? 'Mananatiling sinusubaybayan ng sistema ang live PSA benchmarks kahit naka-disable ang emergency fallback.'
+                      : 'The system will continue monitoring live PSA benchmarks even when the emergency fallback is disabled.'
+                    : isTagalog
+                      ? 'Awtomatikong magpapatupad ang ANIMO ng price clamps (Tier 2/3) upang protektahan ang mga magsasaka laban sa abnormal na pagbagsak o pagtaas ng presyo.'
+                      : 'ANIMO will automatically implement price clamps (Tier 2/3) to protect farmers against abnormal price drops or spikes.'}
                 </span>
               </div>
             </div>
 
             <div style={styles.modalFooter}>
               <button type="button" onClick={() => setShowNfaModal(false)} style={styles.cancelButton}>
-                Huwag Ituloy
+                {isTagalog ? 'Huwag Ituloy' : 'Cancel'}
               </button>
               {nfaActive ? (
                 <button
@@ -374,7 +447,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                   disabled={togglingNfa}
                   style={styles.confirmButtonDisable}>
                   <PauseCircle size={18} />
-                  Oo, I-disable ang Alerto
+                  {isTagalog ? 'Oo, I-disable ang Alerto' : 'Yes, Disable Alert'}
                 </button>
               ) : (
                 <button
@@ -383,7 +456,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                   disabled={togglingNfa}
                   style={styles.confirmButtonGreen}>
                   <Gavel size={18} />
-                  Oo, I-activate ang Alerto
+                  {isTagalog ? 'Oo, I-activate ang Alerto' : 'Yes, Activate Alert'}
                 </button>
               )}
             </div>
@@ -400,20 +473,28 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
 
             <h2 style={{ ...styles.modalTitle, marginTop: 14 }}>
               {lastNfaAction === 'activated'
-                ? 'Matagumpay na Naitakda ang NFA Alert!'
-                : 'Na-disable na ang NFA Volatility Alert'}
+                ? isTagalog
+                  ? 'Matagumpay na Naitakda ang NFA Alert!'
+                  : 'NFA Alert Successfully Activated!'
+                : isTagalog
+                  ? 'Na-disable na ang NFA Volatility Alert'
+                  : 'NFA Volatility Alert Disabled'}
             </h2>
             <p style={{ ...styles.modalText, margin: '8px 0 22px' }}>
               {lastNfaAction === 'activated'
-                ? 'Naabisuhan na ang sistema ukol sa mataas na volatility mula sa NFA. Aktibo na ang safeguards at price clamps para sa lahat ng transaksyon.'
-                : 'Ibinalik na ang karaniwang pricing mode. Mananatiling sinusubaybayan ang PSA benchmarks.'}
+                ? isTagalog
+                  ? 'Naabisuhan na ang sistema ukol sa mataas na volatility mula sa NFA. Aktibo na ang safeguards at price clamps para sa lahat ng transaksyon.'
+                  : 'The system has been notified of high volatility from NFA. Safeguards and price clamps are now active for all transactions.'
+                : isTagalog
+                  ? 'Ibinalik na ang karaniwang pricing mode. Mananatiling sinusubaybayan ang PSA benchmarks.'
+                  : 'Standard pricing mode has been restored. PSA benchmarks will continue to be monitored.'}
             </p>
 
             <button
               type="button"
               onClick={() => setShowNfaSuccessModal(false)}
               style={styles.submitButtonGreenFull}>
-              Naintindihan
+              {isTagalog ? 'Naintindihan' : 'Understood'}
             </button>
           </div>
         </div>
@@ -426,32 +507,42 @@ function PriceBenchmarkCard({
   dryBase,
   monthlyBars,
   effectiveDate,
+  isTagalog,
 }: {
   dryBase: number | null;
   monthlyBars: ReturnType<typeof toMonthlyBars>;
   effectiveDate: string | null;
+  isTagalog: boolean;
 }) {
   return (
     <article className="animo-card" style={styles.panel}>
       <div>
-        <h2 style={styles.panelTitle}>Benchmark ng Presyo sa Rehiyon</h2>
-        <p style={styles.panelSubtitle}>Kasaysayan ng PSA farmgate price sa Rizal</p>
+        <h2 style={styles.panelTitle}>
+          {isTagalog ? 'Benchmark ng Presyo sa Rehiyon' : 'Regional Price Benchmark'}
+        </h2>
+        <p style={styles.panelSubtitle}>
+          {isTagalog ? 'Kasaysayan ng PSA farmgate price sa Rizal' : 'PSA farmgate price history in Rizal'}
+        </p>
       </div>
 
       <div style={styles.priceHeadline}>
         <span style={styles.priceValue}>{dryBase != null ? formatPeso(dryBase) : '—'}</span>
-        <span style={styles.priceUnit}>kada kilo (dry)</span>
+        <span style={styles.priceUnit}>{isTagalog ? 'kada kilo (dry)' : 'per kg (dry)'}</span>
       </div>
 
       <div style={styles.priceMeta}>
         <span style={styles.priceSource}>
-          Sanggunian: Presyo ng Modelo ng ANIMO{effectiveDate ? ` · ${effectiveDate}` : ''}
+          {isTagalog
+            ? `Sanggunian: Presyo ng Modelo ng ANIMO${effectiveDate ? ` · ${effectiveDate}` : ''}`
+            : `Source: ANIMO Model Pricing${effectiveDate ? ` · ${effectiveDate}` : ''}`}
         </span>
       </div>
 
       <div style={styles.chart}>
         {monthlyBars.length === 0 ? (
-          <span style={styles.priceSource}>Walang price history pa.</span>
+          <span style={styles.priceSource}>
+            {isTagalog ? 'Walang price history pa.' : 'No price history yet.'}
+          </span>
         ) : (
           monthlyBars.map((bar) => (
             <div key={`${bar.day}-${bar.pricePerKg}`} style={styles.chartColumn}>
@@ -484,9 +575,11 @@ function PriceBenchmarkCard({
 function MarketPricingConfidenceCard({
   nfaActive,
   marketStatus,
+  isTagalog,
 }: {
   nfaActive: boolean;
   marketStatus: MarketStatus | null;
+  isTagalog: boolean;
 }) {
   const checkLoading = marketStatus === null;
   const anomalyFlagged = marketStatus?.available === true && marketStatus.flagged;
@@ -496,11 +589,23 @@ function MarketPricingConfidenceCard({
     <article className="animo-card" style={styles.panel}>
       <div style={styles.panelHead}>
         <div>
-          <h2 style={styles.panelTitle}>Market Pricing Confidence</h2>
-          <p style={styles.panelSubtitle}>Opisyal na alerto + awtomatikong pagsusuri ng presyo</p>
+          <h2 style={styles.panelTitle}>
+            {isTagalog ? 'Tiwala sa Presyo ng Merkado' : 'Market Pricing Confidence'}
+          </h2>
+          <p style={styles.panelSubtitle}>
+            {isTagalog
+              ? 'Opisyal na alerto + awtomatikong pagsusuri ng presyo'
+              : 'Official alert + automated price analysis'}
+          </p>
         </div>
         <span style={elevated ? styles.warningBadge : styles.normalBadge}>
-          {elevated ? 'May Alerto' : 'Normal'}
+          {elevated
+            ? isTagalog
+              ? 'May Alerto'
+              : 'Alert Active'
+            : isTagalog
+              ? 'Normal'
+              : 'Normal'}
         </span>
       </div>
 
@@ -512,19 +617,35 @@ function MarketPricingConfidenceCard({
 
       <dl style={styles.statList}>
         <StatRow
-          label="Opisyal na NFA Alert"
-          value={nfaActive ? '● May aktibong NFA window' : '○ Walang aktibong NFA window'}
+          label={isTagalog ? 'Opisyal na NFA Alert' : 'Official NFA Alert'}
+          value={
+            nfaActive
+              ? isTagalog
+                ? '● May aktibong NFA window'
+                : '● Active NFA window'
+              : isTagalog
+                ? '○ Walang aktibong NFA window'
+                : '○ No active NFA window'
+          }
         />
         <StatRow
-          label="Awtomatikong Pagsusuri"
+          label={isTagalog ? 'Awtomatikong Pagsusuri' : 'Automated Analysis'}
           value={
             checkLoading
-              ? 'Sinusuri…'
+              ? isTagalog
+                ? 'Sinusuri…'
+                : 'Analyzing…'
               : marketStatus.available
                 ? anomalyFlagged
-                  ? `● May naramdamang biglaang pagbabago (${marketStatus.deviationPct.toFixed(1)}%)`
-                  : `○ Normal na pagbabago ng presyo (${marketStatus.deviationPct.toFixed(1)}%)`
-                : 'Hindi available ngayon'
+                  ? isTagalog
+                    ? `● May naramdamang biglaang pagbabago (${marketStatus.deviationPct.toFixed(1)}%)`
+                    : `● Sudden change detected (${marketStatus.deviationPct.toFixed(1)}%)`
+                  : isTagalog
+                    ? `○ Normal na pagbabago ng presyo (${marketStatus.deviationPct.toFixed(1)}%)`
+                    : `○ Normal price variation (${marketStatus.deviationPct.toFixed(1)}%)`
+                : isTagalog
+                  ? 'Hindi available ngayon'
+                  : 'Not available right now'
           }
         />
       </dl>
@@ -542,8 +663,9 @@ function MarketPricingConfidenceCard({
         <div style={styles.calloutInfoBox}>
           <TriangleAlert size={20} color="var(--animo-green)" style={{ flexShrink: 0 }} />
           <span>
-            Hindi pa magagamit ang awtomatikong pagsusuri ngayon. Ang alerto mula sa NFA toggle sa itaas ang
-            magiging basehan hangga't hindi ito available.
+            {isTagalog
+              ? "Hindi pa magagamit ang awtomatikong pagsusuri ngayon. Ang alerto mula sa NFA toggle sa itaas ang magiging basehan hangga't hindi ito available."
+              : "Automated analysis is not yet available right now. The alert from the NFA toggle above will serve as the basis until it becomes available."}
           </span>
         </div>
       ) : null}

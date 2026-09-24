@@ -40,6 +40,7 @@ import { fetchMarketplaceListing } from '@/services/marketplace-service';
 import { useLanguage } from '@/hooks/use-language';
 import {
   moistureLabel,
+  translateVarietyName,
   varietyLabel,
   type CropListing,
 } from '@/types/crop-listing';
@@ -316,7 +317,7 @@ export default function FarmerProfileScreen() {
                 {isTagalog ? 'Pangunahing uri ng palay' : 'Main palay variety'}
               </AnimoText>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.rowValue}>
-                {profile.commonlySoldVarieties[0] || '—'}
+                {translateVarietyName(profile.commonlySoldVarieties[0], isTagalog) || '—'}
               </AnimoText>
             </View>
 
@@ -333,7 +334,7 @@ export default function FarmerProfileScreen() {
                     <View key={variety} style={styles.varietyPill}>
                       <Sprout size={14} color={AnimoColors.accentPrimary} />
                       <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.varietyPillText}>
-                        {variety}
+                        {translateVarietyName(variety, isTagalog)}
                       </AnimoText>
                     </View>
                   ))

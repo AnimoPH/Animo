@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { getRole, type RoleId } from '@/constants/roles';
+import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
 
 export type ProfileScreenProps = {
@@ -30,14 +31,35 @@ export type ProfileScreenProps = {
  */
 export function ProfileScreen({ role, onPersonalInfoPress }: ProfileScreenProps) {
   const { account, signOut } = useSession();
+  const { t, isTagalog } = useLanguage();
   const activeRole = getRole(role ?? account?.role);
 
   const menu = [
-    { icon: User, label: 'Personal na Impormasyon', onPress: onPersonalInfoPress },
-    { icon: Bell, label: 'Mga Abiso', onPress: undefined },
-    { icon: Settings, label: 'Mga Setting', onPress: undefined },
-    { icon: FileText, label: 'Terms & Privacy', onPress: undefined },
-    { icon: CircleHelp, label: 'Tulong at Suporta', onPress: undefined },
+    {
+      icon: User,
+      label: isTagalog ? 'Personal na Impormasyon' : 'Personal Information',
+      onPress: onPersonalInfoPress,
+    },
+    {
+      icon: Bell,
+      label: isTagalog ? 'Mga Abiso' : 'Notifications',
+      onPress: undefined,
+    },
+    {
+      icon: Settings,
+      label: isTagalog ? 'Mga Setting' : 'Settings',
+      onPress: undefined,
+    },
+    {
+      icon: FileText,
+      label: isTagalog ? 'Terms & Privacy' : 'Terms & Privacy',
+      onPress: undefined,
+    },
+    {
+      icon: CircleHelp,
+      label: isTagalog ? 'Tulong at Suporta' : 'Help & Support',
+      onPress: undefined,
+    },
   ];
 
   const handleLogout = async () => {
@@ -50,7 +72,7 @@ export function ProfileScreen({ role, onPersonalInfoPress }: ProfileScreenProps)
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <AnimoText variant="display" color={AnimoColors.black}>
-          Profile
+          {t('profile.title')}
         </AnimoText>
 
         <View style={styles.identity}>
@@ -59,10 +81,18 @@ export function ProfileScreen({ role, onPersonalInfoPress }: ProfileScreenProps)
           </View>
           <View style={styles.flex}>
             <AnimoText variant="h2" color={AnimoColors.black}>
-              {account?.fullName ?? 'Account'}
+              {account?.fullName ?? (isTagalog ? 'Account' : 'Account')}
             </AnimoText>
             <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-              {activeRole ? activeRole.title : 'Account'}
+              {activeRole
+                ? activeRole.id === 'magsasaka'
+                  ? isTagalog
+                    ? 'Magsasaka'
+                    : 'Farmer'
+                  : isTagalog
+                    ? 'Mamimili'
+                    : 'Buyer'
+                : 'Account'}
               {account?.phone ? ` · ${account.phone}` : ''}
             </AnimoText>
           </View>
@@ -90,7 +120,7 @@ export function ProfileScreen({ role, onPersonalInfoPress }: ProfileScreenProps)
           style={({ pressed }) => [styles.logout, pressed && styles.pressed]}>
           <LogOut size={20} color={AnimoColors.danger} />
           <AnimoText variant="bodyEmphasis" color={AnimoColors.danger}>
-            Mag-logout
+            {t('profile.signOut')}
           </AnimoText>
         </Pressable>
       </ScrollView>

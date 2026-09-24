@@ -42,7 +42,7 @@ export function MarketplaceListingCard({
   onPress,
 }: MarketplaceListingCardProps) {
   const { t, language } = useLanguage();
-  const specificVariety = specificVarietyDisplay(listing);
+  const specificVariety = specificVarietyDisplay(listing, language);
 
   return (
     <TouchableOpacity

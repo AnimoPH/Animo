@@ -43,7 +43,7 @@ export function OnboardingWalkthroughModal({
   onClose,
   role = 'mamimili',
 }: OnboardingWalkthroughModalProps) {
-  const { t } = useLanguage();
+  const { t, isTagalog } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
 
   const isFarmer = role === 'magsasaka';
@@ -52,7 +52,7 @@ export function OnboardingWalkthroughModal({
     {
       id: 0,
       icon: TrendingUp,
-      badge: 'Merkado · Market',
+      badge: isTagalog ? 'Merkado · Market' : 'Market & Pricing',
       title: t('tutorial.step1Title'),
       description: t('tutorial.step1Desc'),
       color: AnimoColors.green,
@@ -61,19 +61,23 @@ export function OnboardingWalkthroughModal({
         {
           icon: ShieldCheck,
           title: t('landing.feature1'),
-          detail: 'Real-time daily prices linked with official market benchmarks.',
+          detail: isTagalog
+            ? 'Real-time na presyo bawat araw batay sa opisyal na datos ng merkado.'
+            : 'Real-time daily prices linked with official market benchmarks.',
         },
         {
           icon: Sparkles,
           title: t('landing.feature2'),
-          detail: 'Direct deals between local Rizal/Antipolo farmers and verified buyers.',
+          detail: isTagalog
+            ? 'Direktang transaksyon sa pagitan ng mga magsasaka sa Rizal at verified na mamimili.'
+            : 'Direct deals between local Rizal/Antipolo farmers and verified buyers.',
         },
       ],
     },
     {
       id: 1,
       icon: Wheat,
-      badge: 'Palay & Grading',
+      badge: isTagalog ? 'Palay at Grado' : 'Palay & Grading',
       title: t('tutorial.step2Title'),
       description: t('tutorial.step2Desc'),
       color: '#D97706',
@@ -81,20 +85,24 @@ export function OnboardingWalkthroughModal({
       features: [
         {
           icon: Layers,
-          title: 'Inbred vs. Hybrid (High-Yield)',
-          detail: 'Malinaw na barayti: Inbred (Rc218, Rc160) at Hybrid (Mataas na Ani tulad ng SL-8H).',
+          title: isTagalog ? 'Inbred vs. Hybrid (High-Yield)' : 'Inbred vs. Hybrid (High-Yield)',
+          detail: isTagalog
+            ? 'Malinaw na barayti: Inbred (Rc218, Rc160) at Hybrid (Mataas na Ani tulad ng SL-8H).'
+            : 'Clear varieties: Inbred (Rc218, Rc160) and Hybrid (High-Yield such as SL-8H).',
         },
         {
           icon: Droplets,
-          title: 'Moisture & Grado',
-          detail: 'Tukoy ang Tuyo (Dry) o Basa (Wet), at Grado A hanggang C.',
+          title: isTagalog ? 'Moisture at Grado' : 'Moisture & Grade',
+          detail: isTagalog
+            ? 'Tukoy ang Tuyo (Dry) o Basa (Wet), at Grado A hanggang C.'
+            : 'Specifies Dry or Wet condition, and Grade A through C.',
         },
       ],
     },
     {
       id: 2,
       icon: Receipt,
-      badge: 'Transaksyon · Safety',
+      badge: isTagalog ? 'Transaksyon at Kaligtasan' : 'Transaction & Safety',
       title: t('tutorial.step3Title'),
       description: t('tutorial.step3Desc'),
       color: '#2563EB',
@@ -102,13 +110,17 @@ export function OnboardingWalkthroughModal({
       features: [
         {
           icon: Scale,
-          title: 'Malinaw na Timbang at Bayaran',
-          detail: 'May kumpirmasyon ng timbang sa sako at suporta para sa GCash at Cash.',
+          title: isTagalog ? 'Malinaw na Timbang at Bayaran' : 'Clear Weight & Payment',
+          detail: isTagalog
+            ? 'May kumpirmasyon ng timbang sa sako at suporta para sa GCash at Cash.'
+            : 'Sack weight confirmation with support for GCash and Cash.',
         },
         {
           icon: CheckCircle2,
-          title: 'Verifiable Receipts',
-          detail: 'Bawat transaksyon ay may digital na resibo at reference tracking.',
+          title: isTagalog ? 'Beripikadong Resibo' : 'Verifiable Receipts',
+          detail: isTagalog
+            ? 'Bawat transaksyon ay may digital na resibo at reference tracking.'
+            : 'Every transaction includes a digital receipt and reference tracking.',
         },
       ],
     },
@@ -118,7 +130,7 @@ export function OnboardingWalkthroughModal({
     {
       id: 0,
       icon: Sprout,
-      badge: 'Aking Ani · New Listing',
+      badge: isTagalog ? 'Aking Ani · Bagong Listing' : 'My Harvest · New Listing',
       title: t('tutorial.farmer.step1Title'),
       description: t('tutorial.farmer.step1Desc'),
       color: AnimoColors.green,
@@ -126,20 +138,24 @@ export function OnboardingWalkthroughModal({
       features: [
         {
           icon: Wheat,
-          title: 'Tamang Barayti ng Binhi',
-          detail: 'Piliin kung Inbred (sertipikadong binhi tulad ng Rc222), Hybrid (SL-8H), o Tradisyonal.',
+          title: isTagalog ? 'Tamang Barayti ng Binhi' : 'Certified Seed Variety',
+          detail: isTagalog
+            ? 'Piliin kung Inbred (sertipikadong binhi tulad ng Rc222), Hybrid (SL-8H), o Tradisyonal.'
+            : 'Select certified Inbred (such as Rc222), Hybrid (SL-8H), or Traditional.',
         },
         {
           icon: Scale,
-          title: 'Timbang at Antas ng Tuyot',
-          detail: 'Ilagay ang kabuuang timbang at ideklara kung Tuyo (Dry) o Basa (Wet).',
+          title: isTagalog ? 'Timbang at Antas ng Tuyot' : 'Weight & Moisture Level',
+          detail: isTagalog
+            ? 'Ilagay ang kabuuang timbang at ideklara kung Tuyo (Dry) o Basa (Wet).'
+            : 'Enter gross/tare weight and declare Dry or Wet condition.',
         },
       ],
     },
     {
       id: 1,
       icon: TrendingUp,
-      badge: 'Presyo · Fair Benchmark',
+      badge: isTagalog ? 'Presyo · Patas na Benchmark' : 'Pricing · Fair Benchmark',
       title: t('tutorial.farmer.step2Title'),
       description: t('tutorial.farmer.step2Desc'),
       color: '#059669',
@@ -147,20 +163,24 @@ export function OnboardingWalkthroughModal({
       features: [
         {
           icon: ShieldCheck,
-          title: 'Opisyal na Presyo sa Merkado',
-          detail: 'Awtomatikong nakakandado ang patas na presyo kada kilo nang walang bawawas ng ahente.',
+          title: isTagalog ? 'Opisyal na Presyo sa Merkado' : 'Official Market Price',
+          detail: isTagalog
+            ? 'Awtomatikong nakakandado ang patas na presyo kada kilo nang walang bawas ng ahente.'
+            : 'Locks in fair market prices per kg without middleman cuts.',
         },
         {
           icon: Sparkles,
-          title: 'Variety Premium',
-          detail: 'May karagdagang halaga para sa mataas na kalidad at hybrid varieties.',
+          title: isTagalog ? 'Variety Premium' : 'Variety Premium',
+          detail: isTagalog
+            ? 'May karagdagang halaga para sa mataas na kalidad at hybrid varieties.'
+            : 'Premium pricing applied for high-quality and hybrid varieties.',
         },
       ],
     },
     {
       id: 2,
       icon: HandCoins,
-      badge: 'Orders & Payments',
+      badge: isTagalog ? 'Mga Order at Bayad' : 'Orders & Payments',
       title: t('tutorial.farmer.step3Title'),
       description: t('tutorial.farmer.step3Desc'),
       color: '#2563EB',
@@ -168,20 +188,24 @@ export function OnboardingWalkthroughModal({
       features: [
         {
           icon: Receipt,
-          title: 'Purchase Request mula sa Mamimili',
-          detail: 'Tingnan ang alok at dami ng sakong nais bilhin sa tab ng Transaksyon.',
+          title: isTagalog ? 'Purchase Request mula sa Mamimili' : 'Purchase Requests from Buyers',
+          detail: isTagalog
+            ? 'Tingnan ang alok at dami ng sakong nais bilhin sa tab ng Transaksyon.'
+            : 'Review buyer offers and requested quantities in the Transactions tab.',
         },
         {
           icon: CheckCircle2,
-          title: 'Kumpirmahin Bago I-release',
-          detail: 'Tiyaking nakumpirma ang bayad sa GCash o personal bago ibigay ang palay.',
+          title: isTagalog ? 'Kumpirmahin Bago I-release' : 'Confirm Before Release',
+          detail: isTagalog
+            ? 'Tiyaking nakumpirma ang bayad sa GCash o personal bago ibigay ang palay.'
+            : 'Ensure payment is verified via GCash or cash before releasing palay.',
         },
       ],
     },
     {
       id: 3,
       icon: CloudRain,
-      badge: 'Panahon · LGU Advisory',
+      badge: isTagalog ? 'Panahon · LGU Advisory' : 'Weather · LGU Advisory',
       title: t('tutorial.farmer.step4Title'),
       description: t('tutorial.farmer.step4Desc'),
       color: '#D97706',
@@ -189,13 +213,17 @@ export function OnboardingWalkthroughModal({
       features: [
         {
           icon: CloudRain,
-          title: 'Bantay-Panahon sa Bukid',
-          detail: 'Alamin ang forecast ng ulan at monsoon para maagap ang pag-aani at pagpapatuyo.',
+          title: isTagalog ? 'Bantay-Panahon sa Bukid' : 'Farm Weather Watch',
+          detail: isTagalog
+            ? 'Alamin ang forecast ng ulan at monsoon para maagap ang pag-aani at pagpapatuyo.'
+            : 'Stay updated on rain and monsoon forecasts to plan harvesting and drying.',
         },
         {
           icon: Layers,
-          title: 'Suporta mula sa LGU',
-          detail: 'Direktang gabay mula sa Tanggapan ng Pagsasaka (Antipolo & Rizal).',
+          title: isTagalog ? 'Suporta mula sa LGU' : 'LGU Agriculture Support',
+          detail: isTagalog
+            ? 'Direktang gabay mula sa Tanggapan ng Pagsasaka (San Mateo & Rizal).'
+            : 'Direct advisories from Municipal Agriculture Offices (San Mateo & Rizal).',
         },
       ],
     },

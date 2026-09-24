@@ -19,15 +19,16 @@ import { SpecificVarietyField } from "@/components/animo/specific-variety-field"
 import { SegmentedChoice } from "@/components/animo/segmented-choice";
 
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
+import { useLanguage } from "@/hooks/use-language";
 import { createCropListing, uploadListingPhoto } from "@/services/crop-listing-service";
 import {
-  HYBRID_SPECIFIC_VARIETY_OPTIONS,
-  INBRED_SPECIFIC_VARIETY_OPTIONS,
-  MOISTURE_OPTIONS,
-  PHOTO_SLOTS,
-  PURITY_OPTIONS,
   SPECIFIC_VARIETY_OTHER,
-  VARIETY_OPTIONS,
+  getHybridSpecificVarieties,
+  getInbredSpecificVarieties,
+  getMoistureOptions,
+  getPhotoSlots,
+  getPurityOptions,
+  getVarietyOptions,
   type DeclaredVariety,
   type MoistureType,
   type PhotoType,
@@ -54,6 +55,7 @@ async function toUploadableJpeg(uri: string): Promise<string> {
 
 /** Gumawa ng Listing — farmer creates a new palay listing: photo, quality, weight. */
 export default function PalayListingScreen() {
+  const { language, isTagalog } = useLanguage();
   const [variety, setVariety] = useState<DeclaredVariety | "">("");
   const [listingName, setListingName] = useState("");
   const [customVariety, setCustomVariety] = useState("");
@@ -86,9 +88,9 @@ export default function PalayListingScreen() {
   const needsSpecificVariety = variety === "Inbred" || variety === "Hybrid";
   const specificVarietyOptions =
     variety === "Inbred"
-      ? INBRED_SPECIFIC_VARIETY_OPTIONS
+      ? getInbredSpecificVarieties(language)
       : variety === "Hybrid"
-        ? HYBRID_SPECIFIC_VARIETY_OPTIONS
+        ? getHybridSpecificVarieties(language)
         : [];
   // Only NSIC Rc218 carries a price premium (see varietypricepremium); every
   // other pick, including non-Inbred/Hybrid varieties, resolves to OTHER.
@@ -113,6 +115,7 @@ export default function PalayListingScreen() {
       delete next[slot];
       return next;
     });
+    setFailedSlots((prev) => prev.filter((s) => s !== slot));
   };
 
   const handlePickSource = async (source: "camera" | "gallery") => {
@@ -128,8 +131,8 @@ export default function PalayListingScreen() {
     if (!permission.granted) {
       setErrorMessage(
         permission.canAskAgain
-          ? "Kailangan ng pahintulot para makakuha ng larawan."
-          : "Kailangan ng pahintulot. Buksan ang Settings ng telepono para payagan ang ANIMO.",
+          ? (isTagalog ? "Kailangan ng pahintulot para makakuha ng larawan." : "Permission required to capture photos.")
+          : (isTagalog ? "Kailangan ng pahintulot. Buksan ang Settings ng telepono para payagan ang ANIMO." : "Permission required. Open phone Settings to allow ANIMO."),
       );
       return;
     }
@@ -151,7 +154,7 @@ export default function PalayListingScreen() {
       setFailedSlots((prev) => prev.filter((s) => s !== slot));
       setErrorMessage(undefined);
     } catch {
-      setErrorMessage("Hindi maproseso ang larawan. Subukan muli.");
+      setErrorMessage(isTagalog ? "Hindi maproseso ang larawan. Subukan muli." : "Failed to process photo. Please try again.");
     }
   };
 
@@ -200,7 +203,9 @@ export default function PalayListingScreen() {
       if (newlyFailed.length > 0) {
         setFailedSlots(newlyFailed);
         setErrorMessage(
-          `Hindi na-upload ang ${newlyFailed.length} larawan. Subukan muli o magpatuloy nang wala.`,
+          isTagalog
+            ? `Hindi na-upload ang ${newlyFailed.length} larawan. Subukan muli o magpatuloy nang wala.`
+            : `Failed to upload ${newlyFailed.length} photo(s). Try again or proceed without photos.`,
         );
         return;
       }
@@ -208,7 +213,7 @@ export default function PalayListingScreen() {
       navigateToUploading(listingId, price);
     } catch (err) {
       setErrorMessage(
-        err instanceof Error ? err.message : "Hindi na-submit ang listing.",
+        err instanceof Error ? err.message : (isTagalog ? "Hindi na-submit ang listing." : "Failed to submit listing."),
       );
     } finally {
       setSubmitting(false);
@@ -220,9 +225,11 @@ export default function PalayListingScreen() {
     navigateToUploading(createdListingId, createdPrice);
   };
 
+  const photoSlots = getPhotoSlots(language);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-      <BackHeader title="Gumawa ng Listing" />
+      <BackHeader title={isTagalog ? "Gumawa ng Listing" : "Create Listing"} />
 
       {/* Progress Bar */}
       <ProgressSteps />
@@ -234,34 +241,36 @@ export default function PalayListingScreen() {
       >
         <View style={[styles.card, styles.shadow]}>
           <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            Maglista ng Palay
+            {isTagalog ? "Maglista ng Palay" : "List Palay Harvest"}
           </AnimoText>
           <AnimoText
             variant="body"
             color={AnimoColors.textMediumEmphasis}
             style={styles.introBody}
           >
-            Ilagay ang detalye ng iyong palay para sa merkado. Tandaan na dapat
-            ang mga ilalagay niyong impormasyon ay tama at eksakto.
+            {isTagalog
+              ? "Ilagay ang detalye ng iyong palay para sa merkado. Tandaan na dapat ang mga ilalagay niyong impormasyon ay tama at eksakto."
+              : "Enter your palay harvest details for the marketplace. Please ensure all information entered is accurate."}
           </AnimoText>
         </View>
 
         {/* Photo Slots */}
         <View style={[styles.card, styles.shadow]}>
           <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            Mga Larawan ng Palay
+            {isTagalog ? "Mga Larawan ng Palay" : "Harvest Photos"}
           </AnimoText>
           <AnimoText
             variant="caption"
             color={AnimoColors.textLowEmphasis}
             style={styles.introBody}
           >
-            Kailangan ng hindi bababa sa isang larawan. Kumuha gamit ang camera
-            o pumili mula sa gallery.
+            {isTagalog
+              ? "Kailangan ng hindi bababa sa isang larawan. Kumuha gamit ang camera o pumili mula sa gallery."
+              : "At least one photo is required. Take photos using the camera or select from your gallery."}
           </AnimoText>
 
           <View style={styles.photoRow}>
-            {PHOTO_SLOTS.map((slot) => {
+            {photoSlots.map((slot) => {
               const localUri = photos[slot.value];
               const failed = failedSlots.includes(slot.value);
               return (
@@ -311,16 +320,16 @@ export default function PalayListingScreen() {
           {/* Palay Details */}
           <View>
             <LabeledInput
-              label="Pangalan ng Listing"
+              label={isTagalog ? "Pangalan ng Listing" : "Listing Name"}
               value={listingName}
               onChangeText={setListingName}
-              placeholder="Hal. Palay Listing"
+              placeholder={isTagalog ? "Hal. Palay Listing" : "e.g. Palay Listing"}
             />
             <View style={styles.inlineFieldSpacing}>
               <SelectField
-                label="Uri ng Palay"
-                placeholder="Pumili ng uri ng palay"
-                options={VARIETY_OPTIONS}
+                label={isTagalog ? "Uri ng Palay" : "Rice Variety"}
+                placeholder={isTagalog ? "Pumili ng uri ng palay" : "Select rice variety"}
+                options={getVarietyOptions(language)}
                 value={variety || null}
                 onChange={(value) => {
                   const next = value as DeclaredVariety;
@@ -339,15 +348,15 @@ export default function PalayListingScreen() {
                 <LabeledInput
                   value={customVariety}
                   onChangeText={setCustomVariety}
-                  placeholder="Ilagay ang pangalan ng uri"
+                  placeholder={isTagalog ? "Ilagay ang pangalan ng uri" : "Enter variety name"}
                 />
               </View>
             ) : null}
             {needsSpecificVariety ? (
               <View style={styles.inlineFieldSpacing}>
                 <SpecificVarietyField
-                  label="Tiyak na Uri ng Palay"
-                  placeholder="Pumili ng tiyak na uri"
+                  label={isTagalog ? "Tiyak na Uri ng Palay" : "Specific Rice Variety"}
+                  placeholder={isTagalog ? "Pumili ng tiyak na uri" : "Select specific variety"}
                   options={specificVarietyOptions}
                   value={specificVariety?.value ?? null}
                   open={specificVarietyOpen}
@@ -364,7 +373,7 @@ export default function PalayListingScreen() {
                     <LabeledInput
                       value={specificVarietyCustom}
                       onChangeText={setSpecificVarietyCustom}
-                      placeholder="Ilagay ang tiyak na uri"
+                      placeholder={isTagalog ? "Ilagay ang tiyak na uri" : "Enter specific variety"}
                     />
                   </View>
                 ) : null}
@@ -374,15 +383,15 @@ export default function PalayListingScreen() {
 
           <SegmentedChoice
             label="Moisture %"
-            options={MOISTURE_OPTIONS}
+            options={getMoistureOptions(language)}
             value={moistureType}
             onChange={setMoistureType}
           />
 
           <SelectField
-            label="Kalinisan (Purity Grade)"
-            placeholder="Pumili ng kalinisan ng palay"
-            options={PURITY_OPTIONS}
+            label={isTagalog ? "Kalinisan (Purity Grade)" : "Purity Grade"}
+            placeholder={isTagalog ? "Pumili ng kalinisan ng palay" : "Select purity grade"}
+            options={getPurityOptions(language)}
             value={purityGrade || null}
             onChange={(value) => setPurityGrade(value as PurityGrade)}
           />
@@ -391,22 +400,22 @@ export default function PalayListingScreen() {
         {/* Weight Card */}
         <View style={[styles.card, styles.shadow]}>
           <LabeledInput
-            label="Timbang ng Palay (Gross Weight)"
+            label={isTagalog ? "Timbang ng Palay (Gross Weight)" : "Gross Weight"}
             value={grossWeight}
             onChangeText={setGrossWeight}
             keyboardType="numeric"
             placeholder="0"
-            suffixText="kilo/kg"
+            suffixText={isTagalog ? "kilo/kg" : "kg"}
           />
           <LabeledInput
-            label="Timbang ng Sako at iba pa (Tare Weight)"
+            label={isTagalog ? "Timbang ng Sako at iba pa (Tare Weight)" : "Tare Weight (Sacks & deductibles)"}
             value={tareWeight}
             onChangeText={setTareWeight}
             keyboardType="numeric"
             placeholder="0"
-            suffixText="kilo/kg"
+            suffixText={isTagalog ? "kilo/kg" : "kg"}
           />
-          <NetWeightField value={netWeight} />
+          <NetWeightField value={netWeight} isTagalog={isTagalog} />
         </View>
 
         {errorMessage ? (
@@ -420,13 +429,13 @@ export default function PalayListingScreen() {
           {failedSlots.length > 0 ? (
             <View style={styles.retryBar}>
               <AnimoButton
-                label="Subukan Muli"
+                label={isTagalog ? "Subukan Muli" : "Try Again"}
                 variant="secondary"
                 loading={submitting}
                 onPress={handleSubmit}
               />
               <AnimoButton
-                label="Magpatuloy nang Wala Munang Larawan"
+                label={isTagalog ? "Magpatuloy nang Wala Munang Larawan" : "Proceed Without Photos"}
                 variant="primary"
                 disabled={submitting}
                 onPress={handleProceedWithoutPhotos}
@@ -434,7 +443,7 @@ export default function PalayListingScreen() {
             </View>
           ) : (
             <AnimoButton
-              label="Ipasa na"
+              label={isTagalog ? "Ipasa na" : "Submit Listing"}
               variant="primary"
               disabled={!canSubmit}
               loading={submitting}
@@ -454,18 +463,18 @@ export default function PalayListingScreen() {
   );
 }
 
-function NetWeightField({ value }: { value: number }) {
+function NetWeightField({ value, isTagalog = true }: { value: number; isTagalog?: boolean }) {
   return (
     <View>
       <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
-        Kabuuan (Net Weight)
+        {isTagalog ? "Kabuuan (Net Weight)" : "Net Weight"}
       </AnimoText>
       <View style={styles.netWeightField}>
         <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
           {value}
         </AnimoText>
         <AnimoText variant="bodyEmphasis" color={AnimoColors.textLowEmphasis}>
-          kilo/kg
+          {isTagalog ? "kilo/kg" : "kg"}
         </AnimoText>
       </View>
     </View>

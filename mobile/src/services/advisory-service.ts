@@ -14,12 +14,25 @@ import { requireAuthUserId } from '@/services/crop-listing-service';
 
 export type RiceTypeCategory = 'Hybrid' | 'Inbred' | 'Organic' | 'Specialty';
 
-export const RICE_TYPE_OPTIONS: { value: RiceTypeCategory; label: string }[] = [
+export const RICE_TYPE_OPTIONS_TL: { value: RiceTypeCategory; label: string }[] = [
+  { value: 'Inbred', label: 'Inbred' },
+  { value: 'Hybrid', label: 'Hybrid' },
+  { value: 'Organic', label: 'Organiko (Organic)' },
+  { value: 'Specialty', label: 'Espesyal (Specialty)' },
+];
+
+export const RICE_TYPE_OPTIONS_EN: { value: RiceTypeCategory; label: string }[] = [
   { value: 'Inbred', label: 'Inbred' },
   { value: 'Hybrid', label: 'Hybrid' },
   { value: 'Organic', label: 'Organic' },
   { value: 'Specialty', label: 'Specialty' },
 ];
+
+export const RICE_TYPE_OPTIONS = RICE_TYPE_OPTIONS_TL;
+
+export function getRiceTypeOptions(lang: 'tl' | 'en' = 'tl'): { value: RiceTypeCategory; label: string }[] {
+  return lang === 'en' ? RICE_TYPE_OPTIONS_EN : RICE_TYPE_OPTIONS_TL;
+}
 
 const MATURITY_DAYS: Record<RiceTypeCategory, number> = {
   Hybrid: 110,

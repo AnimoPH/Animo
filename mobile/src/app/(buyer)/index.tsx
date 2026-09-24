@@ -33,6 +33,7 @@ import {
   type MarketPopularityInsight,
 } from '@/services/farmer-public-profile';
 import { fetchMarketplaceListings } from '@/services/marketplace-service';
+import { translateVarietyName } from '@/types/crop-listing';
 import type { RankedListing } from '@/types/marketplace-filter';
 
 const TrendingOrange = '#F57C00';
@@ -52,7 +53,7 @@ const DEFAULT_INSIGHTS: MarketPopularityInsight = {
 
 /** Tahanan — buyer home: welcome, market analytics, trending varieties, and fresh harvest recommendations. */
 export default function BuyerHomeScreen() {
-  const { t } = useLanguage();
+  const { t, isTagalog } = useLanguage();
   const params = useLocalSearchParams<{ startTour?: string }>();
   const [featured, setFeatured] = useState<RankedListing[]>([]);
   const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
@@ -197,12 +198,12 @@ export default function BuyerHomeScreen() {
                   color={AnimoColors.accentPrimary}
                   style={styles.insightVarietyValueLarge}
                   numberOfLines={2}>
-                  {insights.topVariety}
+                  {translateVarietyName(insights.topVariety, isTagalog)}
                 </AnimoText>
                 {insights.topVariety.toLowerCase().includes('hybrid') ? (
                   <View style={styles.hybridBadge}>
                     <AnimoText variant="tag" color="#1E40AF">
-                      High-Yield F1 Palay
+                      {isTagalog ? 'Mataas na Ani (High-Yield)' : 'High-Yield F1 Palay'}
                     </AnimoText>
                   </View>
                 ) : null}
@@ -282,12 +283,19 @@ export default function BuyerHomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.varietiesCarousel}>
               {insights.popularVarieties.map((item) => {
-                const isHybrid = item.name.toLowerCase().includes('hybrid');
+                const displayName = translateVarietyName(item.name, isTagalog);
+                const isHybrid =
+                  item.name.toLowerCase().includes('hybrid') ||
+                  displayName.toLowerCase().includes('hybrid');
                 return (
                   <Pressable
                     key={item.name}
                     accessibilityRole="button"
-                    accessibilityLabel={`Tingnan ang mga listing ng ${item.name}`}
+                    accessibilityLabel={
+                      isTagalog
+                        ? `Tingnan ang mga listing ng ${displayName}`
+                        : `View ${displayName} listings`
+                    }
                     onPress={() => router.push('/(buyer)/palengke')}
                     style={styles.varietyCard}>
                     <View style={styles.varietyIconWrap}>
@@ -299,7 +307,7 @@ export default function BuyerHomeScreen() {
                       color={AnimoColors.textHighEmphasis}
                       style={styles.varietyName}
                       numberOfLines={2}>
-                      {item.name}
+                      {displayName}
                     </AnimoText>
 
                     <View style={styles.varietyTagBadge}>
@@ -307,14 +315,16 @@ export default function BuyerHomeScreen() {
                         variant="caption"
                         color={AnimoColors.accentPrimary}
                         style={styles.varietyTagText}>
-                        {item.listingCount} {item.listingCount === 1 ? 'listing' : 'listings'}
+                        {isTagalog
+                          ? `${item.listingCount} ${item.listingCount === 1 ? 'listahan' : 'mga listahan'}`
+                          : `${item.listingCount} ${item.listingCount === 1 ? 'listing' : 'listings'}`}
                       </AnimoText>
                     </View>
 
                     {isHybrid ? (
                       <View style={styles.hybridPill}>
                         <AnimoText variant="tag" color="#1E40AF" style={styles.hybridPillText}>
-                          Mataas na Ani (High-Yield)
+                          {isTagalog ? 'Mataas na Ani (High-Yield)' : 'High-Yield'}
                         </AnimoText>
                       </View>
                     ) : null}

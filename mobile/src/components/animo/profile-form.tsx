@@ -10,7 +10,7 @@ import { FormCard } from '@/components/animo/form-card';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { SelectField } from '@/components/animo/select-field';
 import { AnimoColors, AnimoSpacing } from '@/constants/animo';
-import { BARANGAYS, FARM_SIZES, PALAY_VARIETIES } from '@/constants/profile-options';
+import { BARANGAYS, getFarmSizes, getPalayVarieties } from '@/constants/profile-options';
 import { useLanguage } from '@/hooks/use-language';
 
 function formatPhoneDisplay(local: string): string {
@@ -71,7 +71,7 @@ export function ProfileForm({
   values,
   onChange,
 }: ProfileFormProps) {
-  const { t } = useLanguage();
+  const { t, isTagalog } = useLanguage();
 
   // Small helper to update a single field immutably.
   const set = <K extends keyof ProfileValues>(key: K, value: ProfileValues[K]) =>
@@ -135,14 +135,14 @@ export function ProfileForm({
             <SelectField
               label={t('register.farmSize')}
               placeholder={t('register.farmSizePlaceholder')}
-              options={FARM_SIZES}
+              options={getFarmSizes(isTagalog)}
               value={values.farmSize}
               onChange={(v) => set('farmSize', v)}
             />
             <SelectField
               label={t('register.typicalVarietyLabel')}
               placeholder={t('register.riceVarietyPlaceholder')}
-              options={PALAY_VARIETIES}
+              options={getPalayVarieties(isTagalog)}
               value={values.riceVariety}
               onChange={(v) => set('riceVariety', v)}
             />

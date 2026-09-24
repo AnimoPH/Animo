@@ -310,7 +310,7 @@ export const TRANSLATIONS = {
     'register.farmSizePlaceholder': 'Pumili ng laki ng bukid',
     'register.riceVarietyPlaceholder': 'Pumili ng uri',
     'register.typicalVarietyLabel': 'Uri ng Palay na Karaniwang Itinatanim',
-    'action.needsAction': 'Kailangan ng aksyon',
+    'action.needsAction': 'Kailangan ng Aksyon',
     'filter.modalTitle': 'Mga Filter',
     'filter.activeCount': '{count} aktibo',
     'filter.clearAll': 'I-reset Lahat',

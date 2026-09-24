@@ -188,8 +188,9 @@ export default function TransactionStatusScreen() {
         ) : null}
         <ProgressTracker steps={buildProgressSteps(outcome, 'buyer', language)} />
         <PaymentSummary
+          title={isTagalog ? 'Buod ng Bayad' : 'Payment Summary'}
           rows={[
-            { label: isTagalog ? 'Dami ng Palay' : 'Palay Quantity', amount: quantityKg },
+            { label: isTagalog ? 'Dami ng Palay' : 'Palay Quantity', amount: `${quantityKg} kg` },
             { label: isTagalog ? 'Presyo bawat kilo' : 'Price per kg', amount: pricePerKg },
           ]}
           total={{ label: isTagalog ? 'Kabuuang babayaran' : 'Total Payable', amount: total }}

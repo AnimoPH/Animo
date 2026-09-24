@@ -225,25 +225,27 @@ export type ProgressStep = {
   state: 'done' | 'current' | 'upcoming' | 'failed';
 };
 
-export function formatDateTime(isoString: string | null | undefined): string {
+export function formatDateTime(isoString: string | null | undefined, lang: 'tl' | 'en' = 'tl'): string {
   if (!isoString) return '';
   try {
     const d = new Date(isoString);
     if (isNaN(d.getTime())) return isoString;
-    const datePart = d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
-    const timePart = d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+    const locale = lang === 'en' ? 'en-US' : 'fil-PH';
+    const datePart = d.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' });
+    const timePart = d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
     return `${datePart} · ${timePart}`;
   } catch {
     return isoString;
   }
 }
 
-export function formatDate(isoString: string | null | undefined): string {
+export function formatDate(isoString: string | null | undefined, lang: 'tl' | 'en' = 'tl'): string {
   if (!isoString) return '';
   try {
     const d = new Date(isoString);
     if (isNaN(d.getTime())) return isoString;
-    return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const locale = lang === 'en' ? 'en-US' : 'fil-PH';
+    return d.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' });
   } catch {
     return isoString;
   }

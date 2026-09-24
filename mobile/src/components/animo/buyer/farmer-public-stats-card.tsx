@@ -12,13 +12,16 @@ import { StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
 import type { FarmerPublicProfile } from '@/services/farmer-public-profile';
+import { translateVarietyName } from '@/types/crop-listing';
 
 export type FarmerPublicStatsCardProps = {
   profile: FarmerPublicProfile;
 };
 
 export function FarmerPublicStatsCard({ profile }: FarmerPublicStatsCardProps) {
+  const { isTagalog } = useLanguage();
   const initials = profile.name
     .split(' ')
     .map((w) => w[0])
@@ -61,7 +64,7 @@ export function FarmerPublicStatsCard({ profile }: FarmerPublicStatsCardProps) {
       <View style={styles.sectionHeader}>
         <Award size={18} color={AnimoColors.accentPrimary} />
         <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-          Talaan ng Transaksyon at Rekord
+          {isTagalog ? 'Talaan ng Transaksyon at Rekord' : 'Transaction History & Records'}
         </AnimoText>
       </View>
 
@@ -74,7 +77,7 @@ export function FarmerPublicStatsCard({ profile }: FarmerPublicStatsCardProps) {
           </View>
           <View style={styles.metricTextWrap}>
             <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-              Kabuuang Naibenta
+              {isTagalog ? 'Kabuuang Naibenta' : 'Total Volume Sold'}
             </AnimoText>
             <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
               {profile.totalSoldKg.toLocaleString()} kg
@@ -89,10 +92,10 @@ export function FarmerPublicStatsCard({ profile }: FarmerPublicStatsCardProps) {
           </View>
           <View style={styles.metricTextWrap}>
             <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-              Nakumpletong Transaksyon
+              {isTagalog ? 'Nakumpletong Transaksyon' : 'Completed Transactions'}
             </AnimoText>
             <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-              {profile.completedTransactionsCount} transaksyon
+              {profile.completedTransactionsCount} {isTagalog ? 'transaksyon' : profile.completedTransactionsCount === 1 ? 'transaction' : 'transactions'}
             </AnimoText>
           </View>
         </View>
@@ -103,7 +106,7 @@ export function FarmerPublicStatsCard({ profile }: FarmerPublicStatsCardProps) {
         <View style={styles.varietyHeader}>
           <Sprout size={18} color={AnimoColors.accentPrimary} />
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            Karaniwang Uri ng Palay na Ibinebenta:
+            {isTagalog ? 'Karaniwang Uri ng Palay na Ibinebenta:' : 'Commonly Sold Palay Varieties:'}
           </AnimoText>
         </View>
         <View style={styles.varietyChips}>
@@ -111,13 +114,13 @@ export function FarmerPublicStatsCard({ profile }: FarmerPublicStatsCardProps) {
             profile.commonlySoldVarieties.map((variety) => (
               <View key={variety} style={styles.varietyChip}>
                 <AnimoText variant="caption" color={AnimoColors.textHighEmphasis}>
-                  {variety}
+                  {translateVarietyName(variety, isTagalog)}
                 </AnimoText>
               </View>
             ))
           ) : (
             <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-              Wala pang talaan
+              {isTagalog ? 'Wala pang talaan' : 'No records yet'}
             </AnimoText>
           )}
         </View>
@@ -152,13 +155,15 @@ export function FarmerPublicStatsCard({ profile }: FarmerPublicStatsCardProps) {
               ))}
             </View>
             <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-              {profile.totalReviews} mga review ng mamimili
+              {isTagalog
+                ? `${profile.totalReviews} mga review ng mamimili`
+                : `${profile.totalReviews} buyer ${profile.totalReviews === 1 ? 'review' : 'reviews'}`}
             </AnimoText>
             {profile.positiveFeedbackPct != null ? (
               <View style={styles.satisfactionRow}>
                 <ThumbsUp size={12} color={AnimoColors.accentPrimary} />
                 <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
-                  {profile.positiveFeedbackPct}% Positibong Feedback
+                  {profile.positiveFeedbackPct}% {isTagalog ? 'Positibong Feedback' : 'Positive Feedback'}
                 </AnimoText>
               </View>
             ) : null}
@@ -168,7 +173,7 @@ export function FarmerPublicStatsCard({ profile }: FarmerPublicStatsCardProps) {
         <View style={styles.testimonialList}>
           {profile.comments.length === 0 ? (
             <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-              Wala pang komento mula sa mga mamimili.
+              {isTagalog ? 'Wala pang komento mula sa mga mamimili.' : 'No reviews from buyers yet.'}
             </AnimoText>
           ) : (
             profile.comments.map((comment, index) => (
@@ -176,7 +181,7 @@ export function FarmerPublicStatsCard({ profile }: FarmerPublicStatsCardProps) {
                 <View style={styles.testimonialHeader}>
                   <MessageSquareQuote size={14} color={AnimoColors.accentPrimary} />
                   <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                    Mamimili
+                    {isTagalog ? 'Mamimili' : 'Buyer'}
                   </AnimoText>
                 </View>
                 <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.testimonialQuote}>
@@ -191,8 +196,9 @@ export function FarmerPublicStatsCard({ profile }: FarmerPublicStatsCardProps) {
       {/* Privacy note */}
       <View style={styles.privacyNote}>
         <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-          Ligtas na Transaksyon: Ibibigay ang kumpletong contact number at saktong lokasyon
-          ng pickup kapag tinanggap ng magsasaka ang iyong kahilingan.
+          {isTagalog
+            ? 'Ligtas na Transaksyon: Ibibigay ang kumpletong contact number at saktong lokasyon ng pickup kapag tinanggap ng magsasaka ang iyong kahilingan.'
+            : 'Safe Transactions: Complete contact details and exact pickup address are revealed once the farmer accepts your request.'}
         </AnimoText>
       </View>
     </View>

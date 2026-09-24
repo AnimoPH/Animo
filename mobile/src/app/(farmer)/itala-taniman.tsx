@@ -1,7 +1,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { Sprout } from 'lucide-react-native';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -12,23 +12,27 @@ import { IconChoiceGrid, type IconChoiceOption } from '@/components/animo/farmer
 import { ProgressSteps } from '@/components/animo/farmer/progress-steps';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import { logPlanting, RICE_TYPE_OPTIONS, type RiceTypeCategory } from '@/services/advisory-service';
+import { useLanguage } from '@/hooks/use-language';
+import { getRiceTypeOptions, logPlanting, type RiceTypeCategory } from '@/services/advisory-service';
 
-const RICE_TYPE_ICON_OPTIONS: IconChoiceOption<RiceTypeCategory>[] = RICE_TYPE_OPTIONS.map((option) => ({
-  ...option,
-  icon: Sprout,
-}));
-
-function formatDate(date: Date): string {
-  const months = [
+function formatDate(date: Date, isTagalog: boolean): string {
+  const monthsTl = [
     'Enero', 'Pebrero', 'Marso', 'Abril', 'Mayo', 'Hunyo',
     'Hulyo', 'Agosto', 'Setyembre', 'Oktubre', 'Nobyembre', 'Disyembre',
   ];
-  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  const monthsEn = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+  const months = isTagalog ? monthsTl : monthsEn;
+  return isTagalog
+    ? `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`
+    : `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 }
 
 /** Itala ang Taniman — 2-step planting log, the only farmer input the advisory rule engine needs. */
 export default function ItalaTanimanScreen() {
+  const { isTagalog, language } = useLanguage();
   const [step, setStep] = useState<0 | 1>(0);
   const [riceType, setRiceType] = useState<RiceTypeCategory | null>(null);
   const [plantingDate, setPlantingDate] = useState<Date>(new Date());
@@ -36,6 +40,13 @@ export default function ItalaTanimanScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [successVisible, setSuccessVisible] = useState(false);
+
+  const riceTypeIconOptions: IconChoiceOption<RiceTypeCategory>[] = useMemo(() => {
+    return getRiceTypeOptions(language).map((option) => ({
+      ...option,
+      icon: Sprout,
+    }));
+  }, [language]);
 
   const handleConfirm = async () => {
     if (!riceType) return;
@@ -45,7 +56,13 @@ export default function ItalaTanimanScreen() {
       await logPlanting(riceType, plantingDate.toISOString().slice(0, 10));
       setSuccessVisible(true);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Hindi naitala ang taniman.');
+      setErrorMessage(
+        err instanceof Error
+          ? err.message
+          : isTagalog
+            ? 'Hindi naitala ang taniman.'
+            : 'Failed to log planting.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -53,30 +70,34 @@ export default function ItalaTanimanScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <ScreenHeader title="Itala ang Taniman" />
+      <ScreenHeader title={isTagalog ? 'Itala ang Taniman' : 'Log Planting'} />
       <ProgressSteps currentStep={step} />
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {step === 0 ? (
           <>
             <AnimoText variant="tag" color={AnimoColors.textLowEmphasis} style={styles.stepLabel}>
-              HAKBANG 1 NG 2
+              {isTagalog ? 'HAKBANG 1 NG 2' : 'STEP 1 OF 2'}
             </AnimoText>
             <AnimoText variant="h2" color={AnimoColors.black} style={styles.question}>
-              Anong uri ng palay ang itinanim mo?
+              {isTagalog ? 'Anong uri ng palay ang itinanim mo?' : 'What rice variety did you plant?'}
             </AnimoText>
-            <IconChoiceGrid options={RICE_TYPE_ICON_OPTIONS} value={riceType} onChange={setRiceType} />
+            <IconChoiceGrid options={riceTypeIconOptions} value={riceType} onChange={setRiceType} />
 
             <View style={styles.flexFill} />
-            <AnimoButton label="Susunod" onPress={() => setStep(1)} disabled={!riceType} />
+            <AnimoButton
+              label={isTagalog ? 'Susunod' : 'Next'}
+              onPress={() => setStep(1)}
+              disabled={!riceType}
+            />
           </>
         ) : (
           <>
             <AnimoText variant="tag" color={AnimoColors.textLowEmphasis} style={styles.stepLabel}>
-              HAKBANG 2 NG 2
+              {isTagalog ? 'HAKBANG 2 NG 2' : 'STEP 2 OF 2'}
             </AnimoText>
             <AnimoText variant="h2" color={AnimoColors.black} style={styles.question}>
-              Kailan mo ito itinanim?
+              {isTagalog ? 'Kailan mo ito itinanim?' : 'When did you plant this?'}
             </AnimoText>
 
             {Platform.OS === 'ios' ? (
@@ -95,7 +116,7 @@ export default function ItalaTanimanScreen() {
                 onPress={() => setShowAndroidPicker(true)}
                 style={styles.dateField}>
                 <AnimoText variant="body" color={AnimoColors.black}>
-                  {formatDate(plantingDate)}
+                  {formatDate(plantingDate, isTagalog)}
                 </AnimoText>
               </Pressable>
             )}
@@ -113,7 +134,7 @@ export default function ItalaTanimanScreen() {
             ) : null}
 
             <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.pickedLabel}>
-              Pinili: {formatDate(plantingDate)}
+              {isTagalog ? 'Pinili:' : 'Selected:'} {formatDate(plantingDate, isTagalog)}
             </AnimoText>
 
             {errorMessage ? (
@@ -124,9 +145,14 @@ export default function ItalaTanimanScreen() {
 
             <View style={styles.flexFill} />
             <View style={styles.confirmRow}>
-              <AnimoButton label="Bumalik" variant="secondary" onPress={() => setStep(0)} style={styles.flexOne} />
               <AnimoButton
-                label="Kumpirmahin"
+                label={isTagalog ? 'Bumalik' : 'Back'}
+                variant="secondary"
+                onPress={() => setStep(0)}
+                style={styles.flexOne}
+              />
+              <AnimoButton
+                label={isTagalog ? 'Kumpirmahin' : 'Confirm'}
                 onPress={handleConfirm}
                 loading={submitting}
                 style={styles.flexOne}
@@ -139,9 +165,13 @@ export default function ItalaTanimanScreen() {
       <FeedbackModal
         visible={successVisible}
         tone="success"
-        title="Naitala ang Taniman!"
-        message="Makakatanggap ka na ng payo sa panahon para sa taniman na ito, kapag naging available ang datos."
-        confirmLabel="Sige, Salamat"
+        title={isTagalog ? 'Naitala ang Taniman!' : 'Planting Recorded!'}
+        message={
+          isTagalog
+            ? 'Makakatanggap ka na ng payo sa panahon para sa taniman na ito, kapag naging available ang datos.'
+            : 'You will now receive weather advisories for this crop once data becomes available.'
+        }
+        confirmLabel={isTagalog ? 'Sige, Salamat' : 'Got it, Thanks'}
         onConfirm={() => {
           setSuccessVisible(false);
           router.replace('/(farmer)/(tabs)');

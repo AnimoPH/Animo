@@ -186,7 +186,7 @@ export default function FarmerTransactionDetailScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <StageBanner stage={stage} transaction={transaction} buyerName={buyer?.name} lang={language} />
 
-        {listing ? <ListingCard listing={listing} transaction={transaction} isCancelled={isCancelled} /> : null}
+        {listing ? <ListingCard listing={listing} transaction={transaction} isCancelled={isCancelled} lang={language} /> : null}
 
         <ProgressTracker title={isTagalog ? 'Progreso ng Transaksyon' : 'Transaction Progress'} steps={steps} />
 
@@ -452,17 +452,19 @@ function ListingCard({
   listing,
   transaction,
   isCancelled,
+  lang = 'tl',
 }: {
   listing: CropListing;
   transaction: TransactionWithPayment;
   isCancelled: boolean;
+  lang?: 'tl' | 'en';
 }) {
   return (
     <View style={[styles.listingCard, isCancelled && styles.listingCardMuted]}>
       <View style={styles.listingHeader}>
         <View style={styles.listingTitleGroup}>
           <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            {varietyLabel(listing)}
+            {varietyLabel(listing, lang)}
           </AnimoText>
         </View>
         <AnimoText variant="price" color={AnimoColors.accentPrimary} style={styles.listingPriceText}>

@@ -4,6 +4,7 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { ListingImage } from '@/components/animo/listing-image';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
 import { varietyLabel, type CropListing } from '@/types/crop-listing';
 
 export type RequestListingCardProps = {
@@ -21,6 +22,7 @@ export function RequestListingCard({
   totalAmount,
   muted = false,
 }: RequestListingCardProps) {
+  const { isTagalog, language } = useLanguage();
   const bodyColor = muted ? AnimoColors.muted : AnimoColors.blackSecondary;
 
   return (
@@ -31,14 +33,14 @@ export function RequestListingCard({
           <AnimoText
             variant="h3"
             color={muted ? AnimoColors.blackSecondary : AnimoColors.black}>
-            {varietyLabel(listing)}
+            {varietyLabel(listing, language)}
           </AnimoText>
           <AnimoText
             variant="bodyEmphasis"
             color={muted ? AnimoColors.blackSecondary : AnimoColors.green}>
             {formatPeso(listing.pricePerKg ?? 0)}{' '}
             <AnimoText variant="caption" color={AnimoColors.muted}>
-              bawat kilo
+              {isTagalog ? 'bawat kilo' : 'per kg'}
             </AnimoText>
           </AnimoText>
         </View>
@@ -48,7 +50,7 @@ export function RequestListingCard({
 
       <View style={styles.row}>
         <AnimoText variant="body" color={bodyColor}>
-          Dami
+          {isTagalog ? 'Dami' : 'Quantity'}
         </AnimoText>
         <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
           {quantityKg} kg
@@ -57,7 +59,7 @@ export function RequestListingCard({
 
       <View style={styles.row}>
         <AnimoText variant="body" color={bodyColor}>
-          Kabuuang halaga
+          {isTagalog ? 'Kabuuang halaga' : 'Total amount'}
         </AnimoText>
         <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
           {formatPeso(totalAmount)}

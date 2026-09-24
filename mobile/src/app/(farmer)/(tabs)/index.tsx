@@ -60,9 +60,15 @@ const ADVISORY_DESCRIPTIONS: Record<RecommendedAction, string> = {
   No_Action_Needed: 'Walang inaasahang malakas na ulan sa darating na 48 oras.',
 };
 
+const ADVISORY_DESCRIPTIONS_EN: Record<RecommendedAction, string> = {
+  Advance_Cut: 'Heavy rain expected in the next 48 hours, and your palay is mature.',
+  Delayed_Harvest: 'Heavy rain expected in the next 48 hours, but your palay is not yet mature.',
+  No_Action_Needed: 'No heavy rain expected in the next 48 hours.',
+};
+
 /** Tahanan — farmer home: weather advisory, quick stats, sell CTA, activity feed. */
 export default function FarmerHomeScreen() {
-  const { t } = useLanguage();
+  const { t, language, isTagalog } = useLanguage();
   const params = useLocalSearchParams<{ startTour?: string }>();
   const [currentAdvisory, setCurrentAdvisory] = useState<AdvisoryState | null>(null);
   const [stats, setStats] = useState<FarmerHomeStats>(EMPTY_STATS);
@@ -196,15 +202,15 @@ export default function FarmerHomeScreen() {
         <View ref={advisoryRef} collapsable={false}>
           {currentAdvisory?.kind === 'active' ? (
             <AdvisoryCard
-              title={t('farmer.advisoryTitle')}
-              badge={actionLabel(currentAdvisory.advisory.recommendedAction)}
-              desc={ADVISORY_DESCRIPTIONS[currentAdvisory.advisory.recommendedAction]}
+              title={isTagalog ? 'Payo sa Bukid' : 'Farm Advisory'}
+              badge={actionLabel(currentAdvisory.advisory.recommendedAction, language)}
+              desc={(isTagalog ? ADVISORY_DESCRIPTIONS : ADVISORY_DESCRIPTIONS_EN)[currentAdvisory.advisory.recommendedAction]}
               onPress={() => router.push('/(farmer)/advisory')}
             />
           ) : currentAdvisory?.kind === 'awaiting_advisory' ? (
-            <AdvisoryPendingCard onPress={() => router.push('/(farmer)/advisory')} />
+            <AdvisoryPendingCard onPress={() => router.push('/(farmer)/advisory')} isTagalog={isTagalog} />
           ) : (
-            <AdvisoryEmptyCard onPress={() => router.push('/(farmer)/itala-taniman' as Href)} />
+            <AdvisoryEmptyCard onPress={() => router.push('/(farmer)/itala-taniman' as Href)} isTagalog={isTagalog} />
           )}
         </View>
 
@@ -342,7 +348,7 @@ function AdvisoryCard({
   );
 }
 
-function AdvisoryEmptyCard({ onPress }: { onPress: () => void }) {
+function AdvisoryEmptyCard({ onPress, isTagalog = true }: { onPress: () => void; isTagalog?: boolean }) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -352,21 +358,23 @@ function AdvisoryEmptyCard({ onPress }: { onPress: () => void }) {
         <CloudRain size={22} color={AnimoColors.green} />
       </View>
       <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.centerText}>
-        Walang aktibong babala para sa iyong palay
+        {isTagalog ? 'Walang aktibong babala para sa iyong palay' : 'No active advisory for your palay'}
       </AnimoText>
       <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.centerText}>
-        Itala ang petsa ng pagtatanim para makatanggap ng babala kapag may inaasahang malakas na ulan.
+        {isTagalog
+          ? 'Itala ang petsa ng pagtatanim para makatanggap ng babala kapag may inaasahang malakas na ulan.'
+          : 'Log your planting date to receive weather advisories when heavy rain is expected.'}
       </AnimoText>
       <View style={styles.advisoryEmptyCta}>
         <AnimoText variant="button" color={AnimoColors.white}>
-          Itala ang Taniman
+          {isTagalog ? 'Itala ang Taniman' : 'Log Planting'}
         </AnimoText>
       </View>
     </Pressable>
   );
 }
 
-function AdvisoryPendingCard({ onPress }: { onPress: () => void }) {
+function AdvisoryPendingCard({ onPress, isTagalog = true }: { onPress: () => void; isTagalog?: boolean }) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -376,10 +384,12 @@ function AdvisoryPendingCard({ onPress }: { onPress: () => void }) {
         <Clock size={22} color={AnimoColors.green} />
       </View>
       <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.centerText}>
-        Naitala na ang iyong taniman
+        {isTagalog ? 'Naitala na ang iyong taniman' : 'Your planting has been recorded'}
       </AnimoText>
       <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.centerText}>
-        Hinihintay ang susunod na pagsusuri ng panahon — makakatanggap ka ng babala sa loob ng ilang oras.
+        {isTagalog
+          ? 'Hinihintay ang susunod na pagsusuri ng panahon — makakatanggap ka ng babala sa loob ng ilang oras.'
+          : 'Awaiting the next weather analysis — you will receive an advisory within a few hours.'}
       </AnimoText>
     </Pressable>
   );

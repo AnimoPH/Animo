@@ -11,7 +11,7 @@ import {
 import { ConsoleLayout } from '@/components/console-layout';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/lib/auth-context';
-import { APP_INFO, LEGAL_LINKS } from '@/constants/dashboard';
+import { getAppInfo, getLegalLinks } from '@/constants/dashboard';
 import {
   fetchLguBarangayCoverage,
   fetchLguUserProfile,
@@ -31,7 +31,7 @@ const LEGAL_ICONS = {
 /** Account details, language settings, security options and legal links for the LGU officer. */
 export function SettingsPage({ onSignOut }: SettingsPageProps) {
   const { session } = useAuth();
-  const { t, language, setLanguage } = useLanguage();
+  const { t, language, setLanguage, isTagalog } = useLanguage();
   const [contactNumber, setContactNumber] = useState<string>('—');
   const [registeredDate, setRegisteredDate] = useState<string>('—');
   const [barangayCoverage, setBarangayCoverage] = useState<string>('—');
@@ -49,10 +49,10 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
         if (cancelled) return;
         if (profile) {
           setContactNumber(profile.contactNumber?.trim() || '—');
-          setRegisteredDate(formatRegisteredDate(profile.dateRegistered));
+          setRegisteredDate(formatRegisteredDate(profile.dateRegistered, isTagalog));
         }
         setBarangayCoverage(
-          barangays.length > 0 ? barangays.join(', ') : 'Walang nakatala pa',
+          barangays.length > 0 ? barangays.join(', ') : isTagalog ? 'Walang nakatala pa' : 'None recorded yet',
         );
       })
       .catch((error) => {
@@ -67,7 +67,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [session?.userId, t]);
+  }, [session?.userId, isTagalog, t]);
 
   const fullName = session?.fullName ?? '—';
   const email = session?.email ?? '—';
@@ -81,6 +81,9 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
         .slice(0, 2) || '—',
     [fullName],
   );
+
+  const legalLinks = useMemo(() => getLegalLinks(language), [language]);
+  const appInfo = useMemo(() => getAppInfo(language), [language]);
 
   return (
     <ConsoleLayout
@@ -118,7 +121,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
             <DetailRow label={t('settings.position')} value="Municipal Agriculture Officer" />
             <DetailRow label={t('common.email')} value={email} />
             <DetailRow label={t('settings.contact')} value={contactNumber} />
-            <DetailRow label="Petsa ng Rehistro" value={registeredDate} />
+            <DetailRow label={isTagalog ? 'Petsa ng Rehistro:' : 'Date Registered:'} value={registeredDate} />
             <DetailRow label={t('settings.office')} value="San Mateo, Rizal" />
             <DetailRow label={t('settings.coverage')} value={barangayCoverage} />
           </dl>
@@ -157,18 +160,28 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
             </div>
           </div>
 
-          <h3 style={{ ...styles.sectionHeading, marginTop: 24 }}>Seguridad</h3>
+          <h3 style={{ ...styles.sectionHeading, marginTop: 24 }}>
+            {isTagalog ? 'Seguridad' : 'Security'}
+          </h3>
           <div style={styles.actionList}>
             <ActionRow
               icon={<Lock size={20} color="var(--animo-black-secondary)" />}
-              title="Palitan ang password"
-              subtitle="Hindi pa naka-wire sa console — gamitin ang Supabase auth reset"
+              title={isTagalog ? 'Palitan ang password' : 'Change password'}
+              subtitle={
+                isTagalog
+                  ? 'Hindi pa naka-wire sa console — gamitin ang Supabase auth reset'
+                  : 'Not yet wired in console — use Supabase auth reset'
+              }
               disabled
             />
             <ActionRow
               icon={<Phone size={20} color="var(--animo-black-secondary)" />}
               title="Two-factor authentication"
-              subtitle="Hindi pa available sa prototype"
+              subtitle={
+                isTagalog
+                  ? 'Hindi pa available sa prototype'
+                  : 'Not yet available in prototype'
+              }
               disabled
             />
           </div>
@@ -184,7 +197,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
             </div>
 
             <div style={styles.actionList}>
-              {LEGAL_LINKS.map((link) => {
+              {legalLinks.map((link) => {
                 const Icon = LEGAL_ICONS[link.icon];
                 return (
                   <ActionRow
@@ -201,7 +214,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
             <div>
               <h3 style={styles.sectionHeading}>{t('settings.appInfo')}</h3>
               <dl style={styles.detailList}>
-                {APP_INFO.map((info) => (
+                {appInfo.map((info) => (
                   <DetailRow
                     key={info.label}
                     label={info.label}
@@ -222,7 +235,9 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
                 style={{ flexShrink: 0, marginTop: 1 }}
               />
               <span>
-                Kakailanganin mong mag-login muli para makita ang dashboard.
+                {isTagalog
+                  ? 'Kakailanganin mong mag-login muli para makita ang dashboard.'
+                  : 'You will need to log in again to access the dashboard.'}
               </span>
             </div>
           </article>

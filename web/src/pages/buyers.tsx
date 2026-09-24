@@ -30,7 +30,7 @@ type DisplayBuyer = {
   reportedReviews: number;
 };
 
-function toDisplayBuyer(row: LguBuyerRow): DisplayBuyer {
+function toDisplayBuyer(row: LguBuyerRow, isTagalog: boolean): DisplayBuyer {
   const initials = row.name
     .split(' ')
     .map((part) => part[0])
@@ -43,7 +43,7 @@ function toDisplayBuyer(row: LguBuyerRow): DisplayBuyer {
     name: row.name,
     initials: initials || '—',
     phone: row.contactNumber?.trim() || '—',
-    registeredDate: formatRegisteredDate(row.dateRegistered),
+    registeredDate: formatRegisteredDate(row.dateRegistered, isTagalog),
     status: mapAccountStatus(row.accountStatus),
     completedTransactions: row.completedTransactions,
     reportedReviews: row.reportedReviews,
@@ -73,7 +73,7 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
 
     fetchLguBuyerRegistry()
       .then((rows) => {
-        if (!cancelled) setBuyersList(rows.map(toDisplayBuyer));
+        if (!cancelled) setBuyersList(rows.map((r) => toDisplayBuyer(r, isTagalog)));
       })
       .catch((error) => {
         if (!cancelled) {
@@ -87,7 +87,7 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [isTagalog, t]);
 
   useEffect(() => loadBuyers(), [loadBuyers]);
 

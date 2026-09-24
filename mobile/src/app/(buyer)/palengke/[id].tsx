@@ -222,7 +222,7 @@ export default function ListingDetailScreen() {
   const activePhoto = galleryItems[selectedPhotoIndex] || galleryItems[0];
   const modalActivePhoto = galleryItems[modalPhotoIndex] || galleryItems[0];
   const locationText = farmerProfile?.location || '';
-  const specificVariety = specificVarietyDisplay(listing);
+  const specificVariety = specificVarietyDisplay(listing, language);
 
   const openModalAt = (index: number) => {
     setModalPhotoIndex(index);

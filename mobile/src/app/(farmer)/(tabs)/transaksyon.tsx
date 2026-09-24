@@ -57,7 +57,7 @@ type ListingRollup = {
 
 /** Farmer Transaksyon — per-listing rollups (kg left / sold / Buong Kita). */
 export default function FarmerTransactionsScreen() {
-  const { t, isTagalog } = useLanguage();
+  const { t, language, isTagalog } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterValue>('Lahat');
   const [showTutorial, setShowTutorial] = useState(true);
@@ -111,8 +111,8 @@ export default function FarmerTransactionsScreen() {
     return listings
       .filter((listing) => listing.status !== 'Draft' && listing.status !== 'Cancelled' && listing.status !== 'Archived')
       .map((listing) => {
-        const specific = specificVarietyDisplay(listing);
-        const variety = varietyLabel(listing);
+        const specific = specificVarietyDisplay(listing, language);
+        const variety = varietyLabel(listing, language);
         return {
           listing,
           soldKg: sumCompletedSoldKg(transactions, listing.id),
@@ -128,7 +128,7 @@ export default function FarmerTransactionsScreen() {
         };
       })
       .sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : -1));
-  }, [listings, transactions, pendingCounts, prLatestUpdatedAt]);
+  }, [listings, transactions, pendingCounts, prLatestUpdatedAt, language]);
 
   const filteredData = useMemo(() => {
     return rollups.filter((item) => {

@@ -56,6 +56,36 @@ type DisplayReport = {
 
 const STAR_GOLD = '#F59E0B';
 
+function formatVarietyDisplay(variety: string, isTagalog: boolean): string {
+  switch (variety) {
+    case 'Inbred':
+      return 'Inbred';
+    case 'Hybrid':
+      return 'Hybrid';
+    case 'Traditional_or_Heirloom':
+      return isTagalog ? 'Tradisyonal o Pamana' : 'Traditional or Heirloom';
+    case 'Mix_of_Varieties':
+      return isTagalog ? 'Halo-halong Uri' : 'Mixed Varieties';
+    case 'Others':
+      return isTagalog ? 'Iba pa' : 'Others';
+    default:
+      return variety;
+  }
+}
+
+function formatTransactionDate(dateStr: string | null, isTagalog: boolean): string {
+  if (!dateStr) return '—';
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return date.toLocaleString(isTagalog ? 'fil-PH' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 /**
  * Account Review Page — live profile, reviews, reported ratings, and transactions from Supabase.
  * Suspend/unsuspend stays local until LGU auth lands.
@@ -74,7 +104,11 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('reviews');
   const [accountStatus, setAccountStatus] = useState<'active' | 'inactive' | 'suspended'>('active');
-  const [suspensionReason, setSuspensionReason] = useState('Paglabag sa mga alituntunin ng transaksyon.');
+  const [suspensionReason, setSuspensionReason] = useState(
+    isTagalog
+      ? 'Paglabag sa mga alituntunin ng transaksyon.'
+      : 'Violation of transaction terms and conditions.',
+  );
   const [resolvedReportIds, setResolvedReportIds] = useState<string[]>([]);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [showUnsuspendModal, setShowUnsuspendModal] = useState(false);
@@ -130,14 +164,14 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
       .filter((review) => review.reported)
       .map((review) => ({
         id: review.ratingId,
-        reason: review.reportReason?.trim() || 'Inulat na review',
-        details: review.comment?.trim() || 'Walang komento sa ulat.',
+        reason: review.reportReason?.trim() || (isTagalog ? 'Inulat na review' : 'Reported review'),
+        details: review.comment?.trim() || (isTagalog ? 'Walang komento sa ulat.' : 'No comment in report.'),
         reportedBy: review.raterName,
-        role: mapRoleLabel(review.raterRole),
-        date: formatReviewDate(review.createdAt),
+        role: mapRoleLabel(review.raterRole, isTagalog),
+        date: formatReviewDate(review.createdAt, isTagalog),
         status: resolvedReportIds.includes(review.ratingId) ? 'resolved' : 'pending',
       }));
-  }, [reviews, resolvedReportIds]);
+  }, [reviews, resolvedReportIds, isTagalog]);
 
   const name = profile?.fullName ?? '—';
   const initials =
@@ -147,14 +181,17 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
       .join('')
       .toUpperCase()
       .slice(0, 2) ?? '—';
-  const barangay = profile?.barangay ?? (isFarmer ? 'Hindi nakasaad' : '—');
+  const barangay = profile?.barangay ?? (isFarmer ? (isTagalog ? 'Hindi nakasaad' : 'Not specified') : '—');
   const phone = profile?.contactNumber?.trim() || '—';
-  const registeredDate = profile ? formatRegisteredDate(profile.dateRegistered) : '—';
+  const registeredDate = profile ? formatRegisteredDate(profile.dateRegistered, isTagalog) : '—';
   const rating = profile?.averageRating ?? 0;
   const totalTransactions = profile?.completedTransactions ?? 0;
 
   const handleConfirmSuspend = async () => {
-    const reason = inputReason.trim() || 'Paglabag sa mga alituntunin ng transaksyon.';
+    const defaultReason = isTagalog
+      ? 'Paglabag sa mga alituntunin ng transaksyon.'
+      : 'Violation of transaction terms and conditions.';
+    const reason = inputReason.trim() || defaultReason;
     setSuspending(true);
     setActionError(null);
     try {
@@ -190,7 +227,11 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
 
   const handleResolveReport = (reportId: string) => {
     setResolvedReportIds((prev) => [...prev, reportId]);
-    setToastMessage('Matagumpay na minarkahan ang ulat bilang Nalutas (Resolved).');
+    setToastMessage(
+      isTagalog
+        ? 'Matagumpay na minarkahan ang ulat bilang Nalutas (Resolved).'
+        : 'Successfully marked report as Resolved.',
+    );
     setTimeout(() => setToastMessage(null), 3000);
   };
 
@@ -228,7 +269,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
           <div style={{ flex: 1 }}>
             <h3 style={styles.suspendedBannerTitle}>{t('review.statusSuspended')}</h3>
             <p style={styles.suspendedBannerText}>
-              <strong>Dahilan:</strong> {suspensionReason}
+              <strong>{isTagalog ? 'Dahilan:' : 'Reason:'}</strong> {suspensionReason}
             </p>
           </div>
           <button
@@ -293,7 +334,8 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
           <div style={styles.headActionWrap}>
             {accountStatus !== 'suspended' && reports.length >= REPORTED_THRESHOLD ? (
               <p style={styles.reportedWarning}>
-                <TriangleAlert size={14} /> {reports.length} {isTagalog ? 'na ulat — nararapat na suriin' : 'reports — review recommended'}
+                <TriangleAlert size={14} /> {reports.length}{' '}
+                {isTagalog ? 'na ulat — nararapat na suriin' : 'reports — review recommended'}
               </p>
             ) : null}
             {accountStatus === 'suspended' ? (
@@ -318,14 +360,14 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
 
         <div style={styles.divider} />
 
-        {/* Metadata Details Grid (Email and Uri ng Mamimili removed) */}
+        {/* Metadata Details Grid */}
         <div style={styles.metaGrid}>
           <MetaItem icon={Phone} label={isTagalog ? 'Numero ng Telepono' : 'Phone Number'} value={phone} />
           <MetaItem icon={MapPin} label={isTagalog ? 'Barangay / Lokasyon' : 'Barangay / Location'} value={barangay} />
           <MetaItem icon={Calendar} label={isTagalog ? 'Petsa ng Rehistro' : 'Date Registered'} value={registeredDate} />
           <MetaItem
             icon={Star}
-            label={isTagalog ? 'Rating Score' : 'Rating Score'}
+            label="Rating Score"
             value={
               profile?.reviewCount
                 ? `${rating.toFixed(1)} / 5.0 ⭐ (${profile.reviewCount} review${profile.reviewCount === 1 ? '' : 's'})`
@@ -392,8 +434,12 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                 </div>
                 <span style={styles.ratingScoreSub}>
                   {profile?.reviewCount
-                    ? `Batay sa ${profile.reviewCount} kumpirmadong review`
-                    : 'Walang natatanggap na review pa'}
+                    ? isTagalog
+                      ? `Batay sa ${profile.reviewCount} kumpirmadong review`
+                      : `Based on ${profile.reviewCount} confirmed review${profile.reviewCount === 1 ? '' : 's'}`
+                    : isTagalog
+                      ? 'Walang natatanggap na review pa'
+                      : 'No reviews received yet'}
                 </span>
               </div>
             </div>
@@ -403,7 +449,11 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
 
           <div style={styles.reviewsList}>
             {reviews.length === 0 ? (
-              <p style={styles.emptyNotice}>Wala pang natatanggap na review ang account na ito.</p>
+              <p style={styles.emptyNotice}>
+                {isTagalog
+                  ? 'Wala pang natatanggap na review ang account na ito.'
+                  : 'This account has not received any reviews yet.'}
+              </p>
             ) : (
               reviews.map((rev) => (
                 <div key={rev.ratingId} style={styles.reviewCard}>
@@ -411,9 +461,9 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                     <div>
                       <div style={styles.reviewerRow}>
                         <span style={styles.reviewerName}>{rev.raterName}</span>
-                        <span style={styles.reviewerRolePill}>{mapRoleLabel(rev.raterRole)}</span>
+                        <span style={styles.reviewerRolePill}>{mapRoleLabel(rev.raterRole, isTagalog)}</span>
                       </div>
-                      <span style={styles.reviewDate}>{formatReviewDate(rev.createdAt)}</span>
+                      <span style={styles.reviewDate}>{formatReviewDate(rev.createdAt, isTagalog)}</span>
                     </div>
 
                     <div style={styles.starsRow}>
@@ -445,9 +495,11 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
         <article className="animo-card" style={styles.panel}>
           <div style={styles.panelHead}>
             <div>
-              <h2 style={styles.panelTitle}>Mga Ulat at Reklamo</h2>
+              <h2 style={styles.panelTitle}>{isTagalog ? 'Mga Ulat at Reklamo' : 'Reports & Complaints'}</h2>
               <p style={styles.panelSubtitle}>
-                Mga reklamong inihain ng ibang gumagamit laban sa account na ito
+                {isTagalog
+                  ? 'Mga reklamong inihain ng ibang gumagamit laban sa account na ito'
+                  : 'Complaints filed by other users against this account'}
               </p>
             </div>
           </div>
@@ -457,7 +509,9 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
               <div style={styles.emptyReportsBox}>
                 <CheckCircle2 size={36} color="var(--animo-green)" />
                 <p style={styles.emptyNotice}>
-                  Walang nakabinbing ulat o reklamo laban sa account na ito. Malinis ang rekord.
+                  {isTagalog
+                    ? 'Walang nakabinbing ulat o reklamo laban sa account na ito. Malinis ang rekord.'
+                    : 'No pending reports or complaints against this account. Clean record.'}
                 </p>
               </div>
             ) : (
@@ -477,14 +531,16 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                                 : styles.reportStatusPending),
                           }}>
                           {rep.status === 'resolved'
-                            ? 'Nalutas'
+                            ? (isTagalog ? 'Nalutas' : 'Resolved')
                             : rep.status === 'investigating'
-                              ? 'Iniimbestigahan'
-                              : 'Nakabinbin'}
+                              ? (isTagalog ? 'Iniimbestigahan' : 'Investigating')
+                              : (isTagalog ? 'Nakabinbin' : 'Pending')}
                         </span>
                       </div>
                       <span style={styles.reportSub}>
-                        Inihain ni {rep.reportedBy} ({rep.role}) noong {rep.date}
+                        {isTagalog
+                          ? `Inihain ni ${rep.reportedBy} (${rep.role}) noong ${rep.date}`
+                          : `Filed by ${rep.reportedBy} (${rep.role}) on ${rep.date}`}
                       </span>
                     </div>
 
@@ -494,7 +550,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                         onClick={() => handleResolveReport(rep.id)}
                         style={styles.resolveReportBtn}>
                         <CheckCircle2 size={16} />
-                        Markahan bilang Nalutas
+                        {isTagalog ? 'Markahan bilang Nalutas' : 'Mark as Resolved'}
                       </button>
                     )}
                   </div>
@@ -512,9 +568,11 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
         <article className="animo-card" style={styles.panel}>
           <div style={styles.panelHead}>
             <div>
-              <h2 style={styles.panelTitle}>Kasaysayan ng Transaksyon</h2>
+              <h2 style={styles.panelTitle}>{isTagalog ? 'Kasaysayan ng Transaksyon' : 'Transaction History'}</h2>
               <p style={styles.panelSubtitle}>
-                Kabuuang {totalTransactions} transaksyon sa ANIMO
+                {isTagalog
+                  ? `Kabuuang ${totalTransactions} transaksyon sa ANIMO`
+                  : `Total ${totalTransactions} transactions on ANIMO`}
               </p>
             </div>
           </div>
@@ -523,20 +581,21 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
             <table style={styles.table}>
               <thead>
                 <tr>
-                  {['Reference', 'Uri ng Palay', 'Dami (kg)', 'Halaga', 'Katransaksyon', 'Petsa', 'Katayuan'].map(
-                    (heading) => (
-                      <th key={heading} style={styles.th}>
-                        {heading.toUpperCase()}
-                      </th>
-                    ),
-                  )}
+                  {(isTagalog
+                    ? ['Reference', 'Uri ng Palay', 'Dami (kg)', 'Halaga', 'Katransaksyon', 'Petsa', 'Katayuan']
+                    : ['Reference', 'Rice Variety', 'Quantity (kg)', 'Amount', 'Counterparty', 'Date', 'Status']
+                  ).map((heading) => (
+                    <th key={heading} style={styles.th}>
+                      {heading.toUpperCase()}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {transactions.length === 0 ? (
                   <tr>
                     <td colSpan={7} style={{ ...styles.td, textAlign: 'center', color: 'var(--animo-muted)' }}>
-                      Walang nakatalang transaksyon kamakailan.
+                      {isTagalog ? 'Walang nakatalang transaksyon kamakailan.' : 'No recent transactions recorded.'}
                     </td>
                   </tr>
                 ) : (
@@ -545,17 +604,17 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                       <td style={{ ...styles.td, fontWeight: 700, color: 'var(--animo-green)' }}>
                         {txn.transactionId.slice(0, 8).toUpperCase()}
                       </td>
-                      <td style={styles.td}>{txn.variety}</td>
+                      <td style={styles.td}>{formatVarietyDisplay(txn.variety, isTagalog)}</td>
                       <td style={styles.td}>{txn.quantityKg} kg</td>
                       <td style={{ ...styles.td, fontWeight: 700 }}>
                         ₱{txn.totalAmount.toLocaleString()}
                       </td>
                       <td style={styles.td}>{txn.partnerName}</td>
                       <td style={styles.td}>
-                        {txn.dateCompleted ? formatRegisteredDate(txn.dateCompleted) : '—'}
+                        {formatTransactionDate(txn.dateCompleted, isTagalog)}
                       </td>
                       <td style={styles.td}>
-                        <span style={styles.statusPillActive}>Kumpleto</span>
+                        <span style={styles.statusPillActive}>{isTagalog ? 'Kumpleto' : 'Complete'}</span>
                       </td>
                     </tr>
                   ))
@@ -576,8 +635,12 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                   <UserX size={24} color="var(--animo-danger)" />
                 </span>
                 <div>
-                  <h2 style={styles.modalTitle}>Suspendihin ang Account ni {name}?</h2>
-                  <p style={styles.modalSubtitle}>Account Suspension Protocol</p>
+                  <h2 style={styles.modalTitle}>
+                    {isTagalog ? `Suspendihin ang Account ni ${name}?` : `Suspend ${name}'s Account?`}
+                  </h2>
+                  <p style={styles.modalSubtitle}>
+                    {isTagalog ? 'Protokol sa Pagsususpinde ng Account' : 'Account Suspension Protocol'}
+                  </p>
                 </div>
               </div>
               <button
@@ -590,17 +653,24 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
 
             <div style={styles.modalBody}>
               <p style={styles.modalText}>
-                Ang pagsuspinde sa account na ito ay magbabawal sa kanila na maglista ng palay,
-                magpadala ng purchase orders, o magsagawa ng anumang transaksyon sa Animo.
+                {isTagalog
+                  ? 'Ang pagsuspinde sa account na ito ay magbabawal sa kanila na maglista ng palay, magpadala ng purchase orders, o magsagawa ng anumang transaksyon sa Animo.'
+                  : 'Suspending this account will prohibit them from listing palay, sending purchase orders, or conducting any transactions on Animo.'}
               </p>
 
               <div>
-                <label style={styles.fieldLabel}>Dahilan ng Pagsuspinde *</label>
+                <label style={styles.fieldLabel}>
+                  {isTagalog ? 'Dahilan ng Pagsuspinde *' : 'Reason for Suspension *'}
+                </label>
                 <textarea
                   rows={3}
                   value={inputReason}
                   onChange={(e) => setInputReason(e.target.value)}
-                  placeholder="Isulat ang opisyal na dahilan (hal. Paglabag sa timbang, hindi sumipot sa pickup, atbp.)..."
+                  placeholder={
+                    isTagalog
+                      ? 'Isulat ang opisyal na dahilan (hal. Paglabag sa timbang, hindi sumipot sa pickup, atbp.)...'
+                      : 'Write the official reason (e.g. Weight discrepancies, no-show at pickup, etc.)...'
+                  }
                   style={styles.textareaField}
                 />
               </div>
@@ -612,7 +682,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                 type="button"
                 onClick={() => setShowSuspendModal(false)}
                 style={styles.cancelBtn}>
-                Kanselahin
+                {isTagalog ? 'Kanselahin' : 'Cancel'}
               </button>
               <button
                 type="button"
@@ -620,7 +690,9 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                 disabled={!inputReason.trim() || suspending}
                 style={styles.confirmSuspendBtn}>
                 <UserX size={18} />
-                {suspending ? 'Isinusumite...' : 'Kumpirmahin ang Pagsuspinde'}
+                {suspending
+                  ? (isTagalog ? 'Isinusumite...' : 'Submitting...')
+                  : (isTagalog ? 'Kumpirmahin ang Pagsuspinde' : 'Confirm Suspension')}
               </button>
             </div>
           </div>
@@ -637,8 +709,12 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                   <RotateCcw size={24} color="var(--animo-green)" />
                 </span>
                 <div>
-                  <h2 style={styles.modalTitle}>Ibalik ang Account ni {name}?</h2>
-                  <p style={styles.modalSubtitle}>Restore Account Access</p>
+                  <h2 style={styles.modalTitle}>
+                    {isTagalog ? `Ibalik ang Account ni ${name}?` : `Restore ${name}'s Account?`}
+                  </h2>
+                  <p style={styles.modalSubtitle}>
+                    {isTagalog ? 'Ibalik ang Access sa Account' : 'Restore Account Access'}
+                  </p>
                 </div>
               </div>
               <button
@@ -651,7 +727,9 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
 
             <div style={styles.modalBody}>
               <p style={styles.modalText}>
-                Tatanggalin ang suspensyon at muling mabibigyan ng buong access si {name} sa ANIMO marketplace.
+                {isTagalog
+                  ? `Tatanggalin ang suspensyon at muling mabibigyan ng buong access si ${name} sa ANIMO marketplace.`
+                  : `The suspension will be lifted and ${name} will be granted full access to the ANIMO marketplace.`}
               </p>
               {actionError ? <p style={styles.errorNotice}>{actionError}</p> : null}
             </div>
@@ -661,7 +739,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                 type="button"
                 onClick={() => setShowUnsuspendModal(false)}
                 style={styles.cancelBtn}>
-                Kanselahin
+                {isTagalog ? 'Kanselahin' : 'Cancel'}
               </button>
               <button
                 type="button"
@@ -669,7 +747,9 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                 disabled={suspending}
                 style={styles.confirmUnsuspendBtn}>
                 <CheckCircle2 size={18} />
-                {suspending ? 'Isinusumite...' : 'Oo, Ibalik ang Account'}
+                {suspending
+                  ? (isTagalog ? 'Isinusumite...' : 'Submitting...')
+                  : (isTagalog ? 'Oo, Ibalik ang Account' : 'Yes, Restore Account')}
               </button>
             </div>
           </div>

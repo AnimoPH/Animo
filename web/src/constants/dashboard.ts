@@ -722,28 +722,38 @@ export const LGU_PROFILE = {
   barangayCount: 6,
 };
 
-export const LEGAL_LINKS = [
-  {
-    key: 'terms',
-    title: 'Terms and Conditions',
-    subtitle: 'Mga tuntunin ng paggamit',
-    icon: 'file' as const,
-  },
-  {
-    key: 'privacy',
-    title: 'Privacy Policy',
-    subtitle: 'Paano ginagamit ang datos',
-    icon: 'lock' as const,
-  },
-  {
-    key: 'data-sharing',
-    title: 'Data Sharing Agreement',
-    subtitle: 'LGU – DA – PhilRice',
-    icon: 'database' as const,
-  },
-];
+export function getLegalLinks(lang: 'tl' | 'en' = 'tl') {
+  const isEn = lang === 'en';
+  return [
+    {
+      key: 'terms',
+      title: 'Terms and Conditions',
+      subtitle: isEn ? 'Terms of use and agreement' : 'Mga tuntunin ng paggamit',
+      icon: 'file' as const,
+    },
+    {
+      key: 'privacy',
+      title: 'Privacy Policy',
+      subtitle: isEn ? 'How your data is protected' : 'Paano ginagamit ang datos',
+      icon: 'lock' as const,
+    },
+    {
+      key: 'data-sharing',
+      title: 'Data Sharing Agreement',
+      subtitle: 'LGU – DA – PhilRice',
+      icon: 'database' as const,
+    },
+  ];
+}
 
-export const APP_INFO = [
-  { label: 'Bersyon', value: 'ANIMO LGU 1.4.0' },
-  { label: 'Huling sync', value: 'Okt 12, 2025 · 09:05 AM' },
-];
+export const LEGAL_LINKS = getLegalLinks('tl');
+
+export function getAppInfo(lang: 'tl' | 'en' = 'tl') {
+  const isEn = lang === 'en';
+  return [
+    { label: isEn ? 'Version' : 'Bersyon', value: 'ANIMO LGU 1.4.0' },
+    { label: isEn ? 'Last sync' : 'Huling sync', value: isEn ? 'Oct 12, 2025 · 09:05 AM' : 'Okt 12, 2025 · 09:05 AM' },
+  ];
+}
+
+export const APP_INFO = getAppInfo('tl');

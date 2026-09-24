@@ -19,7 +19,7 @@ export type FarmersPageProps = {
   onSignOut: () => void;
 };
 
-function toDisplayFarmer(row: LguFarmerRow): Farmer {
+function toDisplayFarmer(row: LguFarmerRow, isTagalog: boolean): Farmer {
   const initials = row.name
     .split(' ')
     .map((part) => part[0])
@@ -34,7 +34,7 @@ function toDisplayFarmer(row: LguFarmerRow): Farmer {
     barangay: row.barangay,
     phone: '—',
     farmSize: `${row.activeListings} / ${row.totalListings}`,
-    registeredDate: formatRegisteredDate(row.dateRegistered),
+    registeredDate: formatRegisteredDate(row.dateRegistered, isTagalog),
     status: row.activeListings > 0 ? 'active' : 'inactive',
     rating: 0,
     totalTransactions: 0,
@@ -70,7 +70,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
 
     fetchLguFarmerRegistry()
       .then((rows) => {
-        if (!cancelled) setFarmersList(rows.map(toDisplayFarmer));
+        if (!cancelled) setFarmersList(rows.map((r) => toDisplayFarmer(r, isTagalog)));
       })
       .catch((error) => {
         if (!cancelled) {
@@ -84,7 +84,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [isTagalog, t]);
 
   useEffect(() => loadFarmers(), [loadFarmers]);
 

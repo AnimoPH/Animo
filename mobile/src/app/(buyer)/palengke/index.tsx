@@ -460,7 +460,16 @@ export default function MarketplaceScreen() {
                 <View style={styles.chipsWrapContainer}>
                   {VARIETY_CHOICES.map((choice) => {
                     const active = variety === choice.value;
-                    const label = choice.value === 'Lahat' ? (isTagalog ? 'Lahat' : 'All') : choice.label;
+                    const label =
+                      choice.value === 'Lahat'
+                        ? (isTagalog ? 'Lahat' : 'All')
+                        : choice.value === 'Traditional_or_Heirloom'
+                          ? (isTagalog ? 'Tradisyonal o Pamana' : 'Traditional / Heirloom')
+                          : choice.value === 'Mix_of_Varieties'
+                            ? (isTagalog ? 'Halo-halong Uri' : 'Mixed Varieties')
+                            : choice.value === 'Others'
+                              ? (isTagalog ? 'Iba pa' : 'Others')
+                              : choice.label;
                     return (
                       <Pressable
                         key={choice.value}
@@ -486,7 +495,14 @@ export default function MarketplaceScreen() {
                 <View style={styles.chipsWrapContainer}>
                   {MOISTURE_CHOICES.map((choice) => {
                     const active = moisture === choice.value;
-                    const label = choice.value === 'Lahat' ? (isTagalog ? 'Lahat' : 'All') : choice.label;
+                    const label =
+                      choice.value === 'Lahat'
+                        ? (isTagalog ? 'Lahat' : 'All')
+                        : choice.value === 'Dry'
+                          ? (isTagalog ? 'Tuyo (Dry)' : 'Dry')
+                          : choice.value === 'Wet'
+                            ? (isTagalog ? 'Basa (Wet)' : 'Wet')
+                            : choice.label;
                     return (
                       <Pressable
                         key={choice.value}
