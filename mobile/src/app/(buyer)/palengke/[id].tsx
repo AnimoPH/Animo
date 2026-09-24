@@ -310,7 +310,7 @@ export default function ListingDetailScreen() {
               variant="caption"
               color={AnimoColors.textHighEmphasisInverse}
               style={styles.priceTotal}>
-              Kabuuan na halaga ({listing.remainingQuantityKg}kg):{' '}
+              Kabuuang halaga ({listing.remainingQuantityKg}kg):{' '}
               {listing.pricePerKg !== null
                 ? formatPeso(listing.pricePerKg * listing.remainingQuantityKg)
                 : '—'}
