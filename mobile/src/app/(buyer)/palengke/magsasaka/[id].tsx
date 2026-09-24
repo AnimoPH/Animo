@@ -37,6 +37,7 @@ import {
   type FarmerPublicProfile,
 } from '@/services/farmer-public-profile';
 import { fetchMarketplaceListing } from '@/services/marketplace-service';
+import { useLanguage } from '@/hooks/use-language';
 import {
   moistureLabel,
   varietyLabel,
@@ -45,6 +46,7 @@ import {
 
 export default function FarmerProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { language, isTagalog } = useLanguage();
 
   const [listing, setListing] = useState<CropListing | null>(null);
   const [profile, setProfile] = useState<FarmerPublicProfile | null>(null);
@@ -71,7 +73,13 @@ export default function FarmerProfileScreen() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setErrorMessage(err instanceof Error ? err.message : 'Hindi ma-load ang profile ng magsasaka.');
+          setErrorMessage(
+            err instanceof Error
+              ? err.message
+              : isTagalog
+                ? 'Hindi ma-load ang profile ng magsasaka.'
+                : 'Failed to load farmer profile.',
+          );
         }
       })
       .finally(() => {
@@ -81,26 +89,12 @@ export default function FarmerProfileScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, isTagalog]);
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        {/* <View style={styles.topNav}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Bumalik"
-            hitSlop={12}
-            onPress={() => router.back()}
-            style={styles.backBtn}>
-            <ChevronLeft size={26} color={AnimoColors.black} />
-          </Pressable>
-          <AnimoText variant="h2" color={AnimoColors.black} style={styles.topNavTitle}>
-            Profile ng Magsasaka
-          </AnimoText>
-          <View style={styles.backBtnPlaceholder} />
-        </View> */}
-        <BackHeader title="Profile ng Magsasaka" />
+        <BackHeader title={isTagalog ? 'Profile ng Magsasaka' : 'Farmer Profile'} />
         <View style={styles.centerState}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -114,20 +108,20 @@ export default function FarmerProfileScreen() {
         <View style={styles.topNav}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Bumalik"
+            accessibilityLabel={isTagalog ? 'Bumalik' : 'Go back'}
             hitSlop={12}
             onPress={() => router.back()}
             style={styles.backBtn}>
             <ChevronLeft size={26} color={AnimoColors.black} />
           </Pressable>
           <AnimoText variant="h2" color={AnimoColors.black} style={styles.topNavTitle}>
-            Profile ng Magsasaka
+            {isTagalog ? 'Profile ng Magsasaka' : 'Farmer Profile'}
           </AnimoText>
           <View style={styles.backBtnPlaceholder} />
         </View>
         <View style={styles.centerState}>
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.centerText}>
-            {errorMessage ?? 'Hindi nahanap ang profile ng magsasaka.'}
+            {errorMessage ?? (isTagalog ? 'Hindi nahanap ang profile ng magsasaka.' : 'Farmer profile could not be found.')}
           </AnimoText>
         </View>
       </SafeAreaView>
@@ -146,7 +140,7 @@ export default function FarmerProfileScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title="Profile ng Magsasaka" />
+      <BackHeader title={isTagalog ? 'Profile ng Magsasaka' : 'Farmer Profile'} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -172,7 +166,7 @@ export default function FarmerProfileScreen() {
 
           {profile.memberSince ? (
             <AnimoText variant="body" color="rgba(255, 255, 255, 0.9)" style={styles.memberSubtitle}>
-              Miyembro mula {profile.memberSince}
+              {isTagalog ? `Miyembro mula ${profile.memberSince}` : `Member since ${profile.memberSince}`}
             </AnimoText>
           ) : null}
         </View>
@@ -182,21 +176,21 @@ export default function FarmerProfileScreen() {
           {/* Stat 1: Transaksyon (Clickable to open summary modal) */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Tingnan ang buod ng mga transaksyon"
+            accessibilityLabel={isTagalog ? 'Tingnan ang buod ng mga transaksyon' : 'View transaction summary'}
             onPress={() => setShowTransactionsModal(true)}
             style={styles.statCard}>
             <AnimoText variant="h1" color={AnimoColors.textHighEmphasis} style={styles.statNumber}>
               {profile.completedTransactionsCount}
             </AnimoText>
             <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.statLabel}>
-              Transaksyon
+              {isTagalog ? 'Transaksyon' : 'Transactions'}
             </AnimoText>
           </Pressable>
 
           {/* Stat 2: Rating & Reviews (Clickable to open feedback modal) */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Tingnan ang buod ng mga review"
+            accessibilityLabel={isTagalog ? 'Tingnan ang buod ng mga review' : 'View review summary'}
             onPress={() => setShowFeedbackModal(true)}
             style={styles.statCard}>
             <View style={styles.ratingNumberRow}>
@@ -211,21 +205,21 @@ export default function FarmerProfileScreen() {
               />
             </View>
             <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.statLabel}>
-              {profile.totalReviews} reviews
+              {profile.totalReviews} {isTagalog ? 'review' : profile.totalReviews === 1 ? 'review' : 'reviews'}
             </AnimoText>
           </Pressable>
 
           {/* Stat 3: Total Sold Volume */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Tingnan ang buod ng mga transaksyon"
+            accessibilityLabel={isTagalog ? 'Tingnan ang buod ng mga transaksyon' : 'View transaction summary'}
             onPress={() => setShowTransactionsModal(true)}
             style={styles.statCard}>
             <AnimoText variant="h1" color={AnimoColors.textHighEmphasis} style={styles.statNumber}>
               {soldVolumeLabel}
             </AnimoText>
             <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.statLabel}>
-              Kilo na Naibenta
+              {isTagalog ? 'Kilo na Naibenta' : 'Kg Sold'}
             </AnimoText>
           </Pressable>
         </View>
@@ -235,7 +229,7 @@ export default function FarmerProfileScreen() {
           <View style={styles.cardHeaderRow}>
             <ShieldCheck size={22} color={AnimoColors.accentPrimary} />
             <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.cardHeaderTitle}>
-              Kredibilidad
+              {isTagalog ? 'Kredibilidad' : 'Credibility'}
             </AnimoText>
           </View>
 
@@ -243,7 +237,7 @@ export default function FarmerProfileScreen() {
             {/* Row 1: Nagbebenta ng Dekalidad */}
             <View style={styles.tableRow}>
               <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.rowLabel}>
-                Positibong Feedback
+                {isTagalog ? 'Positibong Feedback' : 'Positive Feedback'}
               </AnimoText>
               <View style={styles.greenBadge}>
                 <AnimoText variant="bodyEmphasis" color="#166534" style={styles.greenBadgeText}>
@@ -260,7 +254,7 @@ export default function FarmerProfileScreen() {
               onPress={() => setShowTransactionsModal(true)}
               style={styles.tableRowClickable}>
               <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.rowLabel}>
-                Natapos na Transaksyon
+                {isTagalog ? 'Natapos na Transaksyon' : 'Completed Transactions'}
               </AnimoText>
               <View style={styles.rowValueRightGroup}>
                 <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.rowValue}>
@@ -278,7 +272,7 @@ export default function FarmerProfileScreen() {
               onPress={() => setShowFeedbackModal(true)}
               style={styles.tableRowClickable}>
               <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.rowLabel}>
-                Average Rating
+                {isTagalog ? 'Average Rating' : 'Average Rating'}
               </AnimoText>
               <View style={styles.rowValueRightGroup}>
                 <View style={styles.ratingStarsRight}>
@@ -311,7 +305,7 @@ export default function FarmerProfileScreen() {
           <View style={styles.cardHeaderRow}>
             <ShoppingBag size={22} color={AnimoColors.accentPrimary} />
             <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.cardHeaderTitle}>
-              Impormasyon sa Pagbebenta
+              {isTagalog ? 'Impormasyon sa Pagbebenta' : 'Sales Information'}
             </AnimoText>
           </View>
 
@@ -319,7 +313,7 @@ export default function FarmerProfileScreen() {
             {/* Row 1: Pangunahing uri ng palay */}
             <View style={styles.tableRow}>
               <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.rowLabel}>
-                Pangunahing uri ng palay
+                {isTagalog ? 'Pangunahing uri ng palay' : 'Main palay variety'}
               </AnimoText>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.rowValue}>
                 {profile.commonlySoldVarieties[0] || '—'}
@@ -331,7 +325,7 @@ export default function FarmerProfileScreen() {
             {/* Row 2: Iba pang karaniwang uri na ibinebenta */}
             <View style={styles.tableColumnRow}>
               <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.rowLabel}>
-                Iba pang uri na karaniwang ibinebenta
+                {isTagalog ? 'Iba pang uri na karaniwang ibinebenta' : 'Other commonly sold varieties'}
               </AnimoText>
               <View style={styles.varietyChipsWrap}>
                 {profile.commonlySoldVarieties.length > 0 ? (
@@ -345,7 +339,7 @@ export default function FarmerProfileScreen() {
                   ))
                 ) : (
                   <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                    Wala pang talaan
+                    {isTagalog ? 'Wala pang talaan' : 'No records yet'}
                   </AnimoText>
                 )}
               </View>
@@ -356,11 +350,11 @@ export default function FarmerProfileScreen() {
             {/* Row 3: Kagustuhang moisture */}
             <View style={styles.tableRow}>
               <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.rowLabel}>
-                Kalidad ng moisture
+                {isTagalog ? 'Kalidad ng moisture' : 'Moisture quality'}
               </AnimoText>
               <View style={styles.greenBadge}>
                 <AnimoText variant="bodyEmphasis" color="#166534" style={styles.greenBadgeText}>
-                  {listing ? moistureLabel(listing.declaredMoisture) : '—'}
+                  {listing ? moistureLabel(listing.declaredMoisture, language) : '—'}
                 </AnimoText>
               </View>
             </View>
@@ -370,7 +364,7 @@ export default function FarmerProfileScreen() {
             {/* Row 4: Karaniwang dami bawat ani */}
             <View style={styles.tableRow}>
               <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.rowLabel}>
-                Karaniwang dami bawat ani
+                {isTagalog ? 'Karaniwang dami bawat ani' : 'Average volume per harvest'}
               </AnimoText>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.rowValue}>
                 {profile.completedTransactionsCount > 0
@@ -384,7 +378,7 @@ export default function FarmerProfileScreen() {
             {/* Row 5: Kabuuang naibenta */}
             <View style={styles.tableRow}>
               <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.rowLabel}>
-                Kabuuang naibenta
+                {isTagalog ? 'Kabuuang naibenta' : 'Total volume sold'}
               </AnimoText>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.rowValue}>
                 ~{profile.totalSoldKg.toLocaleString()} kg
@@ -397,14 +391,14 @@ export default function FarmerProfileScreen() {
         {listing ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Pindutin para bumalik at tingnan ang buong detalye ng listing"
+            accessibilityLabel={isTagalog ? 'Pindutin para bumalik at tingnan ang buong detalye ng listing' : 'Tap to go back and view full listing details'}
             onPress={() => router.back()}
             style={styles.listingCardOutline}>
             <View style={styles.listingHeaderRow}>
               <View style={styles.listingHeaderLeft}>
                 <FileText size={20} color={AnimoColors.accentPrimary} />
                 <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.cardHeaderTitle}>
-                  Kasalukuyang Listing
+                  {isTagalog ? 'Kasalukuyang Listing' : 'Current Listing'}
                 </AnimoText>
               </View>
               <View style={styles.viewListingPill}>
@@ -420,16 +414,16 @@ export default function FarmerProfileScreen() {
               <View style={styles.listingMetricsRow}>
                 <View style={styles.listingMetricCol}>
                   <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-                    Uri ng Palay
+                    {isTagalog ? 'Uri ng Palay' : 'Palay Variety'}
                   </AnimoText>
                   <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.listingVarietyName}>
-                    {varietyLabel(listing)}
+                    {varietyLabel(listing, language)}
                   </AnimoText>
                 </View>
 
                 <View style={styles.listingMetricColRight}>
                   <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-                    Dami Available
+                    {isTagalog ? 'Dami Available' : 'Available Qty'}
                   </AnimoText>
                   <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.listingQuantity}>
                     {listing.remainingQuantityKg} kg
@@ -442,7 +436,7 @@ export default function FarmerProfileScreen() {
               <View style={styles.listingPriceRow}>
                 <View style={styles.priceLeft}>
                   <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-                    Presyo
+                    {isTagalog ? 'Presyo' : 'Price'}
                   </AnimoText>
                   <AnimoText variant="price" color={AnimoColors.accentPrimary} style={styles.listingPriceText}>
                     {formatPeso(listing.pricePerKg ?? 0)}
@@ -455,7 +449,7 @@ export default function FarmerProfileScreen() {
                 <View style={styles.listingTimeRight}>
                   <Clock size={14} color={AnimoColors.textMediumEmphasis} />
                   <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                    Aktibo Ngayon
+                    {isTagalog ? 'Aktibo Ngayon' : 'Active Now'}
                   </AnimoText>
                 </View>
               </View>
@@ -467,8 +461,9 @@ export default function FarmerProfileScreen() {
         <View style={styles.privacyNoteBox}>
           <ShieldCheck size={18} color={AnimoColors.accentPrimary} />
           <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.privacyNoteText}>
-            Ligtas na Transaksyon: Ibibigay ang kumpletong contact number at saktong lokasyon
-            ng pickup kapag tinanggap ng magsasaka ang iyong kahilingan.
+            {isTagalog
+              ? 'Ligtas na Transaksyon: Ibibigay ang kumpletong contact number at saktong lokasyon ng pickup kapag tinanggap ng magsasaka ang iyong kahilingan.'
+              : 'Secure Transactions: Complete contact number and exact pickup location are shared once the farmer accepts your request.'}
           </AnimoText>
         </View>
       </ScrollView>
@@ -476,7 +471,7 @@ export default function FarmerProfileScreen() {
       {/* Sticky Bottom Green Button with White Text */}
       <View style={styles.bottomFooter}>
         <AnimoButton
-          label="Bumalik sa Listing"
+          label={isTagalog ? 'Bumalik sa Listing' : 'Back to Listing'}
           variant="primary"
           onPress={() => router.back()}
         />
@@ -494,7 +489,7 @@ export default function FarmerProfileScreen() {
               <View style={styles.modalTitleGroup}>
                 <PackageCheck size={22} color={AnimoColors.accentPrimary} />
                 <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-                  Buod ng Transaksyon
+                  {isTagalog ? 'Buod ng Transaksyon' : 'Transaction Summary'}
                 </AnimoText>
               </View>
               <Pressable
@@ -508,7 +503,7 @@ export default function FarmerProfileScreen() {
             <View style={styles.modalSummaryGrid}>
               <View style={styles.modalSummaryBox}>
                 <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                  Natapos na Transaksyon
+                  {isTagalog ? 'Natapos na Transaksyon' : 'Completed Deals'}
                 </AnimoText>
                 <AnimoText variant="h1" color={AnimoColors.textHighEmphasis}>
                   {profile.completedTransactionsCount}
@@ -516,7 +511,7 @@ export default function FarmerProfileScreen() {
               </View>
               <View style={styles.modalSummaryBox}>
                 <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                  Kabuuang Naibenta
+                  {isTagalog ? 'Kabuuang Naibenta' : 'Total Sold Volume'}
                 </AnimoText>
                 <AnimoText variant="h1" color={AnimoColors.accentPrimary}>
                   {profile.totalSoldKg.toLocaleString()} kg
@@ -525,24 +520,25 @@ export default function FarmerProfileScreen() {
             </View>
 
             <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.modalSubheading}>
-              Mga Kamakailang Transaksyon
+              {isTagalog ? 'Mga Kamakailang Transaksyon' : 'Recent Transactions'}
             </AnimoText>
 
             <ScrollView style={styles.modalScrollList} showsVerticalScrollIndicator={false}>
               {profile.completedTransactionsCount === 0 ? (
                 <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-                  Wala pang naitalang transaksyon.
+                  {isTagalog ? 'Wala pang naitalang transaksyon.' : 'No recorded transactions yet.'}
                 </AnimoText>
               ) : (
                 <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-                  {profile.completedTransactionsCount} naitala, kabuuang{' '}
-                  {profile.totalSoldKg.toLocaleString()} kg.
+                  {isTagalog
+                    ? `${profile.completedTransactionsCount} naitala, kabuuang ${profile.totalSoldKg.toLocaleString()} kg.`
+                    : `${profile.completedTransactionsCount} recorded, total of ${profile.totalSoldKg.toLocaleString()} kg.`}
                 </AnimoText>
               )}
             </ScrollView>
 
             <AnimoButton
-              label="Isara"
+              label={isTagalog ? 'Isara' : 'Close'}
               variant="secondary"
               onPress={() => setShowTransactionsModal(false)}
             />
@@ -562,7 +558,7 @@ export default function FarmerProfileScreen() {
               <View style={styles.modalTitleGroup}>
                 <Star size={22} color="#F59E0B" fill="#F59E0B" />
                 <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-                  Marka at Feedback
+                  {isTagalog ? 'Marka at Feedback' : 'Rating & Feedback'}
                 </AnimoText>
               </View>
               <Pressable
@@ -597,13 +593,13 @@ export default function FarmerProfileScreen() {
                   ))}
                 </View>
                 <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                  {profile.totalReviews} mga review mula sa mamimili
+                  {profile.totalReviews} {isTagalog ? 'mga review mula sa mamimili' : profile.totalReviews === 1 ? 'buyer review' : 'buyer reviews'}
                 </AnimoText>
                 {profile.positiveFeedbackPct != null ? (
                   <View style={styles.feedbackThumbsRow}>
                     <ThumbsUp size={13} color={AnimoColors.accentPrimary} />
                     <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.thumbsText}>
-                      {profile.positiveFeedbackPct}% Positibong Feedback
+                      {profile.positiveFeedbackPct}% {isTagalog ? 'Positibong Feedback' : 'Positive Feedback'}
                     </AnimoText>
                   </View>
                 ) : null}
@@ -611,13 +607,13 @@ export default function FarmerProfileScreen() {
             </View>
 
             <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.modalSubheading}>
-              Mga Komento mula sa mga Mamimili
+              {isTagalog ? 'Mga Komento mula sa mga Mamimili' : 'Comments from Buyers'}
             </AnimoText>
 
             <ScrollView style={styles.modalScrollList} showsVerticalScrollIndicator={false}>
               {profile.comments.length === 0 ? (
                 <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-                  Wala pang komento mula sa mga mamimili.
+                  {isTagalog ? 'Wala pang komento mula sa mga mamimili.' : 'No comments from buyers yet.'}
                 </AnimoText>
               ) : (
                 profile.comments.map((comment, index) => (
@@ -625,7 +621,7 @@ export default function FarmerProfileScreen() {
                     <View style={styles.reviewCommentHeader}>
                       <MessageSquareQuote size={15} color={AnimoColors.accentPrimary} />
                       <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                        Mamimili
+                        {isTagalog ? 'Mamimili' : 'Buyer'}
                       </AnimoText>
                     </View>
                     <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.reviewQuoteText}>
@@ -637,7 +633,7 @@ export default function FarmerProfileScreen() {
             </ScrollView>
 
             <AnimoButton
-              label="Isara"
+              label={isTagalog ? 'Isara' : 'Close'}
               variant="secondary"
               onPress={() => setShowFeedbackModal(false)}
             />

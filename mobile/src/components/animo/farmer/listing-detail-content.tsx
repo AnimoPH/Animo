@@ -19,8 +19,10 @@ import { AnimoText } from "@/components/animo/animo-text";
 import { StatusBadge } from "@/components/animo/status-badge";
 import { AnimoColors, AnimoRadius, AnimoSpacing } from "@/constants/animo";
 import { formatPeso } from "@/constants/marketplace";
+import { useLanguage } from "@/hooks/use-language";
 import {
   STATUS_LABELS,
+  getStatusLabel,
   listingTitle,
   moistureLabel,
   purityLabel,
@@ -39,39 +41,19 @@ const STATUS_TONE: Record<CropListing["status"], "success" | "neutral" | "warnin
   Archived: "neutral",
 };
 
-const PHOTO_TYPE_DETAILS: {
-  type: PhotoType;
-  title: string;
-  shortLabel: string;
-  subtitle: string;
-}[] = [
-  {
-    type: "Overview",
-    title: "Pangkalahatan",
-    shortLabel: "Overview",
-    subtitle: "Kabuuang ani at sako ng palay",
-  },
-  {
-    type: "BeforeHarvest",
-    title: "Bago Anihin (Taniman)",
-    shortLabel: "Bago Anihin",
-    subtitle: "Kalagayan ng palay sa bukid",
-  },
-  {
-    type: "AfterHarvestUnsacked",
-    title: "Pagkatapos Anihin (Butil)",
-    shortLabel: "Butil ng Palay",
-    subtitle: "Lapitang anyo ng mga butil",
-  },
-];
-
 export type ListingDetailContentProps = {
   listing: CropListing;
   /** Whichever of the 3 photo_type slots have been uploaded, already signed. */
   photos: ListingPhoto[];
 };
 
-type GalleryItem = (typeof PHOTO_TYPE_DETAILS)[number] & { url: string | null };
+type GalleryItem = {
+  type: PhotoType;
+  title: string;
+  shortLabel: string;
+  subtitle: string;
+  url: string | null;
+};
 
 function PhotoFill({ url, contentFit }: { url: string | null; contentFit: "cover" | "contain" }) {
   if (url) {
@@ -119,17 +101,45 @@ function SpecRow({
 /** Detalye ng Listing tab: 3-slot gallery, summary with Patas na Presyo, Ibang Impormasyon list. */
 export function ListingDetailContent({ listing, photos }: ListingDetailContentProps) {
   const insets = useSafeAreaInsets();
+  const { language, isTagalog } = useLanguage();
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalPhotoIndex, setModalPhotoIndex] = useState(0);
 
+  const photoDetails: {
+    type: PhotoType;
+    title: string;
+    shortLabel: string;
+    subtitle: string;
+  }[] = [
+    {
+      type: "Overview",
+      title: isTagalog ? "Pangkalahatang Larawan" : "General Overview",
+      shortLabel: "Overview",
+      subtitle: isTagalog ? "Kabuuang ani at sako ng palay" : "Total harvest and sacks",
+    },
+    {
+      type: "BeforeHarvest",
+      title: isTagalog ? "Bago Anihin (Taniman)" : "Before Harvest (Field)",
+      shortLabel: isTagalog ? "Bago Anihin" : "Pre-Harvest",
+      subtitle: isTagalog ? "Kalagayan ng palay sa bukid" : "Standing crop condition",
+    },
+    {
+      type: "AfterHarvestUnsacked",
+      title: isTagalog ? "Pagkatapos Anihin (Butil)" : "After Harvest (Grains)",
+      shortLabel: isTagalog ? "Butil ng Palay" : "Grains",
+      subtitle: isTagalog ? "Lapitang anyo ng mga butil" : "Close-up view of grains",
+    },
+  ];
+
   const galleryItems: GalleryItem[] = useMemo(
     () =>
-      PHOTO_TYPE_DETAILS.map((slot) => {
+      photoDetails.map((slot) => {
         const found = photos.find((p) => p.photoType === slot.type);
         return { ...slot, url: found?.url ?? null };
       }),
-    [photos],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [photos, isTagalog],
   );
 
   const activePhoto = galleryItems[selectedPhotoIndex] ?? galleryItems[0];
@@ -153,7 +163,7 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
     {
       key: "variety",
       icon: <Sprout size={16} color={AnimoColors.textMediumEmphasis} />,
-      label: "Uri ng palay",
+      label: isTagalog ? "Uri ng palay" : "Rice Variety",
       value: varietyLabel(listing),
     },
     ...(specificVariety
@@ -161,7 +171,7 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
           {
             key: "specificVariety",
             icon: <Sprout size={16} color={AnimoColors.textMediumEmphasis} />,
-            label: "Tiyak na uri ng palay",
+            label: isTagalog ? "Tiyak na uri ng palay" : "Specific Variety",
             value: specificVariety,
           },
         ]
@@ -175,13 +185,13 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
     {
       key: "purity",
       icon: <ShieldCheck size={16} color={AnimoColors.textMediumEmphasis} />,
-      label: "Kalidad",
+      label: isTagalog ? "Kalidad" : "Quality Grade",
       value: purityLabel(listing.declaredPurityGrade),
     },
     {
       key: "weight",
       icon: <Scale size={16} color={AnimoColors.textMediumEmphasis} />,
-      label: "Aktwal na timbang",
+      label: isTagalog ? "Aktwal na timbang" : "Actual Weight",
       value: `${listing.netWeightKg} kg`,
     },
   ];
@@ -247,7 +257,9 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
         </View>
 
         <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.galleryHint}>
-          Pindutin ang larawan para palakihin at tingnan nang buo ang 3 anggulo ng palay.
+          {isTagalog
+            ? "Pindutin ang larawan para palakihin at tingnan nang buo ang 3 anggulo ng palay."
+            : "Tap photo to enlarge and view all 3 angles."}
         </AnimoText>
       </View>
 
@@ -257,7 +269,7 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
             {listingTitle(listing)} ({listing.remainingQuantityKg} kg)
           </AnimoText>
           <StatusBadge
-            label={STATUS_LABELS[listing.status]}
+            label={getStatusLabel(listing.status, language)}
             tone={STATUS_TONE[listing.status]}
             icon={<CheckCircle size={12} color={AnimoColors.accentPrimary} />}
           />
@@ -269,7 +281,7 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
             color={AnimoColors.textHighEmphasisInverse}
             style={styles.priceLabel}
           >
-            Patas na Presyo
+            {isTagalog ? "Patas na Presyo" : "Fair Price"}
           </AnimoText>
           <View style={styles.priceRow}>
             <AnimoText variant="display" color={AnimoColors.textHighEmphasisInverse}>
@@ -281,7 +293,7 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
               style={styles.priceUnit}
             >
               {" "}
-              bawat kilo
+              {isTagalog ? "bawat kilo" : "/ kg"}
             </AnimoText>
           </View>
           <AnimoText
@@ -289,7 +301,7 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
             color={AnimoColors.textHighEmphasisInverse}
             style={styles.priceTotal}
           >
-            Kabuuang halaga ({listing.remainingQuantityKg}kg):{" "}
+            {isTagalog ? "Kabuuang halaga" : "Total value"} ({listing.remainingQuantityKg}kg):{" "}
             {listing.pricePerKg !== null
               ? formatPeso(listing.pricePerKg * listing.remainingQuantityKg)
               : "—"}
@@ -299,7 +311,7 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
 
       <View style={styles.section}>
         <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-          Ibang Impormasyon
+          {isTagalog ? "Ibang Impormasyon" : "Other Information"}
         </AnimoText>
         <View style={styles.infoCard}>
           {infoRows.map((row, index) => (
@@ -332,12 +344,12 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
                 {modalActivePhoto.title}
               </AnimoText>
               <AnimoText variant="caption" color={AnimoColors.muted}>
-                {modalPhotoIndex + 1} ng {galleryItems.length} · {modalActivePhoto.subtitle}
+                {modalPhotoIndex + 1} {isTagalog ? "ng" : "of"} {galleryItems.length} · {modalActivePhoto.subtitle}
               </AnimoText>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Isara ang larawan"
+              accessibilityLabel={isTagalog ? "Isara ang larawan" : "Close photo"}
               hitSlop={16}
               onPress={() => setModalVisible(false)}
               style={styles.modalCloseBtn}

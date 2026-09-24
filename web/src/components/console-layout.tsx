@@ -16,10 +16,9 @@ import {
 } from 'lucide-react';
 
 import { AnimoMark } from '@/components/animo-mark';
-import { LanguageSwitch } from '@/components/language-switch';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/lib/auth-context';
-import { TRIGGER_ALERTS } from '@/constants/dashboard';
+import { getTriggerAlerts } from '@/constants/dashboard';
 
 const NAV_ICONS = {
   dashboard: Layers,
@@ -47,7 +46,7 @@ export function ConsoleLayout({
   children,
 }: ConsoleLayoutProps) {
   const { session } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const navItems = [
     { key: 'dashboard', label: t('nav.dashboard'), sublabel: t('nav.dashboardSub'), path: '/dashboard' },
@@ -68,8 +67,12 @@ export function ConsoleLayout({
   const officerName = session?.fullName ?? t('header.officer');
 
   const [showNotifications, setShowNotifications] = useState(false);
-  const [alerts, setAlerts] = useState(TRIGGER_ALERTS);
+  const [alerts, setAlerts] = useState(() => getTriggerAlerts(language));
   const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setAlerts(getTriggerAlerts(language));
+  }, [language]);
 
   const unreadCount = alerts.filter((a) => a.unread).length;
 
@@ -178,9 +181,6 @@ export function ConsoleLayout({
             <p style={styles.pageSubtitle}>{subtitle}</p>
           </div>
           <div style={styles.topBarActions} ref={notifRef}>
-            {/* Language Switcher in Header */}
-            <LanguageSwitch variant="header" />
-
             {/* Functional Notification Bell Button */}
             <div style={{ position: 'relative' }}>
               <button

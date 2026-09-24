@@ -3,7 +3,7 @@ import { CalendarDays, Clock, Users } from 'lucide-react';
 import { ConsoleLayout } from '@/components/console-layout';
 import { useLanguage } from '@/hooks/use-language';
 import {
-  BARANGAY_ADVISORIES,
+  getBarangayAdvisories,
   SEVERITY_COLOR,
   type BarangayAdvisory,
   type Severity,
@@ -19,8 +19,9 @@ const SEVERITY_ORDER: Severity[] = ['severe', 'moderate', 'mild', 'clear'];
  * Advisory monitoring — current advisory status per barangay.
  */
 export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
-  const { t } = useLanguage();
-  const activeCount = BARANGAY_ADVISORIES.filter(
+  const { t, language, isTagalog } = useLanguage();
+  const advisories = getBarangayAdvisories(language);
+  const activeCount = advisories.filter(
     (item) => item.status === 'active',
   ).length;
 
@@ -39,13 +40,13 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
       <div style={styles.toolbar}>
         <span style={styles.rangePill}>
           <CalendarDays size={16} color="var(--animo-black-secondary)" />
-          Okt 6 – Okt 12, 2025
+          {isTagalog ? 'Okt 6 – Okt 12, 2025' : 'Oct 6 – Oct 12, 2025'}
         </span>
       </div>
 
       <section style={styles.summaryRow}>
         {SEVERITY_ORDER.map((severity) => {
-          const count = BARANGAY_ADVISORIES.filter(
+          const count = advisories.filter(
             (item) => item.severity === severity,
           ).length;
           return (
@@ -81,7 +82,7 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
         </div>
 
         <div style={styles.advisoryList}>
-          {BARANGAY_ADVISORIES.map((item) => (
+          {advisories.map((item) => (
             <AdvisoryRow key={item.barangay} item={item} />
           ))}
         </div>
@@ -92,14 +93,9 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
 
 function AdvisoryRow({ item }: { item: BarangayAdvisory }) {
   const { t } = useLanguage();
-  const isActive = item.status === 'active';
 
   return (
-    <div
-      style={{
-        ...styles.advisoryCard,
-        ...(isActive ? styles.advisoryCardActive : null),
-      }}>
+    <div style={styles.advisoryCard}>
       <div style={styles.advisoryTop}>
         <span style={styles.advisoryName}>
           <span

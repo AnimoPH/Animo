@@ -167,7 +167,7 @@ export default function LoginScreen() {
               style={({ pressed }) => [styles.langTogglePill, pressed && styles.pressed]}>
               <Globe size={14} color={AnimoColors.green} />
               <AnimoText variant="tag" color={AnimoColors.green} style={styles.langToggleText}>
-                {isTagalog ? '🇵🇭 Tagalog' : '🌐 English'}
+                {isTagalog ? 'Tagalog' : 'English'}
               </AnimoText>
             </Pressable>
           </View>

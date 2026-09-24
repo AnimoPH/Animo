@@ -90,7 +90,7 @@ function newestListingsFirst(items: RankedListing[]): RankedListing[] {
  * Supports searching both crop listings and farmer profiles with ranking insights.
  */
 export default function MarketplaceScreen() {
-  const { t } = useLanguage();
+  const { t, isTagalog } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabMode>('palay');
   const [modalOpen, setModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -141,13 +141,13 @@ export default function MarketplaceScreen() {
     } catch (err) {
       if (latestRequestId.current === requestId) {
         setErrorMessage(
-          err instanceof Error ? err.message : 'Hindi ma-load ang mga listing.',
+          err instanceof Error ? err.message : (isTagalog ? 'Hindi ma-load ang mga listing.' : 'Failed to load listings.'),
         );
       }
     } finally {
       if (latestRequestId.current === requestId) setLoading(false);
     }
-  }, [filters]);
+  }, [filters, isTagalog]);
 
   useFocusEffect(
     useCallback(() => {
@@ -300,8 +300,8 @@ export default function MarketplaceScreen() {
             style={styles.searchInput}
             placeholder={
               activeTab === 'palay'
-                ? 'Maghanap ng palay, uri...'
-                : 'Maghanap ng magsasaka, bayan, uri...'
+                ? (isTagalog ? 'Maghanap ng palay, uri...' : 'Search palay, variety...')
+                : (isTagalog ? 'Maghanap ng magsasaka, bayan, uri...' : 'Search farmers, location, variety...')
             }
             placeholderTextColor={AnimoColors.textLowEmphasis}
             value={searchQuery}
@@ -371,7 +371,7 @@ export default function MarketplaceScreen() {
             variant="bodyEmphasis"
             color={activeTab === 'magsasaka' ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
             style={styles.tabText}>
-            Magsasaka ({displayedFarmers.length})
+            {isTagalog ? 'Magsasaka' : 'Farmers'} ({displayedFarmers.length})
           </AnimoText>
         </Pressable>
       </View>
@@ -388,12 +388,12 @@ export default function MarketplaceScreen() {
               <View style={styles.modalHeaderTitleRow}>
                 <SlidersHorizontal size={20} color={AnimoColors.accentPrimary} />
                 <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-                  Mga Filter
+                  {isTagalog ? 'Mga Filter' : 'Filters'}
                 </AnimoText>
                 {activeFilterCount > 0 ? (
                   <View style={styles.modalActiveBadge}>
                     <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
-                      {activeFilterCount} aktibo
+                      {activeFilterCount} {isTagalog ? 'aktibo' : 'active'}
                     </AnimoText>
                   </View>
                 ) : null}
@@ -413,11 +413,11 @@ export default function MarketplaceScreen() {
               {/* Desired quantity */}
               <View style={styles.inputCard}>
                 <LabeledInput
-                  label="Gustong Dami"
-                  hint="Itatago ang mga listing na hindi kayang punan ang dami na ito."
+                  label={isTagalog ? "Gustong Dami" : "Desired Quantity"}
+                  hint={isTagalog ? "Itatago ang mga listing na hindi kayang punan ang dami na ito." : "Hides listings that cannot meet this quantity."}
                   keyboardType="numeric"
                   suffixText="kg"
-                  placeholder="Halimbawa: 100"
+                  placeholder={isTagalog ? "Halimbawa: 100" : "e.g. 100"}
                   value={quantityText}
                   onChangeText={setQuantityText}
                 />
@@ -426,25 +426,25 @@ export default function MarketplaceScreen() {
               {/* Price range */}
               <View style={styles.inputCard}>
                 <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                  Presyo bawat Kilo (₱)
+                  {isTagalog ? "Presyo bawat Kilo (₱)" : "Price per Kilogram (₱)"}
                 </AnimoText>
                 <View style={styles.modalPriceRow}>
                   <View style={styles.modalPriceField}>
                     <LabeledInput
-                      label="Pinakamababa"
+                      label={isTagalog ? "Pinakamababa" : "Minimum"}
                       keyboardType="numeric"
                       prefixText="₱"
-                      placeholder="Hal: 15"
+                      placeholder={isTagalog ? "Hal: 15" : "e.g. 15"}
                       value={minPriceText}
                       onChangeText={setMinPriceText}
                     />
                   </View>
                   <View style={styles.modalPriceField}>
                     <LabeledInput
-                      label="Pinakamataas"
+                      label={isTagalog ? "Pinakamataas" : "Maximum"}
                       keyboardType="numeric"
                       prefixText="₱"
-                      placeholder="Hal: 25"
+                      placeholder={isTagalog ? "Hal: 25" : "e.g. 25"}
                       value={maxPriceText}
                       onChangeText={setMaxPriceText}
                     />
@@ -455,11 +455,12 @@ export default function MarketplaceScreen() {
               {/* Rice variety chips */}
               <View style={styles.inputCard}>
                 <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                  Uri ng Palay
+                  {isTagalog ? "Uri ng Palay" : "Rice Variety"}
                 </AnimoText>
                 <View style={styles.chipsWrapContainer}>
                   {VARIETY_CHOICES.map((choice) => {
                     const active = variety === choice.value;
+                    const label = choice.value === 'Lahat' ? (isTagalog ? 'Lahat' : 'All') : choice.label;
                     return (
                       <Pressable
                         key={choice.value}
@@ -469,7 +470,7 @@ export default function MarketplaceScreen() {
                           variant="body"
                           color={active ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
                           style={active && styles.chipTextActive}>
-                          {choice.label}
+                          {label}
                         </AnimoText>
                       </Pressable>
                     );
@@ -480,11 +481,12 @@ export default function MarketplaceScreen() {
               {/* Moisture level chips */}
               <View style={styles.inputCard}>
                 <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                  Antas ng Moisture
+                  {isTagalog ? "Antas ng Moisture" : "Moisture Level"}
                 </AnimoText>
                 <View style={styles.chipsWrapContainer}>
                   {MOISTURE_CHOICES.map((choice) => {
                     const active = moisture === choice.value;
+                    const label = choice.value === 'Lahat' ? (isTagalog ? 'Lahat' : 'All') : choice.label;
                     return (
                       <Pressable
                         key={choice.value}
@@ -494,7 +496,7 @@ export default function MarketplaceScreen() {
                           variant="body"
                           color={active ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
                           style={active && styles.chipTextActive}>
-                          {choice.label}
+                          {label}
                         </AnimoText>
                       </Pressable>
                     );
@@ -503,8 +505,9 @@ export default function MarketplaceScreen() {
               </View>
 
               <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-                Ang uri at moisture ay pang-ranggo lang — mas mataas ang tugma, ngunit
-                hindi nawawala ang iba pang resulta.
+                {isTagalog
+                  ? "Ang uri at moisture ay pang-ranggo lang — mas mataas ang tugma, ngunit hindi nawawala ang iba pang resulta."
+                  : "Variety and moisture filters prioritize ranked matches while keeping remaining listings visible."}
               </AnimoText>
             </ScrollView>
 
@@ -514,14 +517,14 @@ export default function MarketplaceScreen() {
                 onPress={resetFilters}
                 style={styles.resetButton}>
                 <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
-                  I-reset
+                  {isTagalog ? "I-reset" : "Reset"}
                 </AnimoText>
               </Pressable>
               <Pressable
                 onPress={applyFilters}
                 style={styles.applyButton}>
                 <AnimoText variant="button" color={AnimoColors.white}>
-                  Ilapat ang Filter
+                  {isTagalog ? "Ilapat ang Filter" : "Apply Filters"}
                 </AnimoText>
               </Pressable>
             </View>
@@ -544,7 +547,7 @@ export default function MarketplaceScreen() {
               </AnimoText>
               <Pressable onPress={load}>
                 <AnimoText variant="bodyEmphasis" color={AnimoColors.accentPrimary}>
-                  Subukan ulit
+                  {isTagalog ? "Subukan ulit" : "Try again"}
                 </AnimoText>
               </Pressable>
             </View>
@@ -555,10 +558,10 @@ export default function MarketplaceScreen() {
                 color={AnimoColors.textMediumEmphasis}
                 style={styles.centerText}>
                 {searchQuery.trim().length > 0
-                  ? `Walang nakitang listing para sa "${searchQuery}".`
+                  ? (isTagalog ? `Walang nakitang listing para sa "${searchQuery}".` : `No listings found for "${searchQuery}".`)
                   : activeFilterCount > 0
-                    ? 'Walang listing na tumutugma sa mga napiling filter.'
-                    : 'Wala pang available na listing ng palay.'}
+                    ? (isTagalog ? 'Walang listing na tumutugma sa mga napiling filter.' : 'No listings match the selected filters.')
+                    : (isTagalog ? 'Wala pang available na listing ng palay.' : 'No palay listings available yet.')}
               </AnimoText>
             </View>
           ) : (
@@ -591,14 +594,15 @@ export default function MarketplaceScreen() {
               <View style={styles.centerState}>
                 <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.centerText}>
                   {searchQuery.trim().length > 0
-                    ? `Walang nakitang magsasaka para sa "${searchQuery}".`
-                    : 'Wala pang magsasaka sa palengke.'}
+                    ? (isTagalog ? `Walang nakitang magsasaka para sa "${searchQuery}".` : `No farmers found for "${searchQuery}".`)
+                    : (isTagalog ? 'Wala pang magsasaka sa palengke.' : 'No farmers in the directory yet.')}
                 </AnimoText>
               </View>
             }
             renderItem={({ item }) => (
               <FarmerDirectoryCard
                 farmer={item}
+                lang={isTagalog ? 'tl' : 'en'}
                 onPress={() =>
                   router.push({
                     pathname: '/(buyer)/palengke/magsasaka/[id]',
@@ -616,11 +620,14 @@ export default function MarketplaceScreen() {
 
 function FarmerDirectoryCard({
   farmer,
+  lang = 'tl',
   onPress,
 }: {
   farmer: RankedFarmer;
+  lang?: 'tl' | 'en';
   onPress: () => void;
 }) {
+  const isEn = lang === 'en';
   return (
     <Pressable
       accessibilityRole="button"
@@ -659,7 +666,7 @@ function FarmerDirectoryCard({
             </AnimoText>
           </View>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            ({farmer.totalReviews} reviews)
+            ({farmer.totalReviews} {isEn ? 'reviews' : 'reviews'})
           </AnimoText>
         </View>
       </View>
@@ -668,7 +675,7 @@ function FarmerDirectoryCard({
       <View style={styles.farmerCardFooter}>
         <View style={styles.farmerFooterStat}>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            Naibenta:
+            {isEn ? 'Sold:' : 'Naibenta:'}
           </AnimoText>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
             {farmer.totalSoldKg.toLocaleString()} kg
@@ -679,7 +686,7 @@ function FarmerDirectoryCard({
 
         <View style={styles.farmerFooterStat}>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            Transaksyon:
+            {isEn ? 'Transactions:' : 'Transaksyon:'}
           </AnimoText>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
             {farmer.completedTransactionsCount}

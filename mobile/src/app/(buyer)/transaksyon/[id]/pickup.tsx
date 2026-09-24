@@ -19,6 +19,7 @@ import {
   fetchTransactionByRequestId,
   fetchTransactionCounterpart,
 } from '@/services/transaction-service';
+import { useLanguage } from '@/hooks/use-language';
 import {
   buildProgressSteps,
   cancelPolicy,
@@ -36,6 +37,7 @@ import { BackHeader } from '@/components/animo/back-header';
  */
 export default function PickupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { language, isTagalog } = useLanguage();
 
   const [outcome, setOutcome] = useState<PurchaseOutcome | null>(null);
   const [counterpart, setCounterpart] = useState<TransactionCounterpart | null>(null);
@@ -60,11 +62,17 @@ export default function PickupScreen() {
       setOutcome({ kind: 'matched', request, transaction });
       setCounterpart(await fetchTransactionCounterpart(transaction.farmerId));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Hindi ma-load ang transaksyon.');
+      setError(
+        e instanceof Error
+          ? e.message
+          : isTagalog
+            ? 'Hindi ma-load ang transaksyon.'
+            : 'Failed to load transaction.',
+      );
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, isTagalog]);
 
   useEffect(() => {
     load();
@@ -87,14 +95,14 @@ export default function PickupScreen() {
         <BackHeader title="Pickup" />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            {error ?? 'Hindi nahanap ang transaksyon na ito.'}
+            {error ?? (isTagalog ? 'Hindi nahanap ang transaksyon na ito.' : 'Transaction could not be found.')}
           </AnimoText>
         </View>
       </SafeAreaView>
     );
   }
 
-  const policy = cancelPolicy(outcome);
+  const policy = cancelPolicy(outcome, undefined, language);
 
   const handleConfirmCancel = async () => {
     setCancelError(null);
@@ -103,7 +111,13 @@ export default function PickupScreen() {
       setCancelling(false);
       setShowCancelledSuccessModal(true);
     } catch (e) {
-      setCancelError(e instanceof Error ? e.message : 'Hindi makansela ang transaksyon.');
+      setCancelError(
+        e instanceof Error
+          ? e.message
+          : isTagalog
+            ? 'Hindi makansela ang transaksyon.'
+            : 'Could not cancel transaction.',
+      );
       setCancelling(false);
     }
   };
@@ -116,20 +130,23 @@ export default function PickupScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
           <AnimoText variant="h3" color={AnimoColors.black}>
-            Tinanggap ang Iyong Request
+            {isTagalog ? 'Tinanggap ang Iyong Request' : 'Your Request Was Accepted'}
           </AnimoText>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            Makipag-ugnayan sa magsasaka para sa oras at lokasyon ng pickup. Walang
-            naka-sistemang iskedyul — direktang usapan ito sa pagitan ninyo.
+            {isTagalog
+              ? 'Makipag-ugnayan sa magsasaka para sa oras at lokasyon ng pickup. Walang naka-sistemang iskedyul — direktang usapan ito sa pagitan ninyo.'
+              : 'Coordinate with the farmer regarding pickup time and location. There is no automated schedule — arrange directly with the farmer.'}
           </AnimoText>
         </View>
 
         {counterpart ? <FarmerCard farmer={counterpart} /> : <LockedFarmerCard />}
 
-        <ProgressTracker steps={buildProgressSteps(outcome, 'buyer')} />
+        <ProgressTracker steps={buildProgressSteps(outcome, 'buyer', language)} />
 
         <NoticeBanner tone="info" icon={<Info size={16} color="#2563A8" />}>
-          Kapag nakuha na ang palay, magpatuloy sa pagbabayad sa magsasaka.
+          {isTagalog
+            ? 'Kapag nakuha na ang palay, magpatuloy sa pagbabayad sa magsasaka.'
+            : 'Once the palay has been picked up, proceed with paying the farmer.'}
         </NoticeBanner>
 
         {cancelError ? (
@@ -141,7 +158,7 @@ export default function PickupScreen() {
 
       <View style={styles.footerStack}>
         <AnimoButton
-          label="Magpatuloy sa Bayad"
+          label={isTagalog ? 'Magpatuloy sa Bayad' : 'Proceed to Payment'}
           icon={Check}
           onPress={() => router.push(`/(buyer)/transaksyon/${outcome.request.id}/bayad`)}
         />
@@ -168,8 +185,8 @@ export default function PickupScreen() {
       <FeedbackModal
         visible={showCancelledSuccessModal}
         tone="danger"
-        title="Matagumpay na Nakansela"
-        message="Nakansela na ang transaksyong ito."
+        title={isTagalog ? 'Matagumpay na Nakansela' : 'Successfully Cancelled'}
+        message={isTagalog ? 'Nakansela na ang transaksyong ito.' : 'This transaction has been cancelled.'}
         confirmLabel="OK"
         onConfirm={() => {
           setShowCancelledSuccessModal(false);

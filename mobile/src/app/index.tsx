@@ -118,7 +118,7 @@ export default function LandingScreen() {
             style={({ pressed }) => [styles.langToggle, pressed && styles.pressed]}>
             <Globe size={15} color={AnimoColors.white} />
             <AnimoText variant="tag" color={AnimoColors.white} style={styles.langText}>
-              {isTagalog ? '🇵🇭 Tagalog' : '🌐 English'}
+              {isTagalog ? 'Tagalog' : 'English'}
             </AnimoText>
           </Pressable>
         </View>

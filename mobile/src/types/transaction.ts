@@ -279,7 +279,9 @@ export function shortenTxHash(hash: string): string {
 export function buildProgressSteps(
   outcome: PurchaseOutcome,
   role: 'buyer' | 'farmer',
+  lang: 'tl' | 'en' = 'tl',
 ): ProgressStep[] {
+  const isEn = lang === 'en';
   const stage = deriveDisplayStage(outcome);
   const isDead = stage === 'request_rejected' || stage === 'request_cancelled' || stage === 'transaction_cancelled' || stage === 'payment_failed';
 
@@ -311,45 +313,65 @@ export function buildProgressSteps(
     stage === 'completed' ? 'done' : paymentConfirmedOrBeyond ? 'current' : 'upcoming';
 
   const bayadDetail = (() => {
-    if (!accepted) return 'Kasunod ng pagtanggap ng magsasaka.';
-    if (stage === 'transaction_cancelled') return 'Kinansela ang transaksyon.';
-    if (stage === 'payment_failed') return 'Hindi natuloy ang bayad.';
+    if (!accepted) return isEn ? 'Following farmer acceptance.' : 'Kasunod ng pagtanggap ng magsasaka.';
+    if (stage === 'transaction_cancelled') return isEn ? 'Transaction cancelled.' : 'Kinansela ang transaksyon.';
+    if (stage === 'payment_failed') return isEn ? 'Payment failed.' : 'Hindi natuloy ang bayad.';
     if (paymentConfirmedOrBeyond) {
       const confirmedAt = outcome.kind === 'matched' ? outcome.transaction.payment?.farmerConfirmedAt : null;
-      return confirmedAt ? `Nakumpirma (${formatDateTime(confirmedAt)})` : 'Nakumpirma ang bayad.';
+      return confirmedAt
+        ? (isEn ? `Confirmed (${formatDateTime(confirmedAt)})` : `Nakumpirma (${formatDateTime(confirmedAt)})`)
+        : (isEn ? 'Payment confirmed.' : 'Nakumpirma ang bayad.');
     }
     if (stage === 'payment_sent') {
       const sentAt = outcome.kind === 'matched' ? outcome.transaction.payment?.buyerConfirmedAt : null;
-      return sentAt ? `Naipadala (${formatDateTime(sentAt)})` : 'Naghihintay ng kumpirmasyon ng magsasaka.';
+      return sentAt
+        ? (isEn ? `Sent (${formatDateTime(sentAt)})` : `Naipadala (${formatDateTime(sentAt)})`)
+        : (isEn ? 'Awaiting farmer confirmation.' : 'Naghihintay ng kumpirmasyon ng magsasaka.');
     }
-    if (stage === 'awaiting_payment') return role === 'buyer' ? 'Isumite ang bayad.' : 'Naghihintay ng bayad mula sa mamimili.';
-    return 'Naghihintay.';
+    if (stage === 'awaiting_payment') {
+      return role === 'buyer'
+        ? (isEn ? 'Submit payment.' : 'Isumite ang bayad.')
+        : (isEn ? 'Awaiting payment from buyer.' : 'Naghihintay ng bayad mula sa mamimili.');
+    }
+    return isEn ? 'Pending.' : 'Naghihintay.';
   })();
 
+  const kahilinganLabel = isEn ? 'Request submitted' : 'Request naipadala';
+  const tinanggapLabel = isEn
+    ? (accepted ? 'Accepted by farmer' : 'Farmer acceptance')
+    : (accepted ? 'Tinanggap ng magsasaka' : 'Pag-accept ng magsasaka');
+  const tinanggapDetail = accepted
+    ? outcome.kind === 'matched' && outcome.transaction.createdAt
+      ? (isEn ? `Accepted (${formatDateTime(outcome.transaction.createdAt)})` : `Tinanggap (${formatDateTime(outcome.transaction.createdAt)})`)
+      : (isEn ? 'Request accepted.' : 'Tinanggap ang kahilingan.')
+    : isDead
+      ? (isEn ? 'Not proceeding.' : 'Hindi na itutuloy.')
+      : (isEn ? 'Awaiting response.' : 'Naghihintay ng sagot.');
+
+  const bayadLabel = isEn
+    ? (role === 'buyer' ? 'Payment to farmer' : 'Payment from buyer')
+    : (role === 'buyer' ? 'Bayad sa magsasaka' : 'Bayad mula sa Mamimili');
+
+  const kumpletoLabel = isEn ? 'Completed' : 'Kumpleto';
+  const kumpletoDetail = stage === 'completed'
+    ? outcome.kind === 'matched' && outcome.transaction.dateCompleted
+      ? (isEn ? `Completed (${formatDateTime(outcome.transaction.dateCompleted)})` : `Kumpleto (${formatDateTime(outcome.transaction.dateCompleted)})`)
+      : (isEn ? 'Transaction finished.' : 'Tapos na ang transaksyon.')
+    : (isEn ? 'Final step.' : 'Huling hakbang.');
+
   return [
-    { key: 'kahilingan', label: 'Request naipadala', detail: formatDateTime(outcome.request.submittedAt), state: kahilinganState },
+    { key: 'kahilingan', label: kahilinganLabel, detail: formatDateTime(outcome.request.submittedAt), state: kahilinganState },
     {
       key: 'tinanggap',
-      label: accepted ? 'Tinanggap ng magsasaka' : 'Pag-accept ng magsasaka',
-      detail: accepted
-        ? outcome.kind === 'matched' && outcome.transaction.createdAt
-          ? `Tinanggap (${formatDateTime(outcome.transaction.createdAt)})`
-          : 'Tinanggap ang kahilingan.'
-        : isDead
-          ? 'Hindi na itutuloy.'
-          : 'Naghihintay ng sagot.',
+      label: tinanggapLabel,
+      detail: tinanggapDetail,
       state: tinanggapState,
     },
-    { key: 'bayad', label: role === 'buyer' ? 'Bayad sa magsasaka' : 'Bayad mula sa Mamimili', detail: bayadDetail, state: bayadState },
+    { key: 'bayad', label: bayadLabel, detail: bayadDetail, state: bayadState },
     {
       key: 'kumpleto',
-      label: 'Kumpleto',
-      detail:
-        stage === 'completed'
-          ? outcome.kind === 'matched' && outcome.transaction.dateCompleted
-            ? `Kumpleto (${formatDateTime(outcome.transaction.dateCompleted)})`
-            : 'Tapos na ang transaksyon.'
-          : 'Huling hakbang.',
+      label: kumpletoLabel,
+      detail: kumpletoDetail,
       state: completedState,
     },
   ];
@@ -366,7 +388,8 @@ export type CancelPolicy = {
   triggerLabel: string;
 };
 
-export function cancelPolicy(outcome: PurchaseOutcome, now: number = Date.now()): CancelPolicy {
+export function cancelPolicy(outcome: PurchaseOutcome, now: number = Date.now(), lang: 'tl' | 'en' = 'tl'): CancelPolicy {
+  const isEn = lang === 'en';
   const stage = deriveDisplayStage(outcome);
 
   if (stage === 'request_pending') {
@@ -375,19 +398,22 @@ export function cancelPolicy(outcome: PurchaseOutcome, now: number = Date.now())
     return withinWindow
       ? {
           allowed: true,
-          title: 'Kanselahin ang request?',
-          body: 'Hindi pa tinatanggap ng magsasaka ang request na ito, kaya wala kang babayaran.',
-          consequences: [
+          title: isEn ? 'Cancel request?' : 'Kanselahin ang request?',
+          body: isEn ? 'The farmer has not yet accepted this request, so you will not be charged.' : 'Hindi pa tinatanggap ng magsasaka ang request na ito, kaya wala kang babayaran.',
+          consequences: isEn ? [
+            'No penalty or cancellation fee.',
+            'You can place a request again anytime.',
+          ] : [
             'Walang parusa o bayad sa pagkansela.',
             'Maaari kang mag-request muli anumang oras.',
           ],
-          confirmLabel: 'Kanselahin ang Request',
-          triggerLabel: 'Kanselahin ang Request',
+          confirmLabel: isEn ? 'Cancel Request' : 'Kanselahin ang Request',
+          triggerLabel: isEn ? 'Cancel Request' : 'Kanselahin ang Request',
         }
       : {
           allowed: false,
-          title: 'Nag-expire na ang pagkansela',
-          body: 'Lumipas na ang 30-segundong window para kanselahin nang mag-isa ang request na ito.',
+          title: isEn ? 'Cancellation expired' : 'Nag-expire na ang pagkansela',
+          body: isEn ? 'The 30-second window to independently cancel this request has expired.' : 'Lumipas na ang 30-segundong window para kanselahin nang mag-isa ang request na ito.',
           consequences: [],
           confirmLabel: '',
           triggerLabel: '',
@@ -397,23 +423,28 @@ export function cancelPolicy(outcome: PurchaseOutcome, now: number = Date.now())
   if (stage === 'awaiting_payment') {
     return {
       allowed: true,
-      title: 'Kanselahin ang transaksyon?',
-      body: 'Tinanggap na ng magsasaka ang request na ito ngunit wala pang bayad na naitala.',
-      consequences: [
+      title: isEn ? 'Cancel transaction?' : 'Kanselahin ang transaksyon?',
+      body: isEn ? 'The farmer has accepted this request but no payment has been recorded yet.' : 'Tinanggap na ng magsasaka ang request na ito ngunit wala pang bayad na naitala.',
+      consequences: isEn ? [
+        'The other party will be notified of the cancellation.',
+        'This crop quantity will become available again.',
+      ] : [
         'Aabisuhan ang kabilang partido sa pagkansela.',
         'Muling magiging available ang dami ng palay na ito.',
       ],
-      confirmLabel: 'Kanselahin ang Transaksyon',
-      triggerLabel: 'Kanselahin ang Transaksyon',
+      confirmLabel: isEn ? 'Cancel Transaction' : 'Kanselahin ang Transaksyon',
+      triggerLabel: isEn ? 'Cancel Transaction' : 'Kanselahin ang Transaksyon',
     };
   }
 
   if (stage === 'completed' || stage === 'payment_confirmed' || stage === 'delivered' || stage === 'payment_sent') {
     return {
       allowed: false,
-      title: 'Hindi na maaaring kanselahin',
-      body: 'May naitala nang bayad sa transaksyong ito.',
-      consequences: [
+      title: isEn ? 'Cannot be cancelled' : 'Hindi na maaaring kanselahin',
+      body: isEn ? 'A payment has already been recorded on this transaction.' : 'May naitala nang bayad sa transaksyong ito.',
+      consequences: isEn ? [
+        'Please coordinate with the other party if there is an issue.',
+      ] : [
         'Makipag-ugnayan sa kabilang partido kung may problema.',
       ],
       confirmLabel: '',
@@ -423,8 +454,8 @@ export function cancelPolicy(outcome: PurchaseOutcome, now: number = Date.now())
 
   return {
     allowed: false,
-    title: 'Wala nang aksyon',
-    body: 'Wala nang aksyon na maaaring gawin sa request/transaksyong ito.',
+    title: isEn ? 'No actions available' : 'Wala nang aksyon',
+    body: isEn ? 'No further actions can be taken on this request/transaction.' : 'Wala nang aksyon na maaaring gawin sa request/transaksyong ito.',
     consequences: [],
     confirmLabel: '',
     triggerLabel: '',

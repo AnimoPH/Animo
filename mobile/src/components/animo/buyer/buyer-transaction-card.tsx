@@ -42,7 +42,7 @@ export type BuyerTransactionCardProps = {
 
 /** Buyer Transaksyon overview card — listing-first layout with farmer + status. */
 export function BuyerTransactionCard({ item, onPress }: BuyerTransactionCardProps) {
-  const { t } = useLanguage();
+  const { t, isTagalog } = useLanguage();
   const isDone = item.stage === 'completed';
   const needsAction = isBuyerNeedsActionStage(item.stage);
   const dotColor = DOT_TONE[item.stage];
@@ -130,7 +130,13 @@ export function BuyerTransactionCard({ item, onPress }: BuyerTransactionCardProp
             color={AnimoColors.textHighEmphasis}
             numberOfLines={1}
             style={styles.metaLeft}>
-            {item.paymentMode ? `Payment: ${item.paymentMode}` : 'Payment: —'}
+            {item.paymentMode
+              ? isTagalog
+                ? `Bayad: ${item.paymentMode}`
+                : `Payment: ${item.paymentMode}`
+              : isTagalog
+                ? 'Bayad: —'
+                : 'Payment: —'}
           </AnimoText>
           <AnimoText color={AnimoColors.accentPrimary} style={styles.price}>
             {item.price}

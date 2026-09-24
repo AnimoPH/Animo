@@ -29,6 +29,7 @@ import { BackHeader } from '@/components/animo/back-header';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
 import { fetchCropListing } from '@/services/crop-listing-service';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import {
@@ -43,6 +44,7 @@ import type { PurchaseRequest } from '@/types/purchase-request';
 import {
   DISPLAY_STAGE_LABELS,
   DISPLAY_STAGE_TONE,
+  getDisplayStageLabel,
   buildProgressSteps,
   deriveDisplayStage,
   type DisplayStage,
@@ -65,6 +67,7 @@ type ActionConfirmType = 'confirm_payment' | 'confirm_delivered' | null;
 export default function FarmerTransactionDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const { language, isTagalog } = useLanguage();
 
   const [transaction, setTransaction] = useState<TransactionWithPayment | null>(null);
   const [request, setRequest] = useState<PurchaseRequest | null>(null);
@@ -97,11 +100,11 @@ export default function FarmerTransactionDetailScreen() {
         setRequest(requestResult);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Hindi ma-load ang transaksyon.');
+      setError(e instanceof Error ? e.message : (isTagalog ? 'Hindi ma-load ang transaksyon.' : 'Failed to load transaction.'));
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, isTagalog]);
 
   useEffect(() => {
     load();
@@ -126,7 +129,7 @@ export default function FarmerTransactionDetailScreen() {
       }
       await load();
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Hindi naisagawa ang aksyon.');
+      setActionError(e instanceof Error ? e.message : (isTagalog ? 'Hindi naisagawa ang aksyon.' : 'Action failed.'));
     }
   };
 
@@ -138,7 +141,7 @@ export default function FarmerTransactionDetailScreen() {
       setShowCancelModal(false);
       setShowCancelSuccessModal(true);
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Hindi makansela ang transaksyon.');
+      setActionError(e instanceof Error ? e.message : (isTagalog ? 'Hindi makansela ang transaksyon.' : 'Failed to cancel transaction.'));
       setShowCancelModal(false);
     }
   };
@@ -146,7 +149,7 @@ export default function FarmerTransactionDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <BackHeader title="Detalye ng Transaksyon" />
+        <BackHeader title={isTagalog ? 'Detalye ng Transaksyon' : 'Transaction Details'} />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -158,10 +161,10 @@ export default function FarmerTransactionDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        <BackHeader title="Detalye ng Transaksyon" />
+        <BackHeader title={isTagalog ? 'Detalye ng Transaksyon' : 'Transaction Details'} />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-            {error ?? 'Hindi nahanap ang transaksyon na ito.'}
+            {error ?? (isTagalog ? 'Hindi nahanap ang transaksyon na ito.' : 'Transaction not found.')}
           </AnimoText>
         </View>
       </SafeAreaView>
@@ -173,27 +176,27 @@ export default function FarmerTransactionDetailScreen() {
   const isCancelled = stage === 'transaction_cancelled' || stage === 'payment_failed';
   const isCompleted = stage === 'completed';
   const canCancel = transaction.status === 'Pending_Payment';
-  const steps = buildProgressSteps(outcome, 'farmer');
+  const steps = buildProgressSteps(outcome, 'farmer', language);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title={farmerHeaderTitle(stage)} />
+      <BackHeader title={farmerHeaderTitle(stage, language)} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <StageBanner stage={stage} transaction={transaction} buyerName={buyer?.name} />
+        <StageBanner stage={stage} transaction={transaction} buyerName={buyer?.name} lang={language} />
 
         {listing ? <ListingCard listing={listing} transaction={transaction} isCancelled={isCancelled} /> : null}
 
-        <ProgressTracker title="Progreso ng Transaksyon" steps={steps} />
+        <ProgressTracker title={isTagalog ? 'Progreso ng Transaksyon' : 'Transaction Progress'} steps={steps} />
 
         <PaymentSummary
           rows={[
-            { label: 'Dami ng Palay', amount: `${transaction.quantityKg} kg` },
-            { label: 'Presyo bawat kilo', amount: formatPeso(transaction.agreedPricePerKg) },
-            ...(transaction.payment ? [{ label: 'Paraan ng Pagbabayad', amount: transaction.payment.paymentMode }] : []),
+            { label: isTagalog ? 'Dami ng Palay' : 'Quantity of Palay', amount: `${transaction.quantityKg} kg` },
+            { label: isTagalog ? 'Presyo bawat kilo' : 'Price per kg', amount: formatPeso(transaction.agreedPricePerKg) },
+            ...(transaction.payment ? [{ label: isTagalog ? 'Paraan ng Pagbabayad' : 'Payment Method', amount: transaction.payment.paymentMode }] : []),
           ]}
-          total={{ label: 'Kabuuang Halaga ng Transaksyon', amount: transaction.totalAmount }}
+          total={{ label: isTagalog ? 'Kabuuang Halaga ng Transaksyon' : 'Total Transaction Amount', amount: transaction.totalAmount }}
         />
 
         {buyer ? (
@@ -201,6 +204,7 @@ export default function FarmerTransactionDetailScreen() {
             buyer={buyer}
             quantityKg={transaction.quantityKg}
             total={transaction.totalAmount}
+            lang={language}
             onCall={() => handleCallBuyer(buyer.phone)}
           />
         ) : null}
@@ -215,10 +219,10 @@ export default function FarmerTransactionDetailScreen() {
             </View>
             <View style={styles.flex}>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                Digital na Resibo
+                {isTagalog ? 'Digital na Resibo' : 'Digital Receipt'}
               </AnimoText>
               <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                Naka-save sa iyong talaan
+                {isTagalog ? 'Naka-save sa iyong talaan' : 'Saved to your records'}
               </AnimoText>
             </View>
             <ChevronRight size={18} color={AnimoColors.objectLowEmphasis} />
@@ -236,6 +240,7 @@ export default function FarmerTransactionDetailScreen() {
         <FooterActions
           stage={stage}
           canCancel={canCancel}
+          lang={language}
           onConfirmPayment={() => setActionConfirmType('confirm_payment')}
           onConfirmDelivered={() => setActionConfirmType('confirm_delivered')}
           onCancel={() => setShowCancelModal(true)}
@@ -252,12 +257,18 @@ export default function FarmerTransactionDetailScreen() {
             </View>
             <View style={styles.confirmModalHeaderGroup}>
               <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.textCenter}>
-                {actionConfirmType === 'confirm_payment' ? 'Kumpirmahin ang Bayad?' : 'Kumpirmahin ang Paghahatid?'}
+                {actionConfirmType === 'confirm_payment'
+                  ? (isTagalog ? 'Kumpirmahin ang Bayad?' : 'Confirm Payment?')
+                  : (isTagalog ? 'Kumpirmahin ang Paghahatid?' : 'Confirm Delivery?')}
               </AnimoText>
               <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
                 {actionConfirmType === 'confirm_payment'
-                  ? 'Sigurado ka bang natanggap mo na ang buong bayad sa GCash o Cash?'
-                  : 'Sigurado ka bang naihatid mo na ang palay sa mamimili? Ito ang huling hakbang bago makumpleto ang transaksyon.'}
+                  ? (isTagalog
+                      ? 'Sigurado ka bang natanggap mo na ang buong bayad sa GCash o Cash?'
+                      : 'Are you sure you have received the full payment via GCash or Cash?')
+                  : (isTagalog
+                      ? 'Sigurado ka bang naihatid mo na ang palay sa mamimili? Ito ang huling hakbang bago makumpleto ang transaksyon.'
+                      : 'Are you sure you have delivered the palay to the buyer? This is the final step to complete the transaction.')}
               </AnimoText>
             </View>
             <View style={styles.modalActions}>
@@ -267,7 +278,9 @@ export default function FarmerTransactionDetailScreen() {
                 style={({ pressed }) => [styles.confirmActionBtn, pressed && styles.pressed]}>
                 <Check size={18} color={AnimoColors.white} />
                 <AnimoText variant="button" color={AnimoColors.white}>
-                  {actionConfirmType === 'confirm_payment' ? 'Oo, Nakumpirma ang Bayad' : 'Oo, Naihatid Na'}
+                  {actionConfirmType === 'confirm_payment'
+                    ? (isTagalog ? 'Oo, Nakumpirma ang Bayad' : 'Yes, Confirm Payment')
+                    : (isTagalog ? 'Oo, Naihatid Na' : 'Yes, Delivered')}
                 </AnimoText>
               </Pressable>
               <Pressable
@@ -275,7 +288,7 @@ export default function FarmerTransactionDetailScreen() {
                 onPress={() => setActionConfirmType(null)}
                 style={({ pressed }) => [styles.cancelDismissBtn, pressed && styles.pressed]}>
                 <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
-                  Huwag Muna
+                  {isTagalog ? 'Huwag Muna' : 'Not Now'}
                 </AnimoText>
               </Pressable>
             </View>
@@ -291,10 +304,12 @@ export default function FarmerTransactionDetailScreen() {
             </View>
             <View style={styles.confirmModalHeaderGroup}>
               <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.textCenter}>
-                Kanselahin ang Transaksyon?
+                {isTagalog ? 'Kanselahin ang Transaksyon?' : 'Cancel Transaction?'}
               </AnimoText>
               <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
-                Wala pang naitalang bayad sa transaksyong ito. Muling magiging available ang dami ng palay.
+                {isTagalog
+                  ? 'Wala pang naitalang bayad sa transaksyong ito. Muling magiging available ang dami ng palay.'
+                  : 'No payment has been recorded for this transaction yet. The crop quantity will become available again.'}
               </AnimoText>
             </View>
             <View style={styles.modalActions}>
@@ -304,7 +319,7 @@ export default function FarmerTransactionDetailScreen() {
                 style={({ pressed }) => [styles.confirmRejectBtn, pressed && styles.pressed]}>
                 <X size={18} color={AnimoColors.white} />
                 <AnimoText variant="button" color={AnimoColors.white}>
-                  Kanselahin ang Transaksyon
+                  {isTagalog ? 'Kanselahin ang Transaksyon' : 'Cancel Transaction'}
                 </AnimoText>
               </Pressable>
               <Pressable
@@ -312,7 +327,7 @@ export default function FarmerTransactionDetailScreen() {
                 onPress={() => setShowCancelModal(false)}
                 style={({ pressed }) => [styles.cancelDismissBtn, pressed && styles.pressed]}>
                 <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
-                  Bumalik
+                  {isTagalog ? 'Bumalik' : 'Back'}
                 </AnimoText>
               </Pressable>
             </View>
@@ -323,8 +338,8 @@ export default function FarmerTransactionDetailScreen() {
       <FeedbackModal
         visible={showCancelSuccessModal}
         tone="danger"
-        title="Matagumpay na Nakansela"
-        message="Nakansela na ang transaksyong ito."
+        title={isTagalog ? 'Matagumpay na Nakansela' : 'Successfully Cancelled'}
+        message={isTagalog ? 'Nakansela na ang transaksyong ito.' : 'This transaction has been cancelled.'}
         confirmLabel="OK"
         onConfirm={() => {
           setShowCancelSuccessModal(false);
@@ -335,13 +350,21 @@ export default function FarmerTransactionDetailScreen() {
       <FeedbackModal
         visible={confirm !== null}
         tone="success"
-        title={confirm === 'delivered' ? 'Kumpleto na ang Transaksyon' : 'Nakumpirma ang Bayad'}
+        title={
+          confirm === 'delivered'
+            ? (isTagalog ? 'Kumpleto na ang Transaksyon' : 'Transaction Completed')
+            : (isTagalog ? 'Nakumpirma ang Bayad' : 'Payment Confirmed')
+        }
         message={
           confirm === 'delivered'
-            ? 'Naitala ang paghahatid at natapos na ang transaksyon. Maaari mo nang tingnan ang digital na resibo.'
-            : 'Nakumpirma ang bayad. Kapag naihatid mo na ang palay, kumpirmahin din ang paghahatid.'
+            ? (isTagalog
+                ? 'Naitala ang paghahatid at natapos na ang transaksyon. Maaari mo nang tingnan ang digital na resibo.'
+                : 'Delivery recorded and transaction completed. You can now view your digital receipt.')
+            : (isTagalog
+                ? 'Nakumpirma ang bayad. Kapag naihatid mo na ang palay, kumpirmahin din ang paghahatid.'
+                : 'Payment confirmed. Once you have delivered the crop, confirm the delivery as well.')
         }
-        confirmLabel="Sige"
+        confirmLabel={isTagalog ? 'Sige' : 'OK'}
         onConfirm={() => setConfirm(null)}
       />
     </SafeAreaView>
@@ -352,47 +375,50 @@ function StageBanner({
   stage,
   transaction,
   buyerName,
+  lang = 'tl',
 }: {
   stage: DisplayStage;
   transaction: TransactionWithPayment;
   buyerName?: string;
+  lang?: 'tl' | 'en';
 }) {
+  const isEn = lang === 'en';
   const header = (() => {
     switch (stage) {
       case 'awaiting_payment':
         return {
           icon: <Clock size={20} color="#B4791A" />,
           iconBg: '#FBF0D9',
-          title: 'Tinanggap ang Kahilingan',
-          caption: 'Naghihintay ng bayad mula sa mamimili.',
+          title: isEn ? 'Request Accepted' : 'Tinanggap ang Kahilingan',
+          caption: isEn ? 'Awaiting payment from buyer.' : 'Naghihintay ng bayad mula sa mamimili.',
         };
       case 'payment_sent':
         return {
           icon: <Package size={20} color="#D97706" />,
           iconBg: '#FEF3C7',
-          title: 'Naipadala na ang Bayad',
-          caption: 'Kumpirmahin kapag natanggap na ang buong bayad.',
+          title: isEn ? 'Payment Sent' : 'Naipadala na ang Bayad',
+          caption: isEn ? 'Confirm once full payment is received.' : 'Kumpirmahin kapag natanggap na ang buong bayad.',
         };
       case 'payment_confirmed':
         return {
           icon: <CheckCircle2 size={20} color={AnimoColors.accentPrimary} />,
           iconBg: AnimoColors.accentPrimaryLight,
-          title: 'Nakumpirma ang Bayad',
-          caption: 'Kumpirmahin kapag naihatid mo na ang palay.',
+          title: isEn ? 'Payment Confirmed' : 'Nakumpirma ang Bayad',
+          caption: isEn ? 'Confirm once you have delivered the palay.' : 'Kumpirmahin kapag naihatid mo na ang palay.',
         };
       case 'completed':
         return {
           icon: <CheckCircle2 size={20} color={AnimoColors.accentPrimary} />,
           iconBg: AnimoColors.accentPrimaryLight,
-          title: 'Kumpleto na ang Transaksyon',
-          caption: 'Naihatid na ang palay at naisara na ang transaksyon.',
+          title: isEn ? 'Transaction Completed' : 'Kumpleto na ang Transaksyon',
+          caption: isEn ? 'Crop delivered and transaction closed.' : 'Naihatid na ang palay at naisara na ang transaksyon.',
         };
       default:
         return {
           icon: <XCircle size={20} color={AnimoColors.danger} />,
           iconBg: AnimoColors.dangerTint,
-          title: 'Nakansela ang Transaksyon',
-          caption: 'Hindi na itutuloy ang transaksyong ito.',
+          title: isEn ? 'Transaction Cancelled' : 'Nakansela ang Transaksyon',
+          caption: isEn ? 'This transaction is no longer active.' : 'Hindi na itutuloy ang transaksyong ito.',
         };
     }
   })();
@@ -412,12 +438,12 @@ function StageBanner({
       </View>
 
       <View style={styles.bannerMeta}>
-        <StatusBadge label={DISPLAY_STAGE_LABELS[stage]} tone={DISPLAY_STAGE_TONE[stage]} />
+        <StatusBadge label={getDisplayStageLabel(stage, lang)} tone={DISPLAY_STAGE_TONE[stage]} />
       </View>
 
       <View style={styles.divider} />
-      {buyerName ? <MetaRow label="Mamimili" value={buyerName} /> : null}
-      {transaction.payment ? <MetaRow label="Paraan ng Bayad" value={transaction.payment.paymentMode} /> : null}
+      {buyerName ? <MetaRow label={isEn ? 'Buyer' : 'Mamimili'} value={buyerName} /> : null}
+      {transaction.payment ? <MetaRow label={isEn ? 'Payment Method' : 'Paraan ng Bayad'} value={transaction.payment.paymentMode} /> : null}
     </View>
   );
 }
@@ -471,13 +497,16 @@ function BuyerPartyCard({
   buyer,
   quantityKg,
   total,
+  lang = 'tl',
   onCall,
 }: {
   buyer: TransactionCounterpart;
   quantityKg: number;
   total: number;
+  lang?: 'tl' | 'en';
   onCall: () => void;
 }) {
+  const isEn = lang === 'en';
   const openBuyerProfile = () => {
     router.push({
       pathname: '/(farmer)/mamimili/[id]',
@@ -494,7 +523,7 @@ function BuyerPartyCard({
       <View style={styles.partyHeaderRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Tingnan ang profile ng mamimili"
+          accessibilityLabel={isEn ? 'View buyer profile' : 'Tingnan ang profile ng mamimili'}
           hitSlop={8}
           onPress={openBuyerProfile}
           style={({ pressed }) => [styles.partyAvatar, pressed && styles.pressed]}>
@@ -502,7 +531,7 @@ function BuyerPartyCard({
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Tingnan ang profile ni ${buyer.name}`}
+          accessibilityLabel={isEn ? `View profile of ${buyer.name}` : `Tingnan ang profile ni ${buyer.name}`}
           hitSlop={8}
           onPress={openBuyerProfile}
           style={styles.flex}>
@@ -510,17 +539,17 @@ function BuyerPartyCard({
             {buyer.name}
           </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            Mamimili
+            {isEn ? 'Buyer' : 'Mamimili'}
           </AnimoText>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Tawagan si ${buyer.name}`}
+          accessibilityLabel={isEn ? `Call ${buyer.name}` : `Tawagan si ${buyer.name}`}
           onPress={onCall}
           style={({ pressed }) => [styles.callBtn, pressed && styles.pressed]}>
           <Phone size={15} color={AnimoColors.accentPrimary} />
           <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.callBtnText}>
-            Tawagan
+            {isEn ? 'Call' : 'Tawagan'}
           </AnimoText>
         </Pressable>
       </View>
@@ -553,6 +582,7 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 function FooterActions({
   stage,
   canCancel,
+  lang = 'tl',
   onConfirmPayment,
   onConfirmDelivered,
   onCancel,
@@ -561,17 +591,20 @@ function FooterActions({
 }: {
   stage: DisplayStage;
   canCancel: boolean;
+  lang?: 'tl' | 'en';
   onConfirmPayment: () => void;
   onConfirmDelivered: () => void;
   onCancel: () => void;
   onRate: () => void;
   onBackToMarket: () => void;
 }) {
+  const isEn = lang === 'en';
+
   if (stage === 'payment_sent') {
     return (
       <View style={styles.footerStack}>
-        <AnimoButton label="Natanggap ko na ang Bayad" icon={Check} onPress={onConfirmPayment} />
-        {canCancel ? <AnimoButton label="Kanselahin ang Transaksyon" variant="dangerOutline" icon={X} onPress={onCancel} /> : null}
+        <AnimoButton label={isEn ? 'Payment Received' : 'Natanggap ko na ang Bayad'} icon={Check} onPress={onConfirmPayment} />
+        {canCancel ? <AnimoButton label={isEn ? 'Cancel Transaction' : 'Kanselahin ang Transaksyon'} variant="dangerOutline" icon={X} onPress={onCancel} /> : null}
       </View>
     );
   }
@@ -579,7 +612,7 @@ function FooterActions({
   if (stage === 'awaiting_payment') {
     return (
       <View style={styles.footerStack}>
-        {canCancel ? <AnimoButton label="Kanselahin ang Transaksyon" variant="dangerOutline" icon={X} onPress={onCancel} /> : null}
+        {canCancel ? <AnimoButton label={isEn ? 'Cancel Transaction' : 'Kanselahin ang Transaksyon'} variant="dangerOutline" icon={X} onPress={onCancel} /> : null}
       </View>
     );
   }
@@ -587,7 +620,7 @@ function FooterActions({
   if (stage === 'payment_confirmed') {
     return (
       <View style={styles.footerStack}>
-        <AnimoButton label="Kumpirmahin ang Paghahatid" icon={Check} onPress={onConfirmDelivered} />
+        <AnimoButton label={isEn ? 'Confirm Delivery' : 'Kumpirmahin ang Paghahatid'} icon={Check} onPress={onConfirmDelivered} />
       </View>
     );
   }
@@ -595,30 +628,31 @@ function FooterActions({
   if (stage === 'completed') {
     return (
       <View style={styles.footerStack}>
-        <AnimoButton label="Magbigay ng Rating" variant="primary" icon={Star} onPress={onRate} />
-        <AnimoButton label="Bumalik sa Palengke" variant="secondary" icon={Check} onPress={onBackToMarket} />
+        <AnimoButton label={isEn ? 'Leave a Rating' : 'Magbigay ng Rating'} variant="primary" icon={Star} onPress={onRate} />
+        <AnimoButton label={isEn ? 'Back to Marketplace' : 'Bumalik sa Palengke'} variant="secondary" icon={Check} onPress={onBackToMarket} />
       </View>
     );
   }
 
   return (
     <View style={styles.footerStack}>
-      <AnimoButton label="Bumalik sa Transaksyon" variant="secondary" onPress={() => router.back()} />
+      <AnimoButton label={isEn ? 'Back to Transactions' : 'Bumalik sa Transaksyon'} variant="secondary" onPress={() => router.back()} />
     </View>
   );
 }
 
-function farmerHeaderTitle(stage: DisplayStage): string {
+function farmerHeaderTitle(stage: DisplayStage, lang: 'tl' | 'en' = 'tl'): string {
+  const isEn = lang === 'en';
   switch (stage) {
     case 'awaiting_payment':
     case 'payment_sent':
-      return 'Pagbabayad';
+      return isEn ? 'Payment' : 'Pagbabayad';
     case 'payment_confirmed':
-      return 'Paghahatid';
+      return isEn ? 'Delivery' : 'Paghahatid';
     case 'completed':
-      return 'Detalye ng Transaksyon';
+      return isEn ? 'Transaction Details' : 'Detalye ng Transaksyon';
     default:
-      return 'Katayuan ng Transaksyon';
+      return isEn ? 'Transaction Status' : 'Katayuan ng Transaksyon';
   }
 }
 

@@ -23,6 +23,7 @@ import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { cancelPurchaseRequest, submitPurchaseRequest } from '@/services/purchase-request-service';
 import { fetchMarketplaceListing } from '@/services/marketplace-service';
+import { useLanguage } from '@/hooks/use-language';
 import { varietyLabel, type CropListing } from '@/types/crop-listing';
 import type { PurchaseRequest } from '@/types/purchase-request';
 import { BackHeader } from '@/components/animo/back-header';
@@ -30,6 +31,7 @@ import { BackHeader } from '@/components/animo/back-header';
 /** Bumili ng Palay — purchase request screen with quantity, system-locked pricing, and a real cancel-window confirmation modal. */
 export default function BuyScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { language, isTagalog } = useLanguage();
 
   const [listing, setListing] = useState<CropListing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,7 +53,15 @@ export default function BuyScreen() {
         const result = await fetchMarketplaceListing(id);
         if (!cancelled) setListing(result);
       } catch (error) {
-        if (!cancelled) setLoadError(error instanceof Error ? error.message : 'Hindi ma-load ang listing.');
+        if (!cancelled) {
+          setLoadError(
+            error instanceof Error
+              ? error.message
+              : isTagalog
+                ? 'Hindi ma-load ang listing.'
+                : 'Failed to load listing.',
+          );
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -59,12 +69,12 @@ export default function BuyScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, isTagalog]);
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <BackHeader title="Bumili ng Palay" />
+        <BackHeader title={isTagalog ? 'Bumili ng Palay' : 'Buy Palay'} />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.green} />
         </View>
@@ -75,10 +85,10 @@ export default function BuyScreen() {
   if (!listing || loadError) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <BackHeader title="Bumili ng Palay" />
+        <BackHeader title={isTagalog ? 'Bumili ng Palay' : 'Buy Palay'} />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            {loadError ?? 'Hindi na available ang pagbili para sa listing na ito.'}
+            {loadError ?? (isTagalog ? 'Hindi na available ang pagbili para sa listing na ito.' : 'Purchase is no longer available for this listing.')}
           </AnimoText>
         </View>
       </SafeAreaView>
@@ -102,7 +112,13 @@ export default function BuyScreen() {
       });
       setSubmittedRequest(request);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Hindi maipadala ang request.');
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : isTagalog
+            ? 'Hindi maipadala ang request.'
+            : 'Failed to send request.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -111,7 +127,7 @@ export default function BuyScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title="Bumili ng Palay" />
+      <BackHeader title={isTagalog ? 'Bumili ng Palay' : 'Buy Palay'} />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -125,10 +141,10 @@ export default function BuyScreen() {
             <ListingImage height={64} borderRadius={AnimoRadius.md} style={styles.thumb} />
             <View style={styles.flex}>
               <AnimoText variant="h3" color={AnimoColors.black}>
-                {varietyLabel(listing)}
+                {varietyLabel(listing, language)}
               </AnimoText>
               <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                {formatPeso(pricePerKg)} bawat kilo
+                {formatPeso(pricePerKg)} {isTagalog ? 'bawat kilo' : 'per kg'}
               </AnimoText>
             </View>
           </View>
@@ -136,10 +152,10 @@ export default function BuyScreen() {
           {/* Quantity details */}
           <View style={styles.card}>
             <AnimoText variant="h3" color={AnimoColors.black}>
-              Detalye ng Pagbili
+              {isTagalog ? 'Detalye ng Pagbili' : 'Purchase Details'}
             </AnimoText>
             <LabeledInput
-              label="Dami na nais bilhin"
+              label={isTagalog ? 'Dami na nais bilhin' : 'Quantity to purchase'}
               keyboardType="number-pad"
               value={quantity}
               onChangeText={(t) => setQuantity(t.replace(/\D/g, ''))}
@@ -147,10 +163,16 @@ export default function BuyScreen() {
               error={overRemaining || underMinimum}
               hint={
                 overRemaining
-                  ? `Hindi maaaring lumampas sa ${listing.remainingQuantityKg} kg na natitirang stock.`
+                  ? isTagalog
+                    ? `Hindi maaaring lumampas sa ${listing.remainingQuantityKg} kg na natitirang stock.`
+                    : `Cannot exceed ${listing.remainingQuantityKg} kg remaining stock.`
                   : underMinimum
-                    ? `Kailangan ng hindi bababa sa ${listing.minimumRequestKg} kg.`
-                    : `${listing.minimumRequestKg}–${listing.remainingQuantityKg} kg ang maaaring hilingin.`
+                    ? isTagalog
+                      ? `Kailangan ng hindi bababa sa ${listing.minimumRequestKg} kg.`
+                      : `Minimum required is ${listing.minimumRequestKg} kg.`
+                    : isTagalog
+                      ? `${listing.minimumRequestKg}–${listing.remainingQuantityKg} kg ang maaaring hilingin.`
+                      : `${listing.minimumRequestKg}–${listing.remainingQuantityKg} kg can be requested.`
               }
               hintTone={overRemaining || underMinimum ? 'danger' : 'muted'}
             />
@@ -162,36 +184,38 @@ export default function BuyScreen() {
               <View style={styles.lockedTitle}>
                 <Lock size={16} color={AnimoColors.blackSecondary} />
                 <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                  Nakatakda ng sistema
+                  {isTagalog ? 'Nakatakda ng sistema' : 'System Fixed Price'}
                 </AnimoText>
               </View>
-              <StatusBadge label="Hindi mababago" tone="neutral" />
+              <StatusBadge label={isTagalog ? 'Hindi mababago' : 'Fixed'} tone="neutral" />
             </View>
 
             <View style={styles.rowBetween}>
               <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                Presyo bawat kilo
+                {isTagalog ? 'Presyo bawat kilo' : 'Price per kg'}
               </AnimoText>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
                 {formatPeso(pricePerKg)}
               </AnimoText>
             </View>
             <AnimoText variant="caption" color={AnimoColors.muted}>
-              Kinomputa ng ANIMO para sa patas na presyo batay sa pamantayan.
+              {isTagalog
+                ? 'Kinomputa ng ANIMO para sa patas na presyo batay sa pamantayan.'
+                : 'Computed by ANIMO for standard fair pricing.'}
             </AnimoText>
 
             <View style={styles.divider} />
 
             <View style={styles.rowBetween}>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.rowLabel}>
-                Kabuuang halaga
+                {isTagalog ? 'Kabuuang halaga' : 'Total Amount'}
               </AnimoText>
               <AnimoText variant="price" color={AnimoColors.green} style={styles.rowValue}>
                 {formatPeso(total)}
               </AnimoText>
             </View>
             <AnimoText variant="caption" color={AnimoColors.muted}>
-              Awtomatikong kinakalkula: {formatPeso(pricePerKg)} × {qtyNum} kg
+              {isTagalog ? 'Awtomatikong kinakalkula:' : 'Automatically calculated:'} {formatPeso(pricePerKg)} × {qtyNum} kg
             </AnimoText>
           </View>
 
@@ -204,7 +228,15 @@ export default function BuyScreen() {
 
         <View style={styles.footer}>
           <AnimoButton
-            label={submitting ? 'Ipinapadala…' : 'Kumpirmahin ang Pagbili'}
+            label={
+              submitting
+                ? isTagalog
+                  ? 'Ipinapadala…'
+                  : 'Sending…'
+                : isTagalog
+                  ? 'Kumpirmahin ang Pagbili'
+                  : 'Confirm Purchase'
+            }
             onPress={handleConfirm}
             disabled={!canConfirm}
           />
@@ -213,7 +245,7 @@ export default function BuyScreen() {
 
       <BidConfirmationModal
         visible={submittedRequest !== null}
-        summary={`${varietyLabel(listing)} · ${qtyNum} kg`}
+        summary={`${varietyLabel(listing, language)} · ${qtyNum} kg`}
         total={total}
         cancelDeadline={submittedRequest?.cancelDeadline ?? null}
         onCancel={async () => {

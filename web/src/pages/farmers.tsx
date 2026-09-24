@@ -47,7 +47,7 @@ function toDisplayFarmer(row: LguFarmerRow): Farmer {
 /** Registry of farmers with search, filtering, and account review links (live Supabase read). */
 export function FarmersPage({ onSignOut }: FarmersPageProps) {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, isTagalog } = useLanguage();
   const [farmersList, setFarmersList] = useState<Farmer[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -123,9 +123,21 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
       onSignOut={onSignOut}>
       {/* Metric summary row */}
       <section style={styles.summaryRow}>
-        <SummaryCard label="Kabuuang Nakarehistro" value={String(farmersList.length)} unit="magsasaka" />
-        <SummaryCard label={t('common.active')} value={String(activeCount)} unit="may available na listing" />
-        <SummaryCard label="Saklaw" value={String(barangaysCount)} unit="barangay" />
+        <SummaryCard
+          label={isTagalog ? 'Kabuuang Nakarehistro' : 'Total Registered'}
+          value={String(farmersList.length)}
+          unit={isTagalog ? 'magsasaka' : 'farmers'}
+        />
+        <SummaryCard
+          label={isTagalog ? 'Aktibo' : 'Active'}
+          value={String(activeCount)}
+          unit={isTagalog ? 'may available na listing' : 'with active listings'}
+        />
+        <SummaryCard
+          label={isTagalog ? 'Saklaw' : 'Coverage'}
+          value={String(barangaysCount)}
+          unit={isTagalog ? 'barangay' : 'barangays'}
+        />
       </section>
 
       {loading ? <p style={styles.loadNotice}>{t('common.loading')}</p> : null}
@@ -137,7 +149,9 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
           <div>
             <h2 style={styles.panelTitle}>{t('farmers.title')}</h2>
             <p style={styles.panelSubtitle}>
-              Farmer registry & account verification · LGU San Mateo, Rizal
+              {isTagalog
+                ? 'Talaan ng mga magsasaka at pag-verify ng account · LGU San Mateo, Rizal'
+                : 'Farmer registry & account verification · LGU San Mateo, Rizal'}
             </p>
           </div>
         </div>
@@ -220,6 +234,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
                   <FarmerRow
                     key={farmer.id}
                     farmer={farmer}
+                    isTagalog={isTagalog}
                     onReview={() => navigate(`/account-review/farmer/${farmer.id}`)}
                   />
                 ))
@@ -254,9 +269,11 @@ function SummaryCard({
 
 function FarmerRow({
   farmer,
+  isTagalog,
   onReview,
 }: {
   farmer: Farmer;
+  isTagalog: boolean;
   onReview: () => void;
 }) {
   const isActive = farmer.status === 'active';
@@ -275,7 +292,7 @@ function FarmerRow({
             <span style={styles.farmerName}>{farmer.name}</span>
             {farmer.reports && farmer.reports.length > 0 && (
               <span style={styles.reportCountDot} title={`${farmer.reports.length} report(s)`}>
-                ⚠ {farmer.reports.length} ulat
+                ⚠ {farmer.reports.length} {isTagalog ? 'ulat' : 'reports'}
               </span>
             )}
           </div>
@@ -294,7 +311,11 @@ function FarmerRow({
                 ? styles.statusSuspended
                 : styles.statusInactive),
           }}>
-          {isActive ? 'Aktibo' : isSuspended ? 'Suspendido' : 'Hindi aktibo'}
+          {isActive
+            ? (isTagalog ? 'Aktibo' : 'Active')
+            : isSuspended
+              ? (isTagalog ? 'Suspendido' : 'Suspended')
+              : (isTagalog ? 'Hindi aktibo' : 'Inactive')}
         </span>
       </td>
       <td style={styles.td}>
@@ -302,7 +323,7 @@ function FarmerRow({
           type="button"
           onClick={onReview}
           style={styles.reviewAccountBtn}>
-          Suriin ang Account &rarr;
+          {isTagalog ? 'Suriin ang Account \u2192' : 'Review Account \u2192'}
         </button>
       </td>
     </tr>

@@ -18,6 +18,7 @@ import {
   recordBlockchainReceipt,
   type Receipt,
 } from '@/services/transaction-service';
+import { useLanguage } from '@/hooks/use-language';
 import { varietyLabel, type CropListing } from '@/types/crop-listing';
 import { formatReferenceId, formatDate, shortenTxHash, type TransactionCounterpart, type TransactionWithPayment } from '@/types/transaction';
 
@@ -34,6 +35,7 @@ const POLYGONSCAN_TX_URL = 'https://amoy.polygonscan.com/tx/';
  */
 export default function FarmerReceiptScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { isTagalog } = useLanguage();
 
   const [transaction, setTransaction] = useState<TransactionWithPayment | null>(null);
   const [listing, setListing] = useState<CropListing | null>(null);
@@ -55,9 +57,6 @@ export default function FarmerReceiptScreen() {
       const recorded = await recordBlockchainReceipt(transactionId);
       setReceipt(recorded);
     } catch (e) {
-      // Never surfaces as a screen error — the transaction itself is
-      // already complete; the blockchain record can simply be retried the
-      // next time this screen loads.
       console.warn('[resibo] blockchain receipt not yet available', e instanceof Error ? e.message : e);
     } finally {
       setReceiptPending(false);
@@ -81,11 +80,11 @@ export default function FarmerReceiptScreen() {
         if (tx.status === 'Completed') ensureReceipt(tx.id);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Hindi ma-load ang resibo.');
+      setError(e instanceof Error ? e.message : (isTagalog ? 'Hindi ma-load ang resibo.' : 'Failed to load receipt.'));
     } finally {
       setLoading(false);
     }
-  }, [id, ensureReceipt]);
+  }, [id, ensureReceipt, isTagalog]);
 
   useEffect(() => {
     load();
@@ -94,7 +93,7 @@ export default function FarmerReceiptScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title="Digital na Resibo" />
+        <BackHeader title={isTagalog ? 'Digital na Resibo' : 'Digital Receipt'} />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -106,9 +105,9 @@ export default function FarmerReceiptScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        <BackHeader title="Digital na Resibo" />
+        <BackHeader title={isTagalog ? 'Digital na Resibo' : 'Digital Receipt'} />
         <View style={styles.missing}>
-          <Text style={styles.missingText}>{error ?? 'Hindi nahanap ang transaksyon na ito.'}</Text>
+          <Text style={styles.missingText}>{error ?? (isTagalog ? 'Hindi nahanap ang transaksyon na ito.' : 'Transaction not found.')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -117,32 +116,32 @@ export default function FarmerReceiptScreen() {
   const payment = transaction.payment;
   const detailRows: { label: string; value: string }[] = [
     { label: 'Transaction ID', value: formatReferenceId(transaction.id, 'TXN') },
-    { label: 'Uri ng Palay', value: listing ? varietyLabel(listing) : 'Palay' },
-    { label: 'Dami', value: `${transaction.quantityKg} kg` },
-    { label: 'Presyo bawat kilo', value: `${formatPeso(transaction.agreedPricePerKg)}/kg` },
-    { label: 'Paraan ng Bayad', value: payment?.paymentMode ?? '—' },
+    { label: isTagalog ? 'Uri ng Palay' : 'Rice Variety', value: listing ? varietyLabel(listing) : 'Palay' },
+    { label: isTagalog ? 'Dami' : 'Quantity', value: `${transaction.quantityKg} kg` },
+    { label: isTagalog ? 'Presyo bawat kilo' : 'Price per kg', value: `${formatPeso(transaction.agreedPricePerKg)}/kg` },
+    { label: isTagalog ? 'Paraan ng Bayad' : 'Payment Method', value: payment?.paymentMode ?? '—' },
     ...(payment?.gcashReferenceNumber ? [{ label: 'Reference No.', value: payment.gcashReferenceNumber }] : []),
-    { label: 'Mamimili', value: buyer?.name ?? 'Mamimili' },
-    { label: 'Petsa', value: transaction.dateCompleted ? formatDate(transaction.dateCompleted) : '—' },
+    { label: isTagalog ? 'Mamimili' : 'Buyer', value: buyer?.name ?? (isTagalog ? 'Mamimili' : 'Buyer') },
+    { label: isTagalog ? 'Petsa' : 'Date', value: transaction.dateCompleted ? formatDate(transaction.dateCompleted) : '—' },
   ];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <BackHeader title="Digital na Resibo" />
+      <BackHeader title={isTagalog ? 'Digital na Resibo' : 'Digital Receipt'} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <View style={styles.checkCircle}>
             <CheckCircle size={40} color={AnimoColors.white} />
           </View>
-          <Text style={styles.heroTitle}>Kumpleto ang Transaksyon!</Text>
-          <Text style={styles.heroSubtitle}>Nakumpirma ang buong bayad.</Text>
+          <Text style={styles.heroTitle}>{isTagalog ? 'Kumpleto ang Transaksyon!' : 'Transaction Completed!'}</Text>
+          <Text style={styles.heroSubtitle}>{isTagalog ? 'Nakumpirma ang buong bayad.' : 'Full payment has been confirmed.'}</Text>
         </View>
 
         <View style={styles.receiptCard}>
           <View style={styles.statusRow}>
             <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>Kumpleto</Text>
+              <Text style={styles.statusBadgeText}>{isTagalog ? 'Kumpleto' : 'Completed'}</Text>
             </View>
           </View>
           <Text style={styles.totalAmount}>{formatPeso(payment?.amount ?? transaction.totalAmount)}</Text>
@@ -166,7 +165,7 @@ export default function FarmerReceiptScreen() {
               onPress={() => Linking.openURL(`${POLYGONSCAN_TX_URL}${receipt.txHash}`).catch(() => {})}
               style={styles.blockchainRow}
             >
-              <Text style={styles.detailLabel}>Katibayan</Text>
+              <Text style={styles.detailLabel}>{isTagalog ? 'Katibayan' : 'On-Chain Proof'}</Text>
               <View style={styles.blockchainValueGroup}>
                 <Text style={styles.detailValue}>{shortenTxHash(receipt.txHash)}</Text>
                 <ExternalLink size={14} color={AnimoColors.accentPrimary} />
@@ -174,7 +173,7 @@ export default function FarmerReceiptScreen() {
             </Pressable>
           ) : receiptPending ? (
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Katibayan</Text>
+              <Text style={styles.detailLabel}>{isTagalog ? 'Katibayan' : 'On-Chain Proof'}</Text>
               <ActivityIndicator size="small" color={AnimoColors.accentPrimary} />
             </View>
           ) : null}
@@ -182,13 +181,18 @@ export default function FarmerReceiptScreen() {
 
         <View style={styles.actions}>
           <AnimoButton
-            label="Suriin ang Mamimili"
+            label={isTagalog ? 'Suriin ang Mamimili' : 'Review Buyer'}
             icon={Star}
             onPress={() => router.push({ pathname: '/(farmer)/review', params: { id: transaction.id } } as Href)}
           />
-          <AnimoButton label="I-download ang Resibo" variant="secondary" icon={Download} onPress={() => setShowDownloadModal(true)} />
           <AnimoButton
-            label="Bumalik sa Transaksyon"
+            label={isTagalog ? 'I-download ang Resibo' : 'Download Receipt'}
+            variant="secondary"
+            icon={Download}
+            onPress={() => setShowDownloadModal(true)}
+          />
+          <AnimoButton
+            label={isTagalog ? 'Bumalik sa Transaksyon' : 'Back to Transactions'}
             variant="neutralOutline"
             onPress={() => router.replace('/(farmer)/(tabs)/transaksyon' as Href)}
           />
@@ -198,8 +202,8 @@ export default function FarmerReceiptScreen() {
       <FeedbackModal
         visible={showDownloadModal}
         tone="success"
-        title="Na-save ang Resibo!"
-        message="Matagumpay na nai-save ang digital na resibo sa iyong device."
+        title={isTagalog ? 'Na-save ang Resibo!' : 'Receipt Saved!'}
+        message={isTagalog ? 'Matagumpay na nai-save ang digital na resibo sa iyong device.' : 'The digital receipt was successfully saved to your device.'}
         confirmLabel="OK"
         onConfirm={() => setShowDownloadModal(false)}
       />

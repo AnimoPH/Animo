@@ -353,7 +353,7 @@ export default function BuyerProfileScreen() {
               <Text style={styles.settingLabel}>{t('profile.language')}</Text>
               <View style={styles.langBadge}>
                 <Text style={styles.langBadgeText}>
-                  {isTagalog ? '🇵🇭 Tagalog' : '🌐 English'}
+                  {isTagalog ? 'Tagalog' : 'English'}
                 </Text>
               </View>
             </View>
@@ -454,7 +454,6 @@ export default function BuyerProfileScreen() {
                   language === 'tl' && styles.langOptionActive,
                 ]}>
                 <View style={styles.langOptionLeft}>
-                  <Text style={styles.langFlag}>🇵🇭</Text>
                   <View>
                     <Text style={styles.langOptionTitle}>Tagalog (Filipino)</Text>
                     <Text style={styles.langOptionSubtitle}>Pangunahing wika sa app</Text>
@@ -475,7 +474,6 @@ export default function BuyerProfileScreen() {
                   language === 'en' && styles.langOptionActive,
                 ]}>
                 <View style={styles.langOptionLeft}>
-                  <Text style={styles.langFlag}>🌐</Text>
                   <View>
                     <Text style={styles.langOptionTitle}>English</Text>
                     <Text style={styles.langOptionSubtitle}>Switch interface to English</Text>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Bell,
   CheckCheck,
@@ -16,9 +16,9 @@ import {
 import { ConsoleLayout } from '@/components/console-layout';
 import { useLanguage } from '@/hooks/use-language';
 import {
-  DELIVERY_CHANNELS,
-  TRIGGER_ALERTS,
-  TRIGGER_SUMMARY,
+  getDeliveryChannels,
+  getTriggerAlerts,
+  getTriggerSummary,
   type AlertKind,
   type TriggerAlert,
 } from '@/constants/dashboard';
@@ -78,10 +78,17 @@ const ALERT_STYLE: Record<
 
 /** Notification feed of automatic advisory and price triggers with detailed interactive modal. */
 export function MessagesPage({ onSignOut }: MessagesPageProps) {
-  const { t } = useLanguage();
-  const [alerts, setAlerts] = useState(TRIGGER_ALERTS);
+  const { t, language, isTagalog } = useLanguage();
+  const [alerts, setAlerts] = useState(() => getTriggerAlerts(language));
   const [selectedAlert, setSelectedAlert] = useState<TriggerAlert | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAlerts(getTriggerAlerts(language));
+  }, [language]);
+
+  const triggerSummary = getTriggerSummary(language);
+  const deliveryChannels = getDeliveryChannels(language);
 
   const unread = alerts.filter((alert) => alert.unread).length;
 
@@ -132,6 +139,7 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
               <AlertRow
                 key={alert.id}
                 alert={alert}
+                isTagalog={isTagalog}
                 onOpenDetail={() => handleOpenDetail(alert)}
               />
             ))}
@@ -141,12 +149,12 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
         <aside style={styles.sideColumn}>
           <article className="animo-card" style={styles.panel}>
             <div>
-              <h2 style={styles.panelTitle}>Buod ng Trigger</h2>
-              <p style={styles.panelSubtitle}>Okt 6 – Okt 12, 2025</p>
+              <h2 style={styles.panelTitle}>{isTagalog ? 'Buod ng Trigger' : 'Trigger Summary'}</h2>
+              <p style={styles.panelSubtitle}>{isTagalog ? 'Okt 6 – Okt 12, 2025' : 'Oct 6 – Oct 12, 2025'}</p>
             </div>
 
             <ul style={styles.summaryList}>
-              {TRIGGER_SUMMARY.map((row) => (
+              {triggerSummary.map((row) => (
                 <li key={row.label} style={styles.summaryRow}>
                   <span style={styles.summaryLabel}>
                     <span style={{ ...styles.dot, background: row.color }} />
@@ -162,7 +170,7 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
             <div>
               <h3 style={styles.sectionHeading}>{t('messages.allChannels')}</h3>
               <ul style={styles.channelList}>
-                {DELIVERY_CHANNELS.map((channel) => (
+                {deliveryChannels.map((channel) => (
                   <li key={channel.label} style={styles.channelRow}>
                     <span style={styles.channelLabel}>{channel.label}</span>
                     <span style={styles.channelValue}>{channel.value}</span>
@@ -214,38 +222,38 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
               <div style={styles.metaBox}>
                 <div style={styles.metaRow}>
                   <span style={styles.metaLabel}>
-                    <MapPin size={15} color="var(--animo-muted)" /> Lokasyon:
+                    <MapPin size={15} color="var(--animo-muted)" /> {isTagalog ? 'Lokasyon:' : 'Location:'}
                   </span>
                   <span style={styles.metaValue}>{selectedAlert.barangay || 'San Mateo, Rizal'}</span>
                 </div>
                 <div style={styles.metaRow}>
                   <span style={styles.metaLabel}>
-                    <UserCheck size={15} color="var(--animo-muted)" /> Tumatanggap:
+                    <UserCheck size={15} color="var(--animo-muted)" /> {isTagalog ? 'Tumatanggap:' : 'Recipients:'}
                   </span>
                   <span style={styles.metaValue}>
-                    {selectedAlert.recipientsCount || 38} rehistradong magsasaka / mamimili
+                    {selectedAlert.recipientsCount || 38} {isTagalog ? 'rehistradong magsasaka / mamimili' : 'registered farmers / buyers'}
                   </span>
                 </div>
                 <div style={styles.metaRow}>
-                  <span style={styles.metaLabel}>Pinagmulan:</span>
+                  <span style={styles.metaLabel}>{isTagalog ? 'Pinagmulan:' : 'Source / Origin:'}</span>
                   <span style={styles.metaValue}>
                     {selectedAlert.sender || 'PAGASA Doppler Sensor & LGU Weather System'}
                   </span>
                 </div>
                 <div style={styles.metaRow}>
-                  <span style={styles.metaLabel}>Oras ng Paglabas:</span>
+                  <span style={styles.metaLabel}>{isTagalog ? 'Oras ng Paglabas:' : 'Issued Time:'}</span>
                   <span style={styles.metaValue}>{selectedAlert.time}</span>
                 </div>
               </div>
 
               <div>
-                <h3 style={styles.detailSectionTitle}>Buong Nilalaman ng Mensahe</h3>
+                <h3 style={styles.detailSectionTitle}>{isTagalog ? 'Buong Nilalaman ng Mensahe' : 'Full Message Body'}</h3>
                 <p style={styles.fullMessageBody}>{selectedAlert.body}</p>
               </div>
 
               {selectedAlert.recommendations && selectedAlert.recommendations.length > 0 && (
                 <div>
-                  <h3 style={styles.detailSectionTitle}>Mga Inirerekomendang Aksyon</h3>
+                  <h3 style={styles.detailSectionTitle}>{isTagalog ? 'Mga Inirerekomendang Aksyon' : 'Recommended Actions'}</h3>
                   <ul style={styles.recList}>
                     {selectedAlert.recommendations.map((rec, idx) => (
                       <li key={idx} style={styles.recItem}>
@@ -264,13 +272,13 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
                 onClick={handleSendFollowUp}
                 style={styles.actionBtnSecondary}>
                 <Send size={16} />
-                Magpadala ng Follow-up SMS
+                {isTagalog ? 'Magpadala ng Follow-up SMS' : 'Send Follow-up SMS'}
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedAlert(null)}
                 style={styles.actionBtnPrimary}>
-                Isara
+                {isTagalog ? 'Isara' : 'Close'}
               </button>
             </div>
           </div>
@@ -282,9 +290,11 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
 
 function AlertRow({
   alert,
+  isTagalog,
   onOpenDetail,
 }: {
   alert: TriggerAlert;
+  isTagalog: boolean;
   onOpenDetail: () => void;
 }) {
   const tone = ALERT_STYLE[alert.kind];
@@ -315,7 +325,7 @@ function AlertRow({
             type="button"
             onClick={onOpenDetail}
             style={styles.detailLink}>
-            Tingnan ang detalye &rarr;
+            {isTagalog ? 'Tingnan ang detalye \u2192' : 'View details \u2192'}
           </button>
         </div>
       </div>

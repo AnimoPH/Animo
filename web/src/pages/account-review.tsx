@@ -63,7 +63,7 @@ const STAR_GOLD = '#F59E0B';
 export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
   const { type = 'farmer', id } = useParams<{ type?: string; id?: string }>();
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, isTagalog } = useLanguage();
   const isFarmer = type === 'farmer';
   const userId = id ?? '';
 
@@ -266,19 +266,25 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                         : styles.statusPillInactive),
                   }}>
                   {accountStatus === 'active'
-                    ? 'Aktibo'
+                    ? (isTagalog ? 'Aktibo' : 'Active')
                     : accountStatus === 'suspended'
-                      ? 'Suspendido'
-                      : 'Hindi Aktibo'}
+                      ? (isTagalog ? 'Suspendido' : 'Suspended')
+                      : (isTagalog ? 'Hindi Aktibo' : 'Inactive')}
                 </span>
                 <span style={styles.roleBadge}>
                   <ShieldCheck size={14} />
-                  {isFarmer ? 'Rehistradong Magsasaka' : 'Rehistradong Mamimili'}
+                  {isFarmer
+                    ? (isTagalog ? 'Rehistradong Magsasaka' : 'Registered Farmer')
+                    : (isTagalog ? 'Rehistradong Mamimili' : 'Registered Buyer')}
                 </span>
               </div>
               <p style={styles.profileSub}>
                 ID: <strong>{userId.slice(0, 8).toUpperCase()}</strong>
-                {isFarmer ? ` · ${barangay}, San Mateo, Rizal` : ' · Mamimili · Rizal'}
+                {isFarmer
+                  ? ` · ${barangay}, San Mateo, Rizal`
+                  : isTagalog
+                    ? ' · Mamimili · Rizal'
+                    : ' · Buyer · Rizal'}
               </p>
             </div>
           </div>
@@ -287,7 +293,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
           <div style={styles.headActionWrap}>
             {accountStatus !== 'suspended' && reports.length >= REPORTED_THRESHOLD ? (
               <p style={styles.reportedWarning}>
-                <TriangleAlert size={14} /> {reports.length} na ulat — nararapat na suriin
+                <TriangleAlert size={14} /> {reports.length} {isTagalog ? 'na ulat — nararapat na suriin' : 'reports — review recommended'}
               </p>
             ) : null}
             {accountStatus === 'suspended' ? (
@@ -296,7 +302,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                 onClick={() => setShowUnsuspendModal(true)}
                 style={styles.unsuspendButton}>
                 <RotateCcw size={18} />
-                Ibalik ang Account (Unsuspend)
+                {isTagalog ? 'Ibalik ang Account (Unsuspend)' : 'Restore Account (Unsuspend)'}
               </button>
             ) : (
               <button
@@ -304,7 +310,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                 onClick={() => setShowSuspendModal(true)}
                 style={styles.suspendButton}>
                 <UserX size={18} />
-                Suspendihin ang Account
+                {isTagalog ? 'Suspendihin ang Account' : 'Suspend Account'}
               </button>
             )}
           </div>
@@ -314,16 +320,18 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
 
         {/* Metadata Details Grid (Email and Uri ng Mamimili removed) */}
         <div style={styles.metaGrid}>
-          <MetaItem icon={Phone} label="Numero ng Telepono" value={phone} />
-          <MetaItem icon={MapPin} label="Barangay / Lokasyon" value={barangay} />
-          <MetaItem icon={Calendar} label="Petsa ng Rehistro" value={registeredDate} />
+          <MetaItem icon={Phone} label={isTagalog ? 'Numero ng Telepono' : 'Phone Number'} value={phone} />
+          <MetaItem icon={MapPin} label={isTagalog ? 'Barangay / Lokasyon' : 'Barangay / Location'} value={barangay} />
+          <MetaItem icon={Calendar} label={isTagalog ? 'Petsa ng Rehistro' : 'Date Registered'} value={registeredDate} />
           <MetaItem
             icon={Star}
-            label="Rating Score"
+            label={isTagalog ? 'Rating Score' : 'Rating Score'}
             value={
               profile?.reviewCount
                 ? `${rating.toFixed(1)} / 5.0 ⭐ (${profile.reviewCount} review${profile.reviewCount === 1 ? '' : 's'})`
-                : 'Walang review pa'
+                : isTagalog
+                  ? 'Walang review pa'
+                  : 'No reviews yet'
             }
           />
         </div>
@@ -339,7 +347,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
             ...(activeTab === 'reviews' ? styles.tabButtonActive : null),
           }}>
           <Star size={18} />
-          Mga Natanggap na Review ({reviews.length})
+          {isTagalog ? 'Mga Natanggap na Review' : 'Received Reviews'} ({reviews.length})
         </button>
 
         <button
@@ -350,7 +358,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
             ...(activeTab === 'reports' ? styles.tabButtonActive : null),
           }}>
           <TriangleAlert size={18} />
-          Mga Ulat at Reklamo ({reports.length})
+          {isTagalog ? 'Mga Ulat at Reklamo' : 'Reports & Complaints'} ({reports.length})
         </button>
 
         <button
@@ -361,7 +369,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
             ...(activeTab === 'transactions' ? styles.tabButtonActive : null),
           }}>
           <FileSpreadsheet size={18} />
-          Kasaysayan ng Transaksyon ({transactions.length})
+          {isTagalog ? 'Kasaysayan ng Transaksyon' : 'Transaction History'} ({transactions.length})
         </button>
       </div>
 
@@ -1024,6 +1032,9 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
+    overflow: 'hidden',
+    wordBreak: 'break-word',
+    overflowWrap: 'anywhere',
   },
   reviewCardHead: {
     display: 'flex',
@@ -1056,6 +1067,9 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     lineHeight: '20px',
     color: 'var(--animo-black-secondary)',
+    wordBreak: 'break-word',
+    overflowWrap: 'anywhere',
+    whiteSpace: 'pre-wrap',
   },
   reviewTxnRef: {
     fontSize: 12,
@@ -1089,6 +1103,9 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: 10,
+    overflow: 'hidden',
+    wordBreak: 'break-word',
+    overflowWrap: 'anywhere',
   },
   reportCardHead: {
     display: 'flex',
@@ -1131,6 +1148,9 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     lineHeight: '20px',
     color: 'var(--animo-black-secondary)',
+    wordBreak: 'break-word',
+    overflowWrap: 'anywhere',
+    whiteSpace: 'pre-wrap',
   },
   resolveReportBtn: {
     display: 'inline-flex',

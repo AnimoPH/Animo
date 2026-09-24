@@ -1,11 +1,10 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Bell, Globe } from 'lucide-react-native';
+import { Bell } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import { useLanguage } from '@/hooks/use-language';
 
 export type AppHeaderProps = {
   /** Optional larger screen title shown under the brand row. */
@@ -19,8 +18,6 @@ export type AppHeaderProps = {
   inset?: boolean;
   /** Optional ref for spotlight tour highlight */
   bellRef?: React.RefObject<any>;
-  /** Show language toggle pill in header. Default is true. */
-  showLanguageToggle?: boolean;
 };
 
 /**
@@ -33,14 +30,8 @@ export function AppHeader({
   unreadCount = 3,
   inset = true,
   bellRef,
-  showLanguageToggle = true,
 }: AppHeaderProps) {
-  const { language, setLanguage, isTagalog } = useLanguage();
   const handleBellPress = onPressBell || (() => router.push('/(buyer)/notipikasyon'));
-
-  const toggleLanguage = () => {
-    setLanguage(language === 'tl' ? 'en' : 'tl');
-  };
 
   return (
     <View style={[styles.wrapper, !inset && styles.wrapperFlush]}>
@@ -59,20 +50,6 @@ export function AppHeader({
         </View>
 
         <View style={styles.rightActions}>
-          {showLanguageToggle ? (
-            <Pressable
-              onPress={toggleLanguage}
-              hitSlop={6}
-              style={({ pressed }) => [styles.langPill, pressed && styles.pressed]}
-              accessibilityRole="button"
-              accessibilityLabel={`Switch language to ${isTagalog ? 'English' : 'Tagalog'}`}>
-              <Globe size={13} color={AnimoColors.green} />
-              <AnimoText variant="tag" color={AnimoColors.green} style={styles.langText}>
-                {isTagalog ? '🇵🇭 TL' : '🌐 EN'}
-              </AnimoText>
-            </Pressable>
-          ) : null}
-
           <View ref={bellRef} collapsable={false}>
             <Pressable
               onPress={handleBellPress}
@@ -132,24 +109,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: AnimoSpacing.sm,
-  },
-  langPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.greenTint,
-    borderWidth: 1,
-    borderColor: 'rgba(46, 125, 50, 0.2)',
-  },
-  langText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  pressed: {
-    opacity: 0.75,
   },
   bell: {
     width: 40,

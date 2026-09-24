@@ -23,16 +23,24 @@ import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import { confirmPaymentSent, fetchTransactionByRequestId } from '@/services/transaction-service';
+import { useLanguage } from '@/hooks/use-language';
 import { requestTotal, type PurchaseOutcome } from '@/types/transaction';
 import { BackHeader } from '@/components/animo/back-header';
 
-type DiscrepancyReason = 'Mas mababa/mataas ang timbang' | 'Magkaiba ang grade' | 'Iba ang variant' | 'Iba pa';
+type DiscrepancyReason = string;
 
-const REASON_OPTIONS: DiscrepancyReason[] = [
+const REASON_OPTIONS_TL = [
   'Mas mababa/mataas ang timbang',
   'Magkaiba ang grade',
   'Iba ang variant',
   'Iba pa',
+];
+
+const REASON_OPTIONS_EN = [
+  'Weight is higher/lower',
+  'Different grade',
+  'Different variety',
+  'Other',
 ];
 
 /**
@@ -44,6 +52,7 @@ const REASON_OPTIONS: DiscrepancyReason[] = [
  */
 export default function PaymentConfirmationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { language, isTagalog } = useLanguage();
 
   const [outcome, setOutcome] = useState<PurchaseOutcome | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,6 +63,8 @@ export default function PaymentConfirmationScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  const reasons = isTagalog ? REASON_OPTIONS_TL : REASON_OPTIONS_EN;
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -68,11 +79,17 @@ export default function PaymentConfirmationScreen() {
       }
       setOutcome({ kind: 'matched', request, transaction });
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : 'Hindi ma-load ang transaksyon.');
+      setLoadError(
+        e instanceof Error
+          ? e.message
+          : isTagalog
+            ? 'Hindi ma-load ang transaksyon.'
+            : 'Failed to load transaction.',
+      );
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, isTagalog]);
 
   useEffect(() => {
     load();
@@ -81,7 +98,7 @@ export default function PaymentConfirmationScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title="Kumpirmasyon ng Bayad" />
+        <BackHeader title={isTagalog ? 'Kumpirmasyon ng Bayad' : 'Payment Confirmation'} />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.green} />
         </View>
@@ -94,10 +111,10 @@ export default function PaymentConfirmationScreen() {
   if (!outcome || outcome.kind !== 'matched' || !payment || loadError) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title="Kumpirmasyon ng Bayad" />
+        <BackHeader title={isTagalog ? 'Kumpirmasyon ng Bayad' : 'Payment Confirmation'} />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            {loadError ?? 'Wala pang naitalang bayad para sa transaksyong ito.'}
+            {loadError ?? (isTagalog ? 'Wala pang naitalang bayad para sa transaksyong ito.' : 'No payment recorded yet for this transaction.')}
           </AnimoText>
         </View>
       </SafeAreaView>
@@ -116,7 +133,13 @@ export default function PaymentConfirmationScreen() {
       await confirmPaymentSent(payment.id);
       setShowConfirmModal(true);
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Hindi makumpirma ang bayad.');
+      setSubmitError(
+        e instanceof Error
+          ? e.message
+          : isTagalog
+            ? 'Hindi makumpirma ang bayad.'
+            : 'Failed to confirm payment.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -125,7 +148,7 @@ export default function PaymentConfirmationScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title="Kumpirmasyon ng Bayad" />
+      <BackHeader title={isTagalog ? 'Kumpirmasyon ng Bayad' : 'Payment Confirmation'} />
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -138,21 +161,21 @@ export default function PaymentConfirmationScreen() {
                   </View>
                   <View style={styles.bannerText}>
                     <AnimoText variant="h3" color={AnimoColors.black}>
-                      Tugma ang Halaga
+                      {isTagalog ? 'Tugma ang Halaga' : 'Amount Matches'}
                     </AnimoText>
                     <AnimoText variant="caption" color={AnimoColors.muted}>
-                      Naitala ang bayad na binigay
+                      {isTagalog ? 'Naitala ang bayad na binigay' : 'Payment recorded accurately'}
                     </AnimoText>
                   </View>
                 </View>
                 <View style={styles.bannerMeta}>
-                  <StatusBadge label="Naitala" tone="success" />
+                  <StatusBadge label={isTagalog ? 'Naitala' : 'Recorded'} tone="success" />
                 </View>
               </View>
 
               <View style={styles.card}>
                 <AnimoText variant="caption" color={AnimoColors.muted}>
-                  Halagang Binayaran
+                  {isTagalog ? 'Halagang Binayaran' : 'Amount Paid'}
                 </AnimoText>
                 <AnimoText variant="h1" color={AnimoColors.black}>
                   {formatPeso(actualAmount)}
@@ -162,7 +185,7 @@ export default function PaymentConfirmationScreen() {
 
                 <View style={styles.rowBetween}>
                   <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                    Napagkasunduang presyo
+                    {isTagalog ? 'Napagkasunduang presyo' : 'Agreed Price'}
                   </AnimoText>
                   <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
                     {formatPeso(agreedTotal)}
@@ -170,17 +193,17 @@ export default function PaymentConfirmationScreen() {
                 </View>
                 <View style={styles.rowBetween}>
                   <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                    Pagkakaiba
+                    {isTagalog ? 'Pagkakaiba' : 'Difference'}
                   </AnimoText>
                   <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
-                    ₱0.00 · Tugma
+                    ₱0.00 · {isTagalog ? 'Tugma' : 'Exact match'}
                   </AnimoText>
                 </View>
               </View>
 
               <View style={styles.card}>
                 <AnimoText variant="h3" color={AnimoColors.black}>
-                  Paraan ng Bayad
+                  {isTagalog ? 'Paraan ng Bayad' : 'Payment Mode'}
                 </AnimoText>
                 <View style={styles.methodInfoBox}>
                   <View style={styles.methodRow}>
@@ -211,7 +234,9 @@ export default function PaymentConfirmationScreen() {
               </View>
 
               <NoticeBanner tone="info" icon={<Lock size={16} color="#2563A8" />}>
-                Tugma ang halaga kaya hindi na kailangan ng paliwanag.
+                {isTagalog
+                  ? 'Tugma ang halaga kaya hindi na kailangan ng paliwanag.'
+                  : 'Amount matches; no explanation needed.'}
               </NoticeBanner>
             </>
           ) : (
@@ -223,12 +248,16 @@ export default function PaymentConfirmationScreen() {
                   </View>
                   <View style={styles.bannerText}>
                     <AnimoText variant="h3" color={AnimoColors.black}>
-                      Hindi Tugma ang Halaga
+                      {isTagalog ? 'Hindi Tugma ang Halaga' : 'Amount Mismatch'}
                     </AnimoText>
                     <AnimoText variant="caption" color={AnimoColors.blackSecondary}>
                       {difference > 0
-                        ? 'Mas mataas ang binayaran kaysa napagkasunduang presyo'
-                        : 'Mas mababa ang binayaran kaysa napagkasunduang presyo'}
+                        ? isTagalog
+                          ? 'Mas mataas ang binayaran kaysa napagkasunduang presyo'
+                          : 'Amount paid is higher than agreed price'
+                        : isTagalog
+                          ? 'Mas mababa ang binayaran kaysa napagkasunduang presyo'
+                          : 'Amount paid is lower than agreed price'}
                     </AnimoText>
                   </View>
                 </View>
@@ -236,11 +265,11 @@ export default function PaymentConfirmationScreen() {
 
               <View style={styles.card}>
                 <AnimoText variant="h3" color={AnimoColors.black}>
-                  Halagang Binayaran
+                  {isTagalog ? 'Halagang Binayaran' : 'Amount Paid'}
                 </AnimoText>
                 <View style={styles.rowBetween}>
                   <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                    Napagkasunduang presyo
+                    {isTagalog ? 'Napagkasunduang presyo' : 'Agreed Price'}
                   </AnimoText>
                   <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
                     {formatPeso(agreedTotal)}
@@ -248,7 +277,7 @@ export default function PaymentConfirmationScreen() {
                 </View>
                 <View style={styles.rowBetween}>
                   <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                    Halagang binayaran
+                    {isTagalog ? 'Halagang binayaran' : 'Amount Paid'}
                   </AnimoText>
                   <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
                     {formatPeso(actualAmount)}
@@ -257,7 +286,7 @@ export default function PaymentConfirmationScreen() {
                 <View style={styles.divider} />
                 <View style={styles.rowBetween}>
                   <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    Pagkakaiba
+                    {isTagalog ? 'Pagkakaiba' : 'Difference'}
                   </AnimoText>
                   <AnimoText variant="price" color={difference > 0 ? '#B4791A' : AnimoColors.danger}>
                     {difference > 0 ? `+${formatPeso(difference)}` : `-${formatPeso(Math.abs(difference))}`}
@@ -267,14 +296,18 @@ export default function PaymentConfirmationScreen() {
 
               <View style={styles.card}>
                 <AnimoText variant="h3" color={AnimoColors.black}>
-                  Tandaan ang Pagkakaiba (para sa iyo lang)
+                  {isTagalog
+                    ? 'Tandaan ang Pagkakaiba (para sa iyo lang)'
+                    : 'Note Discrepancy (for your reference)'}
                 </AnimoText>
                 <AnimoText variant="caption" color={AnimoColors.muted}>
-                  Hindi ito ipinapadala kaninuman — sanggunian mo lang ito bago magpatuloy.
+                  {isTagalog
+                    ? 'Hindi ito ipinapadala kaninuman — sanggunian mo lang ito bago magpatuloy.'
+                    : 'This is not sent to anyone — kept for your reference before continuing.'}
                 </AnimoText>
 
                 <View style={styles.chipGroup}>
-                  {REASON_OPTIONS.map((reason) => (
+                  {reasons.map((reason) => (
                     <Pressable
                       key={reason}
                       style={[styles.chip, selectedReason === reason && styles.chipActive]}
@@ -289,7 +322,7 @@ export default function PaymentConfirmationScreen() {
                 <View style={styles.textareaContainer}>
                   <TextInput
                     style={styles.textarea}
-                    placeholder="Isulat ang tala dito..."
+                    placeholder={isTagalog ? 'Isulat ang tala dito...' : 'Write note here...'}
                     placeholderTextColor={AnimoColors.muted}
                     multiline
                     numberOfLines={4}
@@ -315,7 +348,19 @@ export default function PaymentConfirmationScreen() {
 
         <View style={styles.footerStack}>
           <AnimoButton
-            label={submitting ? 'Ipinapadala…' : isMatch ? 'Kumpirmahin ang Bayad' : 'Kumpirmahin Pa Rin'}
+            label={
+              submitting
+                ? isTagalog
+                  ? 'Ipinapadala…'
+                  : 'Submitting…'
+                : isMatch
+                  ? isTagalog
+                    ? 'Kumpirmahin ang Bayad'
+                    : 'Confirm Payment'
+                  : isTagalog
+                    ? 'Kumpirmahin Pa Rin'
+                    : 'Confirm Anyway'
+            }
             onPress={handleConfirm}
             disabled={submitting || (!isMatch && !selectedReason)}
           />
@@ -325,9 +370,13 @@ export default function PaymentConfirmationScreen() {
       <FeedbackModal
         visible={showConfirmModal}
         tone="success"
-        title="Naipadala ang Kumpirmasyon"
-        message={`Naghihintay na ngayon ng kumpirmasyon ng magsasaka na natanggap ang bayad na ${formatPeso(actualAmount)}.`}
-        confirmLabel="Tingnan ang Resibo"
+        title={isTagalog ? 'Naipadala ang Kumpirmasyon' : 'Confirmation Sent'}
+        message={
+          isTagalog
+            ? `Naghihintay na ngayon ng kumpirmasyon ng magsasaka na natanggap ang bayad na ${formatPeso(actualAmount)}.`
+            : `Now awaiting confirmation from the farmer that the payment of ${formatPeso(actualAmount)} was received.`
+        }
+        confirmLabel={isTagalog ? 'Tingnan ang Resibo' : 'View Receipt'}
         onConfirm={() => {
           setShowConfirmModal(false);
           router.replace(`/(buyer)/transaksyon/${outcome.request.id}/resibo`);

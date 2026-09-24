@@ -36,8 +36,15 @@ const ACTION_LABELS: Record<RecommendedAction, string> = {
   No_Action_Needed: 'Walang Kailangang Gawin',
 };
 
-export function actionLabel(action: RecommendedAction): string {
-  return ACTION_LABELS[action] ?? action;
+const ACTION_LABELS_EN: Record<RecommendedAction, string> = {
+  Advance_Cut: 'Early Harvest (Advance Cut)',
+  Delayed_Harvest: 'Delay Harvest',
+  No_Action_Needed: 'No Action Needed',
+};
+
+export function actionLabel(action: RecommendedAction, lang: 'tl' | 'en' = 'tl'): string {
+  const dict = lang === 'en' ? ACTION_LABELS_EN : ACTION_LABELS;
+  return dict[action] ?? action;
 }
 
 /** Fraction of maturity days elapsed since planting — display-only, same formula refresh-advisory uses to decide. */

@@ -4,6 +4,7 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
 
 export type ListingTransactionSummaryCardProps = {
   title: string;
@@ -25,6 +26,8 @@ export function ListingTransactionSummaryCard({
   needsAction,
   onPress,
 }: ListingTransactionSummaryCardProps) {
+  const { isTagalog } = useLanguage();
+
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -41,7 +44,7 @@ export function ListingTransactionSummaryCard({
             {title}
           </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.leftKg}>
-            Natitira: {remainingKg} kg
+            {isTagalog ? 'Natitira:' : 'Remaining:'} {remainingKg} kg
           </AnimoText>
         </View>
 
@@ -50,14 +53,14 @@ export function ListingTransactionSummaryCard({
         </AnimoText>
 
         <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.soldLine}>
-          Nabenta: {soldKg} kg
+          {isTagalog ? 'Nabenta:' : 'Sold:'} {soldKg} kg
         </AnimoText>
 
         <View style={styles.divider} />
 
         <View style={styles.earningsRow}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
-            Buong Kita:
+            {isTagalog ? 'Buong Kita:' : 'Total Earnings:'}
           </AnimoText>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
             {formatPeso(earnings)}
@@ -69,7 +72,7 @@ export function ListingTransactionSummaryCard({
         <View style={styles.actionBanner}>
           <AlertCircle size={14} color={AnimoColors.moderate} />
           <AnimoText variant="caption" color={AnimoColors.moderate} style={styles.actionText}>
-            Kailangan ng aksyon
+            {isTagalog ? 'Kailangan ng aksyon' : 'Action required'}
           </AnimoText>
         </View>
       ) : null}

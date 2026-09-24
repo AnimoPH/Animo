@@ -137,7 +137,6 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
                   ...(language === 'tl' ? styles.langCardActive : styles.langCardInactive),
                 }}>
                 <div style={styles.langCardTop}>
-                  <span style={styles.langFlag}>🇵🇭</span>
                   <span style={styles.langTitle}>{t('settings.tagalogOption')}</span>
                 </div>
                 <p style={styles.langDesc}>{t('settings.tagalogDesc')}</p>
@@ -151,7 +150,6 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
                   ...(language === 'en' ? styles.langCardActive : styles.langCardInactive),
                 }}>
                 <div style={styles.langCardTop}>
-                  <span style={styles.langFlag}>🌐</span>
                   <span style={styles.langTitle}>{t('settings.englishOption')}</span>
                 </div>
                 <p style={styles.langDesc}>{t('settings.englishDesc')}</p>

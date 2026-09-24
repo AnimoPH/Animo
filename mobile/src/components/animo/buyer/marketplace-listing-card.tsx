@@ -11,6 +11,7 @@ import {
   listingTitle,
   specificVarietyDisplay,
   STATUS_LABELS,
+  getStatusLabel,
   type CropListing,
   type ListingStatus,
 } from '@/types/crop-listing';
@@ -40,7 +41,7 @@ export function MarketplaceListingCard({
   coverPhotoUrl,
   onPress,
 }: MarketplaceListingCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const specificVariety = specificVarietyDisplay(listing);
 
   return (
@@ -56,7 +57,7 @@ export function MarketplaceListingCard({
           <ImageIcon size={24} color={AnimoColors.objectLowEmphasis} />
         )}
         <View style={styles.statusBadgeWrap}>
-          <StatusBadge label={STATUS_LABELS[listing.status]} tone={STATUS_TONES[listing.status]} />
+          <StatusBadge label={getStatusLabel(listing.status, language)} tone={STATUS_TONES[listing.status]} />
         </View>
       </View>
 

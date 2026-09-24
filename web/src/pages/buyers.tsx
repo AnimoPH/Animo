@@ -53,7 +53,7 @@ function toDisplayBuyer(row: LguBuyerRow): DisplayBuyer {
 /** Registry of buyers with search, filtering, and account review links (live Supabase read). */
 export function BuyersPage({ onSignOut }: BuyersPageProps) {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, isTagalog } = useLanguage();
   const [buyersList, setBuyersList] = useState<DisplayBuyer[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -118,12 +118,20 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
       subtitle={t('buyers.subtitle')}
       onSignOut={onSignOut}>
       <section style={styles.summaryRow}>
-        <SummaryCard label="Kabuuang Nakarehistro" value={String(buyersList.length)} unit="mamimili" />
-        <SummaryCard label={t('common.active')} value={String(activeCount)} unit="aktibong bumibili" />
         <SummaryCard
-          label={t('common.suspended')}
+          label={isTagalog ? 'Kabuuang Nakarehistro' : 'Total Registered'}
+          value={String(buyersList.length)}
+          unit={isTagalog ? 'mamimili' : 'buyers'}
+        />
+        <SummaryCard
+          label={isTagalog ? 'Aktibo' : 'Active'}
+          value={String(activeCount)}
+          unit={isTagalog ? 'aktibong bumibili' : 'active buyers'}
+        />
+        <SummaryCard
+          label={isTagalog ? 'Suspendido' : 'Suspended'}
           value={String(suspendedCount)}
-          unit="may paglabag"
+          unit={isTagalog ? 'may paglabag' : 'with violations'}
           unitColor="var(--animo-danger)"
         />
       </section>
@@ -136,7 +144,9 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
           <div>
             <h2 style={styles.panelTitle}>{t('buyers.title')}</h2>
             <p style={styles.panelSubtitle}>
-              Buyer registry & account verification · LGU San Mateo, Rizal
+              {isTagalog
+                ? 'Talaan ng mga mamimili at pag-verify ng account · LGU San Mateo, Rizal'
+                : 'Buyer registry & account verification · LGU San Mateo, Rizal'}
             </p>
           </div>
         </div>
@@ -207,6 +217,7 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
                   <BuyerRow
                     key={buyer.id}
                     buyer={buyer}
+                    isTagalog={isTagalog}
                     onReview={() => navigate(`/account-review/buyer/${buyer.id}`)}
                   />
                 ))
@@ -241,9 +252,11 @@ function SummaryCard({
 
 function BuyerRow({
   buyer,
+  isTagalog,
   onReview,
 }: {
   buyer: DisplayBuyer;
+  isTagalog: boolean;
   onReview: () => void;
 }) {
   const isActive = buyer.status === 'active';
@@ -261,7 +274,7 @@ function BuyerRow({
             <span style={styles.buyerName}>{buyer.name}</span>
             {buyer.reportedReviews > 0 ? (
               <span style={styles.reportCountDot} title={`${buyer.reportedReviews} ulat`}>
-                ⚠ {buyer.reportedReviews} ulat
+                ⚠ {buyer.reportedReviews} {isTagalog ? 'ulat' : 'reports'}
               </span>
             ) : null}
           </div>
@@ -279,12 +292,16 @@ function BuyerRow({
                 ? styles.statusSuspended
                 : styles.statusInactive),
           }}>
-          {isActive ? 'Aktibo' : isSuspended ? 'Suspendido' : 'Hindi aktibo'}
+          {isActive
+            ? (isTagalog ? 'Aktibo' : 'Active')
+            : isSuspended
+              ? (isTagalog ? 'Suspendido' : 'Suspended')
+              : (isTagalog ? 'Hindi aktibo' : 'Inactive')}
         </span>
       </td>
       <td style={styles.td}>
         <button type="button" onClick={onReview} style={styles.reviewAccountBtn}>
-          Suriin ang Account &rarr;
+          {isTagalog ? 'Suriin ang Account \u2192' : 'Review Account \u2192'}
         </button>
       </td>
     </tr>

@@ -147,21 +147,40 @@ export function specificVarietyDisplay(
 }
 
 /** Display label for `declaredVariety`, resolving the free-text custom name when set. */
+export const VARIETY_OPTIONS_EN: { value: DeclaredVariety; label: string }[] = [
+  { value: 'Inbred', label: 'Inbred' },
+  { value: 'Hybrid', label: 'Hybrid' },
+  { value: 'Traditional_or_Heirloom', label: 'Traditional or Heirloom' },
+  { value: 'Mix_of_Varieties', label: 'Mixed Varieties' },
+  { value: 'Others', label: 'Others' },
+];
+
 export function varietyLabel(
   listing: Pick<CropListing, 'declaredVariety' | 'declaredVarietyCustom'>,
+  lang: 'tl' | 'en' = 'tl',
 ): string {
   if (listing.declaredVariety === 'Others') {
-    return listing.declaredVarietyCustom?.trim() || 'Ibang Uri';
+    return listing.declaredVarietyCustom?.trim() || (lang === 'en' ? 'Other Variety' : 'Ibang Uri');
   }
-  return VARIETY_OPTIONS.find((o) => o.value === listing.declaredVariety)?.label ?? listing.declaredVariety;
+  const options = lang === 'en' ? VARIETY_OPTIONS_EN : VARIETY_OPTIONS;
+  return options.find((o) => o.value === listing.declaredVariety)?.label ?? listing.declaredVariety;
 }
 
-export function purityLabel(grade: PurityGrade): string {
-  return grade === 'Ungraded' ? 'Walang Grado' : `Grade ${grade}`;
+export function purityLabel(grade: PurityGrade, lang: 'tl' | 'en' = 'tl'): string {
+  if (grade === 'Ungraded') {
+    return lang === 'en' ? 'Ungraded' : 'Walang Grado';
+  }
+  return `Grade ${grade}`;
 }
 
-export function moistureLabel(moisture: MoistureType): string {
-  return MOISTURE_OPTIONS.find((o) => o.value === moisture)?.label ?? moisture;
+export const MOISTURE_OPTIONS_EN: { value: MoistureType; label: string }[] = [
+  { value: 'Dry', label: 'Dry' },
+  { value: 'Wet', label: 'Wet' },
+];
+
+export function moistureLabel(moisture: MoistureType, lang: 'tl' | 'en' = 'tl'): string {
+  const options = lang === 'en' ? MOISTURE_OPTIONS_EN : MOISTURE_OPTIONS;
+  return options.find((o) => o.value === moisture)?.label ?? moisture;
 }
 
 /** Tagalog label per real DB status — no "Rejected"/"Hinihintay ang Pag-verify" state exists (see file header). */
@@ -172,6 +191,19 @@ export const STATUS_LABELS: Record<ListingStatus, string> = {
   Cancelled: 'Tinanggal',
   Archived: 'Naka-archive',
 };
+
+export const STATUS_LABELS_EN: Record<ListingStatus, string> = {
+  Draft: 'Draft',
+  Available: 'Available',
+  Sold_Out: 'Sold Out',
+  Cancelled: 'Cancelled',
+  Archived: 'Archived',
+};
+
+export function getStatusLabel(status: ListingStatus, lang: 'tl' | 'en' = 'tl'): string {
+  const dict = lang === 'en' ? STATUS_LABELS_EN : STATUS_LABELS;
+  return dict[status] ?? status;
+}
 
 /**
  * §6 LISTINGPHOTO's `photo_type` — one of 3 slots per listing (unique per

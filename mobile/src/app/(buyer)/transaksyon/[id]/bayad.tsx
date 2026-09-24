@@ -29,12 +29,14 @@ import { formatPeso } from '@/constants/marketplace';
 import { fetchCropListing } from '@/services/crop-listing-service';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import { cancelTransaction as cancelTransactionRpc, fetchTransactionByRequestId, recordPayment } from '@/services/transaction-service';
+import { useLanguage } from '@/hooks/use-language';
 import { varietyLabel, type CropListing } from '@/types/crop-listing';
 import { buildProgressSteps, cancelPolicy, requestTotal, type PaymentMode, type PurchaseOutcome } from '@/types/transaction';
 
 /** Paraan ng Pagbabayad — buyer records the payment here via `record_payment`. */
 export default function PaymentScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { language, isTagalog } = useLanguage();
 
   const [outcome, setOutcome] = useState<PurchaseOutcome | null>(null);
   const [listing, setListing] = useState<CropListing | null>(null);
@@ -69,11 +71,17 @@ export default function PaymentScreen() {
       setActualAmountText(String(transaction.totalAmount));
       setListing(await fetchCropListing(request.listingId));
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : 'Hindi ma-load ang transaksyon.');
+      setLoadError(
+        e instanceof Error
+          ? e.message
+          : isTagalog
+            ? 'Hindi ma-load ang transaksyon.'
+            : 'Failed to load transaction.',
+      );
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, isTagalog]);
 
   useEffect(() => {
     load();
@@ -82,7 +90,7 @@ export default function PaymentScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title="Paraan ng Pagbabayad" />
+        <BackHeader title={isTagalog ? 'Paraan ng Pagbabayad' : 'Payment Method'} />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.green} />
         </View>
@@ -93,10 +101,10 @@ export default function PaymentScreen() {
   if (!outcome || outcome.kind !== 'matched' || loadError) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title="Paraan ng Pagbabayad" />
+        <BackHeader title={isTagalog ? 'Paraan ng Pagbabayad' : 'Payment Method'} />
         <View style={styles.missing}>
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            {loadError ?? 'Hindi nahanap ang transaksyon na ito.'}
+            {loadError ?? (isTagalog ? 'Hindi nahanap ang transaksyon na ito.' : 'Transaction could not be found.')}
           </AnimoText>
         </View>
       </SafeAreaView>
@@ -112,7 +120,7 @@ export default function PaymentScreen() {
 
   const { transaction } = outcome;
   const agreedTotal = requestTotal(outcome);
-  const policy = cancelPolicy(outcome);
+  const policy = cancelPolicy(outcome, undefined, language);
   const actualAmountNum = parseFloat(actualAmountText.replace(/,/g, '')) || 0;
 
   const handlePickSource = async (source: 'camera' | 'gallery') => {
@@ -125,7 +133,11 @@ export default function PaymentScreen() {
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      setUploadError('Kailangan ng pahintulot para mag-attach ng resibo.');
+      setUploadError(
+        isTagalog
+          ? 'Kailangan ng pahintulot para mag-attach ng resibo.'
+          : 'Permission required to attach receipt.',
+      );
       return;
     }
 
@@ -157,7 +169,13 @@ export default function PaymentScreen() {
         params: { paymentId },
       });
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Hindi maitala ang bayad.');
+      setSubmitError(
+        e instanceof Error
+          ? e.message
+          : isTagalog
+            ? 'Hindi maitala ang bayad.'
+            : 'Failed to record payment.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -172,7 +190,7 @@ export default function PaymentScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title="Paraan ng Pagbabayad" />
+      <BackHeader title={isTagalog ? 'Paraan ng Pagbabayad' : 'Payment Method'} />
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -182,10 +200,10 @@ export default function PaymentScreen() {
               <ListingImage height={64} borderRadius={AnimoRadius.md} style={styles.thumb} />
               <View style={styles.productInfo}>
                 <AnimoText variant="h3" color={AnimoColors.black}>
-                  {listing ? varietyLabel(listing) : 'Palay'}
+                  {listing ? varietyLabel(listing, language) : 'Palay'}
                 </AnimoText>
                 <AnimoText variant="price" color={AnimoColors.green}>
-                  {formatPeso(transaction.agreedPricePerKg)} bawat kilo
+                  {formatPeso(transaction.agreedPricePerKg)} {isTagalog ? 'bawat kilo' : 'per kg'}
                 </AnimoText>
               </View>
             </View>
@@ -194,7 +212,7 @@ export default function PaymentScreen() {
 
             <View style={styles.rowBetween}>
               <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                Dami
+                {isTagalog ? 'Dami' : 'Quantity'}
               </AnimoText>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
                 {transaction.quantityKg} kg
@@ -203,7 +221,7 @@ export default function PaymentScreen() {
 
             <View style={styles.rowBetween}>
               <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                Kabuuang halaga
+                {isTagalog ? 'Kabuuang halaga' : 'Total Amount'}
               </AnimoText>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
                 {formatPeso(agreedTotal)}
@@ -214,12 +232,12 @@ export default function PaymentScreen() {
           {/* Buod ng Bayad + Actual Amount Input */}
           <View style={styles.card}>
             <AnimoText variant="h3" color={AnimoColors.black}>
-              Buod ng Bayad
+              {isTagalog ? 'Buod ng Bayad' : 'Payment Summary'}
             </AnimoText>
 
             <View style={styles.rowBetween}>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.rowLabel}>
-                Kabuuang babayaran (Sistema)
+                {isTagalog ? 'Kabuuang babayaran (Sistema)' : 'Total Payable (System)'}
               </AnimoText>
               <AnimoText variant="price" color={AnimoColors.black} style={styles.rowValue}>
                 {formatPeso(agreedTotal)}
@@ -228,7 +246,7 @@ export default function PaymentScreen() {
 
             <View style={styles.inputSection}>
               <LabeledInput
-                label="Halagang Aktwal na Binayaran (₱)"
+                label={isTagalog ? 'Halagang Aktwal na Binayaran (₱)' : 'Actual Amount Paid (₱)'}
                 keyboardType="numeric"
                 value={actualAmountText}
                 onChangeText={(t) => setActualAmountText(t.replace(/[^0-9.]/g, ''))}
@@ -236,9 +254,15 @@ export default function PaymentScreen() {
                 hint={
                   actualAmountNum !== agreedTotal
                     ? actualAmountNum > agreedTotal
-                      ? `Mas mataas ng ${formatPeso(actualAmountNum - agreedTotal)} kaysa sa presyo ng sistema.`
-                      : `Mas mababa ng ${formatPeso(agreedTotal - actualAmountNum)} kaysa sa presyo ng sistema.`
-                    : 'Tugma sa napagkasunduang presyo ng sistema.'
+                      ? isTagalog
+                        ? `Mas mataas ng ${formatPeso(actualAmountNum - agreedTotal)} kaysa sa presyo ng sistema.`
+                        : `${formatPeso(actualAmountNum - agreedTotal)} higher than system price.`
+                      : isTagalog
+                        ? `Mas mababa ng ${formatPeso(agreedTotal - actualAmountNum)} kaysa sa presyo ng sistema.`
+                        : `${formatPeso(agreedTotal - actualAmountNum)} lower than system price.`
+                    : isTagalog
+                      ? 'Tugma sa napagkasunduang presyo ng sistema.'
+                      : 'Matches agreed system price.'
                 }
                 hintTone={actualAmountNum !== agreedTotal ? 'warning' : 'muted'}
               />
@@ -248,7 +272,7 @@ export default function PaymentScreen() {
           {/* Payment Method Selector */}
           <View style={styles.card}>
             <AnimoText variant="h3" color={AnimoColors.black}>
-              Piliin ang Paraan ng Pagbabayad
+              {isTagalog ? 'Piliin ang Paraan ng Pagbabayad' : 'Select Payment Method'}
             </AnimoText>
 
             <Pressable
@@ -265,7 +289,7 @@ export default function PaymentScreen() {
                     GCash
                   </AnimoText>
                   <AnimoText variant="caption" color={AnimoColors.muted}>
-                    Bayad gamit ang GCash transfer
+                    {isTagalog ? 'Bayad gamit ang GCash transfer' : 'Paid via GCash transfer'}
                   </AnimoText>
                 </View>
               </View>
@@ -286,7 +310,7 @@ export default function PaymentScreen() {
                     Cash
                   </AnimoText>
                   <AnimoText variant="caption" color={AnimoColors.muted}>
-                    Bayad na cash sa oras ng pickup
+                    {isTagalog ? 'Bayad na cash sa oras ng pickup' : 'Paid in cash upon pickup'}
                   </AnimoText>
                 </View>
               </View>
@@ -300,21 +324,27 @@ export default function PaymentScreen() {
           {method === 'GCash' ? (
             <View style={styles.card}>
               <AnimoText variant="h3" color={AnimoColors.black}>
-                Impormasyon ng GCash Transfer
+                {isTagalog ? 'Impormasyon ng GCash Transfer' : 'GCash Transfer Details'}
               </AnimoText>
 
               <LabeledInput
                 label="GCash Reference Number"
-                placeholder="Hal. 1002 9384 7182 9"
+                placeholder={isTagalog ? 'Hal. 1002 9384 7182 9' : 'Ex. 1002 9384 7182 9'}
                 keyboardType="numeric"
                 value={gcashReference}
                 onChangeText={setGcashReference}
-                hint="Ilagay ang reference number mula sa natanggap na resibo ng GCash."
+                hint={
+                  isTagalog
+                    ? 'Ilagay ang reference number mula sa natanggap na resibo ng GCash.'
+                    : 'Enter the reference number from the GCash transaction receipt.'
+                }
               />
 
               <View style={styles.uploadSection}>
                 <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                  Resibo ng GCash (Panatilihin bilang sanggunian — hindi ito ini-upload)
+                  {isTagalog
+                    ? 'Resibo ng GCash (Panatilihin bilang sanggunian — hindi ito ini-upload)'
+                    : 'GCash Receipt (Kept locally for reference)'}
                 </AnimoText>
 
                 {receiptUri ? (
@@ -324,19 +354,19 @@ export default function PaymentScreen() {
                       <View style={styles.receiptAttachedRow}>
                         <CheckCircle2 size={16} color={AnimoColors.accentPrimary} />
                         <AnimoText variant="bodyEmphasis" color={AnimoColors.accentPrimary}>
-                          Naka-attach (lokal lang)
+                          {isTagalog ? 'Naka-attach (lokal lang)' : 'Attached (local only)'}
                         </AnimoText>
                       </View>
                       <View style={styles.receiptActions}>
                         <Pressable onPress={() => setPhotoSheetVisible(true)} style={styles.changeReceiptBtn}>
                           <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
-                            Palitan
+                            {isTagalog ? 'Palitan' : 'Change'}
                           </AnimoText>
                         </Pressable>
                         <Pressable onPress={() => setReceiptUri(null)} style={styles.removeReceiptBtn}>
                           <Trash2 size={14} color={AnimoColors.danger} />
                           <AnimoText variant="caption" color={AnimoColors.danger}>
-                            Alisin
+                            {isTagalog ? 'Alisin' : 'Remove'}
                           </AnimoText>
                         </Pressable>
                       </View>
@@ -348,10 +378,10 @@ export default function PaymentScreen() {
                       <Upload size={22} color={AnimoColors.accentPrimary} />
                     </View>
                     <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                      Pindutin para mag-attach ng resibo
+                      {isTagalog ? 'Pindutin para mag-attach ng resibo' : 'Tap to attach receipt'}
                     </AnimoText>
                     <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-                      Kunan ng litrato o pumili mula sa Gallery
+                      {isTagalog ? 'Kunan ng litrato o pumili mula sa Gallery' : 'Take a photo or choose from Gallery'}
                     </AnimoText>
                   </Pressable>
                 )}
@@ -365,7 +395,7 @@ export default function PaymentScreen() {
             </View>
           ) : null}
 
-          <ProgressTracker steps={buildProgressSteps(outcome, 'buyer')} />
+          <ProgressTracker steps={buildProgressSteps(outcome, 'buyer', language)} />
 
           {submitError ? (
             <AnimoText variant="caption" color={AnimoColors.danger}>
@@ -376,7 +406,15 @@ export default function PaymentScreen() {
 
         <View style={styles.footerStack}>
           <AnimoButton
-            label={submitting ? 'Ipinapadala…' : 'Magpatuloy sa Bayad'}
+            label={
+              submitting
+                ? isTagalog
+                  ? 'Ipinapadala…'
+                  : 'Submitting…'
+                : isTagalog
+                  ? 'Magpatuloy sa Bayad'
+                  : 'Confirm Payment'
+            }
             icon={Check}
             onPress={handleContinue}
             disabled={!canContinue}
@@ -407,8 +445,8 @@ export default function PaymentScreen() {
       <FeedbackModal
         visible={showCancelledSuccessModal}
         tone="danger"
-        title="Matagumpay na Nakansela"
-        message="Nakansela na ang transaksyong ito."
+        title={isTagalog ? 'Matagumpay na Nakansela' : 'Successfully Cancelled'}
+        message={isTagalog ? 'Nakansela na ang transaksyong ito.' : 'This transaction has been cancelled.'}
         confirmLabel="OK"
         onConfirm={() => {
           setShowCancelledSuccessModal(false);
