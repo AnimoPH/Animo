@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { SHOW_DEV_TOOLS } from '@/constants/dev-tools';
 import type { RoleId } from '@/constants/roles';
-import type { Account, CompleteRegistrationInput, UpdateFarmerProfileInput } from '@/types/auth';
+import type { Account, CompleteRegistrationInput, UpdateBuyerProfileInput, UpdateFarmerProfileInput } from '@/types/auth';
 
 /**
  * Auth + registration service — thin wrapper over Supabase Auth (phone OTP)
@@ -210,6 +210,30 @@ export async function updateMyFarmerProfile(input: UpdateFarmerProfileInput): Pr
     .update({ barangay: input.barangay, gcash_number: input.gcashNumber })
     .eq('user_id', authUser.id);
   if (farmerError) throw farmerError;
+
+  return await fetchMyProfileOrThrow();
+}
+
+/**
+ * Updates the caller's own `user.full_name` + `buyer.gcash_number` —
+ * the columns migration 0001 grants `authenticated` write access to for buyers.
+ */
+export async function updateMyBuyerProfile(input: UpdateBuyerProfileInput): Promise<Account> {
+  const { data: userData } = await supabase.auth.getUser();
+  const authUser = userData.user;
+  if (!authUser) throw new Error('Kailangan mag-login muli.');
+
+  const { error: userError } = await supabase
+    .from('user')
+    .update({ full_name: input.fullName })
+    .eq('user_id', authUser.id);
+  if (userError) throw userError;
+
+  const { error: buyerError } = await supabase
+    .from('buyer')
+    .update({ gcash_number: input.gcashNumber })
+    .eq('user_id', authUser.id);
+  if (buyerError) throw buyerError;
 
   return await fetchMyProfileOrThrow();
 }

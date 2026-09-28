@@ -16,7 +16,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -31,109 +31,44 @@ import {
   AnimoSpacing,
   AnimoType,
 } from '@/constants/animo';
+import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
+import { supabase } from '@/lib/supabase';
+import { fetchTrustProfile, type TrustProfile } from '@/services/farmer-public-profile';
+import { fetchCounterpartNames, fetchFarmerTransactions } from '@/services/transaction-service';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
 
-const TOP_FARMER_FEEDBACKS = [
-  {
-    id: 'fb-1',
-    author: 'Bulacan Rice Traders (Mamimili)',
-    rating: 5,
-    date: '1 araw ang nakalipas',
-    comment: 'Napakaganda ng kalidad ng palay RC218, tuyo at malinis ang pagkaka-ani. Mabilis din ang proseso ng pickup!',
-  },
-  {
-    id: 'fb-2',
-    author: 'Maria Santos (Mamimili mula Antipolo)',
-    rating: 5,
-    date: '4 na araw ang nakalipas',
-    comment: 'Eksakto ang timbang at maayos ang mga sako. Napakabait kausap ni Mang Juan sa telepono.',
-  },
-  {
-    id: 'fb-3',
-    author: 'Golden Grain Milling (Mamimili)',
-    rating: 5,
-    date: '1 linggo ang nakalipas',
-    comment: 'Mataas ang milling recovery ng inaning palay. Tiyak na uulit kami ng pagbili sa susunod na anihan.',
-  },
-  {
-    id: 'fb-4',
-    author: 'Rizal Agro Traders (Mamimili)',
-    rating: 5,
-    date: '2 linggo ang nakalipas',
-    comment: 'Maayos ang transaksyon at madaling puntahan ang lokasyon ng bukid sa Antipolo.',
-  },
-  {
-    id: 'fb-5',
-    author: 'Aling Coring Store (Mamimili)',
-    rating: 5,
-    date: '3 linggo ang nakalipas',
-    comment: 'Sariwa at selyado ang mga sako ng palay. Maraming salamat sa maayos na pakikipag-ugnayan.',
-  },
-];
+type FarmerFeedback = {
+  id: string;
+  author: string;
+  rating: number;
+  date: string;
+  comment: string;
+};
 
-const TOP_FARMER_TRANSACTIONS = [
-  {
-    id: 'TXN-8821',
-    variety: 'Inbred (RC 218)',
-    quantity: '300 kg',
-    price: '₱6,300.00',
-    method: 'GCash',
-    buyer: 'Mateo Santos',
-    date: 'Ago 15, 2026',
-    status: 'Kumpleto',
-  },
-  {
-    id: 'TXN-7740',
-    variety: 'Hybrid (SL-8H)',
-    quantity: '600 kg',
-    price: '₱13,800.00',
-    method: 'GCash',
-    buyer: 'Bulacan Rice Traders',
-    date: 'Ago 10, 2026',
-    status: 'Kumpleto',
-  },
-  {
-    id: 'TXN-6912',
-    variety: 'Inbred (NSIC Rc160)',
-    quantity: '500 kg',
-    price: '₱11,000.00',
-    method: 'GCash',
-    buyer: 'Golden Grain Milling',
-    date: 'Ago 01, 2026',
-    status: 'Kumpleto',
-  },
-  {
-    id: 'TXN-5420',
-    variety: 'Dinorado',
-    quantity: '200 kg',
-    price: '₱5,000.00',
-    method: 'Cash',
-    buyer: 'Maria Santos',
-    date: 'Hul 20, 2026',
-    status: 'Kumpleto',
-  },
-  {
-    id: 'TXN-4819',
-    variety: 'Inbred (Rc222)',
-    quantity: '450 kg',
-    price: '₱9,450.00',
-    method: 'Cash',
-    buyer: 'Rizal Agro Traders',
-    date: 'Hul 05, 2026',
-    status: 'Kumpleto',
-  },
-];
+type FarmerTxnDisplay = {
+  id: string;
+  variety: string;
+  quantity: string;
+  price: string;
+  buyer: string;
+  date: string;
+  status: string;
+};
 
 /**
- * Farmer Profile — identity hero, stats, account, payment methods, and settings.
- * Includes interactive Top 5 Feedbacks, Language Selector, and User Guide Walkthrough.
+ * Farmer Profile — identity hero, live stats, account, payment methods, and settings.
+ * Pulls signed-in account data, user_trust_profile stats, actual ratings, and real transactions.
  */
 export default function FarmerProfileScreen() {
-  const { signOut } = useSession();
+  const { account, signOut } = useSession();
   const { t, language, setLanguage, isTagalog } = useLanguage();
+
+  const [trustProfile, setTrustProfile] = useState<TrustProfile | null>(null);
+  const [feedbacks, setFeedbacks] = useState<FarmerFeedback[]>([]);
+  const [transactions, setTransactions] = useState<FarmerTxnDisplay[]>([]);
 
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showFeedbacksModal, setShowFeedbacksModal] = useState(false);
@@ -142,6 +77,90 @@ export default function FarmerProfileScreen() {
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+
+  useEffect(() => {
+    if (!account?.id) return;
+    let cancelled = false;
+
+    const loadProfileData = async () => {
+      try {
+        const [trust, txns, ratingsRes] = await Promise.all([
+          fetchTrustProfile(account.id),
+          fetchFarmerTransactions(),
+          supabase
+            .from('rating')
+            .select('rating_id, score, comment, created_at, transaction_id, rater_id')
+            .eq('rated_id', account.id)
+            .order('created_at', { ascending: false })
+            .limit(5),
+        ]);
+
+        if (cancelled) return;
+        setTrustProfile(trust);
+
+        // Process ratings / feedbacks
+        const ratingRows = ratingsRes.data ?? [];
+        const raterIds = ratingRows.map((r) => r.rater_id as string).filter(Boolean);
+        const counterpartNames = await fetchCounterpartNames(raterIds);
+
+        const mappedFeedbacks: FarmerFeedback[] = ratingRows.map((r) => {
+          const date = r.created_at
+            ? new Date(r.created_at).toLocaleDateString(isTagalog ? 'fil-PH' : 'en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })
+            : '';
+          const authorName =
+            counterpartNames.get(r.rater_id as string) || (isTagalog ? 'Mamimili' : 'Buyer');
+          return {
+            id: r.rating_id as string,
+            author: authorName,
+            rating: Number(r.score) || 5,
+            date,
+            comment:
+              (r.comment as string | null)?.trim() ||
+              (isTagalog ? 'Walang nakasaad na komento.' : 'No comment provided.'),
+          };
+        });
+        setFeedbacks(mappedFeedbacks);
+
+        // Process top 5 transactions
+        const topTxns = txns.slice(0, 5);
+        const buyerIds = topTxns.map((tx) => tx.buyerId).filter(Boolean);
+        const buyerNames = await fetchCounterpartNames(buyerIds);
+
+        const mappedTxns: FarmerTxnDisplay[] = topTxns.map((tx) => {
+          const dateStr = tx.dateCompleted || tx.createdAt;
+          const date = dateStr
+            ? new Date(dateStr).toLocaleDateString(isTagalog ? 'fil-PH' : 'en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })
+            : '—';
+          return {
+            id: `TXN-${tx.id.slice(0, 4).toUpperCase()}`,
+            variety: 'Palay',
+            quantity: `${tx.quantityKg} kg`,
+            price: formatPeso(tx.payment?.amount ?? tx.totalAmount),
+            buyer: buyerNames.get(tx.buyerId) || (isTagalog ? 'Mamimili' : 'Buyer'),
+            date,
+            status: tx.status === 'Completed' ? (isTagalog ? 'Kumpleto' : 'Completed') : tx.status,
+          };
+        });
+        setTransactions(mappedTxns);
+      } catch (err) {
+        console.warn('[profile] error loading farmer profile stats', err);
+      }
+    };
+
+    loadProfileData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [account?.id, isTagalog]);
 
   const handleLogout = async () => {
     setShowSignOutModal(false);
@@ -154,10 +173,28 @@ export default function FarmerProfileScreen() {
     else if (key === 'language') setShowLanguageModal(true);
     else if (key === 'guide') {
       router.push({ pathname: '/(farmer)/(tabs)', params: { startTour: 'true' } });
-    }
-    else if (key === 'help') setShowHelpModal(true);
+    } else if (key === 'help') setShowHelpModal(true);
     else if (key === 'terms' || key === 'privacy') setShowTermsModal(true);
   };
+
+  const fullName = account?.fullName || 'Magsasaka';
+  const location = account?.barangay
+    ? account.barangay.startsWith('Brgy.')
+      ? `${account.barangay}, Rizal`
+      : `Brgy. ${account.barangay}, Rizal`
+    : 'Rizal';
+  const gcashDisplay = account?.gcashNumber
+    ? `${account.gcashNumber.slice(0, 4)} **** ${account.gcashNumber.slice(-3)}`
+    : isTagalog
+      ? 'Wala pang nakatalang GCash'
+      : 'No GCash registered';
+
+  const averageRating =
+    trustProfile && trustProfile.ratingCount > 0
+      ? `${trustProfile.averageRating.toFixed(1)} ★`
+      : '— ★';
+  const reviewCount = trustProfile ? String(trustProfile.ratingCount) : '0';
+  const transactionCount = trustProfile ? String(trustProfile.completedTransactions) : '0';
 
   return (
     <View style={styles.screen}>
@@ -173,8 +210,8 @@ export default function FarmerProfileScreen() {
             <View style={styles.avatar}>
               <UserRound size={40} color={AnimoColors.accentPrimary} />
             </View>
-            <Text style={styles.fullName}>Juan Dela Cruz</Text>
-            <Text style={styles.location}>Brgy. San Jose, Antipolo, Rizal</Text>
+            <Text style={styles.fullName}>{fullName}</Text>
+            <Text style={styles.location}>{location}</Text>
             <View style={styles.badgeRow}>
               <View style={styles.roleBadge}>
                 <Lock size={12} color={AnimoColors.white} />
@@ -191,7 +228,7 @@ export default function FarmerProfileScreen() {
             accessibilityLabel="Tingnan ang rating at feedbacks"
             onPress={() => setShowFeedbacksModal(true)}
             style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
-            <Text style={styles.statValue}>4.8 ★</Text>
+            <Text style={styles.statValue}>{averageRating}</Text>
             <Text style={styles.statLabel}>{t('profile.rating')}</Text>
           </Pressable>
           <Pressable
@@ -199,7 +236,7 @@ export default function FarmerProfileScreen() {
             accessibilityLabel="Tingnan ang mga review"
             onPress={() => setShowFeedbacksModal(true)}
             style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
-            <Text style={styles.statValue}>1.2k</Text>
+            <Text style={styles.statValue}>{reviewCount}</Text>
             <Text style={styles.statLabel}>{t('profile.reviews')}</Text>
           </Pressable>
           <Pressable
@@ -207,7 +244,7 @@ export default function FarmerProfileScreen() {
             accessibilityLabel="Tingnan ang kamakailang transaksyon"
             onPress={() => setShowRecentTxnsModal(true)}
             style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
-            <Text style={styles.statValue}>48</Text>
+            <Text style={styles.statValue}>{transactionCount}</Text>
             <Text style={styles.statLabel}>{t('profile.transactions')}</Text>
           </Pressable>
         </View>
@@ -217,16 +254,14 @@ export default function FarmerProfileScreen() {
         <View style={styles.card}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push('/(farmer)/account-information' as Href)}
+            onPress={() => router.push('/(farmer)/profile-edit' as Href)}
             style={({ pressed }) => [styles.accountRow, pressed && styles.pressed]}>
             <View style={styles.accountIcon}>
               <UserRound size={20} color={AnimoColors.objectMediumEmphasis} />
             </View>
             <View style={styles.accountCopy}>
               <Text style={styles.accountTitle}>{t('profile.personalInfo')}</Text>
-              <Text style={styles.accountCaption}>
-                {t('profile.personalInfoDesc')}
-              </Text>
+              <Text style={styles.accountCaption}>{t('profile.personalInfoDesc')}</Text>
             </View>
             <ChevronRight size={18} color={AnimoColors.objectLowEmphasis} />
           </Pressable>
@@ -241,7 +276,7 @@ export default function FarmerProfileScreen() {
             </View>
             <View style={styles.paymentCopy}>
               <Text style={styles.paymentTitle}>GCash</Text>
-              <Text style={styles.paymentCaption}>0912 **** 789</Text>
+              <Text style={styles.paymentCaption}>{gcashDisplay}</Text>
             </View>
           </View>
           <View style={styles.divider} />
@@ -284,9 +319,7 @@ export default function FarmerProfileScreen() {
             <View style={styles.flexSettingLabel}>
               <Text style={styles.settingLabel}>{t('profile.language')}</Text>
               <View style={styles.langBadge}>
-                <Text style={styles.langBadgeText}>
-                  {isTagalog ? 'Tagalog' : 'English'}
-                </Text>
+                <Text style={styles.langBadgeText}>{isTagalog ? 'Tagalog' : 'English'}</Text>
               </View>
             </View>
             <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
@@ -381,19 +414,14 @@ export default function FarmerProfileScreen() {
                   setLanguage('tl');
                   setShowLanguageModal(false);
                 }}
-                style={[
-                  styles.langOption,
-                  language === 'tl' && styles.langOptionActive,
-                ]}>
+                style={[styles.langOption, language === 'tl' && styles.langOptionActive]}>
                 <View style={styles.langOptionLeft}>
                   <View>
                     <Text style={styles.langOptionTitle}>Tagalog (Filipino)</Text>
                     <Text style={styles.langOptionSubtitle}>Pangunahing wika sa app</Text>
                   </View>
                 </View>
-                {language === 'tl' ? (
-                  <Check size={20} color={AnimoColors.accentPrimary} />
-                ) : null}
+                {language === 'tl' ? <Check size={20} color={AnimoColors.accentPrimary} /> : null}
               </Pressable>
 
               <Pressable
@@ -401,19 +429,14 @@ export default function FarmerProfileScreen() {
                   setLanguage('en');
                   setShowLanguageModal(false);
                 }}
-                style={[
-                  styles.langOption,
-                  language === 'en' && styles.langOptionActive,
-                ]}>
+                style={[styles.langOption, language === 'en' && styles.langOptionActive]}>
                 <View style={styles.langOptionLeft}>
                   <View>
                     <Text style={styles.langOptionTitle}>English</Text>
                     <Text style={styles.langOptionSubtitle}>Switch interface to English</Text>
                   </View>
                 </View>
-                {language === 'en' ? (
-                  <Check size={20} color={AnimoColors.accentPrimary} />
-                ) : null}
+                {language === 'en' ? <Check size={20} color={AnimoColors.accentPrimary} /> : null}
               </Pressable>
             </View>
           </SafeAreaView>
@@ -427,7 +450,7 @@ export default function FarmerProfileScreen() {
         onClose={() => setShowTutorialModal(false)}
       />
 
-      {/* Top 5 Feedbacks Modal */}
+      {/* Feedbacks Modal */}
       <Modal
         visible={showFeedbacksModal}
         animationType="slide"
@@ -436,7 +459,7 @@ export default function FarmerProfileScreen() {
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
             <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-              {isTagalog ? 'Rating at Feedback (Top 5)' : 'Ratings & Feedback (Top 5)'}
+              {isTagalog ? 'Rating at Feedback' : 'Ratings & Feedback'}
             </AnimoText>
             <Pressable
               accessibilityRole="button"
@@ -453,48 +476,70 @@ export default function FarmerProfileScreen() {
             showsVerticalScrollIndicator={false}>
             <View style={styles.ratingSummaryBanner}>
               <View style={styles.ratingBigWrap}>
-                <Text style={styles.ratingBigText}>4.8</Text>
+                <Text style={styles.ratingBigText}>
+                  {trustProfile && trustProfile.ratingCount > 0
+                    ? trustProfile.averageRating.toFixed(1)
+                    : '—'}
+                </Text>
                 <View style={styles.starsRow}>
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} size={16} color="#F9A825" fill="#F9A825" />
-                  ))}
+                  {[1, 2, 3, 4, 5].map((s) => {
+                    const rounded = trustProfile ? Math.round(trustProfile.averageRating) : 0;
+                    return (
+                      <Star
+                        key={s}
+                        size={16}
+                        color={s <= rounded ? '#F9A825' : '#D1D5DB'}
+                        fill={s <= rounded ? '#F9A825' : 'transparent'}
+                      />
+                    );
+                  })}
                 </View>
               </View>
               <Text style={styles.ratingSubCaption}>
                 {isTagalog
-                  ? '1.2k kabuuang review mula sa mga mamimili at traders'
-                  : '1.2k total reviews from buyers and traders'}
+                  ? `${reviewCount} kabuuang review mula sa mga mamimili`
+                  : `${reviewCount} total reviews from buyers`}
               </Text>
             </View>
 
-            {TOP_FARMER_FEEDBACKS.map((fb) => (
-              <View key={fb.id} style={styles.feedbackCard}>
-                <View style={styles.feedbackHeader}>
-                  <View style={styles.flex}>
-                    <Text style={styles.feedbackAuthor}>{fb.author}</Text>
-                    <Text style={styles.feedbackDate}>{fb.date}</Text>
-                  </View>
-                  <View style={styles.starsRowSmall}>
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star key={s} size={13} color="#F9A825" fill="#F9A825" />
-                    ))}
-                  </View>
-                </View>
-                <Text style={styles.feedbackComment}>"{fb.comment}"</Text>
+            {feedbacks.length === 0 ? (
+              <View style={styles.emptyWrap}>
+                <Text style={styles.emptyText}>
+                  {isTagalog ? 'Wala pang natatanggap na review.' : 'No reviews received yet.'}
+                </Text>
               </View>
-            ))}
+            ) : (
+              feedbacks.map((fb) => (
+                <View key={fb.id} style={styles.feedbackCard}>
+                  <View style={styles.feedbackHeader}>
+                    <View style={styles.flex}>
+                      <Text style={styles.feedbackAuthor}>{fb.author}</Text>
+                      <Text style={styles.feedbackDate}>{fb.date}</Text>
+                    </View>
+                    <View style={styles.starsRowSmall}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          size={13}
+                          color={s <= fb.rating ? '#F9A825' : '#D1D5DB'}
+                          fill={s <= fb.rating ? '#F9A825' : 'transparent'}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                  <Text style={styles.feedbackComment}>"{fb.comment}"</Text>
+                </View>
+              ))
+            )}
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <AnimoButton
-              label={t('common.close')}
-              onPress={() => setShowFeedbacksModal(false)}
-            />
+            <AnimoButton label={t('common.close')} onPress={() => setShowFeedbacksModal(false)} />
           </View>
         </SafeAreaView>
       </Modal>
 
-      {/* Top 5 Recent Transactions Modal */}
+      {/* Recent Transactions Modal */}
       <Modal
         visible={showRecentTxnsModal}
         animationType="slide"
@@ -503,7 +548,7 @@ export default function FarmerProfileScreen() {
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
             <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-              {isTagalog ? 'Kamakailang Transaksyon (Top 5)' : 'Recent Transactions (Top 5)'}
+              {isTagalog ? 'Kamakailang Transaksyon' : 'Recent Transactions'}
             </AnimoText>
             <Pressable
               accessibilityRole="button"
@@ -518,31 +563,41 @@ export default function FarmerProfileScreen() {
             style={styles.modalScroll}
             contentContainerStyle={styles.modalContent}
             showsVerticalScrollIndicator={false}>
-            {TOP_FARMER_TRANSACTIONS.map((tx) => (
-              <View key={tx.id} style={styles.txCard}>
-                <View style={styles.txHeader}>
-                  <View style={styles.flex}>
-                    <Text style={styles.txVariety}>{tx.variety}</Text>
-                    <Text style={styles.txSubtitle}>
-                      {isTagalog ? 'Mamimili' : 'Buyer'}: {tx.buyer} · {tx.date}
-                    </Text>
-                  </View>
-                  <View style={styles.txStatusBadge}>
-                    <Text style={styles.txStatusText}>{tx.status}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.txFooterRow}>
-                  <View style={styles.txMetaLeft}>
-                    <Text style={styles.txRef}>{tx.id}</Text>
-                    <Text style={styles.txQuantity}>{tx.quantity}</Text>
-                  </View>
-                  <Text style={styles.txPrice}>{tx.price}</Text>
-                </View>
+            {transactions.length === 0 ? (
+              <View style={styles.emptyWrap}>
+                <Text style={styles.emptyText}>
+                  {isTagalog
+                    ? 'Wala pang natapos na transaksyon.'
+                    : 'No completed transactions yet.'}
+                </Text>
               </View>
-            ))}
+            ) : (
+              transactions.map((tx) => (
+                <View key={tx.id} style={styles.txCard}>
+                  <View style={styles.txHeader}>
+                    <View style={styles.flex}>
+                      <Text style={styles.txVariety}>{tx.variety}</Text>
+                      <Text style={styles.txSubtitle}>
+                        {isTagalog ? 'Mamimili' : 'Buyer'}: {tx.buyer} · {tx.date}
+                      </Text>
+                    </View>
+                    <View style={styles.txStatusBadge}>
+                      <Text style={styles.txStatusText}>{tx.status}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <View style={styles.txFooterRow}>
+                    <View style={styles.txMetaLeft}>
+                      <Text style={styles.txRef}>{tx.id}</Text>
+                      <Text style={styles.txQuantity}>{tx.quantity}</Text>
+                    </View>
+                    <Text style={styles.txPrice}>{tx.price}</Text>
+                  </View>
+                </View>
+              ))
+            )}
           </ScrollView>
 
           <View style={styles.modalFooter}>
@@ -561,8 +616,8 @@ export default function FarmerProfileScreen() {
         title={isTagalog ? 'Tulong at Suporta' : 'Help & Support'}
         message={
           isTagalog
-            ? 'Maaari kang makipag-ugnayan sa Tanggapan ng Pagsasaka (LGU Antipolo) o sa ANIMO Support Hotline sa 0917 123 4567 para sa anumang katanungan.'
-            : 'You can contact the Municipal Agriculture Office (LGU Antipolo) or ANIMO Support Hotline at 0917 123 4567 for any questions.'
+            ? 'Maaari kang makipag-ugnayan sa Tanggapan ng Pagsasaka (Municipal Agriculture Office) o sa ANIMO Support Helpdesk para sa anumang katanungan.'
+            : 'You can contact the Municipal Agriculture Office or ANIMO Support Helpdesk for any questions.'
         }
         confirmLabel={isTagalog ? 'OK' : 'Understood'}
         onConfirm={() => setShowHelpModal(false)}
@@ -850,9 +905,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: AnimoSpacing.md,
   },
-  langFlag: {
-    fontSize: 24,
-  },
   langOptionTitle: {
     ...AnimoType.bodyEmphasis,
     color: AnimoColors.textHighEmphasis,
@@ -1012,6 +1064,16 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.surfacePrimary,
     borderTopWidth: 1,
     borderTopColor: AnimoColors.borderLowEmphasis,
+  },
+  emptyWrap: {
+    paddingVertical: AnimoSpacing.xxl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    ...AnimoType.body,
+    color: AnimoColors.textLowEmphasis,
+    textAlign: 'center',
   },
   pressed: {
     opacity: 0.88,

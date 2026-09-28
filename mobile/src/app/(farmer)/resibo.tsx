@@ -158,7 +158,7 @@ export default function FarmerReceiptScreen() {
             </View>
           ))}
 
-          {receipt || receiptPending ? <View style={styles.rowDivider} /> : null}
+          <View style={styles.rowDivider} />
           {receipt ? (
             <Pressable
               accessibilityRole="link"
@@ -176,7 +176,14 @@ export default function FarmerReceiptScreen() {
               <Text style={styles.detailLabel}>{isTagalog ? 'Katibayan' : 'On-Chain Proof'}</Text>
               <ActivityIndicator size="small" color={AnimoColors.accentPrimary} />
             </View>
-          ) : null}
+          ) : (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>{isTagalog ? 'Katibayan' : 'On-Chain Proof'}</Text>
+              <Text style={{ ...styles.detailValue, color: AnimoColors.textLowEmphasis, fontStyle: 'italic' }}>
+                {isTagalog ? 'Katibayan hindi pa available' : 'Proof not yet available'}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.actions}>

@@ -12,6 +12,7 @@ import { useLanguage } from '@/hooks/use-language';
 import {
   fetchLguFarmerRegistry,
   formatRegisteredDate,
+  mapAccountStatus,
   type LguFarmerRow,
 } from '@/services/lgu-console-service';
 
@@ -27,19 +28,29 @@ function toDisplayFarmer(row: LguFarmerRow, isTagalog: boolean): Farmer {
     .toUpperCase()
     .slice(0, 2);
 
+  const reportList = Array.from({ length: row.reportedReviews }, (_, i) => ({
+    id: `rep-${i}`,
+    reportedBy: isTagalog ? 'Mamimili' : 'Buyer',
+    role: isTagalog ? 'Mamimili' : 'Buyer',
+    reason: isTagalog ? 'Inulat na review' : 'Reported review',
+    details: isTagalog ? 'May inihain na ulat sa transaksyon.' : 'Report submitted on transaction.',
+    date: '',
+    status: 'pending' as const,
+  }));
+
   return {
     id: row.farmerId,
     name: row.name,
     initials: initials || '—',
     barangay: row.barangay,
-    phone: '—',
+    phone: row.contactNumber?.trim() || '—',
     farmSize: `${row.activeListings} / ${row.totalListings}`,
     registeredDate: formatRegisteredDate(row.dateRegistered, isTagalog),
-    status: row.activeListings > 0 ? 'active' : 'inactive',
+    status: mapAccountStatus(row.accountStatus),
     rating: 0,
     totalTransactions: 0,
     reviews: [],
-    reports: [],
+    reports: reportList,
     transactions: [],
   };
 }
@@ -56,6 +67,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
     { key: 'all', label: t('common.all') },
     { key: 'active', label: t('common.active') },
     { key: 'inactive', label: t('common.inactive') },
+    { key: 'suspended', label: isTagalog ? 'Suspendido' : 'Suspended' },
   ];
 
   // Search & Filter state
@@ -107,7 +119,8 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
       const matchesStatus =
         selectedStatus === 'all' ||
         (selectedStatus === 'active' && f.status === 'active') ||
-        (selectedStatus === 'inactive' && f.status === 'inactive');
+        (selectedStatus === 'inactive' && f.status === 'inactive') ||
+        (selectedStatus === 'suspended' && f.status === 'suspended');
 
       return matchesSearch && matchesBarangay && matchesStatus;
     });
@@ -131,7 +144,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
         <SummaryCard
           label={isTagalog ? 'Aktibo' : 'Active'}
           value={String(activeCount)}
-          unit={isTagalog ? 'may available na listing' : 'with active listings'}
+          unit={isTagalog ? 'aktibong account' : 'active accounts'}
         />
         <SummaryCard
           label={isTagalog ? 'Saklaw' : 'Coverage'}

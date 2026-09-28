@@ -6,24 +6,21 @@ import {
   BookOpen,
   Check,
   ChevronRight,
-  CreditCard,
   FileText,
   Globe,
   HelpCircle,
   Lock,
   LogOut,
-  Mail,
-  MapPin,
-  Package,
   Phone,
-  Sprout,
   ShieldCheck,
+  Sprout,
   Star,
   UserRound,
+  Wallet,
   X,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
@@ -36,6 +33,7 @@ import {
   type BuyerPreferencesFormValues,
 } from '@/components/animo/buyer-preferences-form';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
+import { LabeledInput } from '@/components/animo/labeled-input';
 import { OnboardingWalkthroughModal } from '@/components/animo/onboarding-walkthrough-modal';
 import SignOutModal from '@/components/signout-modal';
 import {
@@ -44,116 +42,54 @@ import {
   AnimoSpacing,
   AnimoType,
 } from '@/constants/animo';
+import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
+import { supabase } from '@/lib/supabase';
+import { updateMyBuyerProfile } from '@/services/auth-service';
 import {
   fetchMyBuyerPreferences,
   upsertMyBuyerPreferences,
 } from '@/services/buyer-preferences-service';
+import { fetchTrustProfile, type TrustProfile } from '@/services/farmer-public-profile';
+import { fetchBuyerTransactions, fetchCounterpartNames } from '@/services/transaction-service';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
+const GCASH_NUMBER_PATTERN = /^09\d{9}$/;
 
-const TOP_BUYER_FEEDBACKS = [
-  {
-    id: 'fb-1',
-    author: 'Mang Kanor (Magsasaka mula Teresa)',
-    rating: 5,
-    date: '2 araw ang nakalipas',
-    comment: 'Napakadaling kausap at napapanahon ang pagkuha ng palay. Maayos at mabilis magbayad sa GCash.',
-  },
-  {
-    id: 'fb-2',
-    author: 'Tatay Dante (Magsasaka mula Antipolo)',
-    rating: 5,
-    date: '1 linggo ang nakalipas',
-    comment: 'Tapat sa usapan at walang naging problema sa pickup at inspeksyon ng mga sako.',
-  },
-  {
-    id: 'fb-3',
-    author: 'Mang Carding (Magsasaka mula Morong)',
-    rating: 5,
-    date: '2 linggo ang nakalipas',
-    comment: 'Mabilis na proseso ng transaksyon. Kumuha ng 500 kg na Inbred palay nang walang delay.',
-  },
-  {
-    id: 'fb-4',
-    author: 'Aling Elena (Magsasaka mula Baras)',
-    rating: 5,
-    date: '3 linggo ang nakalipas',
-    comment: 'Maayos makipagtransaksyon at madaling koordinasyon sa telepono para sa oras ng pickup.',
-  },
-  {
-    id: 'fb-5',
-    author: 'Mang Ben (Magsasaka mula Tanay)',
-    rating: 5,
-    date: '1 buwan ang nakalipas',
-    comment: 'Suki na mamimili! Maasahan at laging handa sa itinakdang iskedyul sa bukid.',
-  },
-];
+type BuyerFeedback = {
+  id: string;
+  author: string;
+  rating: number;
+  date: string;
+  comment: string;
+};
 
-const TOP_BUYER_TRANSACTIONS = [
-  {
-    id: 'TXN-8821',
-    variety: 'Inbred (RC 218)',
-    quantity: '300 kg',
-    price: '₱6,300.00',
-    method: 'GCash',
-    farmer: 'Juan Dela Cruz',
-    date: 'Ago 15, 2026',
-    status: 'Kumpleto',
-  },
-  {
-    id: 'TXN-7419',
-    variety: 'Hybrid (SL-8H)',
-    quantity: '500 kg',
-    price: '₱11,500.00',
-    method: 'GCash',
-    farmer: 'Tatay Dante',
-    date: 'Ago 08, 2026',
-    status: 'Kumpleto',
-  },
-  {
-    id: 'TXN-6102',
-    variety: 'Dinorado',
-    quantity: '250 kg',
-    price: '₱6,250.00',
-    method: 'Cash',
-    farmer: 'Mang Kanor',
-    date: 'Hul 28, 2026',
-    status: 'Kumpleto',
-  },
-  {
-    id: 'TXN-5940',
-    variety: 'Inbred (NSIC Rc160)',
-    quantity: '400 kg',
-    price: '₱8,800.00',
-    method: 'GCash',
-    farmer: 'Aling Elena',
-    date: 'Hul 15, 2026',
-    status: 'Kumpleto',
-  },
-  {
-    id: 'TXN-4211',
-    variety: 'Sinandomeng',
-    quantity: '350 kg',
-    price: '₱7,700.00',
-    method: 'Cash',
-    farmer: 'Mang Ben',
-    date: 'Hun 30, 2026',
-    status: 'Kumpleto',
-  },
-];
+type BuyerTxnDisplay = {
+  id: string;
+  variety: string;
+  quantity: string;
+  price: string;
+  farmer: string;
+  date: string;
+  status: string;
+};
 
 /**
  * Buyer Profile Screen (Mamimili).
  *
- * Adopts the unified hero identity banner, floating stats row, account info,
- * payment methods, top 5 feedback, Language Selector, and User Guide tutorial walkthrough.
+ * Connected to live signed-in account, live trust stats, actual ratings,
+ * buyer preferences, and real buyer transactions.
  */
 export default function BuyerProfileScreen() {
-  const { signOut } = useSession();
+  const { account, refresh, signOut } = useSession();
   const { t, language, setLanguage, isTagalog } = useLanguage();
 
+  const [trustProfile, setTrustProfile] = useState<TrustProfile | null>(null);
+  const [feedbacks, setFeedbacks] = useState<BuyerFeedback[]>([]);
+  const [transactions, setTransactions] = useState<BuyerTxnDisplay[]>([]);
+
+  // Modals state
   const [showPersonalInfoModal, setShowPersonalInfoModal] = useState(false);
   const [showFeedbacksModal, setShowFeedbacksModal] = useState(false);
   const [showRecentTxnsModal, setShowRecentTxnsModal] = useState(false);
@@ -162,9 +98,15 @@ export default function BuyerProfileScreen() {
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showProfileSavedModal, setShowProfileSavedModal] = useState(false);
 
-  // Buying preferences — optional, storage-only fields also collected at
-  // onboarding (see profile-form.tsx / buyer-preferences-form.tsx).
+  // Edit profile state inside modal
+  const [editFullName, setEditFullName] = useState(account?.fullName ?? '');
+  const [editGcashNumber, setEditGcashNumber] = useState(account?.gcashNumber ?? '');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | undefined>();
+
+  // Buying preferences
   const [showBuyerPreferencesModal, setShowBuyerPreferencesModal] = useState(false);
   const [buyerPreferences, setBuyerPreferences] = useState<BuyerPreferencesFormValues>(
     EMPTY_BUYER_PREFERENCES_FORM,
@@ -172,6 +114,98 @@ export default function BuyerProfileScreen() {
   const [buyerPreferencesLoading, setBuyerPreferencesLoading] = useState(false);
   const [buyerPreferencesSaving, setBuyerPreferencesSaving] = useState(false);
   const [buyerPreferencesError, setBuyerPreferencesError] = useState<string | undefined>();
+
+  // Sync edit fields when account changes or modal opens
+  useEffect(() => {
+    if (account) {
+      setEditFullName(account.fullName);
+      setEditGcashNumber(account.gcashNumber ?? '');
+    }
+  }, [account, showPersonalInfoModal]);
+
+  useEffect(() => {
+    if (!account?.id) return;
+    let cancelled = false;
+
+    const loadData = async () => {
+      try {
+        const [trust, txns, ratingsRes] = await Promise.all([
+          fetchTrustProfile(account.id),
+          fetchBuyerTransactions(),
+          supabase
+            .from('rating')
+            .select('rating_id, score, comment, created_at, transaction_id, rater_id')
+            .eq('rated_id', account.id)
+            .order('created_at', { ascending: false })
+            .limit(5),
+        ]);
+
+        if (cancelled) return;
+        setTrustProfile(trust);
+
+        // Process ratings
+        const ratingRows = ratingsRes.data ?? [];
+        const raterIds = ratingRows.map((r) => r.rater_id as string).filter(Boolean);
+        const counterpartNames = await fetchCounterpartNames(raterIds);
+
+        const mappedFeedbacks: BuyerFeedback[] = ratingRows.map((r) => {
+          const date = r.created_at
+            ? new Date(r.created_at).toLocaleDateString(isTagalog ? 'fil-PH' : 'en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })
+            : '';
+          const authorName =
+            counterpartNames.get(r.rater_id as string) || (isTagalog ? 'Magsasaka' : 'Farmer');
+          return {
+            id: r.rating_id as string,
+            author: authorName,
+            rating: Number(r.score) || 5,
+            date,
+            comment:
+              (r.comment as string | null)?.trim() ||
+              (isTagalog ? 'Walang nakasaad na komento.' : 'No comment provided.'),
+          };
+        });
+        setFeedbacks(mappedFeedbacks);
+
+        // Process transactions
+        const topTxns = txns.slice(0, 5);
+        const farmerIds = topTxns.map((tx) => tx.farmerId).filter(Boolean);
+        const farmerNames = await fetchCounterpartNames(farmerIds);
+
+        const mappedTxns: BuyerTxnDisplay[] = topTxns.map((tx) => {
+          const dateStr = tx.dateCompleted || tx.createdAt;
+          const date = dateStr
+            ? new Date(dateStr).toLocaleDateString(isTagalog ? 'fil-PH' : 'en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })
+            : '—';
+          return {
+            id: `TXN-${tx.id.slice(0, 4).toUpperCase()}`,
+            variety: 'Palay',
+            quantity: `${tx.quantityKg} kg`,
+            price: formatPeso(tx.payment?.amount ?? tx.totalAmount),
+            farmer: farmerNames.get(tx.farmerId) || (isTagalog ? 'Magsasaka' : 'Farmer'),
+            date,
+            status: tx.status === 'Completed' ? (isTagalog ? 'Kumpleto' : 'Completed') : tx.status,
+          };
+        });
+        setTransactions(mappedTxns);
+      } catch (err) {
+        console.warn('[buyer-profile] error loading stats', err);
+      }
+    };
+
+    loadData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [account?.id, isTagalog]);
 
   useEffect(() => {
     if (!showBuyerPreferencesModal) return;
@@ -198,6 +232,37 @@ export default function BuyerProfileScreen() {
     }
   };
 
+  const handleSaveBuyerProfile = async () => {
+    const trimmedName = editFullName.trim();
+    const trimmedGcash = editGcashNumber.trim();
+    const gcashValid = trimmedGcash.length === 0 || GCASH_NUMBER_PATTERN.test(trimmedGcash);
+
+    if (trimmedName.length < 2) {
+      setProfileError(isTagalog ? 'Pakilagay ang buong pangalan.' : 'Please enter your full name.');
+      return;
+    }
+    if (!gcashValid) {
+      setProfileError(isTagalog ? '11 digits ang GCash, nagsisimula sa 09.' : 'GCash must be 11 digits starting with 09.');
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileError(undefined);
+    try {
+      await updateMyBuyerProfile({
+        fullName: trimmedName,
+        gcashNumber: trimmedGcash.length > 0 ? trimmedGcash : null,
+      });
+      await refresh();
+      setShowPersonalInfoModal(false);
+      setShowProfileSavedModal(true);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : (isTagalog ? 'Hindi na-save ang profile.' : 'Failed to save profile.'));
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   const handleLogout = async () => {
     setShowSignOutModal(false);
     await signOut();
@@ -209,10 +274,23 @@ export default function BuyerProfileScreen() {
     else if (key === 'language') setShowLanguageModal(true);
     else if (key === 'guide') {
       router.push({ pathname: '/(buyer)', params: { startTour: 'true' } });
-    }
-    else if (key === 'help') setShowHelpModal(true);
+    } else if (key === 'help') setShowHelpModal(true);
     else if (key === 'terms' || key === 'privacy') setShowTermsModal(true);
   };
+
+  const fullName = account?.fullName || 'Mamimili';
+  const gcashDisplay = account?.gcashNumber
+    ? `${account.gcashNumber.slice(0, 4)} **** ${account.gcashNumber.slice(-3)}`
+    : isTagalog
+      ? 'Wala pang nakatalang GCash'
+      : 'No GCash registered';
+
+  const averageRating =
+    trustProfile && trustProfile.ratingCount > 0
+      ? `${trustProfile.averageRating.toFixed(1)} ★`
+      : '— ★';
+  const reviewCount = trustProfile ? String(trustProfile.ratingCount) : '0';
+  const transactionCount = trustProfile ? String(trustProfile.completedTransactions) : '0';
 
   return (
     <View style={styles.screen}>
@@ -227,8 +305,8 @@ export default function BuyerProfileScreen() {
             <View style={styles.avatar}>
               <UserRound size={40} color={AnimoColors.accentPrimary} />
             </View>
-            <Text style={styles.fullName}>Maria Santos</Text>
-            <Text style={styles.location}>Brgy. San Jose, Antipolo, Rizal</Text>
+            <Text style={styles.fullName}>{fullName}</Text>
+            <Text style={styles.location}>{t('role.buyer')}</Text>
             <View style={styles.badgeRow}>
               <View style={styles.roleBadge}>
                 <Lock size={12} color={AnimoColors.white} />
@@ -245,7 +323,7 @@ export default function BuyerProfileScreen() {
             accessibilityLabel="Tingnan ang rating at feedback"
             onPress={() => setShowFeedbacksModal(true)}
             style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
-            <Text style={styles.statValue}>4.9 ★</Text>
+            <Text style={styles.statValue}>{averageRating}</Text>
             <Text style={styles.statLabel}>{t('profile.rating')}</Text>
           </Pressable>
           <Pressable
@@ -253,7 +331,7 @@ export default function BuyerProfileScreen() {
             accessibilityLabel="Tingnan ang mga review"
             onPress={() => setShowFeedbacksModal(true)}
             style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
-            <Text style={styles.statValue}>840</Text>
+            <Text style={styles.statValue}>{reviewCount}</Text>
             <Text style={styles.statLabel}>{t('profile.reviews')}</Text>
           </Pressable>
           <Pressable
@@ -261,7 +339,7 @@ export default function BuyerProfileScreen() {
             accessibilityLabel="Tingnan ang kamakailang transaksyon"
             onPress={() => setShowRecentTxnsModal(true)}
             style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
-            <Text style={styles.statValue}>62</Text>
+            <Text style={styles.statValue}>{transactionCount}</Text>
             <Text style={styles.statLabel}>{t('profile.transactions')}</Text>
           </Pressable>
         </View>
@@ -278,9 +356,7 @@ export default function BuyerProfileScreen() {
             </View>
             <View style={styles.accountCopy}>
               <Text style={styles.accountTitle}>{t('profile.personalInfo')}</Text>
-              <Text style={styles.accountCaption}>
-                {t('profile.personalInfoDesc')}
-              </Text>
+              <Text style={styles.accountCaption}>{t('profile.personalInfoDesc')}</Text>
             </View>
             <ChevronRight size={18} color={AnimoColors.objectLowEmphasis} />
           </Pressable>
@@ -315,7 +391,7 @@ export default function BuyerProfileScreen() {
             </View>
             <View style={styles.paymentCopy}>
               <Text style={styles.paymentTitle}>GCash</Text>
-              <Text style={styles.paymentCaption}>0917 **** 234</Text>
+              <Text style={styles.paymentCaption}>{gcashDisplay}</Text>
             </View>
             <View style={styles.defaultBadge}>
               <Text style={styles.defaultBadgeText}>{t('profile.default')}</Text>
@@ -358,9 +434,7 @@ export default function BuyerProfileScreen() {
             <View style={styles.flexSettingLabel}>
               <Text style={styles.settingLabel}>{t('profile.language')}</Text>
               <View style={styles.langBadge}>
-                <Text style={styles.langBadgeText}>
-                  {isTagalog ? 'Tagalog' : 'English'}
-                </Text>
+                <Text style={styles.langBadgeText}>{isTagalog ? 'Tagalog' : 'English'}</Text>
               </View>
             </View>
             <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
@@ -455,19 +529,14 @@ export default function BuyerProfileScreen() {
                   setLanguage('tl');
                   setShowLanguageModal(false);
                 }}
-                style={[
-                  styles.langOption,
-                  language === 'tl' && styles.langOptionActive,
-                ]}>
+                style={[styles.langOption, language === 'tl' && styles.langOptionActive]}>
                 <View style={styles.langOptionLeft}>
                   <View>
                     <Text style={styles.langOptionTitle}>Tagalog (Filipino)</Text>
                     <Text style={styles.langOptionSubtitle}>Pangunahing wika sa app</Text>
                   </View>
                 </View>
-                {language === 'tl' ? (
-                  <Check size={20} color={AnimoColors.accentPrimary} />
-                ) : null}
+                {language === 'tl' ? <Check size={20} color={AnimoColors.accentPrimary} /> : null}
               </Pressable>
 
               <Pressable
@@ -475,32 +544,28 @@ export default function BuyerProfileScreen() {
                   setLanguage('en');
                   setShowLanguageModal(false);
                 }}
-                style={[
-                  styles.langOption,
-                  language === 'en' && styles.langOptionActive,
-                ]}>
+                style={[styles.langOption, language === 'en' && styles.langOptionActive]}>
                 <View style={styles.langOptionLeft}>
                   <View>
                     <Text style={styles.langOptionTitle}>English</Text>
                     <Text style={styles.langOptionSubtitle}>Switch interface to English</Text>
                   </View>
                 </View>
-                {language === 'en' ? (
-                  <Check size={20} color={AnimoColors.accentPrimary} />
-                ) : null}
+                {language === 'en' ? <Check size={20} color={AnimoColors.accentPrimary} /> : null}
               </Pressable>
             </View>
           </SafeAreaView>
         </View>
       </Modal>
 
-      {/* Onboarding / Tutorial Walkthrough Modal */}
+      {/* Onboarding / Tutorial Walkthrough Modal for Buyers */}
       <OnboardingWalkthroughModal
         visible={showTutorialModal}
+        role="mamimili"
         onClose={() => setShowTutorialModal(false)}
       />
 
-      {/* Full Personal Information Details Modal */}
+      {/* Personal Information & Edit Modal */}
       <Modal
         visible={showPersonalInfoModal}
         animationType="slide"
@@ -508,116 +573,94 @@ export default function BuyerProfileScreen() {
         onRequestClose={() => setShowPersonalInfoModal(false)}>
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
-            <AnimoText variant="h2" color={AnimoColors.black}>
+            <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
               {t('profile.personalInfo')}
             </AnimoText>
             <Pressable
               onPress={() => setShowPersonalInfoModal(false)}
               hitSlop={8}
               style={styles.closeBtn}>
-              <X size={22} color={AnimoColors.black} />
+              <X size={22} color={AnimoColors.textHighEmphasis} />
             </Pressable>
           </View>
 
-          <ScrollView
-            contentContainerStyle={styles.modalScroll}
-            showsVerticalScrollIndicator={false}>
-            {/* Identity Card */}
-            <View style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <UserRound size={18} color={AnimoColors.green} />
-                <View style={styles.flex}>
-                  <AnimoText variant="caption" color={AnimoColors.muted}>
-                    Buong Pangalan
-                  </AnimoText>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    Maria Santos
-                  </AnimoText>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <ScrollView
+              contentContainerStyle={styles.modalScroll}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}>
+              <View style={styles.infoCard}>
+                <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={{ marginBottom: 4 }}>
+                  {isTagalog ? 'Account (Read-only)' : 'Account (Read-only)'}
+                </AnimoText>
+                <View style={styles.readOnlyField}>
+                  <Phone size={18} color={AnimoColors.accentPrimary} />
+                  <View style={styles.flex}>
+                    <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+                      {isTagalog ? 'Numero ng Telepono' : 'Phone Number'}
+                    </AnimoText>
+                    <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+                      {account?.phone || '—'}
+                    </AnimoText>
+                  </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.readOnlyField}>
+                  <Wallet size={18} color={AnimoColors.accentPrimary} />
+                  <View style={styles.flex}>
+                    <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+                      {isTagalog ? 'Wallet Address' : 'Wallet Address'}
+                    </AnimoText>
+                    <AnimoText variant="caption" color={AnimoColors.textHighEmphasis} numberOfLines={1} ellipsizeMode="middle">
+                      {account?.walletAddress ?? (isTagalog ? 'Wala pang wallet' : 'No wallet yet')}
+                    </AnimoText>
+                  </View>
                 </View>
               </View>
 
-              <View style={styles.divider} />
+              <View style={[styles.infoCard, { marginTop: AnimoSpacing.md }]}>
+                <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={{ marginBottom: 8 }}>
+                  {isTagalog ? 'Maaaring I-edit' : 'Editable Details'}
+                </AnimoText>
 
-              <View style={styles.infoRow}>
-                <Phone size={18} color={AnimoColors.green} />
-                <View style={styles.flex}>
-                  <AnimoText variant="caption" color={AnimoColors.muted}>
-                    Numero ng Telepono
+                <LabeledInput
+                  label={isTagalog ? 'Buong Pangalan' : 'Full Name'}
+                  placeholder="Juan Dela Cruz"
+                  autoCapitalize="words"
+                  value={editFullName}
+                  onChangeText={setEditFullName}
+                />
+
+                <LabeledInput
+                  label="GCash Number"
+                  placeholder="09171234567"
+                  keyboardType="number-pad"
+                  maxLength={11}
+                  value={editGcashNumber}
+                  onChangeText={(t) => setEditGcashNumber(t.replace(/\D/g, ''))}
+                  hint={isTagalog ? '11 digits, nagsisimula sa 09.' : '11 digits starting with 09.'}
+                />
+
+                {profileError ? (
+                  <AnimoText variant="caption" color={AnimoColors.danger} style={{ marginTop: 4 }}>
+                    {profileError}
                   </AnimoText>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    +63 917 890 1234
-                  </AnimoText>
-                </View>
+                ) : null}
               </View>
+            </ScrollView>
 
-              <View style={styles.divider} />
-
-              <View style={styles.infoRow}>
-                <Mail size={18} color={AnimoColors.green} />
-                <View style={styles.flex}>
-                  <AnimoText variant="caption" color={AnimoColors.muted}>
-                    Email Address
-                  </AnimoText>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    maria.santos.trader@gmail.com
-                  </AnimoText>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.infoRow}>
-                <MapPin size={18} color={AnimoColors.green} />
-                <View style={styles.flex}>
-                  <AnimoText variant="caption" color={AnimoColors.muted}>
-                    Pangunahing Lokasyon / Warehouse
-                  </AnimoText>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    Brgy. San Jose, Antipolo City, Rizal
-                  </AnimoText>
-                </View>
-              </View>
+            <View style={styles.modalFooter}>
+              <AnimoButton
+                label={isTagalog ? 'I-save ang Pagbabago' : 'Save Changes'}
+                onPress={handleSaveBuyerProfile}
+                loading={profileSaving}
+              />
             </View>
-
-            {/* Trading Profile Card */}
-            <AnimoText variant="h3" color={AnimoColors.black} style={styles.modalSectionLabel}>
-              Trading Profile
-            </AnimoText>
-            <View style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <Package size={18} color={AnimoColors.green} />
-                <View style={styles.flex}>
-                  <AnimoText variant="caption" color={AnimoColors.muted}>
-                    Kapasidad sa Pagbili
-                  </AnimoText>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    5,000 kg - 10,000 kg bawat buwan
-                  </AnimoText>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.infoRow}>
-                <CreditCard size={18} color={AnimoColors.green} />
-                <View style={styles.flex}>
-                  <AnimoText variant="caption" color={AnimoColors.muted}>
-                    Pangunahing Paraan ng Bayad
-                  </AnimoText>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    GCash & Cash on Pickup
-                  </AnimoText>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <AnimoButton
-              label={t('common.close')}
-              onPress={() => setShowPersonalInfoModal(false)}
-            />
-          </View>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
 
@@ -629,14 +672,14 @@ export default function BuyerProfileScreen() {
         onRequestClose={() => setShowBuyerPreferencesModal(false)}>
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
-            <AnimoText variant="h2" color={AnimoColors.black}>
+            <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
               {isTagalog ? 'Kagustuhan sa Pagbili' : 'Buying Preferences'}
             </AnimoText>
             <Pressable
               onPress={() => setShowBuyerPreferencesModal(false)}
               hitSlop={8}
               style={styles.closeBtn}>
-              <X size={22} color={AnimoColors.black} />
+              <X size={22} color={AnimoColors.textHighEmphasis} />
             </Pressable>
           </View>
 
@@ -644,7 +687,7 @@ export default function BuyerProfileScreen() {
             contentContainerStyle={styles.modalScroll}
             showsVerticalScrollIndicator={false}>
             {buyerPreferencesLoading ? (
-              <AnimoText variant="body" color={AnimoColors.muted}>
+              <AnimoText variant="body" color={AnimoColors.textLowEmphasis}>
                 {isTagalog ? 'Ikinakarga...' : 'Loading...'}
               </AnimoText>
             ) : (
@@ -668,7 +711,7 @@ export default function BuyerProfileScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* Top 5 Feedbacks Modal */}
+      {/* Feedbacks Modal */}
       <Modal
         visible={showFeedbacksModal}
         animationType="slide"
@@ -676,14 +719,16 @@ export default function BuyerProfileScreen() {
         onRequestClose={() => setShowFeedbacksModal(false)}>
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
-            <AnimoText variant="h2" color={AnimoColors.black}>
-              {isTagalog ? 'Rating at Feedback (Top 5)' : 'Ratings & Feedback (Top 5)'}
+            <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
+              {isTagalog ? 'Rating at Feedback' : 'Ratings & Feedback'}
             </AnimoText>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Isara ang modal"
               onPress={() => setShowFeedbacksModal(false)}
               hitSlop={8}
               style={styles.closeBtn}>
-              <X size={22} color={AnimoColors.black} />
+              <X size={22} color={AnimoColors.textHighEmphasis} />
             </Pressable>
           </View>
 
@@ -692,48 +737,70 @@ export default function BuyerProfileScreen() {
             showsVerticalScrollIndicator={false}>
             <View style={styles.ratingSummaryBanner}>
               <View style={styles.ratingBigWrap}>
-                <Text style={styles.ratingBigText}>4.9</Text>
+                <Text style={styles.ratingBigText}>
+                  {trustProfile && trustProfile.ratingCount > 0
+                    ? trustProfile.averageRating.toFixed(1)
+                    : '—'}
+                </Text>
                 <View style={styles.starsRow}>
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} size={16} color="#F9A825" fill="#F9A825" />
-                  ))}
+                  {[1, 2, 3, 4, 5].map((s) => {
+                    const rounded = trustProfile ? Math.round(trustProfile.averageRating) : 0;
+                    return (
+                      <Star
+                        key={s}
+                        size={16}
+                        color={s <= rounded ? '#F9A825' : '#D1D5DB'}
+                        fill={s <= rounded ? '#F9A825' : 'transparent'}
+                      />
+                    );
+                  })}
                 </View>
               </View>
               <Text style={styles.ratingSubCaption}>
                 {isTagalog
-                  ? '840 kabuuang review mula sa mga magsasaka sa Antipolo at Rizal'
-                  : '840 total reviews from farmers in Antipolo and Rizal'}
+                  ? `${reviewCount} kabuuang review mula sa mga magsasaka`
+                  : `${reviewCount} total reviews from farmers`}
               </Text>
             </View>
 
-            {TOP_BUYER_FEEDBACKS.map((fb) => (
-              <View key={fb.id} style={styles.feedbackCard}>
-                <View style={styles.feedbackHeader}>
-                  <View style={styles.flex}>
-                    <Text style={styles.feedbackAuthor}>{fb.author}</Text>
-                    <Text style={styles.feedbackDate}>{fb.date}</Text>
-                  </View>
-                  <View style={styles.starsRowSmall}>
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star key={s} size={13} color="#F9A825" fill="#F9A825" />
-                    ))}
-                  </View>
-                </View>
-                <Text style={styles.feedbackComment}>"{fb.comment}"</Text>
+            {feedbacks.length === 0 ? (
+              <View style={styles.emptyWrap}>
+                <Text style={styles.emptyText}>
+                  {isTagalog ? 'Wala pang natatanggap na review.' : 'No reviews received yet.'}
+                </Text>
               </View>
-            ))}
+            ) : (
+              feedbacks.map((fb) => (
+                <View key={fb.id} style={styles.feedbackCard}>
+                  <View style={styles.feedbackHeader}>
+                    <View style={styles.flex}>
+                      <Text style={styles.feedbackAuthor}>{fb.author}</Text>
+                      <Text style={styles.feedbackDate}>{fb.date}</Text>
+                    </View>
+                    <View style={styles.starsRowSmall}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          size={13}
+                          color={s <= fb.rating ? '#F9A825' : '#D1D5DB'}
+                          fill={s <= fb.rating ? '#F9A825' : 'transparent'}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                  <Text style={styles.feedbackComment}>"{fb.comment}"</Text>
+                </View>
+              ))
+            )}
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <AnimoButton
-              label={t('common.close')}
-              onPress={() => setShowFeedbacksModal(false)}
-            />
+            <AnimoButton label={t('common.close')} onPress={() => setShowFeedbacksModal(false)} />
           </View>
         </SafeAreaView>
       </Modal>
 
-      {/* Top 5 Recent Transactions Modal */}
+      {/* Recent Transactions Modal */}
       <Modal
         visible={showRecentTxnsModal}
         animationType="slide"
@@ -741,45 +808,57 @@ export default function BuyerProfileScreen() {
         onRequestClose={() => setShowRecentTxnsModal(false)}>
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
-            <AnimoText variant="h2" color={AnimoColors.black}>
-              {isTagalog ? 'Kamakailang Transaksyon (Top 5)' : 'Recent Transactions (Top 5)'}
+            <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
+              {isTagalog ? 'Kamakailang Transaksyon' : 'Recent Transactions'}
             </AnimoText>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Isara ang modal"
               onPress={() => setShowRecentTxnsModal(false)}
               hitSlop={8}
               style={styles.closeBtn}>
-              <X size={22} color={AnimoColors.black} />
+              <X size={22} color={AnimoColors.textHighEmphasis} />
             </Pressable>
           </View>
 
           <ScrollView
             contentContainerStyle={styles.modalScroll}
             showsVerticalScrollIndicator={false}>
-            {TOP_BUYER_TRANSACTIONS.map((tx) => (
-              <View key={tx.id} style={styles.txCard}>
-                <View style={styles.txHeader}>
-                  <View style={styles.flex}>
-                    <Text style={styles.txVariety}>{tx.variety}</Text>
-                    <Text style={styles.txSubtitle}>
-                      {isTagalog ? 'Magsasaka' : 'Farmer'}: {tx.farmer} · {tx.date}
-                    </Text>
-                  </View>
-                  <View style={styles.txStatusBadge}>
-                    <Text style={styles.txStatusText}>{tx.status}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.txFooterRow}>
-                  <View style={styles.txMetaLeft}>
-                    <Text style={styles.txRef}>{tx.id}</Text>
-                    <Text style={styles.txQuantity}>{tx.quantity}</Text>
-                  </View>
-                  <Text style={styles.txPrice}>{tx.price}</Text>
-                </View>
+            {transactions.length === 0 ? (
+              <View style={styles.emptyWrap}>
+                <Text style={styles.emptyText}>
+                  {isTagalog
+                    ? 'Wala pang natapos na transaksyon.'
+                    : 'No completed transactions yet.'}
+                </Text>
               </View>
-            ))}
+            ) : (
+              transactions.map((tx) => (
+                <View key={tx.id} style={styles.txCard}>
+                  <View style={styles.txHeader}>
+                    <View style={styles.flex}>
+                      <Text style={styles.txVariety}>{tx.variety}</Text>
+                      <Text style={styles.txSubtitle}>
+                        {isTagalog ? 'Magsasaka' : 'Farmer'}: {tx.farmer} · {tx.date}
+                      </Text>
+                    </View>
+                    <View style={styles.txStatusBadge}>
+                      <Text style={styles.txStatusText}>{tx.status}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <View style={styles.txFooterRow}>
+                    <View style={styles.txMetaLeft}>
+                      <Text style={styles.txRef}>{tx.id}</Text>
+                      <Text style={styles.txQuantity}>{tx.quantity}</Text>
+                    </View>
+                    <Text style={styles.txPrice}>{tx.price}</Text>
+                  </View>
+                </View>
+              ))
+            )}
           </ScrollView>
 
           <View style={styles.modalFooter}>
@@ -790,6 +869,20 @@ export default function BuyerProfileScreen() {
           </View>
         </SafeAreaView>
       </Modal>
+
+      {/* Profile Saved Success Modal */}
+      <FeedbackModal
+        visible={showProfileSavedModal}
+        tone="success"
+        title={isTagalog ? 'Na-save ang Profile' : 'Profile Saved'}
+        message={
+          isTagalog
+            ? 'Matagumpay na na-update ang iyong impormasyon.'
+            : 'Your profile information has been successfully updated.'
+        }
+        confirmLabel="OK"
+        onConfirm={() => setShowProfileSavedModal(false)}
+      />
 
       {/* Help Modal */}
       <FeedbackModal
@@ -798,8 +891,8 @@ export default function BuyerProfileScreen() {
         title={isTagalog ? 'Tulong at Suporta' : 'Help & Support'}
         message={
           isTagalog
-            ? 'Maaari kang makipag-ugnayan sa Tanggapan ng Pagsasaka (LGU Antipolo) o sa ANIMO Support Hotline sa 0917 123 4567 para sa anumang katanungan ukol sa kalakalan.'
-            : 'You can contact the Municipal Agriculture Office (LGU Antipolo) or ANIMO Support Hotline at 0917 123 4567 for any trading inquiries.'
+            ? 'Maaari kang makipag-ugnayan sa Tanggapan ng Pagsasaka (Municipal Agriculture Office) o sa ANIMO Support Helpdesk para sa anumang katanungan ukol sa kalakalan.'
+            : 'You can contact the Municipal Agriculture Office or ANIMO Support Helpdesk for any trading inquiries.'
         }
         confirmLabel={isTagalog ? 'OK' : 'Understood'}
         onConfirm={() => setShowHelpModal(false)}
@@ -1087,9 +1180,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: AnimoSpacing.md,
   },
-  langFlag: {
-    fontSize: 24,
-  },
   langOptionTitle: {
     ...AnimoType.bodyEmphasis,
     color: AnimoColors.textHighEmphasis,
@@ -1117,23 +1207,18 @@ const styles = StyleSheet.create({
     paddingVertical: AnimoSpacing.lg,
     gap: AnimoSpacing.md,
   },
-  modalSectionLabel: {
-    marginTop: AnimoSpacing.sm,
-    marginBottom: AnimoSpacing.xs,
-  },
   infoCard: {
     backgroundColor: AnimoColors.surfacePrimary,
+    borderRadius: AnimoRadius.lg,
+    padding: AnimoSpacing.lg,
     borderWidth: 1,
     borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    paddingVertical: AnimoSpacing.xs,
   },
-  infoRow: {
+  readOnlyField: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: AnimoSpacing.md,
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.md,
+    paddingVertical: AnimoSpacing.sm,
   },
   ratingSummaryBanner: {
     backgroundColor: AnimoColors.surfaceSecondary,
@@ -1264,6 +1349,16 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.surfacePrimary,
     borderTopWidth: 1,
     borderTopColor: AnimoColors.borderLowEmphasis,
+  },
+  emptyWrap: {
+    paddingVertical: AnimoSpacing.xxl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    ...AnimoType.body,
+    color: AnimoColors.textLowEmphasis,
+    textAlign: 'center',
   },
   pressed: {
     opacity: 0.88,

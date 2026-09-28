@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  Bell,
   CheckCheck,
   CloudDrizzle,
   CloudSun,
@@ -81,7 +80,6 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
   const { t, language, isTagalog } = useLanguage();
   const [alerts, setAlerts] = useState(() => getTriggerAlerts(language));
   const [selectedAlert, setSelectedAlert] = useState<TriggerAlert | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setAlerts(getTriggerAlerts(language));
@@ -104,24 +102,11 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
     );
   };
 
-  const handleSendFollowUp = () => {
-    setSelectedAlert(null);
-    setToastMessage(t('messages.followUpSuccess'));
-    setTimeout(() => setToastMessage(null), 4000);
-  };
-
   return (
     <ConsoleLayout
       title={t('messages.title')}
       subtitle={t('messages.subtitle')}
       onSignOut={onSignOut}>
-      {toastMessage && (
-        <div style={styles.toast}>
-          <Bell size={18} color="var(--animo-green)" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
       <div style={styles.grid}>
         <article className="animo-card" style={styles.panel}>
           <div style={styles.panelHead}>
@@ -269,8 +254,9 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
             <div style={styles.modalFooter}>
               <button
                 type="button"
-                onClick={handleSendFollowUp}
-                style={styles.actionBtnSecondary}>
+                disabled
+                style={{ ...styles.actionBtnSecondary, opacity: 0.55, cursor: 'not-allowed' }}
+                title={isTagalog ? 'Hindi pa available ang SMS broadcast sa prototype' : 'SMS gateway broadcast unavailable in prototype'}>
                 <Send size={16} />
                 {isTagalog ? 'Magpadala ng Follow-up SMS' : 'Send Follow-up SMS'}
               </button>

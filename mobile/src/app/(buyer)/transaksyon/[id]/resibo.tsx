@@ -198,7 +198,7 @@ export default function BuyerReceiptScreen() {
             </View>
           ))}
 
-          {receipt || receiptPending ? <View style={styles.rowDivider} /> : null}
+          <View style={styles.rowDivider} />
           {receipt ? (
             <Pressable
               accessibilityRole="link"
@@ -215,6 +215,13 @@ export default function BuyerReceiptScreen() {
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>{isTagalog ? 'Katibayan' : 'Proof of Record'}</Text>
               <ActivityIndicator size="small" color={AnimoColors.accentPrimary} />
+            </View>
+          ) : isCompleted ? (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>{isTagalog ? 'Katibayan' : 'Proof of Record'}</Text>
+              <Text style={{ ...styles.detailValue, color: AnimoColors.textLowEmphasis, fontStyle: 'italic' }}>
+                {isTagalog ? 'Katibayan hindi pa available' : 'Proof not yet available'}
+              </Text>
             </View>
           ) : null}
         </View>
