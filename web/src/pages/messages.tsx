@@ -1,134 +1,142 @@
 import { useEffect, useState } from 'react';
-import {
-  CheckCheck,
-  CloudDrizzle,
-  CloudSun,
-  Database,
-  Gavel,
-  MapPin,
-  Send,
-  TrendingUp,
-  UserCheck,
-  X,
-} from 'lucide-react';
+import { CheckCheck, CloudDrizzle, CloudSun, MapPin, Send, Users, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
+import type { WebTranslationKey } from '@/i18n/translations';
+import { getDeliveryChannels, getTriggerSummary } from '@/constants/dashboard';
 import {
-  getDeliveryChannels,
-  getTriggerAlerts,
-  getTriggerSummary,
-  type AlertKind,
-  type TriggerAlert,
-} from '@/constants/dashboard';
+  fetchLguAdvisoryOverview,
+  formatForecastTimestamp,
+  formatRegisteredDate,
+  type AdvisoryAction,
+  type LguAdvisoryGroup,
+  type LguAdvisoryOverview,
+} from '@/services/lgu-console-service';
 
 export type MessagesPageProps = {
   onSignOut: () => void;
 };
 
-/** Icon + tint per alert kind. */
-const ALERT_STYLE: Record<
-  AlertKind,
-  { icon: typeof CloudDrizzle; tint: string; color: string; badge: React.CSSProperties }
-> = {
-  severe: {
-    icon: CloudDrizzle,
-    tint: 'var(--animo-danger-tint)',
-    color: 'var(--animo-danger)',
-    badge: { background: 'var(--animo-danger-tint)', color: 'var(--animo-danger)' },
-  },
-  moderate: {
-    icon: CloudDrizzle,
-    tint: 'var(--animo-warning-tint)',
-    color: 'var(--animo-warning)',
-    badge: { background: 'var(--animo-warning-tint)', color: '#9A5F12' },
-  },
-  mild: {
-    icon: CloudDrizzle,
-    tint: 'var(--animo-caution-tint)',
-    color: '#B8901A',
-    badge: { background: 'var(--animo-caution-tint)', color: '#8A6D12' },
-  },
-  done: {
-    icon: CloudSun,
-    tint: 'var(--animo-green-tint)',
-    color: 'var(--animo-green)',
-    badge: { background: 'var(--animo-surface)', color: 'var(--animo-black-secondary)' },
-  },
-  price: {
-    icon: TrendingUp,
-    tint: '#E8F0FE',
-    color: '#3B82F6',
-    badge: { background: '#E8F0FE', color: '#2563EB' },
-  },
-  nfa: {
-    icon: Gavel,
-    tint: '#EFF6FF',
-    color: '#2563EB',
-    badge: { background: '#EFF6FF', color: '#2563EB' },
-  },
-  psa: {
-    icon: Database,
-    tint: 'var(--animo-green-tint)',
-    color: 'var(--animo-green)',
-    badge: { background: 'var(--animo-green-tint)', color: 'var(--animo-green)' },
-  },
+const ACTION_LABEL: Record<AdvisoryAction, WebTranslationKey> = {
+  Advance_Cut: 'advisory.actionAdvanceCut',
+  Delayed_Harvest: 'advisory.actionDelayedHarvest',
+  No_Action_Needed: 'advisory.actionNoAction',
 };
 
-/** Notification feed of automatic advisory and price triggers with detailed interactive modal. */
+const ACTION_COLOR: Record<AdvisoryAction, string> = {
+  Advance_Cut: 'var(--animo-danger)',
+  Delayed_Harvest: 'var(--animo-warning)',
+  No_Action_Needed: 'var(--animo-green)',
+};
+
+const ACTION_TINT: Record<AdvisoryAction, string> = {
+  Advance_Cut: 'var(--animo-danger-tint)',
+  Delayed_Harvest: 'var(--animo-warning-tint)',
+  No_Action_Needed: 'var(--animo-green-tint)',
+};
+
+/** Live advisory groups for the LGU alert list. Farmer counts are people holding the recommendation. */
 export function MessagesPage({ onSignOut }: MessagesPageProps) {
   const { t, language, isTagalog } = useLanguage();
-  const [alerts, setAlerts] = useState(() => getTriggerAlerts(language));
-  const [selectedAlert, setSelectedAlert] = useState<TriggerAlert | null>(null);
+  const [overview, setOverview] = useState<LguAdvisoryOverview | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<LguAdvisoryGroup | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  function loadOverview() {
+    setLoadError(null);
+    return fetchLguAdvisoryOverview()
+      .then(setOverview)
+      .catch((error: unknown) => {
+        setLoadError(error instanceof Error ? error.message : t('common.error'));
+      })
+      .finally(() => setLoading(false));
+  }
 
   useEffect(() => {
-    setAlerts(getTriggerAlerts(language));
-  }, [language]);
+    void loadOverview();
+  }, []);
 
+  useAutoRefresh(() => void loadOverview());
+
+  const groups = overview?.groups ?? [];
   const triggerSummary = getTriggerSummary(language);
   const deliveryChannels = getDeliveryChannels(language);
 
-  const unread = alerts.filter((alert) => alert.unread).length;
+  const forecastLabel = overview?.forecastFetchedAt
+    ? formatForecastTimestamp(overview.forecastFetchedAt, isTagalog)
+    : null;
+  const rainLine =
+    overview?.precipitationMmH != null && Number.isFinite(overview.precipitationMmH)
+      ? t('advisory.rainLine', { amount: overview.precipitationMmH.toFixed(1) })
+      : null;
+  const forecastBits = [
+    rainLine,
+    forecastLabel,
+    overview?.rainExpected == null
+      ? null
+      : overview.rainExpected
+        ? t('advisory.rainExpected')
+        : t('advisory.rainClear'),
+    overview?.isStale ? t('advisory.staleForecast') : null,
+  ].filter(Boolean);
 
-  const handleMarkAllRead = () => {
-    setAlerts((prev) => prev.map((a) => ({ ...a, unread: false })));
-  };
+  const actionLabel = (action: AdvisoryAction) => t(ACTION_LABEL[action]);
 
-  const handleOpenDetail = (alert: TriggerAlert) => {
-    setSelectedAlert(alert);
-    // Automatically mark this alert as read
-    setAlerts((prev) =>
-      prev.map((a) => (a.id === alert.id ? { ...a, unread: false } : a))
-    );
+  const actionIcon = (action: AdvisoryAction) => {
+    if (action === 'No_Action_Needed') return <CloudSun size={20} color={ACTION_COLOR[action]} />;
+    return <CloudDrizzle size={20} color={ACTION_COLOR[action]} />;
   };
 
   return (
     <ConsoleLayout
       title={t('messages.title')}
-      subtitle={t('messages.subtitle')}
+      subtitle={t('advisory.subtitle')}
       onSignOut={onSignOut}>
       <div style={styles.grid}>
         <article className="animo-card" style={styles.panel}>
           <div style={styles.panelHead}>
             <div>
               <h2 style={styles.panelTitle}>{t('messages.title')}</h2>
-              <p style={styles.panelSubtitle}>{t('messages.subtitle')}</p>
+              <p style={styles.panelSubtitle}>{t('advisory.sharedForecast')}</p>
+              {forecastBits.length > 0 ? (
+                <p style={styles.panelSubtitle}>{forecastBits.join(' · ')}</p>
+              ) : null}
             </div>
-            {unread > 0 ? (
-              <span style={styles.unreadBadge}>{unread} {t('header.unread')}</span>
-            ) : null}
+            <Link to="/advisory" style={styles.detailLink}>
+              {t('nav.advisory')} →
+            </Link>
           </div>
 
-          <div style={styles.alertList}>
-            {alerts.map((alert) => (
-              <AlertRow
-                key={alert.id}
-                alert={alert}
-                isTagalog={isTagalog}
-                onOpenDetail={() => handleOpenDetail(alert)}
-              />
-            ))}
-          </div>
+          {loading ? <p style={styles.notice}>{t('common.loading')}</p> : null}
+          {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
+          {!loading && !loadError && groups.length === 0 ? (
+            <p style={styles.notice}>{t('advisory.empty')}</p>
+          ) : null}
+
+          {groups.length > 0 ? (
+            <div style={styles.alertList}>
+              {groups.map((group) => (
+                <GroupRow
+                  key={`${group.barangay}-${group.recommendedAction}`}
+                  group={group}
+                  actionLabel={actionLabel(group.recommendedAction)}
+                  holdingLabel={t('advisory.farmersHolding', { count: group.farmerCount })}
+                  issuedLabel={
+                    group.latestIssued
+                      ? formatRegisteredDate(group.latestIssued, isTagalog)
+                      : t('common.none')
+                  }
+                  icon={actionIcon(group.recommendedAction)}
+                  detailLabel={isTagalog ? 'Tingnan ang detalye →' : 'View details →'}
+                  onOpenDetail={() => setSelectedGroup(group)}
+                />
+              ))}
+            </div>
+          ) : null}
         </article>
 
         <aside style={styles.sideColumn}>
@@ -164,7 +172,7 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
               </ul>
             </div>
 
-            <button type="button" onClick={handleMarkAllRead} style={styles.markRead}>
+            <button type="button" style={styles.markRead}>
               <CheckCheck size={18} />
               {t('messages.markAll')}
             </button>
@@ -172,33 +180,40 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
         </aside>
       </div>
 
-      {/* Full Detail Modal */}
-      {selectedAlert && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalCard}>
+      {selectedGroup ? (
+        <div style={styles.modalOverlay} onClick={() => setSelectedGroup(null)}>
+          <div
+            style={styles.modalCard}
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true">
             <div style={styles.modalHead}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span
                   style={{
                     ...styles.modalIconWrap,
-                    background: ALERT_STYLE[selectedAlert.kind].tint,
+                    background: ACTION_TINT[selectedGroup.recommendedAction],
                   }}>
-                  {(() => {
-                    const Icon = ALERT_STYLE[selectedAlert.kind].icon;
-                    return <Icon size={22} color={ALERT_STYLE[selectedAlert.kind].color} />;
-                  })()}
+                  {actionIcon(selectedGroup.recommendedAction)}
                 </span>
                 <div>
-                  <h2 style={styles.modalTitle}>{selectedAlert.title}</h2>
-                  <span style={{ ...styles.alertBadge, ...ALERT_STYLE[selectedAlert.kind].badge, marginTop: 4 }}>
-                    {selectedAlert.badge}
+                  <h2 style={styles.modalTitle}>{selectedGroup.barangay}</h2>
+                  <span
+                    style={{
+                      ...styles.alertBadge,
+                      background: ACTION_TINT[selectedGroup.recommendedAction],
+                      color: ACTION_COLOR[selectedGroup.recommendedAction],
+                      marginTop: 4,
+                    }}>
+                    {actionLabel(selectedGroup.recommendedAction)}
                   </span>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedAlert(null)}
-                style={styles.closeBtn}>
+                onClick={() => setSelectedGroup(null)}
+                style={styles.closeBtn}
+                aria-label={isTagalog ? 'Isara' : 'Close'}>
                 <X size={22} />
               </button>
             </div>
@@ -209,46 +224,32 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
                   <span style={styles.metaLabel}>
                     <MapPin size={15} color="var(--animo-muted)" /> {isTagalog ? 'Lokasyon:' : 'Location:'}
                   </span>
-                  <span style={styles.metaValue}>{selectedAlert.barangay || 'San Mateo, Rizal'}</span>
+                  <span style={styles.metaValue}>{selectedGroup.barangay}</span>
                 </div>
                 <div style={styles.metaRow}>
                   <span style={styles.metaLabel}>
-                    <UserCheck size={15} color="var(--animo-muted)" /> {isTagalog ? 'Tumatanggap:' : 'Recipients:'}
+                    <Users size={15} color="var(--animo-muted)" /> {t('advisory.farmerUnit')}
                   </span>
                   <span style={styles.metaValue}>
-                    {selectedAlert.recipientsCount || 38} {isTagalog ? 'rehistradong magsasaka / mamimili' : 'registered farmers / buyers'}
+                    {t('advisory.farmersHolding', { count: selectedGroup.farmerCount })}
                   </span>
                 </div>
                 <div style={styles.metaRow}>
-                  <span style={styles.metaLabel}>{isTagalog ? 'Pinagmulan:' : 'Source / Origin:'}</span>
+                  <span style={styles.metaLabel}>{t('advisory.issuedAt')}</span>
                   <span style={styles.metaValue}>
-                    {selectedAlert.sender || 'PAGASA Doppler Sensor & LGU Weather System'}
+                    {selectedGroup.latestIssued
+                      ? formatRegisteredDate(selectedGroup.latestIssued, isTagalog)
+                      : t('common.none')}
                   </span>
-                </div>
-                <div style={styles.metaRow}>
-                  <span style={styles.metaLabel}>{isTagalog ? 'Oras ng Paglabas:' : 'Issued Time:'}</span>
-                  <span style={styles.metaValue}>{selectedAlert.time}</span>
                 </div>
               </div>
 
               <div>
-                <h3 style={styles.detailSectionTitle}>{isTagalog ? 'Buong Nilalaman ng Mensahe' : 'Full Message Body'}</h3>
-                <p style={styles.fullMessageBody}>{selectedAlert.body}</p>
+                <h3 style={styles.detailSectionTitle}>{t('advisory.sharedForecast')}</h3>
+                <p style={styles.fullMessageBody}>
+                  {forecastBits.length > 0 ? forecastBits.join(' · ') : t('advisory.noForecast')}
+                </p>
               </div>
-
-              {selectedAlert.recommendations && selectedAlert.recommendations.length > 0 && (
-                <div>
-                  <h3 style={styles.detailSectionTitle}>{isTagalog ? 'Mga Inirerekomendang Aksyon' : 'Recommended Actions'}</h3>
-                  <ul style={styles.recList}>
-                    {selectedAlert.recommendations.map((rec, idx) => (
-                      <li key={idx} style={styles.recItem}>
-                        <span style={styles.recBullet} />
-                        <span>{rec}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
 
             <div style={styles.modalFooter}>
@@ -256,62 +257,62 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
                 type="button"
                 disabled
                 style={{ ...styles.actionBtnSecondary, opacity: 0.55, cursor: 'not-allowed' }}
-                title={isTagalog ? 'Hindi pa available ang SMS broadcast sa prototype' : 'SMS gateway broadcast unavailable in prototype'}>
+                title={
+                  isTagalog
+                    ? 'Hindi pa available ang SMS broadcast sa prototype'
+                    : 'SMS gateway broadcast unavailable in prototype'
+                }>
                 <Send size={16} />
                 {isTagalog ? 'Magpadala ng Follow-up SMS' : 'Send Follow-up SMS'}
               </button>
-              <button
-                type="button"
-                onClick={() => setSelectedAlert(null)}
-                style={styles.actionBtnPrimary}>
+              <button type="button" onClick={() => setSelectedGroup(null)} style={styles.actionBtnPrimary}>
                 {isTagalog ? 'Isara' : 'Close'}
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </ConsoleLayout>
   );
 }
 
-function AlertRow({
-  alert,
-  isTagalog,
+function GroupRow({
+  group,
+  actionLabel,
+  holdingLabel,
+  issuedLabel,
+  icon,
+  detailLabel,
   onOpenDetail,
 }: {
-  alert: TriggerAlert;
-  isTagalog: boolean;
+  group: LguAdvisoryGroup;
+  actionLabel: string;
+  holdingLabel: string;
+  issuedLabel: string;
+  icon: React.ReactNode;
+  detailLabel: string;
   onOpenDetail: () => void;
 }) {
-  const tone = ALERT_STYLE[alert.kind];
-  const Icon = tone.icon;
+  const tone = ACTION_COLOR[group.recommendedAction];
 
   return (
     <div style={styles.alertCard}>
-      <span style={{ ...styles.alertIcon, background: tone.tint }}>
-        <Icon size={20} color={tone.color} />
-      </span>
+      <span style={{ ...styles.alertIcon, background: ACTION_TINT[group.recommendedAction] }}>{icon}</span>
 
       <div style={styles.alertBody}>
         <div style={styles.alertTop}>
-          <span style={styles.alertTitle}>
-            {alert.title}
-            {alert.unread ? (
-              <span style={{ ...styles.unreadDot, background: tone.color }} />
-            ) : null}
+          <span style={styles.alertTitle}>{group.barangay}</span>
+          <span style={{ ...styles.alertBadge, background: ACTION_TINT[group.recommendedAction], color: tone }}>
+            {actionLabel}
           </span>
-          <span style={{ ...styles.alertBadge, ...tone.badge }}>{alert.badge}</span>
         </div>
 
-        <p style={styles.alertText}>{alert.body}</p>
+        <p style={styles.alertText}>{holdingLabel}</p>
 
         <div style={styles.alertFooter}>
-          <span style={styles.alertTime}>{alert.time}</span>
-          <button
-            type="button"
-            onClick={onOpenDetail}
-            style={styles.detailLink}>
-            {isTagalog ? 'Tingnan ang detalye \u2192' : 'View details \u2192'}
+          <span style={styles.alertTime}>{issuedLabel}</span>
+          <button type="button" onClick={onOpenDetail} style={styles.detailLink}>
+            {detailLabel}
           </button>
         </div>
       </div>
@@ -326,19 +327,6 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 18,
     alignItems: 'start',
   },
-  toast: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    padding: '14px 18px',
-    background: 'var(--animo-green-tint)',
-    border: '1px solid var(--animo-green)',
-    borderRadius: 'var(--animo-radius-md)',
-    color: 'var(--animo-black)',
-    fontSize: 15,
-    fontWeight: 600,
-    marginBottom: 8,
-  },
   sideColumn: { display: 'flex', flexDirection: 'column', gap: 18 },
   panel: { display: 'flex', flexDirection: 'column', gap: 18, padding: 24 },
   panelHead: {
@@ -350,14 +338,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   panelTitle: { margin: '0 0 4px', fontSize: 20, fontWeight: 800 },
   panelSubtitle: { margin: 0, fontSize: 14, color: 'var(--animo-black-secondary)' },
-  unreadBadge: {
-    padding: '5px 14px',
-    borderRadius: 'var(--animo-radius-pill)',
-    background: 'var(--animo-danger-tint)',
-    color: 'var(--animo-danger)',
-    fontSize: 13,
-    fontWeight: 700,
-  },
+  notice: { margin: 0, fontSize: 14, color: 'var(--animo-black-secondary)' },
+  errorNotice: { margin: 0, fontSize: 14, color: 'var(--animo-danger)' },
   alertList: { display: 'flex', flexDirection: 'column', gap: 12 },
   alertCard: {
     display: 'flex',
@@ -390,7 +372,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 16,
     fontWeight: 700,
   },
-  unreadDot: { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
   alertBadge: {
     display: 'inline-block',
     padding: '4px 12px',
@@ -405,7 +386,7 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: '21px',
     color: 'var(--animo-black-secondary)',
   },
-  alertFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+  alertFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, gap: 12 },
   alertTime: { fontSize: 13, color: 'var(--animo-muted)' },
   detailLink: {
     border: 'none',
@@ -415,6 +396,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     color: 'var(--animo-green)',
     cursor: 'pointer',
+    textDecoration: 'none',
   },
   summaryList: {
     listStyle: 'none',
@@ -544,6 +526,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     fontSize: 14,
+    gap: 12,
   },
   metaLabel: {
     color: 'var(--animo-muted)',
@@ -554,6 +537,7 @@ const styles: Record<string, React.CSSProperties> = {
   metaValue: {
     fontWeight: 700,
     color: 'var(--animo-black)',
+    textAlign: 'right',
   },
   detailSectionTitle: {
     margin: '0 0 8px',
@@ -566,30 +550,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 15,
     lineHeight: '22px',
     color: 'var(--animo-black-secondary)',
-  },
-  recList: {
-    listStyle: 'none',
-    margin: 0,
-    padding: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-  },
-  recItem: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 10,
-    fontSize: 14,
-    lineHeight: '20px',
-    color: 'var(--animo-black-secondary)',
-  },
-  recBullet: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    background: 'var(--animo-green)',
-    marginTop: 7,
-    flexShrink: 0,
   },
   modalFooter: {
     display: 'flex',
