@@ -650,3 +650,77 @@ export function priceDelta(current: number, previous: number | undefined): strin
   const sign = diff >= 0 ? '+' : '-';
   return `${sign}${formatPeso(Math.abs(diff))} (${sign}${Math.abs(pct).toFixed(1)}%)`;
 }
+
+export type AdvisoryAction = 'Advance_Cut' | 'Delayed_Harvest' | 'No_Action_Needed';
+
+export type LguAdvisoryGroup = {
+  barangay: string;
+  recommendedAction: AdvisoryAction;
+  farmerCount: number;
+  latestIssued: string;
+};
+
+export type LguAdvisoryOverview = {
+  precipitationMmH: number | null;
+  rainExpected: boolean | null;
+  isStale: boolean;
+  forecastFetchedAt: string | null;
+  groups: LguAdvisoryGroup[];
+};
+
+const ADVISORY_ACTIONS: AdvisoryAction[] = ['Advance_Cut', 'Delayed_Harvest', 'No_Action_Needed'];
+
+function isAdvisoryAction(value: string): value is AdvisoryAction {
+  return (ADVISORY_ACTIONS as string[]).includes(value);
+}
+
+/** Latest Antipolo forecast plus current recommendation counts. LGU-only RPC. */
+export async function fetchLguAdvisoryOverview(): Promise<LguAdvisoryOverview> {
+  const { data, error } = await supabase.rpc('lgu_advisory_overview');
+  if (error) throw error;
+
+  const body = (data ?? {}) as {
+    precipitation_mm_h?: number | string | null;
+    rain_expected?: boolean | null;
+    is_stale?: boolean | null;
+    forecast_fetched_at?: string | null;
+    groups?: Array<{
+      barangay?: string;
+      recommended_action?: string;
+      farmer_count?: number | string;
+      latest_issued?: string;
+    }>;
+  };
+
+  const groups: LguAdvisoryGroup[] = [];
+  for (const row of body.groups ?? []) {
+    const action = row.recommended_action ?? '';
+    if (!isAdvisoryAction(action) || !row.barangay) continue;
+    groups.push({
+      barangay: row.barangay,
+      recommendedAction: action,
+      farmerCount: Number(row.farmer_count) || 0,
+      latestIssued: row.latest_issued ?? '',
+    });
+  }
+
+  return {
+    precipitationMmH: body.precipitation_mm_h == null ? null : Number(body.precipitation_mm_h),
+    rainExpected: body.rain_expected ?? null,
+    isStale: Boolean(body.is_stale),
+    forecastFetchedAt: body.forecast_fetched_at ?? null,
+    groups,
+  };
+}
+
+export function formatForecastTimestamp(isoDate: string, isTagalog = true): string {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  return date.toLocaleString(isTagalog ? 'fil-PH' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
