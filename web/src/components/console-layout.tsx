@@ -2,18 +2,13 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import {
   Bell,
-  CheckCheck,
   CloudDrizzle,
   CloudSun,
-  Database,
-  Gavel,
   Layers,
   LogOut,
   MapPin,
   Settings2,
   ShoppingBag,
-  TrendingUp,
-  UserCheck,
   Users,
   X,
 } from 'lucide-react';
@@ -21,7 +16,14 @@ import {
 import { AnimoMark } from '@/components/animo-mark';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/lib/auth-context';
-import { getTriggerAlerts, type TriggerAlert } from '@/constants/dashboard';
+import {
+  fetchLguAdvisoryOverview,
+  formatForecastTimestamp,
+  formatRegisteredDate,
+  type AdvisoryAction,
+  type LguAdvisoryGroup,
+  type LguAdvisoryOverview,
+} from '@/services/lgu-console-service';
 
 const NAV_ICONS = {
   dashboard: Layers,
@@ -49,7 +51,7 @@ export function ConsoleLayout({
   children,
 }: ConsoleLayoutProps) {
   const { session } = useAuth();
-  const { t, language, isTagalog } = useLanguage();
+  const { t, isTagalog } = useLanguage();
 
   const navItems = [
     { key: 'dashboard', label: t('nav.dashboard'), sublabel: t('nav.dashboardSub'), path: '/dashboard' },
@@ -70,15 +72,37 @@ export function ConsoleLayout({
   const officerName = session?.fullName ?? t('header.officer');
 
   const [showNotifications, setShowNotifications] = useState(false);
-  const [alerts, setAlerts] = useState(() => getTriggerAlerts(language));
-  const [selectedAlert, setSelectedAlert] = useState<TriggerAlert | null>(null);
+  const [overview, setOverview] = useState<LguAdvisoryOverview | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<LguAdvisoryGroup | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setAlerts(getTriggerAlerts(language));
-  }, [language]);
+    let cancelled = false;
+    fetchLguAdvisoryOverview()
+      .then((next) => {
+        if (!cancelled) setOverview(next);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : t('common.error'));
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
 
-  const unreadCount = alerts.filter((a) => a.unread).length;
+  const groups = overview?.groups ?? [];
+  const forecastLabel = overview?.forecastFetchedAt
+    ? formatForecastTimestamp(overview.forecastFetchedAt, isTagalog)
+    : null;
+  const rainLine =
+    overview?.precipitationMmH != null && Number.isFinite(overview.precipitationMmH)
+      ? t('advisory.rainLine', { amount: overview.precipitationMmH.toFixed(1) })
+      : null;
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -98,49 +122,32 @@ export function ConsoleLayout({
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        setSelectedAlert(null);
+        setSelectedGroup(null);
       }
     }
-    if (selectedAlert) {
+    if (selectedGroup) {
       window.addEventListener('keydown', handleKeyDown);
     }
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedAlert]);
+  }, [selectedGroup]);
 
-  const handleMarkAllRead = () => {
-    setAlerts((prev) => prev.map((a) => ({ ...a, unread: false })));
+  const actionLabel = (action: AdvisoryAction) => {
+    if (action === 'Advance_Cut') return t('advisory.actionAdvanceCut');
+    if (action === 'Delayed_Harvest') return t('advisory.actionDelayedHarvest');
+    return t('advisory.actionNoAction');
   };
 
-  const handleAlertClick = (alert: TriggerAlert) => {
-    // 1. Mark this specific alert as read (lowers unreadCount badge immediately)
-    setAlerts((prev) =>
-      prev.map((a) => (a.id === alert.id ? { ...a, unread: false } : a))
-    );
-    // 2. Open full message detail modal
-    setSelectedAlert({ ...alert, unread: false });
-    // 3. Close the dropdown popover
+  const actionIcon = (action: AdvisoryAction) => {
+    if (action === 'No_Action_Needed') return <CloudSun size={18} color="var(--animo-green)" />;
+    if (action === 'Delayed_Harvest') return <CloudDrizzle size={18} color="var(--animo-warning)" />;
+    return <CloudDrizzle size={18} color="var(--animo-danger)" />;
+  };
+
+  const openGroup = (group: LguAdvisoryGroup) => {
+    setSelectedGroup(group);
     setShowNotifications(false);
-  };
-
-  const getAlertIcon = (kind: string) => {
-    switch (kind) {
-      case 'severe':
-      case 'moderate':
-      case 'mild':
-        return <CloudDrizzle size={18} color="var(--animo-danger)" />;
-      case 'done':
-        return <CloudSun size={18} color="var(--animo-green)" />;
-      case 'nfa':
-        return <Gavel size={18} color="var(--animo-green)" />;
-      case 'psa':
-        return <Database size={18} color="#2563EB" />;
-      case 'price':
-        return <TrendingUp size={18} color="var(--animo-warning)" />;
-      default:
-        return <Bell size={18} color="var(--animo-green)" />;
-    }
   };
 
   return (
@@ -224,76 +231,62 @@ export function ConsoleLayout({
                 }}
                 aria-label={t('header.notifications')}>
                 <Bell size={20} color="var(--animo-black)" />
-                {unreadCount > 0 && (
-                  <span style={styles.bellBadge}>{unreadCount}</span>
+                {groups.length > 0 && (
+                  <span style={styles.bellBadge}>{groups.length}</span>
                 )}
               </button>
 
-              {/* Notification Window Dropdown Popover */}
               {showNotifications && (
                 <div style={styles.notifPopover}>
                   <div style={styles.notifHeader}>
                     <div>
                       <h3 style={styles.notifTitle}>{t('header.notifications')}</h3>
                       <p style={styles.notifSub}>
-                        {unreadCount > 0
-                          ? `${unreadCount} ${t('header.unread')}`
-                          : t('header.noNotifications')}
+                        {loadError
+                          ? loadError
+                          : !loaded
+                            ? t('common.loading')
+                            : groups.length === 0
+                              ? t('header.noNotifications')
+                              : [rainLine, forecastLabel].filter(Boolean).join(' · ') || t('header.noNotifications')}
                       </p>
                     </div>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      {unreadCount > 0 && (
-                        <button
-                          type="button"
-                          onClick={handleMarkAllRead}
-                          style={styles.markReadBtn}
-                          title={t('header.markAllRead')}>
-                          <CheckCheck size={16} />
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setShowNotifications(false)}
-                        style={styles.closeNotifBtn}>
-                        <X size={18} />
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowNotifications(false)}
+                      style={styles.closeNotifBtn}>
+                      <X size={18} />
+                    </button>
                   </div>
 
                   <div style={styles.notifList}>
-                    {alerts.slice(0, 4).map((alert) => (
+                    {groups.map((group) => (
                       <div
-                        key={alert.id}
+                        key={`${group.barangay}-${group.recommendedAction}`}
                         role="button"
                         tabIndex={0}
-                        onClick={() => handleAlertClick(alert)}
+                        onClick={() => openGroup(group)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            handleAlertClick(alert);
+                            openGroup(group);
                           }
                         }}
-                        style={{
-                          ...styles.notifItem,
-                          ...(alert.unread ? styles.notifItemUnread : null),
-                        }}>
-                        <span style={styles.notifIconWrap}>
-                          {getAlertIcon(alert.kind)}
-                        </span>
+                        style={styles.notifItem}>
+                        <span style={styles.notifIconWrap}>{actionIcon(group.recommendedAction)}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={styles.notifItemTitleRow}>
-                            <span style={styles.notifItemTitle}>
-                              {alert.title}
-                            </span>
-                            {alert.unread && (
-                              <span style={styles.notifDot} />
-                            )}
+                            <span style={styles.notifItemTitle}>{group.barangay}</span>
                           </div>
-                          <p style={styles.notifItemBody}>{alert.body}</p>
+                          <p style={styles.notifItemBody}>{actionLabel(group.recommendedAction)}</p>
                           <div style={styles.notifItemFooter}>
-                            <span style={styles.notifItemTime}>{alert.time}</span>
+                            <span style={styles.notifItemTime}>
+                              {group.latestIssued
+                                ? formatRegisteredDate(group.latestIssued, isTagalog)
+                                : t('common.none')}
+                            </span>
                             <span style={styles.notifItemReadMore}>
-                              {isTagalog ? 'Basahin \u2192' : 'Read details \u2192'}
+                              {t('advisory.farmersHolding', { count: group.farmerCount })}
                             </span>
                           </div>
                         </div>
@@ -303,10 +296,10 @@ export function ConsoleLayout({
 
                   <div style={styles.notifFooter}>
                     <Link
-                      to="/messages"
+                      to="/advisory"
                       onClick={() => setShowNotifications(false)}
                       style={styles.viewAllLink}>
-                      {t('header.viewAll')} &rarr;
+                      {t('nav.advisory')} &rarr;
                     </Link>
                   </div>
                 </div>
@@ -326,11 +319,10 @@ export function ConsoleLayout({
 
         {children}
 
-        {/* Full Message Detail Modal */}
-        {selectedAlert && (
+        {selectedGroup && (
           <div
             style={styles.modalOverlay}
-            onClick={() => setSelectedAlert(null)}>
+            onClick={() => setSelectedGroup(null)}>
             <div
               style={styles.modalCard}
               onClick={(e) => e.stopPropagation()}
@@ -338,19 +330,15 @@ export function ConsoleLayout({
               aria-modal="true">
               <div style={styles.modalHead}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={styles.modalIconWrap}>
-                    {getAlertIcon(selectedAlert.kind)}
-                  </span>
+                  <span style={styles.modalIconWrap}>{actionIcon(selectedGroup.recommendedAction)}</span>
                   <div>
-                    <h2 style={styles.modalTitle}>{selectedAlert.title}</h2>
-                    <span style={styles.modalBadge}>
-                      {selectedAlert.badge}
-                    </span>
+                    <h2 style={styles.modalTitle}>{selectedGroup.barangay}</h2>
+                    <span style={styles.modalBadge}>{actionLabel(selectedGroup.recommendedAction)}</span>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSelectedAlert(null)}
+                  onClick={() => setSelectedGroup(null)}
                   style={styles.closeBtn}
                   aria-label="Close modal">
                   <X size={20} />
@@ -363,56 +351,37 @@ export function ConsoleLayout({
                     <span style={styles.metaLabel}>
                       <MapPin size={15} color="var(--animo-muted)" /> {isTagalog ? 'Lokasyon:' : 'Location:'}
                     </span>
-                    <span style={styles.metaValue}>{selectedAlert.barangay || 'San Mateo, Rizal'}</span>
+                    <span style={styles.metaValue}>{selectedGroup.barangay}</span>
                   </div>
                   <div style={styles.metaRow}>
                     <span style={styles.metaLabel}>
-                      <UserCheck size={15} color="var(--animo-muted)" /> {isTagalog ? 'Tumatanggap:' : 'Recipients:'}
+                      <Users size={15} color="var(--animo-muted)" /> {t('advisory.farmerUnit')}
                     </span>
                     <span style={styles.metaValue}>
-                      {selectedAlert.recipientsCount || 38} {isTagalog ? 'rehistradong magsasaka / mamimili' : 'registered farmers / buyers'}
+                      {t('advisory.farmersHolding', { count: selectedGroup.farmerCount })}
                     </span>
                   </div>
                   <div style={styles.metaRow}>
-                    <span style={styles.metaLabel}>{isTagalog ? 'Pinagmulan:' : 'Source / Origin:'}</span>
+                    <span style={styles.metaLabel}>{t('advisory.issuedAt')}</span>
                     <span style={styles.metaValue}>
-                      {selectedAlert.sender || 'PAGASA Doppler Sensor & LGU Weather System'}
+                      {selectedGroup.latestIssued
+                        ? formatRegisteredDate(selectedGroup.latestIssued, isTagalog)
+                        : t('common.none')}
                     </span>
                   </div>
-                  <div style={styles.metaRow}>
-                    <span style={styles.metaLabel}>{isTagalog ? 'Oras ng Paglabas:' : 'Issued Time:'}</span>
-                    <span style={styles.metaValue}>{selectedAlert.time}</span>
-                  </div>
                 </div>
 
-                <div>
-                  <h3 style={styles.detailSectionTitle}>
-                    {isTagalog ? 'Buong Nilalaman ng Mensahe' : 'Full Message Body'}
-                  </h3>
-                  <p style={styles.fullMessageBody}>{selectedAlert.body}</p>
-                </div>
-
-                {selectedAlert.recommendations && selectedAlert.recommendations.length > 0 && (
-                  <div>
-                    <h3 style={styles.detailSectionTitle}>
-                      {isTagalog ? 'Mga Inirerekomendang Aksyon' : 'Recommended Actions'}
-                    </h3>
-                    <ul style={styles.recList}>
-                      {selectedAlert.recommendations.map((rec, idx) => (
-                        <li key={idx} style={styles.recItem}>
-                          <span style={styles.recBullet} />
-                          <span>{rec}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                <p style={styles.fullMessageBody}>
+                  {t('advisory.sharedForecast')}
+                  {rainLine ? ` ${rainLine}.` : ''}
+                  {forecastLabel ? ` ${forecastLabel}.` : ''}
+                </p>
               </div>
 
               <div style={styles.modalFooter}>
                 <button
                   type="button"
-                  onClick={() => setSelectedAlert(null)}
+                  onClick={() => setSelectedGroup(null)}
                   style={styles.actionBtnPrimary}>
                   {isTagalog ? 'Isara' : 'Close'}
                 </button>
