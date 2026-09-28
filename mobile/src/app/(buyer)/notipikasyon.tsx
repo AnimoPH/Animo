@@ -15,6 +15,7 @@ import {
   formatNotificationTime,
   markAllNotificationsRead,
   markNotificationRead,
+  notificationText,
   type InboxNotification,
   type NotificationCategory,
 } from '@/services/notification-service';
@@ -111,7 +112,9 @@ export default function NotificationsScreen() {
             </AnimoText>
           </View>
         ) : (
-          filteredItems.map((item) => (
+          filteredItems.map((item) => {
+            const text = notificationText(item, isTagalog);
+            return (
             <Pressable
               key={item.id}
               style={[styles.notificationCard, !item.read && styles.unreadCard]}
@@ -133,20 +136,21 @@ export default function NotificationsScreen() {
               <View style={styles.textWrap}>
                 <View style={styles.topRow}>
                   <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.flex}>
-                    {item.title}
+                    {text.title}
                   </AnimoText>
                   {!item.read && <View style={styles.unreadDot} />}
                 </View>
-                <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-                  {item.body}
-                </AnimoText>
+                  <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+                    {text.body}
+                  </AnimoText>
                 <AnimoText variant="tag" color={AnimoColors.textLowEmphasis}>
                   {formatNotificationTime(item.createdAt, isTagalog)}
                 </AnimoText>
               </View>
               {item.targetRoute ? <ChevronRight size={18} color={AnimoColors.muted} /> : null}
             </Pressable>
-          ))
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>

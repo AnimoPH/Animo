@@ -1,16 +1,82 @@
+import { actionLabel, type RecommendedAction } from '@/services/advisory-service';
 import { supabase } from '@/lib/supabase';
 
 export type NotificationCategory = 'lahat' | 'transaksyon' | 'palengke' | 'sistema';
 
 export type InboxNotification = {
   id: string;
-  title: string;
-  body: string;
+  kind: string;
+  rawTitle: string;
+  rawBody: string;
   createdAt: string;
   read: boolean;
   category: 'transaksyon' | 'sistema';
   targetRoute: string | null;
 };
+
+const ADVISORY_ACTIONS = new Set<RecommendedAction>(['Advance_Cut', 'Delayed_Harvest', 'No_Action_Needed']);
+const GENERIC_SUSPEND_BODY = 'Na-suspend ang iyong account.';
+
+function isAdvisoryAction(value: string): value is RecommendedAction {
+  return ADVISORY_ACTIONS.has(value as RecommendedAction);
+}
+
+/** Screen copy for a queue row. Stored SQL text is only a fallback. */
+export function notificationText(item: InboxNotification, isTagalog: boolean): { title: string; body: string } {
+  const lang = isTagalog ? 'tl' : 'en';
+
+  if (item.kind === 'advisory') {
+    const weather = item.rawTitle === 'Babala sa Panahon';
+    const title = weather
+      ? isTagalog ? 'Babala sa Panahon' : 'Weather warning'
+      : isTagalog ? 'Payo sa Bukid' : 'Farm Advisory';
+    const body = isAdvisoryAction(item.rawBody)
+      ? isTagalog
+        ? `Ang rekomendasyon para sa iyong pananim ay ${actionLabel(item.rawBody, lang)}.`
+        : `The recommendation for your crop is ${actionLabel(item.rawBody, lang)}.`
+      : isTagalog
+        ? 'May bagong payo para sa iyong pananim.'
+        : 'There is a new advisory for your crop.';
+    return { title, body };
+  }
+
+  if (item.kind === 'purchase_request_accepted') {
+    return isTagalog
+      ? { title: 'Tinanggap ang kahilingan', body: 'Tinanggap ng magsasaka ang iyong kahilingan sa pagbili.' }
+      : { title: 'Purchase request accepted', body: 'The farmer accepted your purchase request.' };
+  }
+
+  if (item.kind === 'purchase_request_rejected') {
+    return isTagalog
+      ? { title: 'Tinanggihan ang kahilingan', body: 'Tinanggihan ng magsasaka ang iyong kahilingan sa pagbili.' }
+      : { title: 'Purchase request declined', body: 'The farmer declined your purchase request.' };
+  }
+
+  if (item.kind === 'transaction_completed') {
+    return isTagalog
+      ? { title: 'Tapos na ang transaksyon', body: 'Kumpleto na ang iyong transaksyon.' }
+      : { title: 'Transaction completed', body: 'Your transaction is complete.' };
+  }
+
+  if (item.kind === 'account_suspended') {
+    const reason = item.rawBody.trim();
+    const generic = reason.length === 0 || reason === GENERIC_SUSPEND_BODY;
+    return {
+      title: isTagalog ? 'Na-suspend ang account' : 'Account suspended',
+      body: generic
+        ? isTagalog ? 'Na-suspend ang iyong account.' : 'Your account has been suspended.'
+        : reason,
+    };
+  }
+
+  if (item.kind === 'account_unsuspended') {
+    return isTagalog
+      ? { title: 'Naibalik ang account', body: 'Naibalik na ang access ng iyong account.' }
+      : { title: 'Account restored', body: 'Your account access has been restored.' };
+  }
+
+  return { title: item.rawTitle, body: item.rawBody };
+}
 
 const TRANSACTION_KINDS = new Set([
   'purchase_request_accepted',
@@ -47,8 +113,9 @@ export async function fetchMyNotifications(role: 'farmer' | 'buyer'): Promise<In
     const kind = row.data?.type ?? '';
     return {
       id: row.notification_id,
-      title: row.title,
-      body: row.body,
+      kind,
+      rawTitle: row.title,
+      rawBody: row.body,
       createdAt: row.created_at,
       read: row.read_at != null,
       category: TRANSACTION_KINDS.has(kind) ? 'transaksyon' : 'sistema',
