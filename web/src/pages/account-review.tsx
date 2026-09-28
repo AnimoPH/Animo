@@ -311,7 +311,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
               <p style={styles.profileSub}>
                 ID: <strong>{userId.slice(0, 8).toUpperCase()}</strong>
                 {isFarmer
-                  ? ` · ${barangay}, San Mateo, Rizal`
+                  ? ` · ${barangay}, Antipolo, Rizal`
                   : isTagalog
                     ? ' · Mamimili · Rizal'
                     : ' · Buyer · Rizal'}

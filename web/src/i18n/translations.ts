@@ -120,7 +120,7 @@ export const WEB_TRANSLATIONS = {
     'dash.activeListingsMetric': 'Aktibong Listahan',
     'dash.activeListingsDesc': 'Nakalistang ani sa mga barangay',
     'dash.registeredFarmersMetric': 'Rehistradong Magsasaka',
-    'dash.registeredFarmersDesc': 'May verified na profile sa San Mateo',
+    'dash.registeredFarmersDesc': 'May verified na profile sa Antipolo',
 
     // Advisory Page
     'advisory.title': 'Pagsubaybay sa Payo',
@@ -147,7 +147,7 @@ export const WEB_TRANSLATIONS = {
 
     // Farmers Directory
     'farmers.title': 'Mga Magsasaka',
-    'farmers.subtitle': 'Farmers Directory · Talaan ng mga rehistradong magsasaka sa San Mateo',
+    'farmers.subtitle': 'Farmers Directory · Talaan ng mga rehistradong magsasaka sa Antipolo',
     'farmers.searchPlaceholder': 'Maghanap ayon sa pangalan o Farmer ID…',
     'farmers.filterBarangay': 'Barangay:',
     'farmers.filterStatus': 'Katayuan:',
@@ -356,7 +356,7 @@ export const WEB_TRANSLATIONS = {
     'dash.activeListingsMetric': 'Active Listings',
     'dash.activeListingsDesc': 'Harvests listed across barangays',
     'dash.registeredFarmersMetric': 'Registered Farmers',
-    'dash.registeredFarmersDesc': 'Verified profiles in San Mateo',
+    'dash.registeredFarmersDesc': 'Verified profiles in Antipolo',
 
     // Advisory Page
     'advisory.title': 'Advisory Monitoring',
@@ -383,7 +383,7 @@ export const WEB_TRANSLATIONS = {
 
     // Farmers Directory
     'farmers.title': 'Farmers Directory',
-    'farmers.subtitle': 'Farmers Directory · Registry of registered farmers in San Mateo',
+    'farmers.subtitle': 'Farmers Directory · Registry of registered farmers in Antipolo',
     'farmers.searchPlaceholder': 'Search by farmer name or ID…',
     'farmers.filterBarangay': 'Barangay:',
     'farmers.filterStatus': 'Status:',

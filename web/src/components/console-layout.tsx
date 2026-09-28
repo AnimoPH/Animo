@@ -311,7 +311,7 @@ export function ConsoleLayout({
               <span style={styles.avatar}>{officerInitials}</span>
               <span>
                 <span style={styles.userName}>{officerName}</span>
-                <span style={styles.userRole}>LGU San Mateo, Rizal</span>
+                <span style={styles.userRole}>LGU Antipolo, Rizal</span>
               </span>
             </Link>
           </div>

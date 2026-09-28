@@ -163,8 +163,8 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
             <h2 style={styles.panelTitle}>{t('farmers.title')}</h2>
             <p style={styles.panelSubtitle}>
               {isTagalog
-                ? 'Talaan ng mga magsasaka at pag-verify ng account · LGU San Mateo, Rizal'
-                : 'Farmer registry & account verification · LGU San Mateo, Rizal'}
+                ? 'Talaan ng mga magsasaka at pag-verify ng account · LGU Antipolo, Rizal'
+                : 'Farmer registry & account verification · LGU Antipolo, Rizal'}
             </p>
           </div>
         </div>
