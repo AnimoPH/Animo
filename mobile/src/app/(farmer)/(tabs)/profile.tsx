@@ -32,10 +32,12 @@ import {
   AnimoType,
 } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { barangayLabel } from '@/constants/profile-options';
 import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
 import { supabase } from '@/lib/supabase';
 import { fetchTrustProfile, type TrustProfile } from '@/services/farmer-public-profile';
+import { displayStageForMatch, getDisplayStageLabel } from '@/types/transaction';
 import { fetchCounterpartNames, fetchFarmerTransactions } from '@/services/transaction-service';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
@@ -146,7 +148,7 @@ export default function FarmerProfileScreen() {
             price: formatPeso(tx.payment?.amount ?? tx.totalAmount),
             buyer: buyerNames.get(tx.buyerId) || (isTagalog ? 'Mamimili' : 'Buyer'),
             date,
-            status: tx.status === 'Completed' ? (isTagalog ? 'Kumpleto' : 'Completed') : tx.status,
+            status: getDisplayStageLabel(displayStageForMatch(tx), isTagalog ? 'tl' : 'en'),
           };
         });
         setTransactions(mappedTxns);
@@ -178,10 +180,11 @@ export default function FarmerProfileScreen() {
   };
 
   const fullName = account?.fullName || 'Magsasaka';
-  const location = account?.barangay
-    ? account.barangay.startsWith('Brgy.')
-      ? `${account.barangay}, Rizal`
-      : `Brgy. ${account.barangay}, Rizal`
+  const namedBarangay = barangayLabel(account?.barangay);
+  const location = namedBarangay
+    ? namedBarangay.startsWith('Brgy.')
+      ? `${namedBarangay}, Rizal`
+      : `Brgy. ${namedBarangay}, Rizal`
     : 'Rizal';
   const gcashDisplay = account?.gcashNumber
     ? `${account.gcashNumber.slice(0, 4)} **** ${account.gcashNumber.slice(-3)}`

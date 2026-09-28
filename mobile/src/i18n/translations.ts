@@ -282,10 +282,10 @@ export const TRANSLATIONS = {
 
     // Profile & Settings
     'profile.title': 'Profile',
-    'profile.rating': 'Rating',
-    'profile.reviews': 'Reviews',
+    'profile.rating': 'Marka',
+    'profile.reviews': 'Mga Puna',
     'profile.transactions': 'Transaksyon',
-    'profile.accountInfo': 'Account Information',
+    'profile.accountInfo': 'Impormasyon ng Account',
     'profile.personalInfo': 'Personal na Impormasyon',
     'profile.personalInfoDesc': 'Pangalan, Contact, Address, at iba pa.',
     'profile.paymentMethods': 'Paraan ng Pagbabayad',

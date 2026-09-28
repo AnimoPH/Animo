@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { AnimoMark } from '@/components/animo-mark';
+import { barangayLabel } from '@/lib/barangay-label';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -276,7 +277,7 @@ export function ConsoleLayout({
                         <span style={styles.notifIconWrap}>{actionIcon(group.recommendedAction)}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={styles.notifItemTitleRow}>
-                            <span style={styles.notifItemTitle}>{group.barangay}</span>
+                            <span style={styles.notifItemTitle}>{barangayLabel(group.barangay)}</span>
                           </div>
                           <p style={styles.notifItemBody}>{actionLabel(group.recommendedAction)}</p>
                           <div style={styles.notifItemFooter}>
@@ -332,7 +333,7 @@ export function ConsoleLayout({
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <span style={styles.modalIconWrap}>{actionIcon(selectedGroup.recommendedAction)}</span>
                   <div>
-                    <h2 style={styles.modalTitle}>{selectedGroup.barangay}</h2>
+                    <h2 style={styles.modalTitle}>{barangayLabel(selectedGroup.barangay)}</h2>
                     <span style={styles.modalBadge}>{actionLabel(selectedGroup.recommendedAction)}</span>
                   </div>
                 </div>
@@ -351,7 +352,7 @@ export function ConsoleLayout({
                     <span style={styles.metaLabel}>
                       <MapPin size={15} color="var(--animo-muted)" /> {isTagalog ? 'Lokasyon:' : 'Location:'}
                     </span>
-                    <span style={styles.metaValue}>{selectedGroup.barangay}</span>
+                    <span style={styles.metaValue}>{barangayLabel(selectedGroup.barangay)}</span>
                   </div>
                   <div style={styles.metaRow}>
                     <span style={styles.metaLabel}>

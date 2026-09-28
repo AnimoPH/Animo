@@ -13,6 +13,7 @@ import {
 import { ConsoleLayout } from '@/components/console-layout';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/lib/auth-context';
+import { barangayLabel } from '@/lib/barangay-label';
 import { supabase } from '@/lib/supabase';
 import { getLegalLinks } from '@/constants/dashboard';
 import {
@@ -74,7 +75,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
           setRegisteredDate(formatRegisteredDate(profile.dateRegistered, isTagalog));
         }
         setBarangayCoverage(
-          barangays.length > 0 ? barangays.join(', ') : isTagalog ? 'Walang nakatala pa' : 'None recorded yet',
+          barangays.length > 0 ? barangays.map((name) => barangayLabel(name)).join(', ') : isTagalog ? 'Walang nakatala pa' : 'None recorded yet',
         );
         setPriceHistory(history);
       })

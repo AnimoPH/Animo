@@ -53,6 +53,7 @@ import {
 } from '@/services/buyer-preferences-service';
 import { fetchTrustProfile, type TrustProfile } from '@/services/farmer-public-profile';
 import { fetchBuyerTransactions, fetchCounterpartNames } from '@/services/transaction-service';
+import { displayStageForMatch, getDisplayStageLabel } from '@/types/transaction';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
 const GCASH_NUMBER_PATTERN = /^09\d{9}$/;
@@ -191,7 +192,7 @@ export default function BuyerProfileScreen() {
             price: formatPeso(tx.payment?.amount ?? tx.totalAmount),
             farmer: farmerNames.get(tx.farmerId) || (isTagalog ? 'Magsasaka' : 'Farmer'),
             date,
-            status: tx.status === 'Completed' ? (isTagalog ? 'Kumpleto' : 'Completed') : tx.status,
+            status: getDisplayStageLabel(displayStageForMatch(tx), isTagalog ? 'tl' : 'en'),
           };
         });
         setTransactions(mappedTxns);

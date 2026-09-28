@@ -7,6 +7,21 @@ import type { SelectOption } from '@/components/animo/select-field';
  * API keyed by location once the backend exists.
  */
 
+/** Show a stored barangay slug as its registration label. `san-jose` becomes San Jose. */
+export function barangayLabel(value: string | null | undefined): string {
+  if (!value) return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const known = BARANGAYS.find((option) => option.value === trimmed);
+  if (known) return known.label;
+  if (trimmed.startsWith('Brgy.')) return trimmed;
+  return trimmed
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 export const BARANGAYS: SelectOption[] = [
   { value: 'bagong-nayon', label: 'Bagong Nayon' },
   { value: 'beverly-hills', label: 'Beverly Hills' },

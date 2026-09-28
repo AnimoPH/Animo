@@ -5,14 +5,11 @@ import { StyleSheet, View } from "react-native";
 
 import { AnimoText } from "@/components/animo/animo-text";
 import { AnimoColors, AnimoRadius, AnimoSpacing } from "@/constants/animo";
+import { useLanguage } from "@/hooks/use-language";
 
 type Step = { label: string; icon: LucideIcon };
 
-const STEPS: Step[] = [
-  { label: "Gumawa", icon: Check },
-  { label: "Uploading", icon: Clock },
-  { label: "Available", icon: Store },
-];
+const STEP_ICONS: LucideIcon[] = [Check, Clock, Store];
 
 export type ProgressStepsProps = {
   /** Zero-based index of the step to highlight as current/active. Defaults to 0. */
@@ -20,9 +17,16 @@ export type ProgressStepsProps = {
 };
 
 export function ProgressSteps({ currentStep = 0 }: ProgressStepsProps) {
+  const { isTagalog } = useLanguage();
+  const steps: Step[] = [
+    { label: isTagalog ? "Gumawa" : "Create", icon: STEP_ICONS[0] },
+    { label: isTagalog ? "Iniu-upload" : "Uploading", icon: STEP_ICONS[1] },
+    { label: isTagalog ? "Nakalista" : "Listed", icon: STEP_ICONS[2] },
+  ];
+
   return (
     <View style={styles.stepRow}>
-      {STEPS.map((step, index) => {
+      {steps.map((step, index) => {
         const isDone = index < currentStep;
         const isActive = index === currentStep;
         const filled = isDone || isActive;

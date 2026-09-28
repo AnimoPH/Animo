@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { barangayLabel } from '@/lib/barangay-label';
 import { useLanguage } from '@/hooks/use-language';
 import {
   fetchLguUserProfile,
@@ -180,7 +181,9 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
       .join('')
       .toUpperCase()
       .slice(0, 2) ?? '—';
-  const barangay = profile?.barangay ?? (isFarmer ? (isTagalog ? 'Hindi nakasaad' : 'Not specified') : '—');
+  const barangay = profile?.barangay
+    ? barangayLabel(profile.barangay)
+    : (isFarmer ? (isTagalog ? 'Hindi nakasaad' : 'Not specified') : '—');
   const phone = profile?.contactNumber?.trim() || '—';
   const registeredDate = profile ? formatRegisteredDate(profile.dateRegistered, isTagalog) : '—';
   const rating = profile?.averageRating ?? 0;
