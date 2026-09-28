@@ -16,6 +16,7 @@ import { Modal, Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimoText } from "@/components/animo/animo-text";
+import { PriceRationaleCard } from "@/components/animo/price-rationale-card";
 import { StatusBadge } from "@/components/animo/status-badge";
 import { AnimoColors, AnimoRadius, AnimoSpacing } from "@/constants/animo";
 import { formatPeso } from "@/constants/marketplace";
@@ -307,6 +308,7 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
               : "—"}
           </AnimoText>
         </View>
+        <PriceRationaleCard listing={listing} />
       </View>
 
       <View style={styles.section}>
