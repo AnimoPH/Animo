@@ -45,13 +45,13 @@ import {
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
-import { supabase } from '@/lib/supabase';
 import { updateMyBuyerProfile } from '@/services/auth-service';
 import {
   fetchMyBuyerPreferences,
   upsertMyBuyerPreferences,
 } from '@/services/buyer-preferences-service';
 import { fetchTrustProfile, type TrustProfile } from '@/services/farmer-public-profile';
+import { fetchReceivedFeedbacks } from '@/services/received-feedback';
 import { fetchBuyerTransactions, fetchCounterpartNames } from '@/services/transaction-service';
 import { displayStageForMatch, getDisplayStageLabel } from '@/types/transaction';
 
@@ -88,6 +88,7 @@ export default function BuyerProfileScreen() {
 
   const [trustProfile, setTrustProfile] = useState<TrustProfile | null>(null);
   const [feedbacks, setFeedbacks] = useState<BuyerFeedback[]>([]);
+  const [reviewsUnavailable, setReviewsUnavailable] = useState(false);
   const [transactions, setTransactions] = useState<BuyerTxnDisplay[]>([]);
 
   // Modals state
@@ -130,46 +131,18 @@ export default function BuyerProfileScreen() {
 
     const loadData = async () => {
       try {
-        const [trust, txns, ratingsRes] = await Promise.all([
+        const [trust, txns, feedbackResult] = await Promise.all([
           fetchTrustProfile(account.id),
           fetchBuyerTransactions(),
-          supabase
-            .from('rating')
-            .select('rating_id, score, comment, created_at, transaction_id, rater_id')
-            .eq('rated_id', account.id)
-            .order('created_at', { ascending: false })
-            .limit(5),
+          fetchReceivedFeedbacks(account.id, isTagalog, isTagalog ? 'Magsasaka' : 'Farmer')
+            .then((rows) => ({ rows, failed: false }))
+            .catch(() => ({ rows: [] as BuyerFeedback[], failed: true })),
         ]);
 
         if (cancelled) return;
         setTrustProfile(trust);
-
-        // Process ratings
-        const ratingRows = ratingsRes.data ?? [];
-        const raterIds = ratingRows.map((r) => r.rater_id as string).filter(Boolean);
-        const counterpartNames = await fetchCounterpartNames(raterIds);
-
-        const mappedFeedbacks: BuyerFeedback[] = ratingRows.map((r) => {
-          const date = r.created_at
-            ? new Date(r.created_at).toLocaleDateString(isTagalog ? 'fil-PH' : 'en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-              })
-            : '';
-          const authorName =
-            counterpartNames.get(r.rater_id as string) || (isTagalog ? 'Magsasaka' : 'Farmer');
-          return {
-            id: r.rating_id as string,
-            author: authorName,
-            rating: Number(r.score) || 5,
-            date,
-            comment:
-              (r.comment as string | null)?.trim() ||
-              (isTagalog ? 'Walang nakasaad na komento.' : 'No comment provided.'),
-          };
-        });
-        setFeedbacks(mappedFeedbacks);
+        setReviewsUnavailable(feedbackResult.failed);
+        setFeedbacks(feedbackResult.rows);
 
         // Process transactions
         const topTxns = txns.slice(0, 5);
@@ -764,7 +737,13 @@ export default function BuyerProfileScreen() {
               </Text>
             </View>
 
-            {feedbacks.length === 0 ? (
+            {reviewsUnavailable ? (
+              <View style={styles.emptyWrap}>
+                <Text style={styles.emptyText}>
+                  {isTagalog ? 'Hindi maipakita ang mga puna ngayon.' : 'Reviews cannot be shown right now.'}
+                </Text>
+              </View>
+            ) : feedbacks.length === 0 ? (
               <View style={styles.emptyWrap}>
                 <Text style={styles.emptyText}>
                   {isTagalog ? 'Wala pang natatanggap na review.' : 'No reviews received yet.'}
