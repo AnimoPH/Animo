@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CloudDrizzle, CloudSun, MapPin, Send, Users, X } from 'lucide-react';
+import { CloudDrizzle, CloudSun, MapPin, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { ConsoleLayout } from '@/components/console-layout';
@@ -241,18 +241,6 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
             </div>
 
             <div style={styles.modalFooter}>
-              <button
-                type="button"
-                disabled
-                style={{ ...styles.actionBtnSecondary, opacity: 0.55, cursor: 'not-allowed' }}
-                title={
-                  isTagalog
-                    ? 'Hindi pa available ang SMS broadcast sa prototype'
-                    : 'SMS gateway broadcast unavailable in prototype'
-                }>
-                <Send size={16} />
-                {isTagalog ? 'Magpadala ng Follow-up SMS' : 'Send Follow-up SMS'}
-              </button>
               <button type="button" onClick={() => setSelectedGroup(null)} style={styles.actionBtnPrimary}>
                 {isTagalog ? 'Isara' : 'Close'}
               </button>
@@ -507,19 +495,6 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 12,
     borderTop: '1px solid var(--animo-border)',
     paddingTop: 16,
-  },
-  actionBtnSecondary: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '12px 18px',
-    borderRadius: 'var(--animo-radius-md)',
-    border: '1.5px solid var(--animo-green)',
-    background: 'var(--animo-white)',
-    color: 'var(--animo-green)',
-    fontSize: 15,
-    fontWeight: 700,
-    cursor: 'pointer',
   },
   actionBtnPrimary: {
     padding: '12px 24px',
