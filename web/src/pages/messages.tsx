@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { CheckCheck, CloudDrizzle, CloudSun, MapPin, Send, Users, X } from 'lucide-react';
+import { CloudDrizzle, CloudSun, MapPin, Send, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { ConsoleLayout } from '@/components/console-layout';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
 import type { WebTranslationKey } from '@/i18n/translations';
-import { getDeliveryChannels, getTriggerSummary } from '@/constants/dashboard';
 import {
   fetchLguAdvisoryOverview,
   formatForecastTimestamp,
@@ -19,6 +18,8 @@ import {
 export type MessagesPageProps = {
   onSignOut: () => void;
 };
+
+const ACTION_ORDER: AdvisoryAction[] = ['Advance_Cut', 'Delayed_Harvest', 'No_Action_Needed'];
 
 const ACTION_LABEL: Record<AdvisoryAction, WebTranslationKey> = {
   Advance_Cut: 'advisory.actionAdvanceCut',
@@ -40,7 +41,7 @@ const ACTION_TINT: Record<AdvisoryAction, string> = {
 
 /** Live advisory groups for the LGU alert list. Farmer counts are people holding the recommendation. */
 export function MessagesPage({ onSignOut }: MessagesPageProps) {
-  const { t, language, isTagalog } = useLanguage();
+  const { t, isTagalog } = useLanguage();
   const [overview, setOverview] = useState<LguAdvisoryOverview | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<LguAdvisoryGroup | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,8 +64,12 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
   useAutoRefresh(() => void loadOverview());
 
   const groups = overview?.groups ?? [];
-  const triggerSummary = getTriggerSummary(language);
-  const deliveryChannels = getDeliveryChannels(language);
+  const counts = Object.fromEntries(
+    ACTION_ORDER.map((action) => [
+      action,
+      groups.filter((group) => group.recommendedAction === action).reduce((sum, group) => sum + group.farmerCount, 0),
+    ]),
+  ) as Record<AdvisoryAction, number>;
 
   const forecastLabel = overview?.forecastFetchedAt
     ? formatForecastTimestamp(overview.forecastFetchedAt, isTagalog)
@@ -94,7 +99,7 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
   return (
     <ConsoleLayout
       title={t('messages.title')}
-      subtitle={t('advisory.subtitle')}
+      subtitle={t('messages.subtitle')}
       onSignOut={onSignOut}>
       <div style={styles.grid}>
         <article className="animo-card" style={styles.panel}>
@@ -142,40 +147,23 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
         <aside style={styles.sideColumn}>
           <article className="animo-card" style={styles.panel}>
             <div>
-              <h2 style={styles.panelTitle}>{isTagalog ? 'Buod ng Trigger' : 'Trigger Summary'}</h2>
-              <p style={styles.panelSubtitle}>{isTagalog ? 'Okt 6 – Okt 12, 2025' : 'Oct 6 – Oct 12, 2025'}</p>
+              <h2 style={styles.panelTitle}>{isTagalog ? 'Buod ng Rekomendasyon' : 'Recommendation summary'}</h2>
+              <p style={styles.panelSubtitle}>{forecastLabel ?? t('advisory.noForecast')}</p>
             </div>
 
             <ul style={styles.summaryList}>
-              {triggerSummary.map((row) => (
-                <li key={row.label} style={styles.summaryRow}>
+              {ACTION_ORDER.map((action) => (
+                <li key={action} style={styles.summaryRow}>
                   <span style={styles.summaryLabel}>
-                    <span style={{ ...styles.dot, background: row.color }} />
-                    {row.label}
+                    <span style={{ ...styles.dot, background: ACTION_COLOR[action] }} />
+                    {actionLabel(action)}
                   </span>
-                  <span style={styles.summaryCount}>{row.count}</span>
+                  <span style={styles.summaryCount}>
+                    {counts[action]} {t('advisory.farmerUnit')}
+                  </span>
                 </li>
               ))}
             </ul>
-
-            <div style={styles.divider} />
-
-            <div>
-              <h3 style={styles.sectionHeading}>{t('messages.allChannels')}</h3>
-              <ul style={styles.channelList}>
-                {deliveryChannels.map((channel) => (
-                  <li key={channel.label} style={styles.channelRow}>
-                    <span style={styles.channelLabel}>{channel.label}</span>
-                    <span style={styles.channelValue}>{channel.value}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <button type="button" style={styles.markRead}>
-              <CheckCheck size={18} />
-              {t('messages.markAll')}
-            </button>
           </article>
         </aside>
       </div>
@@ -422,44 +410,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   summaryCount: { fontSize: 16, fontWeight: 800 },
   dot: { width: 10, height: 10, borderRadius: '50%', flexShrink: 0 },
-  divider: { height: 1, background: 'var(--animo-border)' },
-  sectionHeading: {
-    margin: '0 0 10px',
-    fontSize: 15,
-    fontWeight: 800,
-    color: 'var(--animo-black)',
-  },
-  channelList: {
-    listStyle: 'none',
-    margin: 0,
-    padding: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10,
-  },
-  channelRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  channelLabel: { fontSize: 14, color: 'var(--animo-black-secondary)' },
-  channelValue: { fontSize: 14, fontWeight: 700 },
-  markRead: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 48,
-    borderRadius: 'var(--animo-radius-md)',
-    border: '1.5px solid var(--animo-green)',
-    background: 'var(--animo-white)',
-    color: 'var(--animo-green)',
-    fontSize: 15,
-    fontWeight: 700,
-    cursor: 'pointer',
-    marginTop: 6,
-  },
   modalOverlay: {
     position: 'fixed',
     top: 0,

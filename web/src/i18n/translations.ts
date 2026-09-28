@@ -143,17 +143,7 @@ export const WEB_TRANSLATIONS = {
 
     // Messages Page
     'messages.title': 'Mensahe at Alerto',
-    'messages.subtitle': 'Notification Feed · Tala ng mga ipinadalang payo at alerto',
-    'messages.markAll': 'Markahan lahat bilang nabasa',
-    'messages.allChannels': 'Mga Channel ng Pagpapadala',
-    'messages.detailModalTitle': 'Buong Detalye ng Alerto',
-    'messages.timeIssued': 'Oras ng Paglabas:',
-    'messages.targetBarangay': 'Target na Barangay:',
-    'messages.senderAgency': 'Nagpadalang Ahensya:',
-    'messages.recipientsCount': 'Bilang ng Nakatanggap:',
-    'messages.recommendationsTitle': 'Mga Inirekomendang Aksyon para sa Magsasaka:',
-    'messages.sendFollowUpBtn': 'Magpadala ng Follow-Up SMS',
-    'messages.followUpSuccess': 'Matagumpay na naipadala ang follow-up SMS broadcast.',
+    'messages.subtitle': 'Kasalukuyang rekomendasyon kada barangay',
 
     // Farmers Directory
     'farmers.title': 'Mga Magsasaka',
@@ -389,17 +379,7 @@ export const WEB_TRANSLATIONS = {
 
     // Messages Page
     'messages.title': 'Messages & Alerts',
-    'messages.subtitle': 'Notification Feed · History of dispatched advisories and market alerts',
-    'messages.markAll': 'Mark all as read',
-    'messages.allChannels': 'Delivery Channels',
-    'messages.detailModalTitle': 'Full Alert Details',
-    'messages.timeIssued': 'Time Issued:',
-    'messages.targetBarangay': 'Target Barangay:',
-    'messages.senderAgency': 'Issuing Agency:',
-    'messages.recipientsCount': 'Recipient Count:',
-    'messages.recommendationsTitle': 'Recommended Farmer Actions:',
-    'messages.sendFollowUpBtn': 'Send Follow-Up SMS',
-    'messages.followUpSuccess': 'Successfully sent follow-up SMS broadcast.',
+    'messages.subtitle': 'Current recommendation by barangay',
 
     // Farmers Directory
     'farmers.title': 'Farmers Directory',
