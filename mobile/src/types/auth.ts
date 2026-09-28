@@ -53,6 +53,14 @@ export type UpdateFarmerProfileInput = {
 };
 
 /**
+ * Payload for `updateMyBuyerProfile` — writes `user.full_name` + `buyer.gcash_number`.
+ */
+export type UpdateBuyerProfileInput = {
+  fullName: string;
+  gcashNumber: string | null;
+};
+
+/**
  * `SessionProvider` status:
  * - `loading` — still hydrating the Supabase session from storage.
  * - `guest` — no active session (never registered, signed out, or expired).

@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, Users } from 'lucide-react';
+import { CalendarDays, Clock, Info, Users } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
 import { useLanguage } from '@/hooks/use-language';
@@ -15,8 +15,23 @@ export type AdvisoryPageProps = {
 
 const SEVERITY_ORDER: Severity[] = ['severe', 'moderate', 'mild', 'clear'];
 
+function formatCurrentWeekRange(isTagalog: boolean): string {
+  const now = new Date();
+  const nextWeek = new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000);
+  const startStr = now.toLocaleDateString(isTagalog ? 'fil-PH' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+  const endStr = nextWeek.toLocaleDateString(isTagalog ? 'fil-PH' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  return `${startStr} – ${endStr}`;
+}
+
 /**
- * Advisory monitoring — current advisory status per barangay.
+ * Advisory monitoring — advisory monitoring per barangay (Prototype Sample Feed).
  */
 export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
   const { t, language, isTagalog } = useLanguage();
@@ -32,15 +47,25 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
     clear: t('advisory.severityClear'),
   };
 
+  const currentRange = formatCurrentWeekRange(isTagalog);
+
   return (
     <ConsoleLayout
       title={t('advisory.title')}
       subtitle={t('advisory.subtitle')}
       onSignOut={onSignOut}>
       <div style={styles.toolbar}>
+        <div style={styles.sampleBadge}>
+          <Info size={14} color="var(--animo-green)" />
+          <span>
+            {isTagalog
+              ? 'Sample Feed · Naka-antabay sa LGU barangay read RPC'
+              : 'Sample Feed · Pending LGU barangay read RPC'}
+          </span>
+        </div>
         <span style={styles.rangePill}>
           <CalendarDays size={16} color="var(--animo-black-secondary)" />
-          {isTagalog ? 'Okt 6 – Okt 12, 2025' : 'Oct 6 – Oct 12, 2025'}
+          {currentRange}
         </span>
       </div>
 
@@ -96,27 +121,38 @@ function AdvisoryRow({ item }: { item: BarangayAdvisory }) {
 
   return (
     <div style={styles.advisoryCard}>
-      <div style={styles.advisoryTop}>
-        <span style={styles.advisoryName}>
+      <div>
+        <div style={styles.advisoryTop}>
+          <span style={styles.advisoryName}>
+            <span
+              style={{
+                ...styles.severityDot,
+                background: SEVERITY_COLOR[item.severity],
+              }}
+            />
+            {item.barangay}
+          </span>
           <span
             style={{
-              ...styles.severityDot,
-              background: SEVERITY_COLOR[item.severity],
-            }}
-          />
-          {item.barangay}
-        </span>
-      </div>
+              ...styles.statusBadge,
+              ...(item.status === 'active' ? styles.statusActive : styles.statusDone),
+            }}>
+            {item.status === 'active'
+              ? t('advisory.activeStatus')
+              : t('advisory.doneStatus')}
+          </span>
+        </div>
 
-      <div style={styles.advisoryHeadline}>{item.advisory}</div>
+        <div style={styles.advisoryHeadline}>{item.advisory}</div>
+      </div>
 
       <div style={styles.advisoryMeta}>
         <span style={styles.metaItem}>
-          <Clock size={15} color="var(--animo-muted)" />
+          <Clock size={14} color="var(--animo-muted)" />
           {item.issued}
         </span>
         <span style={styles.metaItem}>
-          <Users size={15} color="var(--animo-muted)" />
+          <Users size={14} color="var(--animo-muted)" />
           {t('advisory.deliveredTo', { delivered: item.delivered, total: item.total })}
         </span>
       </div>
@@ -125,7 +161,24 @@ function AdvisoryRow({ item }: { item: BarangayAdvisory }) {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  toolbar: { display: 'flex', justifyContent: 'flex-end' },
+  toolbar: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  sampleBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '6px 12px',
+    borderRadius: 'var(--animo-radius-pill)',
+    background: 'var(--animo-green-tint)',
+    color: 'var(--animo-green)',
+    fontSize: 12,
+    fontWeight: 600,
+  },
   rangePill: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -151,77 +204,115 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 20,
   },
   summaryHead: {
-    display: 'inline-flex',
+    display: 'flex',
     alignItems: 'center',
     gap: 8,
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 600,
     color: 'var(--animo-black-secondary)',
   },
-  summaryCount: { fontSize: 32, fontWeight: 800, lineHeight: '38px' },
-  summaryUnit: { fontSize: 13, color: 'var(--animo-muted)' },
-  panel: { display: 'flex', flexDirection: 'column', gap: 18, padding: 24 },
+  severityDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 'var(--animo-radius-pill)',
+    flexShrink: 0,
+  },
+  summaryCount: {
+    fontSize: 32,
+    fontWeight: 800,
+    lineHeight: '38px',
+  },
+  summaryUnit: {
+    fontSize: 13,
+    color: 'var(--animo-muted)',
+  },
+  panel: { padding: 24 },
   panelHead: {
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 16,
-    flexWrap: 'wrap',
+    paddingBottom: 20,
+    borderBottom: '1px solid var(--animo-border)',
   },
-  panelTitle: { margin: '0 0 4px', fontSize: 20, fontWeight: 800 },
-  panelSubtitle: { margin: 0, fontSize: 14, color: 'var(--animo-black-secondary)' },
+  panelTitle: { fontSize: 20, fontWeight: 700 },
+  panelSubtitle: {
+    fontSize: 14,
+    color: 'var(--animo-muted)',
+    marginTop: 4,
+  },
   activeBadge: {
-    padding: '5px 14px',
+    padding: '6px 14px',
     borderRadius: 'var(--animo-radius-pill)',
     background: 'var(--animo-green-tint)',
     color: 'var(--animo-green)',
     fontSize: 13,
     fontWeight: 700,
+    flexShrink: 0,
   },
   advisoryList: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-    gap: 14,
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 16,
+    marginTop: 20,
   },
   advisoryCard: {
+    border: '1px solid var(--animo-border)',
+    borderRadius: 'var(--animo-radius-md)',
+    padding: '18px 20px',
     display: 'flex',
     flexDirection: 'column',
-    gap: 10,
-    padding: 18,
-    borderRadius: 'var(--animo-radius-md)',
-    border: '1px solid var(--animo-border)',
+    justifyContent: 'space-between',
+    gap: 14,
     background: 'var(--animo-white)',
-  },
-  advisoryCardActive: {
-    borderColor: 'var(--animo-green)',
-    background: 'var(--animo-green-tint)',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
   },
   advisoryTop: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 8,
   },
   advisoryName: {
-    display: 'inline-flex',
+    display: 'flex',
     alignItems: 'center',
     gap: 8,
-    fontSize: 16,
+    fontWeight: 700,
+    fontSize: 15,
+    color: 'var(--animo-black)',
+  },
+  statusBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: 'var(--animo-radius-pill)',
+    fontSize: 11.5,
     fontWeight: 700,
   },
-  severityDot: {
-    width: 10,
-    height: 10,
-    borderRadius: '50%',
-    flexShrink: 0,
+  statusActive: {
+    background: 'var(--animo-green-tint)',
+    color: 'var(--animo-green)',
   },
-  advisoryHeadline: { fontSize: 14, color: 'var(--animo-black-secondary)' },
+  statusDone: {
+    background: 'var(--animo-surface)',
+    color: 'var(--animo-muted)',
+  },
+  advisoryHeadline: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: 'var(--animo-black-secondary)',
+    lineHeight: '20px',
+    marginTop: 10,
+    minHeight: 38,
+  },
   advisoryMeta: {
     display: 'flex',
-    flexWrap: 'wrap',
-    gap: 16,
-    fontSize: 13,
-    color: 'var(--animo-black-secondary)',
+    flexDirection: 'column',
+    gap: 6,
+    paddingTop: 12,
+    borderTop: '1px solid var(--animo-surface)',
+    fontSize: 12.5,
+    color: 'var(--animo-muted)',
   },
-  metaItem: { display: 'inline-flex', alignItems: 'center', gap: 6 },
+  metaItem: { display: 'flex', alignItems: 'center', gap: 6 },
 };
