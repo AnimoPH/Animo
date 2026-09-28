@@ -26,6 +26,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
+import { PriceRationaleCard } from '@/components/animo/price-rationale-card';
 import { ScreenHeader } from '@/components/animo/screen-header';
 import { BackHeader } from '@/components/animo/back-header';
 
@@ -353,6 +354,7 @@ export default function ListingDetailScreen() {
                 : '—'}
             </AnimoText>
           </View>
+          <PriceRationaleCard listing={listing} />
 
           <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
             {isTagalog ? 'Pinakamaliit na order:' : 'Minimum order:'} {listing.minimumRequestKg} kg
