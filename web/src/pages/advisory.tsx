@@ -121,27 +121,38 @@ function AdvisoryRow({ item }: { item: BarangayAdvisory }) {
 
   return (
     <div style={styles.advisoryCard}>
-      <div style={styles.advisoryTop}>
-        <span style={styles.advisoryName}>
+      <div>
+        <div style={styles.advisoryTop}>
+          <span style={styles.advisoryName}>
+            <span
+              style={{
+                ...styles.severityDot,
+                background: SEVERITY_COLOR[item.severity],
+              }}
+            />
+            {item.barangay}
+          </span>
           <span
             style={{
-              ...styles.severityDot,
-              background: SEVERITY_COLOR[item.severity],
-            }}
-          />
-          {item.barangay}
-        </span>
-      </div>
+              ...styles.statusBadge,
+              ...(item.status === 'active' ? styles.statusActive : styles.statusDone),
+            }}>
+            {item.status === 'active'
+              ? t('advisory.activeStatus')
+              : t('advisory.doneStatus')}
+          </span>
+        </div>
 
-      <div style={styles.advisoryHeadline}>{item.advisory}</div>
+        <div style={styles.advisoryHeadline}>{item.advisory}</div>
+      </div>
 
       <div style={styles.advisoryMeta}>
         <span style={styles.metaItem}>
-          <Clock size={15} color="var(--animo-muted)" />
+          <Clock size={14} color="var(--animo-muted)" />
           {item.issued}
         </span>
         <span style={styles.metaItem}>
-          <Users size={15} color="var(--animo-muted)" />
+          <Users size={14} color="var(--animo-muted)" />
           {t('advisory.deliveredTo', { delivered: item.delivered, total: item.total })}
         </span>
       </div>
@@ -240,37 +251,67 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   advisoryList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 16,
     marginTop: 20,
   },
   advisoryCard: {
     border: '1px solid var(--animo-border)',
     borderRadius: 'var(--animo-radius-md)',
-    padding: 16,
+    padding: '18px 20px',
     display: 'flex',
     flexDirection: 'column',
-    gap: 10,
+    justifyContent: 'space-between',
+    gap: 14,
+    background: 'var(--animo-white)',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
   },
-  advisoryTop: { display: 'flex', alignItems: 'center', gap: 8 },
+  advisoryTop: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   advisoryName: {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
     fontWeight: 700,
     fontSize: 15,
+    color: 'var(--animo-black)',
+  },
+  statusBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: 'var(--animo-radius-pill)',
+    fontSize: 11.5,
+    fontWeight: 700,
+  },
+  statusActive: {
+    background: 'var(--animo-green-tint)',
+    color: 'var(--animo-green)',
+  },
+  statusDone: {
+    background: 'var(--animo-surface)',
+    color: 'var(--animo-muted)',
   },
   advisoryHeadline: {
     fontSize: 14,
+    fontWeight: 600,
     color: 'var(--animo-black-secondary)',
     lineHeight: '20px',
+    marginTop: 10,
+    minHeight: 38,
   },
   advisoryMeta: {
     display: 'flex',
-    alignItems: 'center',
-    gap: 20,
-    fontSize: 13,
+    flexDirection: 'column',
+    gap: 6,
+    paddingTop: 12,
+    borderTop: '1px solid var(--animo-surface)',
+    fontSize: 12.5,
     color: 'var(--animo-muted)',
   },
   metaItem: { display: 'flex', alignItems: 'center', gap: 6 },
