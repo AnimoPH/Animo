@@ -88,7 +88,7 @@ function formatTransactionDate(dateStr: string | null, isTagalog: boolean): stri
 
 /**
  * Account Review Page — live profile, reviews, reported ratings, and transactions from Supabase.
- * Suspend/unsuspend stays local until LGU auth lands.
+ * Reports serve as informational monitoring signals; suspension/unsuspension is persisted via RPC.
  */
 export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
   const { type = 'farmer', id } = useParams<{ type?: string; id?: string }>();
@@ -109,7 +109,6 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
       ? 'Paglabag sa mga alituntunin ng transaksyon.'
       : 'Violation of transaction terms and conditions.',
   );
-  const [resolvedReportIds, setResolvedReportIds] = useState<string[]>([]);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [showUnsuspendModal, setShowUnsuspendModal] = useState(false);
   const [inputReason, setInputReason] = useState('');
@@ -169,9 +168,9 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
         reportedBy: review.raterName,
         role: mapRoleLabel(review.raterRole, isTagalog),
         date: formatReviewDate(review.createdAt, isTagalog),
-        status: resolvedReportIds.includes(review.ratingId) ? 'resolved' : 'pending',
+        status: 'pending',
       }));
-  }, [reviews, resolvedReportIds, isTagalog]);
+  }, [reviews, isTagalog]);
 
   const name = profile?.fullName ?? '—';
   const initials =
@@ -223,16 +222,6 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
     } finally {
       setSuspending(false);
     }
-  };
-
-  const handleResolveReport = (reportId: string) => {
-    setResolvedReportIds((prev) => [...prev, reportId]);
-    setToastMessage(
-      isTagalog
-        ? 'Matagumpay na minarkahan ang ulat bilang Nalutas (Resolved).'
-        : 'Successfully marked report as Resolved.',
-    );
-    setTimeout(() => setToastMessage(null), 3000);
   };
 
   return (
@@ -543,16 +532,6 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                           : `Filed by ${rep.reportedBy} (${rep.role}) on ${rep.date}`}
                       </span>
                     </div>
-
-                    {rep.status !== 'resolved' && (
-                      <button
-                        type="button"
-                        onClick={() => handleResolveReport(rep.id)}
-                        style={styles.resolveReportBtn}>
-                        <CheckCircle2 size={16} />
-                        {isTagalog ? 'Markahan bilang Nalutas' : 'Mark as Resolved'}
-                      </button>
-                    )}
                   </div>
 
                   <p style={styles.reportDetails}>{rep.details}</p>

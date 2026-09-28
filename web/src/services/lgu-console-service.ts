@@ -24,10 +24,13 @@ function todayIsoDate(): string {
 export type LguFarmerRow = {
   farmerId: string;
   name: string;
+  contactNumber: string | null;
   barangay: string;
   dateRegistered: string;
+  accountStatus: string;
   activeListings: number;
   totalListings: number;
+  reportedReviews: number;
 };
 
 export type LguBuyerRow = {
@@ -320,17 +323,23 @@ export async function fetchLguBarangayCoverage(): Promise<string[]> {
 }
 
 export async function fetchLguFarmerRegistry(): Promise<LguFarmerRow[]> {
-  const [{ data: farmers, error }, { data: listings, error: listingError }] = await Promise.all([
+  const [
+    { data: farmers, error },
+    { data: listings, error: listingError },
+    { data: reports, error: reportError },
+  ] = await Promise.all([
     supabase.from('farmer').select(`
         user_id,
         barangay,
-        user:user_id (full_name, date_registered)
+        user:user_id (full_name, contact_number, date_registered, account_status)
       `),
     supabase.from('croplisting').select('farmer_id, status').neq('status', 'Draft'),
+    supabase.from('rating').select('rated_id').eq('reported', true),
   ]);
 
   if (error) throw error;
   if (listingError) throw listingError;
+  if (reportError) throw reportError;
 
   const listingsByFarmer = new Map<string, { active: number; total: number }>();
   for (const listing of listings ?? []) {
@@ -341,27 +350,45 @@ export async function fetchLguFarmerRegistry(): Promise<LguFarmerRow[]> {
     listingsByFarmer.set(farmerId, bucket);
   }
 
+  const reportsByUser = new Map<string, number>();
+  for (const row of reports ?? []) {
+    const id = row.rated_id as string;
+    reportsByUser.set(id, (reportsByUser.get(id) ?? 0) + 1);
+  }
+
   const rows: LguFarmerRow[] = [];
   for (const farmer of farmers ?? []) {
     const user = asOne(
       farmer.user as
-        | { full_name: string; date_registered: string }
-        | { full_name: string; date_registered: string }[]
+        | {
+            full_name: string;
+            contact_number: string | null;
+            date_registered: string;
+            account_status: string;
+          }
+        | {
+            full_name: string;
+            contact_number: string | null;
+            date_registered: string;
+            account_status: string;
+          }[]
         | null,
     );
     if (!user) continue;
 
     const farmerId = farmer.user_id as string;
-    const counts = listingsByFarmer.get(farmerId);
-    if (!counts || counts.total === 0) continue;
+    const counts = listingsByFarmer.get(farmerId) ?? { active: 0, total: 0 };
 
     rows.push({
       farmerId,
       name: user.full_name,
+      contactNumber: user.contact_number,
       barangay: (farmer.barangay as string | null)?.trim() || 'Hindi nakasaad',
       dateRegistered: user.date_registered,
+      accountStatus: user.account_status,
       activeListings: counts.active,
       totalListings: counts.total,
+      reportedReviews: reportsByUser.get(farmerId) ?? 0,
     });
   }
 
