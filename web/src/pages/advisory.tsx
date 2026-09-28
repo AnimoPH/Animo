@@ -1,73 +1,116 @@
+import { useEffect, useState } from 'react';
 import { CalendarDays, Clock, Users } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
+import type { WebTranslationKey } from '@/i18n/translations';
 import {
-  getBarangayAdvisories,
-  SEVERITY_COLOR,
-  type BarangayAdvisory,
-  type Severity,
-} from '@/constants/dashboard';
+  fetchLguAdvisoryOverview,
+  formatForecastTimestamp,
+  formatRegisteredDate,
+  type AdvisoryAction,
+  type LguAdvisoryGroup,
+  type LguAdvisoryOverview,
+} from '@/services/lgu-console-service';
 
 export type AdvisoryPageProps = {
   onSignOut: () => void;
 };
 
-const SEVERITY_ORDER: Severity[] = ['severe', 'moderate', 'mild', 'clear'];
+const ACTION_ORDER: AdvisoryAction[] = ['Advance_Cut', 'Delayed_Harvest', 'No_Action_Needed'];
+
+const ACTION_LABEL: Record<AdvisoryAction, WebTranslationKey> = {
+  Advance_Cut: 'advisory.actionAdvanceCut',
+  Delayed_Harvest: 'advisory.actionDelayedHarvest',
+  No_Action_Needed: 'advisory.actionNoAction',
+};
+
+const ACTION_COLOR: Record<AdvisoryAction, string> = {
+  Advance_Cut: 'var(--animo-danger)',
+  Delayed_Harvest: 'var(--animo-warning)',
+  No_Action_Needed: 'var(--animo-green)',
+};
 
 /**
- * Advisory monitoring — current advisory status per barangay.
+ * Advisory monitoring — latest recommendation per barangay, from one shared
+ * Antipolo forecast. Farmer counts are people who currently hold that
+ * recommendation, not push-delivery totals.
  */
 export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
-  const { t, language, isTagalog } = useLanguage();
-  const advisories = getBarangayAdvisories(language);
-  const activeCount = advisories.filter(
-    (item) => item.status === 'active',
-  ).length;
+  const { t, isTagalog } = useLanguage();
+  const [overview, setOverview] = useState<LguAdvisoryOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const severityLabels: Record<Severity, string> = {
-    severe: t('advisory.severitySevere'),
-    moderate: t('advisory.severityModerate'),
-    mild: t('advisory.severityMild'),
-    clear: t('advisory.severityClear'),
-  };
+  function loadOverview() {
+    setLoadError(null);
+    return fetchLguAdvisoryOverview()
+      .then(setOverview)
+      .catch((error) => {
+        setLoadError(error instanceof Error ? error.message : t('common.error'));
+      })
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    void loadOverview();
+  }, []);
+
+  useAutoRefresh(() => void loadOverview());
+
+  const groups = overview?.groups ?? [];
+  const counts = Object.fromEntries(
+    ACTION_ORDER.map((action) => [
+      action,
+      groups.filter((group) => group.recommendedAction === action).reduce((sum, group) => sum + group.farmerCount, 0),
+    ]),
+  ) as Record<AdvisoryAction, number>;
+
+  const forecastLabel = overview?.forecastFetchedAt
+    ? formatForecastTimestamp(overview.forecastFetchedAt, isTagalog)
+    : null;
+  const rainAmount =
+    overview?.precipitationMmH != null && Number.isFinite(overview.precipitationMmH)
+      ? t('advisory.rainLine', { amount: overview.precipitationMmH.toFixed(1) })
+      : null;
 
   return (
-    <ConsoleLayout
-      title={t('advisory.title')}
-      subtitle={t('advisory.subtitle')}
-      onSignOut={onSignOut}>
+    <ConsoleLayout title={t('advisory.title')} subtitle={t('advisory.subtitle')} onSignOut={onSignOut}>
+      <p style={styles.sharedNote}>{t('advisory.sharedForecast')}</p>
+
       <div style={styles.toolbar}>
         <span style={styles.rangePill}>
           <CalendarDays size={16} color="var(--animo-black-secondary)" />
-          {isTagalog ? 'Okt 6 – Okt 12, 2025' : 'Oct 6 – Oct 12, 2025'}
+          {forecastLabel ? (
+            <>
+              {rainAmount ? `${rainAmount} · ` : null}
+              {forecastLabel}
+              {overview?.rainExpected != null
+                ? ` · ${overview.rainExpected ? t('advisory.rainExpected') : t('advisory.rainClear')}`
+                : null}
+              {overview?.isStale ? ` · ${t('advisory.staleForecast')}` : null}
+            </>
+          ) : (
+            t('advisory.noForecast')
+          )}
         </span>
       </div>
 
+      {loading ? <p style={styles.notice}>{t('common.loading')}</p> : null}
+      {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
+
       <section style={styles.summaryRow}>
-        {SEVERITY_ORDER.map((severity) => {
-          const count = advisories.filter(
-            (item) => item.severity === severity,
-          ).length;
-          return (
-            <article
-              key={severity}
-              className="animo-card"
-              style={styles.summaryCard}>
-              <span style={styles.summaryHead}>
-                <span
-                  style={{
-                    ...styles.severityDot,
-                    background: SEVERITY_COLOR[severity],
-                  }}
-                />
-                {severityLabels[severity]}
-              </span>
-              <span style={styles.summaryCount}>{count}</span>
-              <span style={styles.summaryUnit}>barangay</span>
-            </article>
-          );
-        })}
+        {ACTION_ORDER.map((action) => (
+          <article key={action} className="animo-card" style={styles.summaryCard}>
+            <span style={styles.summaryHead}>
+              <span style={{ ...styles.severityDot, background: ACTION_COLOR[action] }} />
+              {t(ACTION_LABEL[action])}
+            </span>
+            <span style={styles.summaryCount}>{counts[action]}</span>
+            <span style={styles.summaryUnit}>{t('advisory.farmerUnit')}</span>
+          </article>
+        ))}
       </section>
 
       <article className="animo-card" style={styles.panel}>
@@ -76,48 +119,44 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
             <h2 style={styles.panelTitle}>{t('advisory.panelTitle')}</h2>
             <p style={styles.panelSubtitle}>{t('advisory.panelSubtitle')}</p>
           </div>
-          <span style={styles.activeBadge}>
-            {t('advisory.activeCount', { count: activeCount })}
-          </span>
         </div>
 
-        <div style={styles.advisoryList}>
-          {advisories.map((item) => (
-            <AdvisoryRow key={item.barangay} item={item} />
-          ))}
-        </div>
+        {groups.length === 0 ? (
+          <p style={styles.notice}>{t('advisory.empty')}</p>
+        ) : (
+          <div style={styles.advisoryList}>
+            {groups.map((group) => (
+              <AdvisoryRow key={`${group.barangay}-${group.recommendedAction}`} group={group} />
+            ))}
+          </div>
+        )}
       </article>
     </ConsoleLayout>
   );
 }
 
-function AdvisoryRow({ item }: { item: BarangayAdvisory }) {
-  const { t } = useLanguage();
+function AdvisoryRow({ group }: { group: LguAdvisoryGroup }) {
+  const { t, isTagalog } = useLanguage();
 
   return (
     <div style={styles.advisoryCard}>
       <div style={styles.advisoryTop}>
         <span style={styles.advisoryName}>
-          <span
-            style={{
-              ...styles.severityDot,
-              background: SEVERITY_COLOR[item.severity],
-            }}
-          />
-          {item.barangay}
+          <span style={{ ...styles.severityDot, background: ACTION_COLOR[group.recommendedAction] }} />
+          {group.barangay}
         </span>
       </div>
 
-      <div style={styles.advisoryHeadline}>{item.advisory}</div>
+      <div style={styles.advisoryHeadline}>{t(ACTION_LABEL[group.recommendedAction])}</div>
 
       <div style={styles.advisoryMeta}>
         <span style={styles.metaItem}>
           <Clock size={15} color="var(--animo-muted)" />
-          {item.issued}
+          {t('advisory.issuedAt')} {group.latestIssued ? formatRegisteredDate(group.latestIssued, isTagalog) : t('common.none')}
         </span>
         <span style={styles.metaItem}>
           <Users size={15} color="var(--animo-muted)" />
-          {t('advisory.deliveredTo', { delivered: item.delivered, total: item.total })}
+          {t('advisory.farmersHolding', { count: group.farmerCount })}
         </span>
       </div>
     </div>
@@ -125,13 +164,19 @@ function AdvisoryRow({ item }: { item: BarangayAdvisory }) {
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  sharedNote: {
+    margin: 0,
+    fontSize: 14,
+    lineHeight: '22px',
+    color: 'var(--animo-black-secondary)',
+  },
   toolbar: { display: 'flex', justifyContent: 'flex-end' },
   rangePill: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 8,
-    height: 40,
-    padding: '0 16px',
+    minHeight: 40,
+    padding: '8px 16px',
     borderRadius: 'var(--animo-radius-md)',
     border: '1px solid var(--animo-border)',
     background: 'var(--animo-white)',
@@ -139,6 +184,8 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--animo-black-secondary)',
     fontWeight: 600,
   },
+  notice: { margin: 0, fontSize: 14, color: 'var(--animo-muted)' },
+  errorNotice: { margin: 0, fontSize: 14, color: 'var(--animo-danger)' },
   summaryRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -170,14 +217,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   panelTitle: { margin: '0 0 4px', fontSize: 20, fontWeight: 800 },
   panelSubtitle: { margin: 0, fontSize: 14, color: 'var(--animo-black-secondary)' },
-  activeBadge: {
-    padding: '5px 14px',
-    borderRadius: 'var(--animo-radius-pill)',
-    background: 'var(--animo-green-tint)',
-    color: 'var(--animo-green)',
-    fontSize: 13,
-    fontWeight: 700,
-  },
   advisoryList: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
@@ -191,10 +230,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 'var(--animo-radius-md)',
     border: '1px solid var(--animo-border)',
     background: 'var(--animo-white)',
-  },
-  advisoryCardActive: {
-    borderColor: 'var(--animo-green)',
-    background: 'var(--animo-green-tint)',
   },
   advisoryTop: {
     display: 'flex',
