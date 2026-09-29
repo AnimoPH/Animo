@@ -582,6 +582,7 @@ export default function MarketplaceScreen() {
             </View>
           ) : (
             <FlatList
+              key="palay-grid"
               data={displayedListings}
               keyExtractor={(item) => item.listing.id}
               numColumns={2}
@@ -602,6 +603,7 @@ export default function MarketplaceScreen() {
         ) : (
           /* TAB 2: FARMER PROFILES & DIRECTORY */
           <FlatList
+            key="magsasaka-list"
             data={displayedFarmers}
             keyExtractor={(item) => item.farmerId}
             contentContainerStyle={styles.farmersDirectoryList}

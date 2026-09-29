@@ -348,7 +348,7 @@ export default function FarmerPalengkeScreen() {
                       ? (isTagalog ? 'Tinanggal' : 'Cancelled')
                       : choice.value === 'Archived'
                         ? (isTagalog ? 'Naka-archive' : 'Archived')
-                        : choice.label;
+                        : getStatusLabel('Available', language);
               return (
                 <FilterChoiceChip
                   key={choice.value}

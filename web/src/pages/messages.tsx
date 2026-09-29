@@ -3,6 +3,7 @@ import { CloudDrizzle, CloudSun, MapPin, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { barangayLabel } from '@/lib/barangay-label';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
 import type { WebTranslationKey } from '@/i18n/translations';
@@ -185,7 +186,7 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
                   {actionIcon(selectedGroup.recommendedAction)}
                 </span>
                 <div>
-                  <h2 style={styles.modalTitle}>{selectedGroup.barangay}</h2>
+                  <h2 style={styles.modalTitle}>{barangayLabel(selectedGroup.barangay)}</h2>
                   <span
                     style={{
                       ...styles.alertBadge,
@@ -212,7 +213,7 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
                   <span style={styles.metaLabel}>
                     <MapPin size={15} color="var(--animo-muted)" /> {isTagalog ? 'Lokasyon:' : 'Location:'}
                   </span>
-                  <span style={styles.metaValue}>{selectedGroup.barangay}</span>
+                  <span style={styles.metaValue}>{barangayLabel(selectedGroup.barangay)}</span>
                 </div>
                 <div style={styles.metaRow}>
                   <span style={styles.metaLabel}>
@@ -277,7 +278,7 @@ function GroupRow({
 
       <div style={styles.alertBody}>
         <div style={styles.alertTop}>
-          <span style={styles.alertTitle}>{group.barangay}</span>
+          <span style={styles.alertTitle}>{barangayLabel(group.barangay)}</span>
           <span style={{ ...styles.alertBadge, background: ACTION_TINT[group.recommendedAction], color: tone }}>
             {actionLabel}
           </span>

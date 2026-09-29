@@ -169,26 +169,8 @@ export function isFarmerNeedsActionStage(stage: DisplayStage): boolean {
   return FARMER_NEEDS_ACTION[stage] === true;
 }
 
-/** Pure derivation — no I/O. This is what replaces both old stage enums. */
-export function deriveDisplayStage(outcome: PurchaseOutcome): DisplayStage {
-  if (outcome.kind === 'unmatched') {
-    switch (outcome.request.status) {
-      case 'Pending':
-        return 'request_pending';
-      case 'Rejected':
-      case 'No_Quantity_Remaining':
-        return 'request_rejected';
-      case 'Cancelled':
-        return 'request_cancelled';
-      default:
-        // Accepted/Partially_Accepted without a joined transaction row is an
-        // invariant violation (accept_purchase_request always inserts one) —
-        // fail soft rather than crash the list.
-        return 'request_pending';
-    }
-  }
-
-  const { transaction } = outcome;
+/** Stage of a matched sale, including whether a payment row has been sent. */
+export function displayStageForMatch(transaction: TransactionWithPayment): DisplayStage {
   switch (transaction.status) {
     case 'Cancelled':
       return 'transaction_cancelled';
@@ -210,6 +192,28 @@ export function deriveDisplayStage(outcome: PurchaseOutcome): DisplayStage {
       return 'awaiting_payment';
     }
   }
+}
+
+/** Pure derivation — no I/O. This is what replaces both old stage enums. */
+export function deriveDisplayStage(outcome: PurchaseOutcome): DisplayStage {
+  if (outcome.kind === 'unmatched') {
+    switch (outcome.request.status) {
+      case 'Pending':
+        return 'request_pending';
+      case 'Rejected':
+      case 'No_Quantity_Remaining':
+        return 'request_rejected';
+      case 'Cancelled':
+        return 'request_cancelled';
+      default:
+        // Accepted/Partially_Accepted without a joined transaction row is an
+        // invariant violation (accept_purchase_request always inserts one) —
+        // fail soft rather than crash the list.
+        return 'request_pending';
+    }
+  }
+
+  return displayStageForMatch(outcome.transaction);
 }
 
 /* ---------------- Progress tracker ---------------- */

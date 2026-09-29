@@ -222,8 +222,8 @@ export function OnboardingWalkthroughModal({
           icon: Layers,
           title: isTagalog ? 'Suporta mula sa LGU' : 'LGU Agriculture Support',
           detail: isTagalog
-            ? 'Direktang gabay mula sa Tanggapan ng Pagsasaka (San Mateo & Rizal).'
-            : 'Direct advisories from Municipal Agriculture Offices (San Mateo & Rizal).',
+            ? 'Direktang gabay mula sa Tanggapan ng Pagsasaka (Antipolo, Rizal).'
+            : 'Direct advisories from Municipal Agriculture Offices (Antipolo, Rizal).',
         },
       ],
     },

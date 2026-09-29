@@ -382,7 +382,7 @@ export default function PalayListingScreen() {
           </View>
 
           <SegmentedChoice
-            label="Moisture %"
+            label={isTagalog ? 'Halumigmig' : 'Moisture'}
             options={getMoistureOptions(language)}
             value={moistureType}
             onChange={setMoistureType}

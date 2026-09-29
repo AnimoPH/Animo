@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CalendarDays, Clock, Users } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { barangayLabel } from '@/lib/barangay-label';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
 import type { WebTranslationKey } from '@/i18n/translations';
@@ -143,7 +144,7 @@ function AdvisoryRow({ group }: { group: LguAdvisoryGroup }) {
       <div style={styles.advisoryTop}>
         <span style={styles.advisoryName}>
           <span style={{ ...styles.severityDot, background: ACTION_COLOR[group.recommendedAction] }} />
-          {group.barangay}
+          {barangayLabel(group.barangay)}
         </span>
       </div>
 

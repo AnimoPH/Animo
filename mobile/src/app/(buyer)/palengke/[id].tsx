@@ -322,7 +322,7 @@ export default function ListingDetailScreen() {
           </View>
 
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-            {listing.remainingQuantityKg} kg {isTagalog ? 'na available' : 'available'}
+            {listing.remainingQuantityKg} kg {isTagalog ? 'na natitira' : 'remaining'}
           </AnimoText>
 
           <View style={styles.priceBlock}>

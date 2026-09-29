@@ -13,6 +13,7 @@ import {
   AnimoRadius,
 } from "@/constants/animo";
 import { BackHeader } from "@/components/animo/back-header";
+import { useLanguage } from "@/hooks/use-language";
 
 const SCREEN_PADDING = AnimoSpacing.lg;
 
@@ -25,6 +26,7 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /** Uploading — shown right after "Ipasa na"; animates 0-100% then advances to the result screen. */
 export default function ListingUploadingScreen() {
+  const { t } = useLanguage();
   const { listingId, price } = useLocalSearchParams<{
     listingId?: string;
     price?: string;
@@ -103,15 +105,14 @@ export default function ListingUploadingScreen() {
           color={AnimoColors.textHighEmphasis}
           style={styles.title}
         >
-          Uploading
+          {t('listing.uploadingTitle')}
         </AnimoText>
         <AnimoText
           variant="body"
           color={AnimoColors.textMediumEmphasis}
           style={styles.body}
         >
-          Mangyaring maghintay habang pino-proseso ang pag-upload ng iyong palay
-          listing sa palengke.
+          {t('listing.uploadingSubtitle')}
         </AnimoText>
       </View>
     </SafeAreaView>

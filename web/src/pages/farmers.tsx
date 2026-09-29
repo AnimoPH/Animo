@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { barangayLabel } from '@/lib/barangay-label';
 import type { Farmer } from '@/constants/dashboard';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
@@ -104,7 +105,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
 
   const barangayOptions = useMemo(() => {
     const unique = [...new Set(farmersList.map((f) => f.barangay))].sort();
-    return [{ key: 'all', label: t('common.all') }, ...unique.map((b) => ({ key: b, label: b }))];
+    return [{ key: 'all', label: t('common.all') }, ...unique.map((b) => ({ key: b, label: barangayLabel(b) }))];
   }, [farmersList, t]);
 
   const filteredFarmers = useMemo(() => {
@@ -163,8 +164,8 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
             <h2 style={styles.panelTitle}>{t('farmers.title')}</h2>
             <p style={styles.panelSubtitle}>
               {isTagalog
-                ? 'Talaan ng mga magsasaka at pag-verify ng account · LGU San Mateo, Rizal'
-                : 'Farmer registry & account verification · LGU San Mateo, Rizal'}
+                ? 'Talaan ng mga magsasaka at pag-verify ng account · LGU Antipolo, Rizal'
+                : 'Farmer registry & account verification · LGU Antipolo, Rizal'}
             </p>
           </div>
         </div>
@@ -311,7 +312,7 @@ function FarmerRow({
           </div>
         </span>
       </td>
-      <td style={styles.td}>{farmer.barangay}</td>
+      <td style={styles.td}>{barangayLabel(farmer.barangay)}</td>
       <td style={styles.td}>{farmer.phone}</td>
       <td style={styles.td}>{farmer.farmSize}</td>
       <td style={styles.td}>

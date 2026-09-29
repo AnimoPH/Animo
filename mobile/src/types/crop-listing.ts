@@ -275,7 +275,7 @@ export function moistureLabel(moisture: MoistureType, lang: 'tl' | 'en' = 'tl'):
 /** Tagalog label per real DB status — no "Rejected"/"Hinihintay ang Pag-verify" state exists (see file header). */
 export const STATUS_LABELS: Record<ListingStatus, string> = {
   Draft: 'Draft',
-  Available: 'Available',
+  Available: 'Nakalista',
   Sold_Out: 'Naubos',
   Cancelled: 'Tinanggal',
   Archived: 'Naka-archive',

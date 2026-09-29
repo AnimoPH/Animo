@@ -439,7 +439,7 @@ export default function EditListingScreen() {
             ) : null}
 
             <SegmentedChoice
-              label="Moisture %"
+              label={isTagalog ? 'Halumigmig' : 'Moisture'}
               options={getMoistureOptions(language)}
               value={moistureType}
               onChange={setMoistureType}

@@ -13,6 +13,7 @@ import {
 import { ConsoleLayout } from '@/components/console-layout';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/lib/auth-context';
+import { barangayLabel } from '@/lib/barangay-label';
 import { supabase } from '@/lib/supabase';
 import { getLegalLinks } from '@/constants/dashboard';
 import {
@@ -74,7 +75,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
           setRegisteredDate(formatRegisteredDate(profile.dateRegistered, isTagalog));
         }
         setBarangayCoverage(
-          barangays.length > 0 ? barangays.join(', ') : isTagalog ? 'Walang nakatala pa' : 'None recorded yet',
+          barangays.length > 0 ? barangays.map((name) => barangayLabel(name)).join(', ') : isTagalog ? 'Walang nakatala pa' : 'None recorded yet',
         );
         setPriceHistory(history);
       })
@@ -206,7 +207,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
             <span style={styles.avatarLarge}>{initials}</span>
             <div>
               <div style={styles.identityName}>{fullName}</div>
-              <div style={styles.identityRole}>LGU Official · San Mateo, Rizal</div>
+              <div style={styles.identityRole}>LGU Official · Antipolo, Rizal</div>
               <div style={styles.chipRow}>
                 <span style={styles.chipVerified}>Verified LGU Account</span>
               </div>
@@ -219,7 +220,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
             <DetailRow label={t('common.email')} value={email} />
             <DetailRow label={t('settings.contact')} value={contactNumber} />
             <DetailRow label={isTagalog ? 'Petsa ng Rehistro:' : 'Date Registered:'} value={registeredDate} />
-            <DetailRow label={t('settings.office')} value="San Mateo, Rizal" />
+            <DetailRow label={t('settings.office')} value="Antipolo, Rizal" />
             <DetailRow label={t('settings.coverage')} value={barangayCoverage} />
           </dl>
 

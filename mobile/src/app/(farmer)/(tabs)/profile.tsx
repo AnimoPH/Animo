@@ -32,10 +32,12 @@ import {
   AnimoType,
 } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { barangayLabel } from '@/constants/profile-options';
 import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
-import { supabase } from '@/lib/supabase';
 import { fetchTrustProfile, type TrustProfile } from '@/services/farmer-public-profile';
+import { displayStageForMatch, getDisplayStageLabel } from '@/types/transaction';
+import { fetchReceivedFeedbacks } from '@/services/received-feedback';
 import { fetchCounterpartNames, fetchFarmerTransactions } from '@/services/transaction-service';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
@@ -68,6 +70,7 @@ export default function FarmerProfileScreen() {
 
   const [trustProfile, setTrustProfile] = useState<TrustProfile | null>(null);
   const [feedbacks, setFeedbacks] = useState<FarmerFeedback[]>([]);
+  const [reviewsUnavailable, setReviewsUnavailable] = useState(false);
   const [transactions, setTransactions] = useState<FarmerTxnDisplay[]>([]);
 
   const [showSignOutModal, setShowSignOutModal] = useState(false);
@@ -84,46 +87,18 @@ export default function FarmerProfileScreen() {
 
     const loadProfileData = async () => {
       try {
-        const [trust, txns, ratingsRes] = await Promise.all([
+        const [trust, txns, feedbackResult] = await Promise.all([
           fetchTrustProfile(account.id),
           fetchFarmerTransactions(),
-          supabase
-            .from('rating')
-            .select('rating_id, score, comment, created_at, transaction_id, rater_id')
-            .eq('rated_id', account.id)
-            .order('created_at', { ascending: false })
-            .limit(5),
+          fetchReceivedFeedbacks(account.id, isTagalog, isTagalog ? 'Mamimili' : 'Buyer')
+            .then((rows) => ({ rows, failed: false }))
+            .catch(() => ({ rows: [] as FarmerFeedback[], failed: true })),
         ]);
 
         if (cancelled) return;
         setTrustProfile(trust);
-
-        // Process ratings / feedbacks
-        const ratingRows = ratingsRes.data ?? [];
-        const raterIds = ratingRows.map((r) => r.rater_id as string).filter(Boolean);
-        const counterpartNames = await fetchCounterpartNames(raterIds);
-
-        const mappedFeedbacks: FarmerFeedback[] = ratingRows.map((r) => {
-          const date = r.created_at
-            ? new Date(r.created_at).toLocaleDateString(isTagalog ? 'fil-PH' : 'en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-              })
-            : '';
-          const authorName =
-            counterpartNames.get(r.rater_id as string) || (isTagalog ? 'Mamimili' : 'Buyer');
-          return {
-            id: r.rating_id as string,
-            author: authorName,
-            rating: Number(r.score) || 5,
-            date,
-            comment:
-              (r.comment as string | null)?.trim() ||
-              (isTagalog ? 'Walang nakasaad na komento.' : 'No comment provided.'),
-          };
-        });
-        setFeedbacks(mappedFeedbacks);
+        setReviewsUnavailable(feedbackResult.failed);
+        setFeedbacks(feedbackResult.rows);
 
         // Process top 5 transactions
         const topTxns = txns.slice(0, 5);
@@ -146,7 +121,7 @@ export default function FarmerProfileScreen() {
             price: formatPeso(tx.payment?.amount ?? tx.totalAmount),
             buyer: buyerNames.get(tx.buyerId) || (isTagalog ? 'Mamimili' : 'Buyer'),
             date,
-            status: tx.status === 'Completed' ? (isTagalog ? 'Kumpleto' : 'Completed') : tx.status,
+            status: getDisplayStageLabel(displayStageForMatch(tx), isTagalog ? 'tl' : 'en'),
           };
         });
         setTransactions(mappedTxns);
@@ -178,10 +153,11 @@ export default function FarmerProfileScreen() {
   };
 
   const fullName = account?.fullName || 'Magsasaka';
-  const location = account?.barangay
-    ? account.barangay.startsWith('Brgy.')
-      ? `${account.barangay}, Rizal`
-      : `Brgy. ${account.barangay}, Rizal`
+  const namedBarangay = barangayLabel(account?.barangay);
+  const location = namedBarangay
+    ? namedBarangay.startsWith('Brgy.')
+      ? `${namedBarangay}, Rizal`
+      : `Brgy. ${namedBarangay}, Rizal`
     : 'Rizal';
   const gcashDisplay = account?.gcashNumber
     ? `${account.gcashNumber.slice(0, 4)} **** ${account.gcashNumber.slice(-3)}`
@@ -502,7 +478,13 @@ export default function FarmerProfileScreen() {
               </Text>
             </View>
 
-            {feedbacks.length === 0 ? (
+            {reviewsUnavailable ? (
+              <View style={styles.emptyWrap}>
+                <Text style={styles.emptyText}>
+                  {isTagalog ? 'Hindi maipakita ang mga puna ngayon.' : 'Reviews cannot be shown right now.'}
+                </Text>
+              </View>
+            ) : feedbacks.length === 0 ? (
               <View style={styles.emptyWrap}>
                 <Text style={styles.emptyText}>
                   {isTagalog ? 'Wala pang natatanggap na review.' : 'No reviews received yet.'}

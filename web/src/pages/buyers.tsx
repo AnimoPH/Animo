@@ -145,8 +145,8 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
             <h2 style={styles.panelTitle}>{t('buyers.title')}</h2>
             <p style={styles.panelSubtitle}>
               {isTagalog
-                ? 'Talaan ng mga mamimili at pag-verify ng account · LGU San Mateo, Rizal'
-                : 'Buyer registry & account verification · LGU San Mateo, Rizal'}
+                ? 'Talaan ng mga mamimili at pag-verify ng account · LGU Antipolo, Rizal'
+                : 'Buyer registry & account verification · LGU Antipolo, Rizal'}
             </p>
           </div>
         </div>
