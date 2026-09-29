@@ -53,7 +53,7 @@ export function BuyerTrustStatsCard({ stats, onPressProfile }: BuyerTrustStatsCa
             fill={stats.totalReviews > 0 ? '#F59E0B' : 'transparent'}
           />
           <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            {stats.totalReviews > 0 ? stats.averageRating : '—'}
+            {stats.totalReviews > 0 ? `${stats.averageRating.toFixed(1)}/5` : '—'}
           </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
             {stats.totalReviews} review

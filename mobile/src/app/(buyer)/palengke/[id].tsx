@@ -27,7 +27,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { PriceRationaleCard } from '@/components/animo/price-rationale-card';
-import { ScreenHeader } from '@/components/animo/screen-header';
 import { BackHeader } from '@/components/animo/back-header';
 
 import { SpecBox } from '@/components/animo/spec-box';
@@ -44,6 +43,7 @@ import { fetchMyActiveRequestForListing } from '@/services/purchase-request-serv
 import { useLanguage } from '@/hooks/use-language';
 import {
   listingTitle,
+  minimumPurchaseKg,
   moistureLabel,
   purityLabel,
   specificVarietyDisplay,
@@ -357,7 +357,7 @@ export default function ListingDetailScreen() {
           <PriceRationaleCard listing={listing} />
 
           <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-            {isTagalog ? 'Pinakamaliit na order:' : 'Minimum order:'} {listing.minimumRequestKg} kg
+            {isTagalog ? 'Pinakamaliit na order:' : 'Minimum order:'} {minimumPurchaseKg(listing)} kg
           </AnimoText>
         </View>
 
@@ -481,7 +481,7 @@ export default function ListingDetailScreen() {
           }
           disabled={activeRequest !== null}
           onPress={() =>
-            router.push({ pathname: '/(buyer)/palengke/bid', params: { id: listing.id } })
+            router.push({ pathname: '/(buyer)/palengke/buy', params: { id: listing.id } })
           }
         />
       </View>
