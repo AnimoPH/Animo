@@ -122,8 +122,8 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
     if (!userId) {
       setLoadError(
         isTagalog
-          ? 'Kailangan ng LGU login para i-toggle ang NFA window.'
-          : 'LGU login required to toggle NFA window.',
+          ? 'Kailangan ng LGU login para baguhin ang sahig ng presyo ng NFA.'
+          : 'LGU login is required to change the NFA price floor.',
       );
       setShowNfaModal(false);
       return;
@@ -146,8 +146,8 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
         error instanceof Error
           ? error.message
           : isTagalog
-            ? 'Hindi ma-update ang NFA window.'
-            : 'Failed to update NFA window.',
+            ? 'Hindi nabago ang sahig ng presyo ng NFA.'
+            : 'The NFA price floor was not changed.',
       );
       setShowNfaModal(false);
     } finally {
@@ -251,13 +251,15 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                 }>
                 {nfaActive
                   ? isTagalog
-                    ? 'AKTIBO ANG NFA WINDOW'
-                    : 'NFA SAFEGUARD WINDOW IS ACTIVE'
+                    ? 'NAKA-ON ANG SAHIG NG PRESYO'
+                    : 'NFA PRICE FLOOR IS ON'
                   : isTagalog
-                    ? 'NFA Volatility Safeguard Window'
-                    : 'NFA Volatility Safeguard Window'}
+                    ? 'Sahig ng presyo ng NFA'
+                    : 'NFA price floor'}
               </span>
-              <h3 style={styles.actionCardTitle}>NFA Volatility Safeguard Window</h3>
+              <h3 style={styles.actionCardTitle}>
+                {isTagalog ? 'Sahig ng presyo ng NFA' : 'NFA price floor'}
+              </h3>
             </div>
             <span
               style={
@@ -275,11 +277,11 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           <p style={styles.actionCardDesc}>
             {nfaActive
               ? isTagalog
-                ? 'Naka-clamp ang presyo sa merkado upang maprotektahan ang mga magsasaka laban sa pagbaba ng presyo.'
-                : 'Market prices are clamped with a price floor to protect farmers against extreme drops.'
+                ? 'Naka-on ang pinakamababang presyo ng NFA upang protektahan ang mga magsasaka laban sa biglaang pagbaba ng presyo.'
+                : 'The NFA price floor is on, to protect farmers from a sudden drop.'
               : isTagalog
-                ? 'Standard na market pricing ang kasalukuyang umiiral nang walang artipisyal na floor clamp.'
-                : 'Standard market pricing is in effect without artificial price floor clamps.'}
+                ? 'Umiiral ang presyo ng merkado. Hindi naka-on ang pinakamababang presyo ng NFA.'
+                : 'The market price is in effect. The NFA price floor is off.'}
           </p>
 
           <div style={styles.actionCardStatusRow}>
@@ -302,7 +304,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
               disabled={togglingNfa}
               style={styles.actionButtonDisable}>
               <PauseCircle size={18} />
-              {isTagalog ? 'I-disable ang NFA Volatility Alert' : 'Disable NFA Volatility Alert'}
+              {isTagalog ? 'I-off ang sahig ng presyo ng NFA' : 'Turn off the NFA price floor'}
             </button>
           ) : (
             <button
@@ -311,7 +313,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
               disabled={togglingNfa}
               style={styles.actionButtonGreen}>
               <Gavel size={18} />
-              {isTagalog ? 'I-activate ang NFA Volatility Alert' : 'Activate NFA Volatility Alert'}
+              {isTagalog ? 'I-on ang sahig ng presyo ng NFA' : 'Turn on the NFA price floor'}
             </button>
           )}
         </article>
@@ -391,14 +393,14 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                   <h2 style={styles.modalTitle}>
                     {nfaActive
                       ? isTagalog
-                        ? 'I-disable ang NFA Volatility Alert?'
-                        : 'Disable NFA Volatility Alert?'
+                        ? 'I-off ang sahig ng presyo ng NFA?'
+                        : 'Turn off the NFA price floor?'
                       : isTagalog
-                        ? 'I-activate ang NFA Volatility Alert?'
-                        : 'Activate NFA Volatility Alert?'}
+                        ? 'I-on ang sahig ng presyo ng NFA?'
+                        : 'Turn on the NFA price floor?'}
                   </h2>
                   <p style={styles.modalSubtitle}>
-                    {isTagalog ? 'Protokol sa Pagbabago ng Presyo ng NFA' : 'NFA Price Fallback Protocol'}
+                    {isTagalog ? 'Manu-manong alerto ng LGU' : 'Manual LGU alert'}
                   </p>
                 </div>
               </div>
@@ -411,11 +413,11 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
               <p style={styles.modalText}>
                 {nfaActive
                   ? isTagalog
-                    ? 'Sigurado ka bang nais mong i-disable ang NFA Volatility Safeguard? Ibabalik ang karaniwang pricing algorithm sa platform.'
-                    : 'Are you sure you want to disable the NFA Volatility Safeguard? Standard pricing algorithm will be restored.'
+                    ? 'Ang presyo ng merkado ang muling iiral.'
+                    : 'The market price will be in effect again.'
                   : isTagalog
-                    ? 'Sigurado ka bang nais mong ipaalam sa sistema na may biglaang pagbabago sa presyo ng NFA? Awtomatikong ia-activate ng algorithm ang price stabilization at volatility clamps para sa proteksyon ng merkado.'
-                    : 'Are you sure you want to notify the system of sudden NFA price volatility? The algorithm will automatically activate price stabilization and volatility clamps to protect the market.'}
+                    ? 'Ilalagay ang pinakamababang presyo ng NFA para sa araw na ito.'
+                    : 'The NFA price floor will be on for today.'}
               </p>
 
               <div style={nfaActive ? styles.calloutInfoBox : styles.calloutWarningBox}>
@@ -427,11 +429,11 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                 <span>
                   {nfaActive
                     ? isTagalog
-                      ? 'Mananatiling sinusubaybayan ng sistema ang live PSA benchmarks kahit naka-disable ang emergency fallback.'
-                      : 'The system will continue monitoring live PSA benchmarks even when the emergency fallback is disabled.'
+                      ? 'Mananatiling nakikita ang presyo mula sa PSA at sa modelo.'
+                      : 'The PSA price and the model price stay on the dashboard.'
                     : isTagalog
-                      ? 'Awtomatikong magpapatupad ang ANIMO ng price clamps (Tier 2/3) upang protektahan ang mga magsasaka laban sa abnormal na pagbagsak o pagtaas ng presyo.'
-                      : 'ANIMO will automatically implement price clamps (Tier 2/3) to protect farmers against abnormal price drops or spikes.'}
+                      ? 'Ito ay alerto na mano-manong binubuksan ng LGU. Hindi nito binabago ang presyong naka-lock na sa isang listing.'
+                      : 'This is an alert an LGU officer turns on by hand. It does not change a price already locked on a listing.'}
                 </span>
               </div>
             </div>
@@ -477,17 +479,17 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                   ? 'Matagumpay na Naitakda ang NFA Alert!'
                   : 'NFA Alert Successfully Activated!'
                 : isTagalog
-                  ? 'Na-disable na ang NFA Volatility Alert'
-                  : 'NFA Volatility Alert Disabled'}
+                  ? 'Naka-off na ang sahig ng presyo ng NFA'
+                  : 'The NFA price floor is off'}
             </h2>
             <p style={{ ...styles.modalText, margin: '8px 0 22px' }}>
               {lastNfaAction === 'activated'
                 ? isTagalog
-                  ? 'Naabisuhan na ang sistema ukol sa mataas na volatility mula sa NFA. Aktibo na ang safeguards at price clamps para sa lahat ng transaksyon.'
-                  : 'The system has been notified of high volatility from NFA. Safeguards and price clamps are now active for all transactions.'
+                  ? 'Naka-on na ang pinakamababang presyo ng NFA para sa araw na ito. Hindi nito binabago ang presyong naka-lock na sa isang listing.'
+                  : 'The NFA price floor is on for today. It does not change a price already locked on a listing.'
                 : isTagalog
-                  ? 'Ibinalik na ang karaniwang pricing mode. Mananatiling sinusubaybayan ang PSA benchmarks.'
-                  : 'Standard pricing mode has been restored. PSA benchmarks will continue to be monitored.'}
+                  ? 'Umiiral na muli ang presyo ng merkado. Nakikita pa rin ang presyo mula sa PSA.'
+                  : 'The market price is in effect again. The PSA price stays on the dashboard.'}
             </p>
 
             <button
@@ -621,11 +623,11 @@ function MarketPricingConfidenceCard({
           value={
             nfaActive
               ? isTagalog
-                ? '● May aktibong NFA window'
-                : '● Active NFA window'
+                ? '● Naka-on ang sahig ng presyo ng NFA'
+                : '● NFA price floor is on'
               : isTagalog
-                ? '○ Walang aktibong NFA window'
-                : '○ No active NFA window'
+                ? '○ Hindi naka-on ang sahig ng presyo ng NFA'
+                : '○ NFA price floor is off'
           }
         />
         <StatRow
@@ -664,8 +666,8 @@ function MarketPricingConfidenceCard({
           <TriangleAlert size={20} color="var(--animo-green)" style={{ flexShrink: 0 }} />
           <span>
             {isTagalog
-              ? "Hindi pa magagamit ang awtomatikong pagsusuri ngayon. Ang alerto mula sa NFA toggle sa itaas ang magiging basehan hangga't hindi ito available."
-              : "Automated analysis is not yet available right now. The alert from the NFA toggle above will serve as the basis until it becomes available."}
+              ? 'Hindi pa magagamit ang awtomatikong pagsusuri ngayon. Ang alerto ng NFA sa itaas ang magiging basehan hangga’t hindi ito magagamit.'
+              : 'Automated analysis is not ready right now. The NFA alert above is the basis until it is.'}
           </span>
         </div>
       ) : null}
