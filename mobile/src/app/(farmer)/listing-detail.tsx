@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams, type Href } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Archive, Check, Inbox, PackageSearch, TriangleAlert, Trash2, UserRound, X } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
@@ -40,6 +40,7 @@ import {
   fetchListingPurchaseRequests,
   rejectPurchaseRequest,
 } from "@/services/purchase-request-service";
+import { fetchCounterpartNames } from "@/services/transaction-service";
 import type { CropListing, ListingPhoto } from "@/types/crop-listing";
 import type { PurchaseRequest } from "@/types/purchase-request";
 
@@ -82,6 +83,7 @@ export default function ListingDetailScreen() {
   // drop off the list entirely once acted on (they show up in the
   // Transaksyon tab instead).
   const [orderedRequests, setOrderedRequests] = useState<PurchaseRequest[]>([]);
+  const [buyerNames, setBuyerNames] = useState<Map<string, string>>(new Map());
   const [trustByBuyer, setTrustByBuyer] = useState<Map<string, BuyerTrustStats>>(new Map());
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState<string | undefined>();
@@ -143,11 +145,17 @@ export default function ListingDetailScreen() {
         .filter((r) => r.status === "Pending")
         .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
       if (pending.length === 0) {
+        setBuyerNames(new Map());
         setTrustByBuyer(new Map());
         setOrderedRequests([]);
         return;
       }
-      const trustByBuyer = await fetchBuyerTrustStatsBatch(pending.map((r) => r.buyerId));
+      const buyerIds = pending.map((r) => r.buyerId);
+      const [trustByBuyer, names] = await Promise.all([
+        fetchBuyerTrustStatsBatch(buyerIds),
+        fetchCounterpartNames(buyerIds),
+      ]);
+      setBuyerNames(names);
       setTrustByBuyer(trustByBuyer);
       setOrderedRequests(pending);
     } catch (err) {
@@ -343,6 +351,7 @@ export default function ListingDetailScreen() {
                     key={request.id}
                     request={request}
                     pricePerKg={listing.pricePerKg ?? 0}
+                    buyerName={buyerNames.get(request.buyerId)}
                     trustStats={trustByBuyer.get(request.buyerId)}
                     lang={language}
                     onAccept={() => openAcceptModal(request)}
@@ -663,6 +672,7 @@ function PurchaseRequestCard({
   request,
   pricePerKg,
   trustStats,
+  buyerName,
   lang = "tl",
   onAccept,
   onReject,
@@ -670,6 +680,7 @@ function PurchaseRequestCard({
   request: PurchaseRequest;
   pricePerKg: number;
   trustStats?: BuyerTrustStats;
+  buyerName?: string;
   lang?: "tl" | "en";
   onAccept: () => void;
   onReject: () => void;
@@ -701,7 +712,7 @@ function PurchaseRequestCard({
           <View style={styles.requestInfoTop}>
             <Pressable accessibilityRole="button" hitSlop={8} onPress={openBuyerProfile}>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                {isEn ? "Buyer Request" : "Kahilingan ng Mamimili"}
+                {buyerName || (isEn ? "Buyer name unavailable" : "Hindi available ang pangalan ng mamimili")}
               </AnimoText>
             </Pressable>
             <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>

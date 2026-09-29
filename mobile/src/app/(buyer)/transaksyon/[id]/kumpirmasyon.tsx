@@ -52,7 +52,7 @@ const REASON_OPTIONS_EN = [
  */
 export default function PaymentConfirmationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { language, isTagalog } = useLanguage();
+  const { isTagalog } = useLanguage();
 
   const [outcome, setOutcome] = useState<PurchaseOutcome | null>(null);
   const [loading, setLoading] = useState(true);
@@ -302,8 +302,8 @@ export default function PaymentConfirmationScreen() {
                 </AnimoText>
                 <AnimoText variant="caption" color={AnimoColors.muted}>
                   {isTagalog
-                    ? 'Hindi ito ipinapadala kaninuman — sanggunian mo lang ito bago magpatuloy.'
-                    : 'This is not sent to anyone — kept for your reference before continuing.'}
+                    ? 'Opsyonal lang ang talang ito. Hindi ito sine-save o ipinapadala at mawawala kapag umalis ka sa pahinang ito.'
+                    : 'This optional note is not saved or sent to anyone and will be lost when you leave this screen.'}
                 </AnimoText>
 
                 <View style={styles.chipGroup}>
@@ -362,7 +362,7 @@ export default function PaymentConfirmationScreen() {
                     : 'Confirm Anyway'
             }
             onPress={handleConfirm}
-            disabled={submitting || (!isMatch && !selectedReason)}
+            disabled={submitting}
           />
         </View>
       </KeyboardAvoidingView>

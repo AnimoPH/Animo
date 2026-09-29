@@ -27,7 +27,7 @@ const BUYER_TAB_DEFS: Omit<TabItem, 'showBadge'>[] = [
  * Sub-screens inside the Palengke stack that are focused sub-flows and should
  * hide the tab bar (they have their own bottom action button).
  */
-const PALENGKE_FULLSCREEN = ['[id]', 'bid', 'magsasaka/[id]', 'magsasaka'];
+const PALENGKE_FULLSCREEN = ['[id]', 'buy', 'bid', 'magsasaka/[id]', 'magsasaka'];
 
 /**
  * Transaction sub-screens that own their own bottom action button, so the tab

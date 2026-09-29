@@ -181,6 +181,13 @@ export type CropListing = {
   status: ListingStatus;
 };
 
+/** A remainder below the usual minimum can be purchased in full. */
+export function minimumPurchaseKg(
+  listing: Pick<CropListing, 'minimumRequestKg' | 'remainingQuantityKg'>,
+): number {
+  return Math.max(0, Math.min(listing.minimumRequestKg, listing.remainingQuantityKg));
+}
+
 /** Farmer-chosen listing title shown on Palengke cards and detail screens. */
 export function listingTitle(listing: Pick<CropListing, 'listingName'>): string {
   return listing.listingName;
