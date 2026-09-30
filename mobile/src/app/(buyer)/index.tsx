@@ -11,7 +11,7 @@ import {
   TrendingUp,
   Wheat,
 } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -58,7 +58,7 @@ export default function BuyerHomeScreen() {
   const [featured, setFeatured] = useState<RankedListing[]>([]);
   const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
   const [insights, setInsights] = useState<MarketPopularityInsight>(DEFAULT_INSIGHTS);
-  const [showTutorial, setShowTutorial] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Spotlight target refs
   const marketTrendsRef = useRef<View>(null);
@@ -94,14 +94,16 @@ export default function BuyerHomeScreen() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    // Force spotlight tour visible for preview
-    setShowTutorial(true);
-  }, []);
-
   useFocusEffect(
     useCallback(() => {
       load();
+      let active = true;
+      AsyncStorage.getItem(TUTORIAL_STORAGE_KEY).then((seen) => {
+        if (active) setShowTutorial(seen !== 'true');
+      });
+      return () => {
+        active = false;
+      };
     }, [load]),
   );
 

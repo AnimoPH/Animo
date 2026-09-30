@@ -1,4 +1,5 @@
-import { router, type Href } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   Banknote,
@@ -19,8 +20,8 @@ import {
   Wallet,
   X,
 } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
@@ -35,6 +36,7 @@ import {
 import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { OnboardingWalkthroughModal } from '@/components/animo/onboarding-walkthrough-modal';
+import { TUTORIAL_STORAGE_KEY } from '@/components/animo/spotlight-tour';
 import SignOutModal from '@/components/signout-modal';
 import {
   AnimoColors,
@@ -101,6 +103,7 @@ export default function BuyerProfileScreen() {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showProfileSavedModal, setShowProfileSavedModal] = useState(false);
+  const [tutorialEnabled, setTutorialEnabled] = useState(false);
 
   // Edit profile state inside modal
   const [editFullName, setEditFullName] = useState(account?.fullName ?? '');
@@ -243,12 +246,32 @@ export default function BuyerProfileScreen() {
     router.replace('/login');
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      AsyncStorage.getItem(TUTORIAL_STORAGE_KEY).then((seen) => {
+        if (active) setTutorialEnabled(seen !== 'true');
+      });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  const handleTutorialToggle = async (on: boolean) => {
+    setTutorialEnabled(on);
+    try {
+      if (on) await AsyncStorage.removeItem(TUTORIAL_STORAGE_KEY);
+      else await AsyncStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
+    } catch {
+      setTutorialEnabled(!on);
+    }
+  };
+
   const handleSettingPress = (key: string) => {
     if (key === 'notif') router.push('/(buyer)/notipikasyon' as Href);
     else if (key === 'language') setShowLanguageModal(true);
-    else if (key === 'guide') {
-      router.push({ pathname: '/(buyer)', params: { startTour: 'true' } });
-    } else if (key === 'help') setShowHelpModal(true);
+    else if (key === 'help') setShowHelpModal(true);
     else if (key === 'terms' || key === 'privacy') setShowTermsModal(true);
   };
 
@@ -416,14 +439,17 @@ export default function BuyerProfileScreen() {
           <View style={styles.divider} />
 
           {/* User Guide & Tutorial */}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleSettingPress('guide')}
-            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
+          <View style={styles.settingRow}>
             <BookOpen size={20} color={AnimoColors.objectHighEmphasis} />
             <Text style={styles.settingLabel}>{t('profile.userGuide')}</Text>
-            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
-          </Pressable>
+            <Switch
+              value={tutorialEnabled}
+              onValueChange={handleTutorialToggle}
+              trackColor={{ false: '#D1D5DB', true: AnimoColors.accentPrimaryLight }}
+              thumbColor={tutorialEnabled ? AnimoColors.accentPrimary : '#FFFFFF'}
+              accessibilityLabel={t('profile.userGuide')}
+            />
+          </View>
           <View style={styles.divider} />
 
           {/* Help & FAQ */}
