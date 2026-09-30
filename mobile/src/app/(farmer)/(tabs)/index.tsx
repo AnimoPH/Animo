@@ -13,7 +13,7 @@ import {
   User,
   Wheat,
 } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -110,13 +110,19 @@ export default function FarmerHomeScreen() {
 
   useAutoRefresh(useCallback(() => load(true), [load]));
 
-  // Shown once, first run only — the tour itself has no way to check this,
-  // so the parent screen owns reading the "already seen" flag it writes.
-  useEffect(() => {
-    AsyncStorage.getItem(FARMER_TUTORIAL_STORAGE_KEY).then((seen) => {
-      if (seen !== 'true') setShowTutorial(true);
-    });
-  }, []);
+  // Shown once, until the tour is finished or skipped. Profile can clear the
+  // flag so the next visit to this home plays it again.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      AsyncStorage.getItem(FARMER_TUTORIAL_STORAGE_KEY).then((seen) => {
+        if (active) setShowTutorial(seen !== 'true');
+      });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   const statCards = [
     {
