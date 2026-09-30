@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Check,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Database,
   FileText,
+  HelpCircle,
   Lock,
   Phone,
+  Search,
+  ShieldCheck,
   TriangleAlert,
   X,
 } from 'lucide-react';
@@ -16,6 +21,7 @@ import { useAuth } from '@/lib/auth-context';
 import { barangayLabel } from '@/lib/barangay-label';
 import { supabase } from '@/lib/supabase';
 import { getLegalLinks } from '@/constants/dashboard';
+import { WEB_LEGAL_CONTENT } from '@/constants/legal-content';
 import {
   fetchLguBarangayCoverage,
   fetchLguUserProfile,
@@ -32,6 +38,7 @@ export type SettingsPageProps = {
 const LEGAL_ICONS = {
   file: FileText,
   lock: Lock,
+  help: HelpCircle,
   database: Database,
 } as const;
 
@@ -55,7 +62,9 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Legal modal state
-  const [selectedLegal, setSelectedLegal] = useState<{ title: string; subtitle: string; content: string } | null>(null);
+  const [selectedLegalKey, setSelectedLegalKey] = useState<'terms' | 'privacy' | 'data-sharing' | 'faq' | null>(null);
+  const [faqSearch, setFaqSearch] = useState('');
+  const [expandedFaqId, setExpandedFaqId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session?.userId) return;
@@ -145,31 +154,9 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
   };
 
   const handleLegalClick = (linkKey: string) => {
-    if (linkKey === 'terms') {
-      setSelectedLegal({
-        title: isTagalog ? 'Mga Tuntunin at Kundisyon' : 'Terms and Conditions',
-        subtitle: 'ANIMO Agricultural Platform',
-        content: isTagalog
-          ? 'Ang ANIMO LGU Console ay nakalaan para sa mga awtorisadong opisyal ng Municipal Agriculture Office para sa pagsubaybay sa kalakalan, presyo, at pagpapatupad ng alituntunin sa merkado ng palay.'
-          : 'The ANIMO LGU Console is intended for authorized Municipal Agriculture Office personnel for trade monitoring, price transparency, and marketplace policy enforcement.',
-      });
-    } else if (linkKey === 'privacy') {
-      setSelectedLegal({
-        title: isTagalog ? 'Patakaran sa Privacy' : 'Privacy Policy',
-        subtitle: 'Data Privacy Act of 2012 (RA 10173)',
-        content: isTagalog
-          ? 'Ang lahat ng datos ng mga magsasaka, mamimili, at transaksyon ay protektado at pinoproseso lamang para sa layunin ng opisyal na tulong pansakahan at kaligtasan sa merkado.'
-          : 'All farmer, buyer, and transaction records are protected and processed strictly for agricultural support, transparency, and market safety purposes.',
-      });
-    } else {
-      setSelectedLegal({
-        title: isTagalog ? 'Kasunduan sa Pagbabahagi ng Datos' : 'Data Sharing Agreement',
-        subtitle: 'LGU · DA · PhilRice · PSA',
-        content: isTagalog
-          ? 'Ang paggamit ng impormasyon sa presyo at produksyon ay umaayon sa balangkas ng datos ng Kagawaran ng Pagsasaka at Philippine Statistics Authority.'
-          : 'Farmgate benchmarks and production feeds comply with data sharing frameworks of the Department of Agriculture and Philippine Statistics Authority.',
-      });
-    }
+    setSelectedLegalKey(linkKey as any);
+    setFaqSearch('');
+    setExpandedFaqId(null);
   };
 
   return (
@@ -414,38 +401,199 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
         </div>
       )}
 
-      {/* Legal Info Modal */}
-      {selectedLegal && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalCard}>
-            <div style={styles.modalHead}>
-              <div>
-                <h2 style={styles.modalTitle}>{selectedLegal.title}</h2>
-                <p style={styles.modalSubtitle}>{selectedLegal.subtitle}</p>
+      {/* Comprehensive Legal & FAQ Modal */}
+      {selectedLegalKey && (() => {
+        const legalData = WEB_LEGAL_CONTENT[language] || WEB_LEGAL_CONTENT.tl;
+        const isFaq = selectedLegalKey === 'faq';
+        const doc = isFaq ? legalData.faq : legalData[selectedLegalKey];
+
+        const filteredFaqs = isFaq
+          ? legalData.faq.items.filter((item) => {
+              const q = faqSearch.trim().toLowerCase();
+              return (
+                !q ||
+                item.question.toLowerCase().includes(q) ||
+                item.answer.toLowerCase().includes(q) ||
+                item.categoryLabel.toLowerCase().includes(q)
+              );
+            })
+          : [];
+
+        return (
+          <div style={styles.modalOverlay} onClick={() => setSelectedLegalKey(null)}>
+            <div
+              style={{ ...styles.modalCard, maxWidth: 640, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
+              onClick={(e) => e.stopPropagation()}>
+              <div style={styles.modalHead}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 8,
+                      background: 'var(--animo-green-tint)',
+                      color: 'var(--animo-green)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                    {selectedLegalKey === 'terms' && <FileText size={20} />}
+                    {selectedLegalKey === 'privacy' && <Lock size={20} />}
+                    {selectedLegalKey === 'faq' && <HelpCircle size={20} />}
+                    {selectedLegalKey === 'data-sharing' && <Database size={20} />}
+                  </div>
+                  <div>
+                    <h2 style={styles.modalTitle}>{doc.title}</h2>
+                    <p style={styles.modalSubtitle}>{doc.subtitle}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedLegalKey(null)}
+                  style={styles.closeBtn}>
+                  <X size={20} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedLegal(null)}
-                style={styles.closeBtn}>
-                <X size={20} />
-              </button>
-            </div>
 
-            <div style={{ padding: '16px 0', lineHeight: '24px', color: 'var(--animo-black-secondary)' }}>
-              <p>{selectedLegal.content}</p>
-            </div>
+              {/* Modal Body */}
+              <div style={{ overflowY: 'auto', padding: '16px 0', flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {isFaq ? (
+                  <>
+                    <div style={{ position: 'relative', marginBottom: 6 }}>
+                      <input
+                        type="text"
+                        value={faqSearch}
+                        onChange={(e) => setFaqSearch(e.target.value)}
+                        placeholder={isTagalog ? 'Maghanap sa FAQ...' : 'Search FAQ...'}
+                        style={{
+                          width: '100%',
+                          height: 38,
+                          padding: '0 12px 0 36px',
+                          borderRadius: 'var(--animo-radius-md)',
+                          border: '1px solid var(--animo-border)',
+                          fontSize: 14,
+                        }}
+                      />
+                      <Search size={16} color="var(--animo-muted)" style={{ position: 'absolute', left: 12, top: 11 }} />
+                      {faqSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setFaqSearch('')}
+                          style={{ position: 'absolute', right: 10, top: 10, background: 'none', border: 'none', cursor: 'pointer' }}>
+                          <X size={16} color="var(--animo-muted)" />
+                        </button>
+                      )}
+                    </div>
 
-            <div style={styles.modalFooter}>
-              <button
-                type="button"
-                onClick={() => setSelectedLegal(null)}
-                style={styles.submitBtn}>
-                {isTagalog ? 'Naiintindihan Ko' : 'Understood'}
-              </button>
+                    {filteredFaqs.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--animo-muted)' }}>
+                        <HelpCircle size={36} style={{ margin: '0 auto 8px', opacity: 0.6 }} />
+                        <p style={{ fontWeight: 600 }}>{isTagalog ? 'Walang nahanap na tanong.' : 'No matching questions found.'}</p>
+                      </div>
+                    ) : (
+                      filteredFaqs.map((faq) => {
+                        const isExpanded = expandedFaqId === faq.id;
+                        return (
+                          <div
+                            key={faq.id}
+                            style={{
+                              border: '1px solid var(--animo-border)',
+                              borderRadius: 'var(--animo-radius-md)',
+                              overflow: 'hidden',
+                              background: 'var(--animo-surface)',
+                            }}>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedFaqId(isExpanded ? null : faq.id)}
+                              style={{
+                                width: '100%',
+                                padding: '12px 16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                background: 'none',
+                                border: 'none',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                gap: 12,
+                              }}>
+                              <div>
+                                <span
+                                  style={{
+                                    display: 'inline-block',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    color: 'var(--animo-green)',
+                                    background: 'var(--animo-green-tint)',
+                                    padding: '2px 6px',
+                                    borderRadius: 4,
+                                    marginBottom: 4,
+                                  }}>
+                                  {faq.categoryLabel}
+                                </span>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--animo-black)' }}>{faq.question}</div>
+                              </div>
+                              {isExpanded ? <ChevronUp size={18} color="var(--animo-green)" /> : <ChevronDown size={18} color="var(--animo-muted)" />}
+                            </button>
+                            {isExpanded && (
+                              <div style={{ padding: '0 16px 14px', borderTop: '1px solid var(--animo-border)', color: 'var(--animo-black-secondary)', fontSize: 13, lineHeight: '20px', paddingTop: 10 }}>
+                                {faq.answer}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--animo-green-tint)', padding: '8px 12px', borderRadius: 'var(--animo-radius-sm)', color: 'var(--animo-green)', fontSize: 13, fontWeight: 600 }}>
+                      <ShieldCheck size={18} />
+                      <span>{isTagalog ? 'Opisyal na Patakaran ng ANIMO at LGU Agriculture Office' : 'Official ANIMO & LGU Agriculture Office Policy'}</span>
+                    </div>
+
+                    {'sections' in doc && doc.sections.map((sec: any) => (
+                      <div
+                        key={sec.id}
+                        style={{
+                          border: '1px solid var(--animo-border)',
+                          borderRadius: 'var(--animo-radius-md)',
+                          padding: 16,
+                          background: 'var(--animo-surface)',
+                        }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                          <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--animo-black)' }}>{sec.title}</h3>
+                        </div>
+                        {sec.paragraphs.map((p: string, pIdx: number) => (
+                          <p key={pIdx} style={{ fontSize: 13, lineHeight: '20px', color: 'var(--animo-black-secondary)', marginBottom: 6 }}>
+                            {p}
+                          </p>
+                        ))}
+                        {sec.bulletPoints && (
+                          <ul style={{ paddingLeft: 18, margin: '6px 0 0', color: 'var(--animo-black-secondary)', fontSize: 13, lineHeight: '20px' }}>
+                            {sec.bulletPoints.map((bp: string, bpIdx: number) => (
+                              <li key={bpIdx} style={{ marginBottom: 4 }}>{bp}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+
+              <div style={styles.modalFooter}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedLegalKey(null)}
+                  style={styles.submitBtn}>
+                  {isTagalog ? 'Naiintindihan Ko' : 'Understood'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </ConsoleLayout>
   );
 }

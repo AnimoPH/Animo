@@ -480,20 +480,26 @@ export function getLegalLinks(lang: 'tl' | 'en' = 'tl') {
   return [
     {
       key: 'terms',
-      title: 'Terms and Conditions',
+      title: isEn ? 'Terms & Conditions' : 'Mga Tuntunin at Kundisyon',
       subtitle: isEn ? 'Terms of use and agreement' : 'Mga tuntunin ng paggamit',
       icon: 'file' as const,
     },
     {
       key: 'privacy',
-      title: 'Privacy Policy',
-      subtitle: isEn ? 'How your data is protected' : 'Paano ginagamit ang datos',
+      title: isEn ? 'Privacy Policy' : 'Patakaran sa Privacy',
+      subtitle: isEn ? 'Data Privacy Act (RA 10173)' : 'Proteksyon ng datos (RA 10173)',
       icon: 'lock' as const,
     },
     {
+      key: 'faq',
+      title: isEn ? 'Help & FAQ' : 'Tulong at FAQ',
+      subtitle: isEn ? 'Frequently asked questions' : 'Mga madalas itanong',
+      icon: 'help' as const,
+    },
+    {
       key: 'data-sharing',
-      title: 'Data Sharing Agreement',
-      subtitle: 'LGU – DA – PhilRice',
+      title: isEn ? 'Data Sharing Agreement' : 'Kasunduan sa Pagbabahagi ng Datos',
+      subtitle: 'LGU – DA – PhilRice – PSA',
       icon: 'database' as const,
     },
   ];
