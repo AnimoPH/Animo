@@ -1,14 +1,13 @@
-import { router, useFocusEffect, type Href } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Bell, ClipboardList, Filter, Search, X } from 'lucide-react-native';
+import { Bell, ClipboardList, Filter, Search } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -16,12 +15,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
+import { FilterModal } from '@/components/animo/filter-modal';
 import { ListingTransactionSummaryCard } from '@/components/animo/farmer/listing-transaction-summary-card';
+import { LabeledInput } from '@/components/animo/labeled-input';
+import { SearchFilterBar } from '@/components/animo/search-filter-bar';
 import {
   SpotlightTour,
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
-import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
+import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { formatPeso } from '@/constants/marketplace';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useLanguage } from '@/hooks/use-language';
 import { fetchMyCropListings } from '@/services/crop-listing-service';
@@ -33,18 +36,116 @@ import {
   sumCompletedSoldKg,
 } from '@/services/transaction-service';
 import {
+  VARIETY_OPTIONS,
   listingTitle,
   specificVarietyDisplay,
   varietyLabel,
   type CropListing,
+  type DeclaredVariety,
 } from '@/types/crop-listing';
 import type { TransactionWithPayment } from '@/types/transaction';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
 
-type FilterValue = 'Lahat' | 'Kasalukuyan' | 'Tapos na';
+type StatusFilter = 'Lahat' | 'Kasalukuyan' | 'Tapos na' | 'Kailangan';
+type VarietyChoice = 'Lahat' | DeclaredVariety;
 
-const FILTERS: FilterValue[] = ['Lahat', 'Kasalukuyan', 'Tapos na'];
+type TxnFilterDraft = {
+  status: StatusFilter;
+  minRemainingText: string;
+  minEarningsText: string;
+  maxEarningsText: string;
+  variety: VarietyChoice;
+};
+
+const EMPTY_FILTERS: TxnFilterDraft = {
+  status: 'Lahat',
+  minRemainingText: '',
+  minEarningsText: '',
+  maxEarningsText: '',
+  variety: 'Lahat',
+};
+
+const STATUS_FILTERS: { value: StatusFilter; tl: string; en: string }[] = [
+  { value: 'Lahat', tl: 'Lahat', en: 'All' },
+  { value: 'Kasalukuyan', tl: 'Kasalukuyan', en: 'Ongoing' },
+  { value: 'Tapos na', tl: 'Tapos na', en: 'Completed' },
+  { value: 'Kailangan', tl: 'Kailangan ng aksyon', en: 'Needs action' },
+];
+
+const VARIETY_CHOICES: { value: VarietyChoice; label: string }[] = [
+  { value: 'Lahat', label: 'Lahat' },
+  ...VARIETY_OPTIONS,
+];
+
+/** Parses a filter text field, treating blank or non-numeric text as unset. */
+function parseNumber(text: string): number | undefined {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return undefined;
+  const value = Number(trimmed);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+/** One count per section that is not left at its default. */
+function countActiveFilters(filters: TxnFilterDraft): number {
+  let count = 0;
+  if (filters.status !== 'Lahat') count += 1;
+  if (parseNumber(filters.minRemainingText) !== undefined) count += 1;
+  if (
+    parseNumber(filters.minEarningsText) !== undefined ||
+    parseNumber(filters.maxEarningsText) !== undefined
+  ) {
+    count += 1;
+  }
+  if (filters.variety !== 'Lahat') count += 1;
+  return count;
+}
+
+function rollupMatchesFilters(item: ListingRollup, filters: TxnFilterDraft): boolean {
+  if (filters.status === 'Kasalukuyan' && item.listing.status !== 'Available') return false;
+  if (filters.status === 'Tapos na' && item.listing.status !== 'Sold_Out') return false;
+  if (filters.status === 'Kailangan' && item.pendingCount <= 0) return false;
+
+  const minRemaining = parseNumber(filters.minRemainingText);
+  if (minRemaining !== undefined && item.listing.remainingQuantityKg < minRemaining) return false;
+
+  const minEarnings = parseNumber(filters.minEarningsText);
+  const maxEarnings = parseNumber(filters.maxEarningsText);
+  if (minEarnings !== undefined && item.earnings < minEarnings) return false;
+  if (maxEarnings !== undefined && item.earnings > maxEarnings) return false;
+
+  if (filters.variety !== 'Lahat' && item.listing.declaredVariety !== filters.variety) return false;
+  return true;
+}
+
+function moneySearchText(amount: number): string {
+  const formatted = formatPeso(amount).replace('₱', '').toLowerCase();
+  return `${amount} ${formatted} ${formatted.replace(/,/g, '')}`;
+}
+
+function rollupMatchesSearch(item: ListingRollup, searchQuery: string): boolean {
+  const query = searchQuery.trim().toLowerCase();
+  if (!query) return true;
+
+  const statusWords = [
+    item.listing.status === 'Available' ? 'kasalukuyan ongoing active available' : '',
+    item.listing.status === 'Sold_Out' ? 'tapos na completed sold out naubos' : '',
+    item.pendingCount > 0 ? 'kailangan ng aksyon action required needs action' : '',
+  ].join(' ');
+
+  const pricePerKg = item.listing.pricePerKg;
+  const haystack = [
+    listingTitle(item.listing),
+    item.varietyLine,
+    moneySearchText(item.earnings),
+    pricePerKg !== null ? moneySearchText(pricePerKg) : '',
+    statusWords,
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  return haystack.includes(query);
+}
 
 type ListingRollup = {
   listing: CropListing;
@@ -59,7 +160,9 @@ type ListingRollup = {
 export default function FarmerTransactionsScreen() {
   const { t, language, isTagalog } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<FilterValue>('Lahat');
+  const [appliedFilters, setAppliedFilters] = useState<TxnFilterDraft>(EMPTY_FILTERS);
+  const [draftFilters, setDraftFilters] = useState<TxnFilterDraft>(EMPTY_FILTERS);
+  const [modalOpen, setModalOpen] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
 
   const [listings, setListings] = useState<CropListing[]>([]);
@@ -71,7 +174,6 @@ export default function FarmerTransactionsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const searchBarRef = useRef<View>(null);
-  const filterRowRef = useRef<View>(null);
   const bellRef = useRef<View>(null);
 
   const load = useCallback(async (isRefresh: boolean) => {
@@ -130,32 +232,28 @@ export default function FarmerTransactionsScreen() {
       .sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : -1));
   }, [listings, transactions, pendingCounts, prLatestUpdatedAt, language]);
 
+  const activeFilterCount = countActiveFilters(appliedFilters);
+
   const filteredData = useMemo(() => {
-    return rollups.filter((item) => {
-      const matchesFilter = (() => {
-        if (activeFilter === 'Lahat') return true;
-        if (activeFilter === 'Kasalukuyan') return item.listing.status === 'Available';
-        if (activeFilter === 'Tapos na') return item.listing.status === 'Sold_Out';
-        return true;
-      })();
+    return rollups.filter(
+      (item) => rollupMatchesFilters(item, appliedFilters) && rollupMatchesSearch(item, searchQuery),
+    );
+  }, [rollups, appliedFilters, searchQuery]);
 
-      const query = searchQuery.toLowerCase().trim();
-      const title = listingTitle(item.listing).toLowerCase();
-      const matchesSearch =
-        query === '' ||
-        title.includes(query) ||
-        item.varietyLine.toLowerCase().includes(query);
-
-      return matchesFilter && matchesSearch;
-    });
-  }, [rollups, activeFilter, searchQuery]);
-
-  const handleFilterSelect = (filter: FilterValue) => {
-    setActiveFilter(filter);
+  const openModal = () => {
+    setDraftFilters(appliedFilters);
+    setModalOpen(true);
   };
 
-  const handleSearchChange = (text: string) => {
-    setSearchQuery(text);
+  const applyFilters = () => {
+    setAppliedFilters(draftFilters);
+    setModalOpen(false);
+  };
+
+  const resetFilters = () => {
+    setDraftFilters(EMPTY_FILTERS);
+    setAppliedFilters(EMPTY_FILTERS);
+    setModalOpen(false);
   };
 
   const farmerTxnTourSteps: SpotlightStep[] = [
@@ -164,7 +262,7 @@ export default function FarmerTransactionsScreen() {
       title: t('spotlight.farmerTxn.step1Title'),
       description: t('spotlight.farmerTxn.step1Desc'),
       icon: Filter,
-      targetRef: filterRowRef,
+      targetRef: searchBarRef,
       shape: 'rectangle',
       borderRadius: 16,
       padding: 6,
@@ -198,28 +296,127 @@ export default function FarmerTransactionsScreen() {
         onPressBell={() => router.push('/(farmer)/notipikasyon')}
       />
 
-      <View ref={searchBarRef} collapsable={false} style={styles.searchBar}>
-        <Search size={18} color={AnimoColors.objectLowEmphasis} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder={isTagalog ? "Maghanap ng listing..." : "Search listings..."}
-          placeholderTextColor={AnimoColors.textDisabled}
+      <View ref={searchBarRef} collapsable={false}>
+        <SearchFilterBar
           value={searchQuery}
-          onChangeText={handleSearchChange}
-          returnKeyType="search"
-          underlineColorAndroid="transparent"
+          onChangeText={setSearchQuery}
+          placeholder={
+            isTagalog ? 'Maghanap ng pangalan, presyo, katayuan...' : 'Search name, price, status...'
+          }
+          activeFilterCount={activeFilterCount}
+          onFilterPress={openModal}
         />
-        {searchQuery.length > 0 ? (
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel={isTagalog ? "I-clear ang search" : "Clear search"}
-            onPress={() => handleSearchChange('')}
-            activeOpacity={0.85}
-            hitSlop={8}>
-            <X size={18} color={AnimoColors.objectLowEmphasis} />
-          </TouchableOpacity>
-        ) : null}
       </View>
+
+      <FilterModal
+        visible={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onReset={resetFilters}
+        onApply={applyFilters}
+        activeCount={countActiveFilters(draftFilters)}
+      >
+        <View style={styles.filterSection}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+            {isTagalog ? 'Katayuan' : 'Status'}
+          </AnimoText>
+          <View style={styles.chipsWrap}>
+            {STATUS_FILTERS.map((choice) => (
+              <FilterChoiceChip
+                key={choice.value}
+                label={isTagalog ? choice.tl : choice.en}
+                active={draftFilters.status === choice.value}
+                onPress={() => setDraftFilters((prev) => ({ ...prev, status: choice.value }))}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.filterSection}>
+          <LabeledInput
+            label={isTagalog ? 'Natitirang dami (kg)' : 'Remaining weight (kg)'}
+            hint={
+              isTagalog
+                ? 'Ipakita lamang ang mga listing na may natitirang timbang na ito.'
+                : 'Only show listings with at least this much left.'
+            }
+            keyboardType="numeric"
+            suffixText="kg"
+            placeholder={isTagalog ? 'Halimbawa: 100' : 'e.g. 100'}
+            value={draftFilters.minRemainingText}
+            onChangeText={(minRemainingText) =>
+              setDraftFilters((prev) => ({ ...prev, minRemainingText }))
+            }
+          />
+        </View>
+
+        <View style={styles.filterSection}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+            {isTagalog ? 'Buong Kita (₱)' : 'Total earnings (₱)'}
+          </AnimoText>
+          <View style={styles.filterPriceRow}>
+            <View style={styles.filterPriceField}>
+              <LabeledInput
+                label={isTagalog ? 'Pinakamababa' : 'Minimum'}
+                keyboardType="numeric"
+                prefixText="₱"
+                placeholder="1000"
+                value={draftFilters.minEarningsText}
+                onChangeText={(minEarningsText) =>
+                  setDraftFilters((prev) => ({ ...prev, minEarningsText }))
+                }
+              />
+            </View>
+            <View style={styles.filterPriceField}>
+              <LabeledInput
+                label={isTagalog ? 'Pinakamataas' : 'Maximum'}
+                keyboardType="numeric"
+                prefixText="₱"
+                placeholder="8000"
+                value={draftFilters.maxEarningsText}
+                onChangeText={(maxEarningsText) =>
+                  setDraftFilters((prev) => ({ ...prev, maxEarningsText }))
+                }
+              />
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.filterSection}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+            {isTagalog ? 'Uri ng palay' : 'Rice variety'}
+          </AnimoText>
+          <View style={styles.chipsWrap}>
+            {VARIETY_CHOICES.map((choice) => {
+              const label =
+                choice.value === 'Lahat'
+                  ? isTagalog
+                    ? 'Lahat'
+                    : 'All'
+                  : choice.value === 'Traditional_or_Heirloom'
+                    ? isTagalog
+                      ? 'Tradisyonal o Pamana'
+                      : 'Traditional / Heirloom'
+                    : choice.value === 'Mix_of_Varieties'
+                      ? isTagalog
+                        ? 'Halo-halong Uri'
+                        : 'Mixed Varieties'
+                      : choice.value === 'Others'
+                        ? isTagalog
+                          ? 'Iba pa'
+                          : 'Others'
+                        : choice.label;
+              return (
+                <FilterChoiceChip
+                  key={choice.value}
+                  label={label}
+                  active={draftFilters.variety === choice.value}
+                  onPress={() => setDraftFilters((prev) => ({ ...prev, variety: choice.value }))}
+                />
+              );
+            })}
+          </View>
+        </View>
+      </FilterModal>
 
       {loading ? (
         <View style={styles.centerFill}>
@@ -255,43 +452,11 @@ export default function FarmerTransactionsScreen() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
-          ListHeaderComponent={
-            <View ref={filterRowRef} collapsable={false}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filters}
-                style={styles.filterScroll}>
-                {FILTERS.map((filter) => {
-                  const active = activeFilter === filter;
-                  const label =
-                    filter === 'Lahat'
-                      ? (isTagalog ? 'Lahat' : 'All')
-                      : filter === 'Kasalukuyan'
-                        ? (isTagalog ? 'Kasalukuyan' : 'Active')
-                        : (isTagalog ? 'Tapos na' : 'Completed');
-                  return (
-                    <TouchableOpacity
-                      key={filter}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      onPress={() => handleFilterSelect(filter)}
-                      activeOpacity={0.85}
-                      style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}>
-                      <AnimoText
-                        variant="bodyEmphasis"
-                        color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
-                        {label}
-                      </AnimoText>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          }
           ListEmptyComponent={
             searchQuery.trim() !== '' ? (
-              <SearchEmptyState query={searchQuery} onClear={() => handleSearchChange('')} isTagalog={isTagalog} />
+              <SearchEmptyState query={searchQuery} onClear={() => setSearchQuery('')} isTagalog={isTagalog} />
+            ) : activeFilterCount > 0 ? (
+              <FilterEmptyState isTagalog={isTagalog} onClear={resetFilters} />
             ) : (
               <EmptyState isTagalog={isTagalog} />
             )
@@ -305,6 +470,47 @@ export default function FarmerTransactionsScreen() {
         onClose={() => setShowTutorial(false)}
       />
     </SafeAreaView>
+  );
+}
+
+function FilterChoiceChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={[styles.chipItem, active && styles.chipItemActive]}>
+      <AnimoText
+        variant="body"
+        color={active ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
+        style={active ? styles.chipTextActive : undefined}>
+        {label}
+      </AnimoText>
+    </Pressable>
+  );
+}
+
+function FilterEmptyState({ isTagalog, onClear }: { isTagalog: boolean; onClear: () => void }) {
+  return (
+    <View style={styles.empty}>
+      <Filter size={48} color={AnimoColors.accentPrimaryLight} />
+      <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
+        {isTagalog ? 'Walang listing sa filter na ito.' : 'No listings match this filter.'}
+      </AnimoText>
+      <TouchableOpacity accessibilityRole="button" activeOpacity={0.85} onPress={onClear} style={styles.searchEmptyCta}>
+        <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
+          {isTagalog ? 'I-clear ang filter' : 'Clear filters'}
+        </AnimoText>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -354,47 +560,37 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: AnimoColors.appBackground },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1, backgroundColor: AnimoColors.appBackground },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: SCREEN_PADDING,
-    marginTop: AnimoSpacing.md,
-    marginBottom: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.md,
-    paddingHorizontal: AnimoSpacing.md,
-    height: 50,
+  filterSection: {
     gap: AnimoSpacing.sm,
   },
-  searchInput: {
+  filterPriceRow: {
+    flexDirection: 'row',
+    gap: AnimoSpacing.md,
+  },
+  filterPriceField: {
     flex: 1,
-    height: '100%',
-    ...AnimoType.body,
-    color: AnimoColors.textHighEmphasis,
-    paddingVertical: 0,
   },
-  filterScroll: {
-    marginHorizontal: -SCREEN_PADDING,
-    marginBottom: AnimoSpacing.md,
+  chipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: AnimoSpacing.sm,
+    marginTop: 2,
   },
-  filters: {
-    paddingHorizontal: SCREEN_PADDING,
-  },
-  pill: {
+  chipItem: {
+    paddingHorizontal: AnimoSpacing.md,
+    paddingVertical: 10,
     borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.sm,
-    marginRight: AnimoSpacing.sm,
-  },
-  pillActive: {
-    backgroundColor: AnimoColors.accentPrimary,
-  },
-  pillInactive: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: AnimoColors.borderLowEmphasis,
+    backgroundColor: AnimoColors.surfacePrimary,
+  },
+  chipItemActive: {
+    borderColor: AnimoColors.accentPrimary,
+    backgroundColor: AnimoColors.accentPrimaryLight,
+  },
+  chipTextActive: {
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    color: AnimoColors.accentPrimary,
   },
   list: {
     paddingHorizontal: SCREEN_PADDING,

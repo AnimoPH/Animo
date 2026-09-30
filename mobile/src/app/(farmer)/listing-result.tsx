@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams, type Href } from "expo-router";
-import { StyleSheet, View, Image } from "react-native";
+import { ScrollView, StyleSheet, View, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Info } from "lucide-react-native";
 import { BackHeader } from "@/components/animo/back-header";
@@ -25,7 +25,11 @@ export default function ListingResultScreen() {
       {/* Progress Bar */}
       <ProgressSteps currentStep={2} />
 
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.topContainer}>
           {/* Image Banner */}
           <View style={styles.photoArea}>
@@ -89,7 +93,7 @@ export default function ListingResultScreen() {
             onPress={() => router.push("/(farmer)/(tabs)/palengke" as Href)}
           />
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -99,13 +103,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AnimoColors.appBackground,
   },
-  content: {
+  scroll: {
     flex: 1,
+  },
+  content: {
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "flex-start",
     gap: 18,
     backgroundColor: AnimoColors.appBackground,
     padding: AnimoSpacing.lg,
+    paddingBottom: AnimoSpacing.xl,
   },
   topContainer: {
     gap: 10,

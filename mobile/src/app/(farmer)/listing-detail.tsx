@@ -338,14 +338,9 @@ export default function ListingDetailScreen() {
               <OrdersEmptyState lang={language} />
             ) : (
               <>
-                <View style={styles.ordersHeaderRow}>
-                  <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-                    {isTagalog ? "Mga Kahilingan" : "Purchase Requests"}
-                  </AnimoText>
-                  <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-                    {orderedRequests.length} {isTagalog ? "kabuuan" : "total"}
-                  </AnimoText>
-                </View>
+                <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
+                  {isTagalog ? "Mga Order mula sa Mamimili" : "Orders from Buyers"}
+                </AnimoText>
                 {orderedRequests.map((request) => (
                   <PurchaseRequestCard
                     key={request.id}
@@ -706,16 +701,16 @@ function PurchaseRequestCard({
           hitSlop={8}
           onPress={openBuyerProfile}
           style={styles.requestAvatar}>
-          <UserRound size={22} color={AnimoColors.accentPrimary} />
+          <UserRound size={22} color={AnimoColors.textMediumEmphasis} />
         </Pressable>
         <View style={styles.requestInfo}>
           <View style={styles.requestInfoTop}>
-            <Pressable accessibilityRole="button" hitSlop={8} onPress={openBuyerProfile}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+            <Pressable accessibilityRole="button" hitSlop={8} onPress={openBuyerProfile} style={styles.buyerNamePressable}>
+              <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} numberOfLines={1}>
                 {buyerName || (isEn ? "Buyer name unavailable" : "Hindi available ang pangalan ng mamimili")}
               </AnimoText>
             </Pressable>
-            <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+            <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
               {request.requestedQuantityKg} kg
             </AnimoText>
           </View>
@@ -729,7 +724,7 @@ function PurchaseRequestCard({
       </View>
 
       {trustStats ? (
-        <BuyerTrustStatsCard stats={trustStats} onPressProfile={openBuyerProfile} />
+        <BuyerTrustStatsCard stats={trustStats} lang={lang} onPressProfile={openBuyerProfile} />
       ) : null}
 
       {request.status === "Pending" ? (
@@ -768,7 +763,6 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: AnimoColors.accentPrimary },
   scrollContent: { paddingHorizontal: AnimoSpacing.lg, paddingTop: AnimoSpacing.sm, paddingBottom: AnimoSpacing.xxl, gap: AnimoSpacing.lg },
   ordersSection: { gap: AnimoSpacing.md },
-  ordersHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 2, marginTop: 2 },
   emptyScreen: {
     flex: 1,
     alignItems: "center",
@@ -818,11 +812,12 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.md,
   },
   requestTopRow: { flexDirection: "row", alignItems: "center" },
-  requestAvatar: { width: 44, height: 44, borderRadius: AnimoRadius.pill, backgroundColor: AnimoColors.accentPrimaryLight, alignItems: "center", justifyContent: "center" },
+  requestAvatar: { width: 44, height: 44, borderRadius: AnimoRadius.pill, backgroundColor: AnimoColors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
   requestInfo: { flex: 1, marginLeft: AnimoSpacing.md, gap: 3 },
-  requestInfoTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  requestInfoTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: AnimoSpacing.sm },
+  buyerNamePressable: { flex: 1 },
   requestBottomRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  requestActions: { flexDirection: "row", gap: AnimoSpacing.md, paddingTop: 4, borderTopWidth: 1, borderTopColor: AnimoColors.borderLowEmphasis },
+  requestActions: { flexDirection: "row", gap: AnimoSpacing.md },
   rejectButton: {
     flex: 1,
     flexDirection: "row",
@@ -831,8 +826,8 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.xs,
     borderWidth: 1.5,
     borderColor: AnimoColors.caution,
-    borderRadius: AnimoRadius.md,
-    paddingVertical: 10,
+    borderRadius: AnimoRadius.pill,
+    paddingVertical: 12,
     backgroundColor: AnimoColors.surfacePrimary,
   },
   acceptButton: {
@@ -842,8 +837,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: AnimoSpacing.xs,
     backgroundColor: AnimoColors.accentPrimary,
-    borderRadius: AnimoRadius.md,
-    paddingVertical: 10,
+    borderRadius: AnimoRadius.pill,
+    paddingVertical: 12,
   },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center", alignItems: "center", paddingHorizontal: AnimoSpacing.lg },
   rejectCard: {

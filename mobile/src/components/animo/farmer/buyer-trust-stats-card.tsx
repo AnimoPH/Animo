@@ -1,4 +1,4 @@
-import { ChevronRight, PackageCheck, Scale, Star } from 'lucide-react-native';
+import { ChevronRight, MessageCircle, Package, ShoppingCart } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
@@ -7,89 +7,76 @@ import type { BuyerTrustStats } from '@/services/farmer-public-profile';
 
 export type BuyerTrustStatsCardProps = {
   stats: BuyerTrustStats;
+  lang?: 'tl' | 'en';
   onPressProfile?: () => void;
 };
 
 function formatVolumeKg(kg: number): string {
-  if (kg >= 1000) return `${(kg / 1000).toFixed(1)}k kg`;
-  return `${kg.toLocaleString()} kg`;
+  if (kg >= 1000) {
+    const thousands = kg / 1000;
+    const label = Number.isInteger(thousands) ? String(thousands) : thousands.toFixed(1);
+    return `${label}k (kg)`;
+  }
+  return `${kg.toLocaleString()} (kg)`;
 }
 
 /** Compact pre-match buyer trust summary for a purchase request row. */
-export function BuyerTrustStatsCard({ stats, onPressProfile }: BuyerTrustStatsCardProps) {
-  const hasHistory = stats.completedTransactionsCount > 0 || stats.totalReviews > 0;
+export function BuyerTrustStatsCard({ stats, lang = 'tl', onPressProfile }: BuyerTrustStatsCardProps) {
+  const isEn = lang === 'en';
 
-  const content = (
+  return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
         <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-          Talaan ng Mamimili
+          {isEn ? 'Buyer record' : 'Talaan ng Mamimili'}
         </AnimoText>
         {onPressProfile ? (
-          <View style={styles.linkRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isEn ? 'View full buyer profile' : 'Tingnan ang buong profile ng mamimili'}
+            hitSlop={8}
+            onPress={onPressProfile}
+            style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}>
             <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
-              Buong profile
+              {isEn ? 'Full profile' : 'Buong Profile'}
             </AnimoText>
             <ChevronRight size={14} color={AnimoColors.accentPrimary} />
-          </View>
+          </Pressable>
         ) : null}
       </View>
 
       <View style={styles.metricsRow}>
         <View style={styles.metric}>
-          <PackageCheck size={16} color={AnimoColors.accentPrimary} />
-          <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
+          <ShoppingCart size={18} color={AnimoColors.accentPrimary} />
+          <AnimoText variant="h3" color={AnimoColors.accentPrimary}>
             {stats.completedTransactionsCount}
           </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            Transaksyon
+            {isEn ? 'Transactions' : 'Transaksyon'}
           </AnimoText>
         </View>
 
         <View style={styles.metric}>
-          <Star
-            size={16}
-            color="#F59E0B"
-            fill={stats.totalReviews > 0 ? '#F59E0B' : 'transparent'}
-          />
-          <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            {stats.totalReviews > 0 ? `${stats.averageRating.toFixed(1)}/5` : '—'}
+          <MessageCircle size={18} color={AnimoColors.accentPrimary} />
+          <AnimoText variant="h3" color={AnimoColors.accentPrimary}>
+            {stats.totalReviews}
           </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            {stats.totalReviews} review
+            Reviews
           </AnimoText>
         </View>
 
         <View style={styles.metric}>
-          <Scale size={16} color={AnimoColors.accentPrimary} />
-          <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} numberOfLines={1}>
+          <Package size={18} color={AnimoColors.accentPrimary} />
+          <AnimoText variant="h3" color={AnimoColors.accentPrimary} numberOfLines={1}>
             {formatVolumeKg(stats.totalBoughtKg)}
           </AnimoText>
-          <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            Nabili
+          <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.metricLabel}>
+            {isEn ? 'Amount bought' : 'Dami ng nabili'}
           </AnimoText>
         </View>
       </View>
-
-      {!hasHistory ? (
-        <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-          Bagong mamimili — wala pang nakumpletong transaksyon.
-        </AnimoText>
-      ) : null}
     </View>
-  );
-
-  if (!onPressProfile) return content;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Tingnan ang buong profile ng mamimili"
-      onPress={onPressProfile}
-      style={({ pressed }) => [pressed && styles.pressed]}
-    >
-      {content}
-    </Pressable>
   );
 }
 
@@ -121,6 +108,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
     paddingVertical: 4,
+  },
+  metricLabel: {
+    textAlign: 'center',
   },
   pressed: {
     opacity: 0.9,

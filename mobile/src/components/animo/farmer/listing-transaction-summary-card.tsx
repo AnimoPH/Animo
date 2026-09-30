@@ -52,11 +52,16 @@ export function ListingTransactionSummaryCard({
           {varietyLine}
         </AnimoText>
 
-        <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.soldLine}>
-          {isTagalog ? 'Nabenta:' : 'Sold:'} {soldKg} kg
-        </AnimoText>
-
         <View style={styles.divider} />
+
+        <View style={styles.soldRow}>
+          <AnimoText variant="body" color={AnimoColors.textHighEmphasis}>
+            {isTagalog ? 'Dami ng Nabenta' : 'Amount Sold'}
+          </AnimoText>
+          <AnimoText variant="body" color={AnimoColors.textHighEmphasis}>
+            {soldKg}kg
+          </AnimoText>
+        </View>
 
         <View style={styles.earningsRow}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
@@ -109,13 +114,16 @@ const styles = StyleSheet.create({
   variety: {
     marginTop: AnimoSpacing.xs,
   },
-  soldLine: {
-    marginTop: AnimoSpacing.xs,
-  },
   divider: {
     height: 1,
     backgroundColor: AnimoColors.borderLowEmphasis,
     marginVertical: AnimoSpacing.md,
+  },
+  soldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: AnimoSpacing.sm,
   },
   earningsRow: {
     flexDirection: 'row',

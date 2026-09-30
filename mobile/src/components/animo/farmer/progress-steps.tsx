@@ -50,7 +50,7 @@ export function ProgressSteps({ currentStep = 0 }: ProgressStepsProps) {
               </AnimoText>
             </View>
 
-            {index < STEPS.length - 1 ? (
+            {index < steps.length - 1 ? (
               <View
                 style={[styles.stepConnector, filled ? styles.stepConnectorDone : styles.stepConnectorUpcoming]}
               />

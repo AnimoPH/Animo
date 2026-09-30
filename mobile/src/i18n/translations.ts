@@ -136,9 +136,9 @@ export const TRANSLATIONS = {
 
     // Farmer Transaksyon Spotlight
     'spotlight.farmerTxn.step1Title': 'Pagsasala ng Listing',
-    'spotlight.farmerTxn.step1Desc': 'Piliin ang Lahat, Kasalukuyan, o Tapos na upang makita ang estado ng bawat listing.',
+    'spotlight.farmerTxn.step1Desc': 'Pindutin ang filter sa kanan ng search upang salain ayon sa katayuan, natitirang dami, buong kita, at uri ng palay.',
     'spotlight.farmerTxn.step2Title': 'Paghahanap ng Listing',
-    'spotlight.farmerTxn.step2Desc': 'I-type ang pangalan ng listing o uri ng palay upang mabilis na mahanap ang buod ng kita.',
+    'spotlight.farmerTxn.step2Desc': 'I-type ang pangalan, presyo, o katayuan upang mabilis na mahanap ang buod ng kita.',
     'spotlight.farmerTxn.step3Title': 'Mga Abiso',
     'spotlight.farmerTxn.step3Desc': 'Manatiling updated sa mga kumpirmasyon ng bayad at iskedyul ng delivery.',
 
@@ -464,9 +464,9 @@ export const TRANSLATIONS = {
 
     // Farmer Transaksyon Spotlight
     'spotlight.farmerTxn.step1Title': 'Filter Listings',
-    'spotlight.farmerTxn.step1Desc': 'Filter by All, Ongoing, or Completed to see each listing’s sales status.',
+    'spotlight.farmerTxn.step1Desc': 'Tap the filter beside search to narrow by status, remaining weight, total earnings, and rice variety.',
     'spotlight.farmerTxn.step2Title': 'Search Listings',
-    'spotlight.farmerTxn.step2Desc': 'Type a listing name or grain variety to find earnings summaries quickly.',
+    'spotlight.farmerTxn.step2Desc': 'Type a name, price, or status to find an earnings summary quickly.',
     'spotlight.farmerTxn.step3Title': 'Notifications',
     'spotlight.farmerTxn.step3Desc': 'Receive instant alerts for GCash payment receipts and scheduled sack pickups.',
 

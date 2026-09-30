@@ -11,11 +11,20 @@ import {
 } from '@/types/transaction';
 import { useLanguage } from '@/hooks/use-language';
 
-const DOT_TONE: Partial<Record<DisplayStage, string>> = {
-  request_pending: AnimoColors.moderate,
-  awaiting_payment: AnimoColors.focusRing,
-  payment_sent: AnimoColors.mild,
-  payment_confirmed: AnimoColors.mild,
+type StatusPillTone = 'peach' | 'blue' | 'green' | 'gray';
+
+function statusPillTone(stage: DisplayStage): StatusPillTone {
+  if (stage === 'request_pending') return 'peach';
+  if (stage === 'awaiting_payment' || stage === 'payment_sent') return 'blue';
+  if (stage === 'payment_confirmed' || stage === 'delivered' || stage === 'completed') return 'green';
+  return 'gray';
+}
+
+const PILL_TONE: Record<StatusPillTone, { background: string; text: string }> = {
+  peach: { background: AnimoColors.moderateLight, text: AnimoColors.moderate },
+  blue: { background: AnimoColors.focusRingLight, text: AnimoColors.focusRing },
+  green: { background: AnimoColors.accentPrimaryLight, text: AnimoColors.accentPrimary },
+  gray: { background: AnimoColors.surfaceTertiary, text: AnimoColors.textMediumEmphasis },
 };
 
 export type FarmerTransactionCardItem = {
@@ -44,9 +53,8 @@ export type TransactionCardProps = {
 /** Farmer Part B list card: buyer, amount, kg, payment, ref, status, date/time. */
 export function TransactionCard({ item, onPress }: TransactionCardProps) {
   const { t } = useLanguage();
-  const isDone = item.stage === 'completed';
   const needsAction = isFarmerNeedsActionStage(item.stage);
-  const dotColor = DOT_TONE[item.stage];
+  const pill = PILL_TONE[statusPillTone(item.stage)];
 
   const openTransactionDetail = () => {
     if (onPress) {
@@ -61,10 +69,14 @@ export function TransactionCard({ item, onPress }: TransactionCardProps) {
       <View style={styles.cardBody}>
         {/* Reference ID and Status */}
         <View style={[styles.rowBetween, styles.refRow]}>
-          <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+          <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.referenceId} numberOfLines={1}>
             {item.referenceId}
           </AnimoText>
-          <StatusLabel label={item.statusLabel} isDone={isDone} dotColor={dotColor} />
+          <View style={[styles.statusPill, { backgroundColor: pill.background }]}>
+            <AnimoText variant="tag" color={pill.text}>
+              {item.statusLabel}
+            </AnimoText>
+          </View>
         </View>
 
         <View style={styles.divider} />
@@ -120,27 +132,6 @@ export function TransactionCard({ item, onPress }: TransactionCardProps) {
   );
 }
 
-function StatusLabel({ label, isDone, dotColor }: { label: string; isDone: boolean; dotColor?: string }) {
-  if (isDone) {
-    return (
-      <View style={styles.statusFilled}>
-        <AnimoText variant="tag" color={AnimoColors.white}>
-          {label}
-        </AnimoText>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.statusPlain}>
-      {dotColor ? <View style={[styles.statusDot, { backgroundColor: dotColor }]} /> : null}
-      <AnimoText variant="tag" color={dotColor ?? AnimoColors.textMediumEmphasis}>
-        {label}
-      </AnimoText>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   card: {
     backgroundColor: AnimoColors.surfacePrimary,
@@ -187,21 +178,14 @@ const styles = StyleSheet.create({
   datetime: {
     marginTop: 2,
   },
-  statusFilled: {
-    backgroundColor: AnimoColors.accentPrimary,
+  referenceId: {
+    flex: 1,
+  },
+  statusPill: {
+    flexShrink: 0,
     borderRadius: AnimoRadius.pill,
     paddingHorizontal: AnimoSpacing.md,
     paddingVertical: AnimoSpacing.xs,
-  },
-  statusPlain: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.xs,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: AnimoRadius.pill,
   },
   payPillGcash: {
     backgroundColor: AnimoColors.focusRingLight,

@@ -331,7 +331,6 @@ export default function FarmerPalengkeScreen() {
         onReset={resetFilters}
         onApply={applyFilters}
         activeCount={activeFilterCount}
-        title={isTagalog ? "Mga Filter ng Ani" : "Crop Filters"}
       >
         <View style={styles.filterSection}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
