@@ -24,11 +24,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { ethers } from 'https://esm.sh/ethers@6';
 
-const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN');
-const CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  ...(ALLOWED_ORIGIN ? { 'Access-Control-Allow-Origin': ALLOWED_ORIGIN } : {}),
-};
+import { receiptCorsHeaders, resolvePolygonRpcUrl } from './config.ts';
+
+const CORS_HEADERS = receiptCorsHeaders(Deno.env.get('ALLOWED_ORIGIN'));
 
 const CONFIRMATION_TIMEOUT_MS = 60_000;
 
@@ -155,33 +153,16 @@ Deno.serve(async (req) => {
 
   let txHash: string;
   try {
-    // POLYGON_RPC_URL is the Alchemy base URL (e.g.
-    // https://polygon-amoy.g.alchemy.com/v2/), ALCHEMY_API_KEY the auth
-    // token appended to it — Alchemy runs the actual Polygon Amoy node,
-    // this app never does. Constructing the Wallet throws synchronously on
-    // a missing/malformed RELAYER_PRIVATE_KEY — kept inside this try so a
-    // misconfigured secret still produces a controlled response and a
-    // logged, specific error instead of an uncaught-exception boot error
-    // (which surfaces to the client as an opaque, un-unwrappable non-2xx).
-    const rawUrl = Deno.env.get('POLYGON_RPC_URL') ?? '';
-    const rawKey = Deno.env.get('ALCHEMY_API_KEY') ?? '';
-    const relayerKey = Deno.env.get('RELAYER_PRIVATE_KEY') ?? '';
-    if (!rawUrl || !rawKey || !relayerKey) {
-      // Fails fast with a specific server-side log instead of letting
-      // ethers throw an opaque "invalid private key"/network error further
-      // down for what's actually a missing-secret misconfiguration.
-      throw new Error(
-        `missing secret(s): ${[
-          !rawUrl && 'POLYGON_RPC_URL',
-          !rawKey && 'ALCHEMY_API_KEY',
-          !relayerKey && 'RELAYER_PRIVATE_KEY',
-        ]
-          .filter(Boolean)
-          .join(', ')}`,
-      );
-    }
+    // Support both a complete provider URL and an Alchemy base URL plus key.
+    // Keep configuration failures inside the controlled error response.
+    const rpcUrl = resolvePolygonRpcUrl(
+      Deno.env.get('POLYGON_RPC_URL') ?? '',
+      Deno.env.get('ALCHEMY_API_KEY') ?? '',
+    );
+    const relayerKey = Deno.env.get('RELAYER_PRIVATE_KEY')?.trim();
+    if (!relayerKey) throw new Error('missing secret: RELAYER_PRIVATE_KEY');
 
-    const provider = new ethers.JsonRpcProvider(`${rawUrl}${rawKey}`);
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
     const relayerWallet = new ethers.Wallet(relayerKey, provider);
 
     const payload = {
