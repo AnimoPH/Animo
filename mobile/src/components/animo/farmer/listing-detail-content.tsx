@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import {
   CheckCircle,
   ChevronLeft,
@@ -16,6 +17,7 @@ import { Modal, Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimoText } from "@/components/animo/animo-text";
+import { PalayReviewsCard } from "@/components/animo/palay-reviews";
 import { PriceRationaleCard } from "@/components/animo/price-rationale-card";
 import { StatusBadge } from "@/components/animo/status-badge";
 import { AnimoColors, AnimoRadius, AnimoSpacing } from "@/constants/animo";
@@ -327,6 +329,16 @@ export function ListingDetailContent({ listing, photos }: ListingDetailContentPr
           ))}
         </View>
       </View>
+
+      <PalayReviewsCard
+        listingId={listing.id}
+        onPress={() =>
+          router.push({
+            pathname: "/(farmer)/palay-reviews",
+            params: { id: listing.id },
+          })
+        }
+      />
 
       <Modal
         visible={modalVisible}

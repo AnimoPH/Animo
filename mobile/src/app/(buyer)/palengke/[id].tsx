@@ -26,6 +26,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
+import { PalayReviewsCard } from '@/components/animo/palay-reviews';
 import { PriceRationaleCard } from '@/components/animo/price-rationale-card';
 import { BackHeader } from '@/components/animo/back-header';
 
@@ -396,6 +397,16 @@ export default function ListingDetailScreen() {
             ) : null}
           </View>
         </View>
+
+        <PalayReviewsCard
+          listingId={listing.id}
+          onPress={() =>
+            router.push({
+              pathname: '/(buyer)/palengke/reviews',
+              params: { id: listing.id },
+            })
+          }
+        />
 
         {/* Farmer Profile Summary Card (Clickable to view full details) */}
         {farmerProfile ? (
