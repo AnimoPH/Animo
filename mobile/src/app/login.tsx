@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ChevronLeft, Globe } from 'lucide-react-native';
@@ -155,10 +156,14 @@ export default function LoginScreen() {
           <View style={styles.loginTopRow}>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Animo"
               onPress={() => router.replace('/')}
-              hitSlop={10}
-              style={styles.backButton}>
-              <ChevronLeft size={24} color={AnimoColors.black} />
+              hitSlop={10}>
+              <Image
+                source={require('@/assets/images/animo/Animo-Logo.png')}
+                style={styles.loginLogo}
+                contentFit="contain"
+              />
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -305,6 +310,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.sm,
     paddingBottom: AnimoSpacing.lg,
+  },
+  loginLogo: {
+    width: 150,
+    height: 44,
   },
   backButton: {
     width: 40,
