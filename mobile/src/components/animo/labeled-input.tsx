@@ -119,10 +119,13 @@ const styles = StyleSheet.create({
     borderColor: AnimoColors.danger,
   },
   prefix: {
+    flexShrink: 0,
     paddingRight: AnimoSpacing.xs,
   },
   input: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     minHeight: 50,
     paddingVertical: AnimoSpacing.sm,
     paddingHorizontal: AnimoSpacing.xs,

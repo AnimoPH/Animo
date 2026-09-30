@@ -39,7 +39,11 @@ export function FilterModal({
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderTitleRow}>
               <SlidersHorizontal size={20} color={AnimoColors.accentPrimary} />
-              <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
+              <AnimoText
+                variant="h2"
+                color={AnimoColors.textHighEmphasis}
+                numberOfLines={1}
+                style={styles.modalTitle}>
                 {displayTitle}
               </AnimoText>
               {activeCount > 0 ? (
@@ -116,16 +120,21 @@ const styles = StyleSheet.create({
     borderBottomColor: AnimoColors.borderLowEmphasis,
   },
   modalHeaderTitleRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: AnimoSpacing.sm,
+    marginRight: AnimoSpacing.sm,
+  },
+  modalTitle: {
+    flexShrink: 1,
   },
   modalActiveBadge: {
+    flexShrink: 0,
     backgroundColor: AnimoColors.accentPrimaryLight,
     paddingHorizontal: AnimoSpacing.sm,
     paddingVertical: 2,
     borderRadius: AnimoRadius.pill,
-    marginLeft: AnimoSpacing.xs,
   },
   closeBtn: {
     padding: 4,
