@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { CheckCircle, Download, ExternalLink, Star } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -45,20 +45,27 @@ export default function FarmerReceiptScreen() {
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [receiptPending, setReceiptPending] = useState(false);
+  const [receiptFailed, setReceiptFailed] = useState(false);
+  const receiptInFlight = useRef(false);
 
   const ensureReceipt = useCallback(async (transactionId: string) => {
+    if (receiptInFlight.current) return;
+    receiptInFlight.current = true;
+    setReceiptPending(true);
+    setReceiptFailed(false);
     try {
       const existing = await fetchReceipt(transactionId);
       if (existing) {
         setReceipt(existing);
         return;
       }
-      setReceiptPending(true);
       const recorded = await recordBlockchainReceipt(transactionId);
       setReceipt(recorded);
     } catch (e) {
+      setReceiptFailed(true);
       console.warn('[resibo] blockchain receipt not yet available', e instanceof Error ? e.message : e);
     } finally {
+      receiptInFlight.current = false;
       setReceiptPending(false);
     }
   }, []);
@@ -180,13 +187,34 @@ export default function FarmerReceiptScreen() {
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>{isTagalog ? 'Katibayan' : 'On-Chain Proof'}</Text>
               <Text style={{ ...styles.detailValue, color: AnimoColors.textLowEmphasis, fontStyle: 'italic' }}>
-                {isTagalog ? 'Katibayan hindi pa available' : 'Proof not yet available'}
+                {receiptFailed
+                  ? (isTagalog ? 'Hindi ma-load ang katibayan' : 'Could not load proof')
+                  : (isTagalog ? 'Katibayan hindi pa available' : 'Proof not yet available')}
               </Text>
             </View>
           )}
         </View>
 
         <View style={styles.actions}>
+          {transaction.status === 'Completed' && !receipt ? (
+            <>
+              {receiptFailed ? (
+                <Text style={styles.detailLabel} accessibilityRole="alert">
+                  {isTagalog
+                    ? 'Kumpleto pa rin ang bentahan. Subukang muli upang makuha ang katibayan sa blockchain.'
+                    : 'Your sale is still completed. Retry to retrieve its blockchain proof.'}
+                </Text>
+              ) : null}
+              <AnimoButton
+                label={receiptPending
+                  ? (isTagalog ? 'Kinukuha ang Katibayan…' : 'Retrieving Proof…')
+                  : (isTagalog ? 'Subukang Muli ang Katibayan' : 'Retry Blockchain Proof')}
+                variant="secondary"
+                disabled={receiptPending}
+                onPress={() => ensureReceipt(transaction.id)}
+              />
+            </>
+          ) : null}
           <AnimoButton
             label={isTagalog ? 'Suriin ang Mamimili' : 'Review Buyer'}
             icon={Star}
