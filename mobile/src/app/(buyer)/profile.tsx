@@ -35,6 +35,7 @@ import {
 } from '@/components/animo/buyer-preferences-form';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { LabeledInput } from '@/components/animo/labeled-input';
+import { LegalModal } from '@/components/animo/legal-modal';
 import { OnboardingWalkthroughModal } from '@/components/animo/onboarding-walkthrough-modal';
 import { TUTORIAL_STORAGE_KEY } from '@/components/animo/spotlight-tour';
 import SignOutModal from '@/components/signout-modal';
@@ -44,6 +45,7 @@ import {
   AnimoSpacing,
   AnimoType,
 } from '@/constants/animo';
+import { LegalTabKey } from '@/constants/legal-content';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
@@ -100,8 +102,8 @@ export default function BuyerProfileScreen() {
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showTutorialModal, setShowTutorialModal] = useState(false);
-  const [showHelpModal, setShowHelpModal] = useState(false);
-  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [legalModalTab, setLegalModalTab] = useState<LegalTabKey>('terms');
   const [showProfileSavedModal, setShowProfileSavedModal] = useState(false);
   const [tutorialEnabled, setTutorialEnabled] = useState(false);
 
@@ -271,8 +273,18 @@ export default function BuyerProfileScreen() {
   const handleSettingPress = (key: string) => {
     if (key === 'notif') router.push('/(buyer)/notipikasyon' as Href);
     else if (key === 'language') setShowLanguageModal(true);
-    else if (key === 'help') setShowHelpModal(true);
-    else if (key === 'terms' || key === 'privacy') setShowTermsModal(true);
+    else if (key === 'guide') {
+      router.push({ pathname: '/(buyer)', params: { startTour: 'true' } });
+    } else if (key === 'help') {
+      setLegalModalTab('faq');
+      setShowLegalModal(true);
+    } else if (key === 'terms') {
+      setLegalModalTab('terms');
+      setShowLegalModal(true);
+    } else if (key === 'privacy') {
+      setLegalModalTab('privacy');
+      setShowLegalModal(true);
+    }
   };
 
   const fullName = account?.fullName || 'Mamimili';
@@ -890,32 +902,11 @@ export default function BuyerProfileScreen() {
         onConfirm={() => setShowProfileSavedModal(false)}
       />
 
-      {/* Help Modal */}
-      <FeedbackModal
-        visible={showHelpModal}
-        tone="info"
-        title={isTagalog ? 'Tulong at Suporta' : 'Help & Support'}
-        message={
-          isTagalog
-            ? 'Maaari kang makipag-ugnayan sa Tanggapan ng Pagsasaka (Municipal Agriculture Office) o sa ANIMO Support Helpdesk para sa anumang katanungan ukol sa kalakalan.'
-            : 'You can contact the Municipal Agriculture Office or ANIMO Support Helpdesk for any trading inquiries.'
-        }
-        confirmLabel={isTagalog ? 'OK' : 'Understood'}
-        onConfirm={() => setShowHelpModal(false)}
-      />
-
-      {/* Terms & Privacy Modal */}
-      <FeedbackModal
-        visible={showTermsModal}
-        tone="info"
-        title={isTagalog ? 'Patakaran sa Privacy' : 'Privacy Policy'}
-        message={
-          isTagalog
-            ? 'Protektado ang iyong datos alinsunod sa Data Privacy Act ng Pilipinas. Ginagamit lamang ang iyong impormasyon para sa opisyal na transaksyon sa agrikultura.'
-            : 'Your data is protected in accordance with the Data Privacy Act of the Philippines. Your information is strictly used for official agricultural transactions.'
-        }
-        confirmLabel={isTagalog ? 'Naiintindihan Ko' : 'I Understand'}
-        onConfirm={() => setShowTermsModal(false)}
+      {/* Legal Terms, Privacy Policy, and FAQ Modal */}
+      <LegalModal
+        visible={showLegalModal}
+        initialTab={legalModalTab}
+        onClose={() => setShowLegalModal(false)}
       />
     </View>
   );

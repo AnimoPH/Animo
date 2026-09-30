@@ -15,8 +15,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
+import { LegalModal } from '@/components/animo/legal-modal';
 import { LoginPhoneInput } from '@/components/animo/login-phone-input';
 import { OtpVerification } from '@/components/animo/otp-verification';
+import { LegalTabKey } from '@/constants/legal-content';
 import {
   EMPTY_PROFILE_VALUES,
   ProfileForm,
@@ -88,6 +90,8 @@ export default function RegisterScreen() {
   const [phoneError, setPhoneError] = useState<string | undefined>();
   const [profile, setProfile] = useState<ProfileValues>(emptyProfile);
   const [submitting, setSubmitting] = useState(false);
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [legalModalTab, setLegalModalTab] = useState<LegalTabKey>('terms');
 
   useEffect(() => {
     if (params.role) {
@@ -264,11 +268,25 @@ export default function RegisterScreen() {
           {step === 0 && (
             <AnimoText variant="caption" color={AnimoColors.muted} style={styles.terms}>
               {t('register.termsAgreement')}{' '}
-              <AnimoText variant="caption" color={AnimoColors.green}>
+              <AnimoText
+                variant="caption"
+                color={AnimoColors.green}
+                style={styles.legalLink}
+                onPress={() => {
+                  setLegalModalTab('terms');
+                  setShowLegalModal(true);
+                }}>
                 {t('register.termsOfService')}
               </AnimoText>{' '}
               {t('register.and')}{' '}
-              <AnimoText variant="caption" color={AnimoColors.green}>
+              <AnimoText
+                variant="caption"
+                color={AnimoColors.green}
+                style={styles.legalLink}
+                onPress={() => {
+                  setLegalModalTab('privacy');
+                  setShowLegalModal(true);
+                }}>
                 {t('register.privacyPolicy')}
               </AnimoText>
               .
@@ -293,6 +311,12 @@ export default function RegisterScreen() {
             variant={primaryVariant}
           />
         </View>
+
+        <LegalModal
+          visible={showLegalModal}
+          initialTab={legalModalTab}
+          onClose={() => setShowLegalModal(false)}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -436,6 +460,10 @@ const styles = StyleSheet.create({
   },
   terms: {
     textAlign: 'center',
+  },
+  legalLink: {
+    textDecorationLine: 'underline',
+    fontWeight: '600',
   },
   devNav: {
     gap: AnimoSpacing.sm,
