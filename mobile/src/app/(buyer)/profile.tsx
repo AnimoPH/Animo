@@ -390,9 +390,6 @@ export default function BuyerProfileScreen() {
               <Text style={styles.paymentTitle}>GCash</Text>
               <Text style={styles.paymentCaption}>{gcashDisplay}</Text>
             </View>
-            <View style={styles.defaultBadge}>
-              <Text style={styles.defaultBadgeText}>{t('profile.default')}</Text>
-            </View>
           </View>
           <View style={styles.divider} />
           <View style={styles.paymentRow}>
@@ -404,6 +401,9 @@ export default function BuyerProfileScreen() {
               <Text style={styles.paymentCaption}>
                 {isTagalog ? 'Personal na bayaran sa pickup' : 'In-person payment upon pickup'}
               </Text>
+            </View>
+            <View style={styles.defaultBadge}>
+              <Text style={styles.defaultBadgeText}>{t('profile.default')}</Text>
             </View>
           </View>
         </View>
