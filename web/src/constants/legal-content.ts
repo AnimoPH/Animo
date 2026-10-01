@@ -35,7 +35,7 @@ export const WEB_LEGAL_CONTENT = {
           title: '2. Mga Papel at Responsibilidad sa Merkado',
           badge: 'Mga Alituntunin',
           paragraphs: [
-            'Magsasaka (Farmer): Nagtatala ng inaning palay na may kaukulang barayti, timbang, at antas ng moisture (Tuyo 14% vs Basa).',
+            'Magsasaka (Farmer): Nagtatala ng inaning palay na may kaukulang barayti, timbang, at antas ng moisture (Tuyo o Basa).',
             'Mamimili (Buyer/Trader): Nagpapadala ng purchase requests, nagbabayad sa pamamagitan ng GCash o Cash, at nagkukumpirma ng turnover.',
             'LGU Officers / Inspectors: May tungkuling mamagitan sa mga hindi pagkakaunawaan (mediation). Sinusubaybayan ng mga opisyal ang payo, ang sanggunian ng presyo, at ang mga naiulat na transaksyon, at maaari nilang suspindihin ang isang account.',
           ],
@@ -139,7 +139,7 @@ export const WEB_LEGAL_CONTENT = {
           id: 'faq-3',
           category: 'farmer',
           categoryLabel: 'Magsasaka',
-          question: 'Paano nakatatanggap ang mga magsasaka ng weather at planting advisories?',
+          question: 'Paano gumagana ang Payo sa Bukid para sa mga magsasaka?',
           answer: 'Binabasa ng magsasaka ang Payo sa Bukid sa app. Gumagamit ito ng isang forecast ng ulan para sa Antipolo at ng yugto ng pananim ng bawat magsasaka, at ipinapakita nito ang Maagang Anihin, Antalahin ang Anihan, o Walang Kailangang Gawin. Binibilang ng console na ito ang mga magsasakang may hawak ng rekomendasyong iyon ngayon. Ang SMS ay para lamang sa code sa pag-sign in.',
         },
         {
@@ -172,7 +172,7 @@ export const WEB_LEGAL_CONTENT = {
           title: '2. Market Roles and Trading Obligations',
           badge: 'Market Policies',
           paragraphs: [
-            'Farmers: List verified harvested grain with truthful declarations of variety, weight (kg), and moisture content (Dry 14% vs Wet).',
+            'Farmers: List verified harvested grain with truthful declarations of variety, weight (kg), and moisture content (Dry or Wet).',
             'Buyers/Traders: Submit purchase requests, disburse payments via GCash or Cash, and complete handover inspections.',
             'LGU Officers / Inspectors: Mediate discrepancies. Officers monitor the Payo sa Bukid advisory, the price reference, and reported transactions, and they may suspend an account.',
           ],
@@ -276,7 +276,7 @@ export const WEB_LEGAL_CONTENT = {
           id: 'faq-3',
           category: 'farmer',
           categoryLabel: 'Farmer Outreach',
-          question: 'How are weather and farm advisories delivered to farmers?',
+          question: 'How does Payo sa Bukid work for farmers?',
           answer: 'Farmers read Payo sa Bukid in the app. It uses one Antipolo rainfall forecast and each farmer\'s crop stage, and it shows Advance Cut, Delayed Harvest, or No Action Needed. This console counts farmers who currently hold that recommendation. SMS is the sign-in code only.',
         },
         {

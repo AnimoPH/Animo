@@ -52,7 +52,7 @@ export const LEGAL_CONTENT = {
           title: '3. Paglilista ng Ani at Patas na Benchmark Presyo',
           badge: 'Patas na Presyo',
           paragraphs: [
-            'Obligasyon ng magsasaka na magbigay ng makatotohanang impormasyon ukol sa inaning palay, kabilang ang Barayti (Inbred, Hybrid, Tradisyonal), Antas ng Moisture (Tuyo 14% vs Basa), kabuuang kilo (kg), at bilang ng sako.',
+            'Obligasyon ng magsasaka na magbigay ng makatotohanang impormasyon ukol sa inaning palay, kabilang ang Barayti (Inbred, Hybrid, Tradisyonal), Antas ng Moisture (Tuyo o Basa), kabuuang kilo (kg), at bilang ng sako.',
             'Awtomatikong nakakabit ang presyo bawat kilo sa opisyal na farmgate market price feed mula sa Philippine Statistics Authority (PSA), Department of Agriculture (DA), at National Food Authority (NFA) kasama ang algorithmic variety premium.',
             'Naka-lock ang presyo kapag nailista ang ani upang maprotektahan ang magsasaka laban sa pambabarat at bigyan ng malinaw na kalkulasyon ang mamimili.',
           ],
@@ -258,14 +258,14 @@ export const LEGAL_CONTENT = {
           category: 'pricing',
           categoryLabel: 'Presyo at Merkado',
           question: 'Ano ang pagkakaiba ng Tuyong Palay (Dry) sa Basang Palay (Wet)?',
-          answer: 'Ang Tuyo (Dry - 14% Moisture) ay nabilad o nadaan sa mechanical dryer kaya handa nang igiling at mas mataas ang presyo. Ang Basa (Wet) ay sariwang inani na may mataas na moisture kaya kailangan pa itong patuyuin bago igiling.',
+          answer: 'Ang Tuyo ay gumagamit ng dry base. Ang Basa ay gumagamit ng wet base.',
         },
         {
           id: 'faq-6',
           category: 'pricing',
           categoryLabel: 'Presyo at Merkado',
           question: 'Ano ang mga barayti ng palay (Inbred, Hybrid, Tradisyonal)?',
-          answer: 'Inbred (hal. NSIC Rc222, Rc160) ay sertipikadong binhi na may matatag na ani. Hybrid (hal. SL-8H) ay F1 seed na may mataas na dami ng ani. Tradisyonal/Pamana (hal. Dinorado, Sinandomeng) ay mga espesyal at mababangong barayti na may karagdagang premium.',
+          answer: 'Inbred (hal. NSIC Rc218, Rc160) ay sertipikadong binhi. Hybrid (hal. Mestizo) ay F1 seed. Tradisyonal/Pamana (hal. Dinorado, Sinandomeng) ay mababangong barayti. Ang premium na ₱5 ay para lamang sa NSIC Rc218 na Grade A.',
         },
         {
           id: 'faq-7',
@@ -354,7 +354,7 @@ export const LEGAL_CONTENT = {
           title: '3. Harvest Listing and Fair Benchmark Pricing',
           badge: 'Fair Pricing',
           paragraphs: [
-            'Farmers must provide truthful and accurate information regarding variety (Inbred, Hybrid, Traditional), moisture level (Dry 14% vs Wet), total weight in kg, and sack count.',
+            'Farmers must provide truthful and accurate information regarding variety (Inbred, Hybrid, Traditional), moisture level (Dry or Wet), total weight in kg, and sack count.',
             'Prices per kilogram are automatically linked to official farmgate market price feeds from the Philippine Statistics Authority (PSA), Department of Agriculture (DA), and National Food Authority (NFA), with algorithmic quality premiums.',
             'Prices are locked upon listing creation to prevent predatory price bargaining and ensure transparency for buyers.',
           ],
@@ -560,14 +560,14 @@ export const LEGAL_CONTENT = {
           category: 'pricing',
           categoryLabel: 'Pricing & Market',
           question: 'What is the difference between Dry and Wet palay?',
-          answer: 'Dry Palay (14% moisture) has been sun-dried or mechanically dried, making it immediately ready for milling and commanding a higher price. Wet Palay is freshly harvested with high moisture that requires drying before milling.',
+          answer: 'Dry uses the dry base. Wet uses the wet base.',
         },
         {
           id: 'faq-6',
           category: 'pricing',
           categoryLabel: 'Pricing & Market',
           question: 'What are the palay varieties (Inbred, Hybrid, Traditional)?',
-          answer: 'Inbred (e.g., NSIC Rc222, Rc160) are certified seeds with consistent yields. Hybrid (e.g., SL-8H) are high-yield F1 seeds. Traditional/Heirloom (e.g., Dinorado, Sinandomeng) are heritage fragrant grains with special market premiums.',
+          answer: 'Inbred (e.g., NSIC Rc218, Rc160) are certified seeds. Hybrid (e.g., Mestizo) are F1 seeds. Traditional/Heirloom (e.g., Dinorado, Sinandomeng) are fragrant varieties. The ₱5 premium applies only to NSIC Rc218, grade A.',
         },
         {
           id: 'faq-7',
