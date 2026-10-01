@@ -286,7 +286,7 @@ export const LEGAL_CONTENT = {
           category: 'farmer',
           categoryLabel: 'Magsasaka',
           question: 'Paano gumagana ang "Payo sa Bukid" at ulat-panahon?',
-          answer: 'Awtomatikong nakakonekta ang Animo sa PAGASA weather feeds at LGU Municipal Agriculture Office advisories. Kapag may inaasahang ulan o bagyo, makakatanggap ka ng babala upang maprotektahan ang binibilad na palay.',
+          answer: 'Gumagamit ang Payo sa Bukid ng isang forecast ng ulan para sa Antipolo at ng yugto ng iyong pananim. Ipinapakita ng card ang Maagang Anihin, Antalahin ang Anihan, o Walang Kailangang Gawin. Binabasa ito sa app.',
         },
         {
           id: 'faq-10',
@@ -588,7 +588,7 @@ export const LEGAL_CONTENT = {
           category: 'farmer',
           categoryLabel: 'Farmers',
           question: 'How do Farm Advisories and Weather Alerts work?',
-          answer: 'Animo links with PAGASA weather data and LGU Municipal Agriculture Office notices. If heavy rains or typhoons approach, you will receive timely warnings to protect drying palay.',
+          answer: 'Payo sa Bukid uses one Antipolo rainfall forecast and your crop stage. The card shows Advance Cut, Delayed Harvest, or No Action Needed. You read it in the app.',
         },
         {
           id: 'faq-10',
