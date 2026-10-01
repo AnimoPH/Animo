@@ -87,8 +87,8 @@ export function OnboardingWalkthroughModal({
           icon: Layers,
           title: isTagalog ? 'Inbred vs. Hybrid (High-Yield)' : 'Inbred vs. Hybrid (High-Yield)',
           detail: isTagalog
-            ? 'Malinaw na barayti: Inbred (Rc218, Rc160) at Hybrid (Mataas na Ani tulad ng SL-8H).'
-            : 'Clear varieties: Inbred (Rc218, Rc160) and Hybrid (High-Yield such as SL-8H).',
+            ? 'Malinaw na barayti: Inbred (Rc218, Rc160) at Hybrid (Mestizo).'
+            : 'Clear varieties: Inbred (Rc218, Rc160) and Hybrid (Mestizo).',
         },
         {
           icon: Droplets,
@@ -140,8 +140,8 @@ export function OnboardingWalkthroughModal({
           icon: Wheat,
           title: isTagalog ? 'Tamang Barayti ng Binhi' : 'Certified Seed Variety',
           detail: isTagalog
-            ? 'Piliin kung Inbred (sertipikadong binhi tulad ng Rc222), Hybrid (SL-8H), o Tradisyonal.'
-            : 'Select certified Inbred (such as Rc222), Hybrid (SL-8H), or Traditional.',
+            ? 'Piliin kung Inbred (Rc218, Rc160), Hybrid (Mestizo), o Tradisyonal.'
+            : 'Select Inbred (Rc218, Rc160), Hybrid (Mestizo), or Traditional.',
         },
         {
           icon: Scale,
@@ -172,8 +172,8 @@ export function OnboardingWalkthroughModal({
           icon: Sparkles,
           title: isTagalog ? 'Variety Premium' : 'Variety Premium',
           detail: isTagalog
-            ? 'May karagdagang halaga para sa mataas na kalidad at hybrid varieties.'
-            : 'Premium pricing applied for high-quality and hybrid varieties.',
+            ? 'Dagdag na ₱5 para sa NSIC Rc218 na Grade A. Ang iba ay walang premium.'
+            : 'A ₱5 premium applies only to NSIC Rc218, grade A. Every other variety has none.',
         },
       ],
     },
@@ -205,7 +205,7 @@ export function OnboardingWalkthroughModal({
     {
       id: 3,
       icon: CloudRain,
-      badge: isTagalog ? 'Panahon · LGU Advisory' : 'Weather · LGU Advisory',
+      badge: 'Payo sa Bukid',
       title: t('tutorial.farmer.step4Title'),
       description: t('tutorial.farmer.step4Desc'),
       color: '#D97706',
@@ -213,17 +213,17 @@ export function OnboardingWalkthroughModal({
       features: [
         {
           icon: CloudRain,
-          title: isTagalog ? 'Bantay-Panahon sa Bukid' : 'Farm Weather Watch',
+          title: isTagalog ? 'Forecast at yugto ng pananim' : 'Forecast and crop stage',
           detail: isTagalog
-            ? 'Alamin ang forecast ng ulan at monsoon para maagap ang pag-aani at pagpapatuyo.'
-            : 'Stay updated on rain and monsoon forecasts to plan harvesting and drying.',
+            ? 'Isang forecast ng ulan para sa Antipolo at ang yugto ng pananim. Maagang Anihin, Antalahin ang Anihan, o Walang Kailangang Gawin.'
+            : 'One Antipolo rainfall forecast and your crop stage. Advance Cut, Delayed Harvest, or No Action Needed.',
         },
         {
           icon: Layers,
-          title: isTagalog ? 'Suporta mula sa LGU' : 'LGU Agriculture Support',
+          title: isTagalog ? 'Binabasa sa app' : 'Read in the app',
           detail: isTagalog
-            ? 'Direktang gabay mula sa Tanggapan ng Pagsasaka (Antipolo, Rizal).'
-            : 'Direct advisories from Municipal Agriculture Offices (Antipolo, Rizal).',
+            ? 'Ipinapakita ang card na Payo sa Bukid sa app.'
+            : 'The Payo sa Bukid card is shown in the app.',
         },
       ],
     },

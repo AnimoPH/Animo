@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AnimoText } from '@/components/animo/animo-text';
 import { OtpInput } from '@/components/animo/otp-input';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 300;
@@ -30,6 +31,14 @@ function formatCountdown(seconds: number) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+/** First and last digit only. The OTP step must not show the full number. */
+function maskLocalPhone(phone: string) {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 0) return '9••••••••9';
+  if (digits.length === 1) return digits;
+  return `${digits[0]}${'•'.repeat(digits.length - 2)}${digits[digits.length - 1]}`;
+}
+
 /**
  * Shared OTP entry body used by both registration step 2 and the login flow.
  * Owns the resend countdown; the parent owns verify/navigation.
@@ -43,6 +52,7 @@ export function OtpVerification({
   onChangeNumber,
   onResend,
 }: OtpVerificationProps) {
+  const { t } = useLanguage();
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
 
   useEffect(() => {
@@ -63,18 +73,18 @@ export function OtpVerification({
       {/* Intro */}
       <View style={styles.intro}>
         <AnimoText variant="h2" color={AnimoColors.black}>
-          Ilagay ang OTP
+          {t('login.otpEnter')}
         </AnimoText>
         <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-          Ipinadala namin ang 6-digit code sa{' '}
+          {t('login.otpSentPrefix')}{' '}
           <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-            +63 {phone || '912 XXX 6789'}
+            +63 {maskLocalPhone(phone)}
           </AnimoText>
-          . Pakisuri inbox ng SMS.
+          . {t('login.otpSentSuffix')}
         </AnimoText>
         <Pressable onPress={onChangeNumber} hitSlop={8}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.green} style={styles.changeNumber}>
-            Baguhin ang Numero
+            {t('login.changeNumber')}
           </AnimoText>
         </Pressable>
       </View>
@@ -85,17 +95,17 @@ export function OtpVerification({
         {canResend ? (
           <>
             <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-              Walang OTP?
+              {t('login.noOtp')}
             </AnimoText>
             <Pressable onPress={handleResend} hitSlop={8}>
               <AnimoText variant="bodyEmphasis" color={AnimoColors.green} style={styles.resend}>
-                Resend OTP
+                {t('login.resendOtp')}
               </AnimoText>
             </Pressable>
           </>
         ) : (
           <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            Humiling ng bagong OTP: {' '}
+            {t('login.otpCountdown')}{' '}
             <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
               {formatCountdown(secondsLeft)}
             </AnimoText>
@@ -111,7 +121,7 @@ export function OtpVerification({
         <View style={styles.errorBanner}>
           <CircleAlert size={18} color={AnimoColors.danger} />
           <AnimoText variant="body" color={AnimoColors.danger} style={styles.errorText}>
-            {errorMessage ?? 'Mali ang OTP. Pakisuring muli o humiling ng bago.'}
+            {errorMessage ?? t('login.otpWrong')}
           </AnimoText>
         </View>
       )}

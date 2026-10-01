@@ -101,7 +101,7 @@ export function LoginPage() {
             label={t('login.emailLabel')}
             type="email"
             autoComplete="email"
-            placeholder="ma.reyes@sanmateo.gov.ph"
+            placeholder="pangalan@antipolo.gov.ph"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             icon={<Mail size={18} color="var(--animo-muted)" />}
