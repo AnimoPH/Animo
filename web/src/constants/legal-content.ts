@@ -27,7 +27,7 @@ export const WEB_LEGAL_CONTENT = {
           badge: 'LGU Governance',
           paragraphs: [
             'Ang ANIMO LGU Console ay isang opisyal na monitoring at policy management platform para sa Municipal Agriculture Office (MAO) ng Antipolo City at Lalawigan ng Rizal.',
-            'Ito ay binuo upang subaybayan ang pagpapatupad ng makatarungang presyo ng palay, pamamahagi ng advisory sa panahon at pananim, at pangangalaga sa mga magsasaka laban sa pambabarat.',
+            'Ito ay binuo upang subaybayan ang pagpapatupad ng makatarungang presyo ng palay, ang Payo sa Bukid, ang sanggunian ng presyo, at ang mga naiulat na transaksyon, at upang masuspinde ang isang account.',
           ],
         },
         {
@@ -37,7 +37,7 @@ export const WEB_LEGAL_CONTENT = {
           paragraphs: [
             'Magsasaka (Farmer): Nagtatala ng inaning palay na may kaukulang barayti, timbang, at antas ng moisture (Tuyo 14% vs Basa).',
             'Mamimili (Buyer/Trader): Nagpapadala ng purchase requests, nagbabayad sa pamamagitan ng GCash o Cash, at nagkukumpirma ng turnover.',
-            'LGU Officers / Inspectors: May tungkuling mamagitan sa mga hindi pagkakaunawaan (mediation), magpalabas ng mga abiso sa sakahan, at sumubaybay sa price volatility.',
+            'LGU Officers / Inspectors: May tungkuling mamagitan sa mga hindi pagkakaunawaan (mediation). Sinusubaybayan ng mga opisyal ang payo, ang sanggunian ng presyo, at ang mga naiulat na transaksyon, at maaari nilang suspindihin ang isang account.',
           ],
         },
         {
@@ -140,7 +140,7 @@ export const WEB_LEGAL_CONTENT = {
           category: 'farmer',
           categoryLabel: 'Magsasaka',
           question: 'Paano nakatatanggap ang mga magsasaka ng weather at planting advisories?',
-          answer: 'Kapag naglabas ang LGU ng advisory sa Advisory Monitoring tab (hal. babala sa monsoon rain o pest outbreak), awtomatikong nagpapadala ang Animo ng Push Notification at SMS sa lahat ng rehistradong magsasaka sa apektadong barangay.',
+          answer: 'Binabasa ng magsasaka ang Payo sa Bukid sa app. Gumagamit ito ng isang forecast ng ulan para sa Antipolo at ng yugto ng pananim ng bawat magsasaka, at ipinapakita nito ang Maagang Anihin, Antalahin ang Anihan, o Walang Kailangang Gawin. Binibilang ng console na ito ang mga magsasakang may hawak ng rekomendasyong iyon ngayon. Ang SMS ay para lamang sa code sa pag-sign in.',
         },
         {
           id: 'faq-4',
@@ -164,7 +164,7 @@ export const WEB_LEGAL_CONTENT = {
           badge: 'LGU Governance',
           paragraphs: [
             'The ANIMO LGU Console is the official monitoring and policy enforcement console for the Municipal Agriculture Office (MAO) in Antipolo City and the Province of Rizal.',
-            'It enables agricultural officers to monitor rice trading, enforce fair benchmark pricing, issue weather/farming advisories, and protect local farmers from predatory price-gouging.',
+            'It enables agricultural officers to monitor rice trading, the Payo sa Bukid advisory, the price reference, and reported transactions, and to suspend an account.',
           ],
         },
         {
@@ -174,7 +174,7 @@ export const WEB_LEGAL_CONTENT = {
           paragraphs: [
             'Farmers: List verified harvested grain with truthful declarations of variety, weight (kg), and moisture content (Dry 14% vs Wet).',
             'Buyers/Traders: Submit purchase requests, disburse payments via GCash or Cash, and complete handover inspections.',
-            'LGU Officers / Inspectors: Mediate discrepancies, issue localized crop advisories, and track price stability.',
+            'LGU Officers / Inspectors: Mediate discrepancies. Officers monitor the Payo sa Bukid advisory, the price reference, and reported transactions, and they may suspend an account.',
           ],
         },
         {
@@ -277,7 +277,7 @@ export const WEB_LEGAL_CONTENT = {
           category: 'farmer',
           categoryLabel: 'Farmer Outreach',
           question: 'How are weather and farm advisories delivered to farmers?',
-          answer: 'When an officer publishes an advisory in the Advisory Monitoring module (e.g. monsoon warnings or pest advisories), push notifications and SMS alerts are instantly dispatched to all registered farmers in the affected barangays.',
+          answer: 'Farmers read Payo sa Bukid in the app. It uses one Antipolo rainfall forecast and each farmer\'s crop stage, and it shows Advance Cut, Delayed Harvest, or No Action Needed. This console counts farmers who currently hold that recommendation. SMS is the sign-in code only.',
         },
         {
           id: 'faq-4',
