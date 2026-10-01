@@ -107,8 +107,8 @@ export const TRANSLATIONS = {
     'spotlight.prev': 'Bumalik',
 
     // Farmer Spotlight Steps
-    'spotlight.farmer.step1Title': 'Payo sa Bukid at Panahon',
-    'spotlight.farmer.step1Desc': 'Bantayan ang mga payo mula sa LGU at ulat-panahon upang maagap na maprotektahan ang palay laban sa ulan at bagyo.',
+    'spotlight.farmer.step1Title': 'Payo sa Bukid',
+    'spotlight.farmer.step1Desc': 'Binabasa sa app ang Payo sa Bukid. Gumagamit ito ng isang forecast ng ulan para sa Antipolo at ng yugto ng pananim, at ipinapakita nito ang Maagang Anihin, Antalahin ang Anihan, o Walang Kailangang Gawin.',
     'spotlight.farmer.step2Title': 'Aktibong Listahan at Kahilingan',
     'spotlight.farmer.step2Desc': 'Mabilis na makita ang iyong mga nakalistang palay, mga bagong purchase request mula sa mamimili, at mga transaksyong naghihintay.',
     'spotlight.farmer.step3Title': 'Ibenta ang Inaning Palay',
@@ -118,13 +118,13 @@ export const TRANSLATIONS = {
 
     // Buyer Spotlight Steps
     'spotlight.buyer.step1Title': 'Patok sa Merkado at Presyo',
-    'spotlight.buyer.step1Desc': 'Tingnan ang real-time na karaniwang presyo bawat kilo at pinakamabiling uri ng palay sa merkado upang makakuha ng patas na transaksyon.',
+    'spotlight.buyer.step1Desc': 'Tingnan ang karaniwang presyo bawat kilo at ang pinakamaraming uri mula sa mga Available na listahan.',
     'spotlight.buyer.step2Title': 'Palengke at Transaksyon',
     'spotlight.buyer.step2Desc': 'Mag-browse ng sariwang ani mula sa mga lokal na magsasaka sa Palengke o subaybayan ang iyong mga aktibong order sa Transaksyon.',
     'spotlight.buyer.step3Title': 'Mga Patok na Barayti ng Palay',
-    'spotlight.buyer.step3Desc': 'Suriin ang mga barayti tulad ng Inbred (Rc218, Rc160) at High-Yield Hybrid (SL-8H), kasama ang average na presyo bawat kilo.',
+    'spotlight.buyer.step3Desc': 'Suriin ang mga barayti tulad ng Inbred (Rc218, Rc160) at Hybrid (Mestizo).',
     'spotlight.buyer.step4Title': 'Mga Abiso at Alerto',
-    'spotlight.buyer.step4Desc': 'Manatiling updated sa estado ng iyong mga purchase request, kumpirmasyon ng bayad gamit ang GCash, at paghahatid ng palay.',
+    'spotlight.buyer.step4Desc': 'Manatiling updated sa estado ng iyong mga purchase request at sa kumpirmasyon ng bayad gamit ang GCash.',
 
     // Farmer Palengke (Aking Ani) Spotlight
     'spotlight.farmerPalengke.step1Title': 'Paghahanap at Pagsasala',
@@ -175,11 +175,11 @@ export const TRANSLATIONS = {
     'tutorial.farmer.step1Title': 'Paglista at Pagbenta ng Ani',
     'tutorial.farmer.step1Desc': 'Ilista ang inaning palay sa pamamagitan ng pag-upload ng larawan, pagtukoy ng barayti (Inbred, Hybrid, Tradisyonal), timbang ng sako, at moisture (Tuyo o Basa).',
     'tutorial.farmer.step2Title': 'Awtomatikong Patas na Presyo',
-    'tutorial.farmer.step2Desc': 'Direktang nakakabit ang presyo bawat kilo sa opisyal na market price feed at dagdag na variety premium. Walang barat, walang komisyon ng ahente.',
+    'tutorial.farmer.step2Desc': 'Nakakandado ang presyo bawat kilo. Dagdag na ₱5 para sa NSIC Rc218 na Grade A. Ang iba ay walang premium.',
     'tutorial.farmer.step3Title': 'Pagtanggap ng Orders at Bayad',
     'tutorial.farmer.step3Desc': 'Makakatanggap ka ng abiso para sa bawat Purchase Request mula sa mga mamimili. Kumpirmahin ang bayad gamit ang GCash o Cash bago i-release ang mga sako.',
-    'tutorial.farmer.step4Title': 'Payo sa Bukid at Panahon',
-    'tutorial.farmer.step4Desc': 'Bantayan ang mga payo mula sa LGU at ulat-panahon upang maagap na maprotektahan ang palay laban sa ulan at bagyo.',
+    'tutorial.farmer.step4Title': 'Payo sa Bukid',
+    'tutorial.farmer.step4Desc': 'Binabasa sa app ang Payo sa Bukid. Gumagamit ito ng isang forecast ng ulan para sa Antipolo at ng yugto ng pananim, at ipinapakita nito ang Maagang Anihin, Antalahin ang Anihan, o Walang Kailangang Gawin.',
 
     // Buyer Home
     'buyer.greeting': 'Kumusta, Mamimili!',
@@ -435,8 +435,8 @@ export const TRANSLATIONS = {
     'spotlight.prev': 'Back',
 
     // Farmer Spotlight Steps
-    'spotlight.farmer.step1Title': 'Farm Advisory & Weather',
-    'spotlight.farmer.step1Desc': 'Monitor timely LGU notices and weather forecasts to protect drying palay and optimize harvest timing.',
+    'spotlight.farmer.step1Title': 'Payo sa Bukid',
+    'spotlight.farmer.step1Desc': 'Read Payo sa Bukid in the app. It uses one Antipolo rainfall forecast and your crop stage, and it shows Advance Cut, Delayed Harvest, or No Action Needed.',
     'spotlight.farmer.step2Title': 'Active Listings & Requests',
     'spotlight.farmer.step2Desc': 'Quickly track your active palay listings, incoming buyer purchase requests, and pending transactions.',
     'spotlight.farmer.step3Title': 'Sell Palay Harvest',
@@ -446,13 +446,13 @@ export const TRANSLATIONS = {
 
     // Buyer Spotlight Steps
     'spotlight.buyer.step1Title': 'Market Highlights & Pricing',
-    'spotlight.buyer.step1Desc': 'View real-time average prices per kg and top-selling varieties across local farms for transparent trading.',
+    'spotlight.buyer.step1Desc': 'See the average price per kilo and the most listed variety from Available listings.',
     'spotlight.buyer.step2Title': 'Marketplace & Orders',
     'spotlight.buyer.step2Desc': 'Explore fresh palay listings from local farmers in the Marketplace, and track ongoing deals under Transactions.',
     'spotlight.buyer.step3Title': 'Popular Palay Varieties',
-    'spotlight.buyer.step3Desc': 'Compare grain varieties including certified Inbred (Rc218, Rc160) and High-Yield Hybrid (SL-8H) with live price feeds.',
+    'spotlight.buyer.step3Desc': 'Compare varieties such as Inbred (Rc218, Rc160) and Hybrid (Mestizo).',
     'spotlight.buyer.step4Title': 'Notifications & Alerts',
-    'spotlight.buyer.step4Desc': 'Stay updated on purchase request approvals, payment confirmations via GCash, and sack deliveries.',
+    'spotlight.buyer.step4Desc': 'Stay updated on your purchase requests and on GCash payment confirmation.',
 
     // Farmer Palengke (My Harvest) Spotlight
     'spotlight.farmerPalengke.step1Title': 'Search & Smart Filters',
@@ -503,11 +503,11 @@ export const TRANSLATIONS = {
     'tutorial.farmer.step1Title': 'Listing & Selling Your Harvest',
     'tutorial.farmer.step1Desc': 'List your harvested palay by uploading photos, selecting variety (Inbred, Hybrid, Heirloom), sack weights, and moisture (Dry or Wet).',
     'tutorial.farmer.step2Title': 'Automatic Fair Pricing',
-    'tutorial.farmer.step2Desc': 'Prices per kg are directly linked to official market price feeds and variety premiums. No broker deductions or price gouging.',
+    'tutorial.farmer.step2Desc': 'The price per kilo is locked. A ₱5 premium applies only to NSIC Rc218, grade A. Every other variety has none.',
     'tutorial.farmer.step3Title': 'Managing Orders & Payments',
     'tutorial.farmer.step3Desc': 'Receive instant notifications for Purchase Requests from verified buyers. Verify GCash or Cash payment before releasing sacks.',
-    'tutorial.farmer.step4Title': 'Weather & Crop Advisories',
-    'tutorial.farmer.step4Desc': 'Stay informed with timely LGU notices and weather advisories to protect drying palay and optimize harvest timing.',
+    'tutorial.farmer.step4Title': 'Payo sa Bukid',
+    'tutorial.farmer.step4Desc': 'Read Payo sa Bukid in the app. It uses one Antipolo rainfall forecast and your crop stage, and it shows Advance Cut, Delayed Harvest, or No Action Needed.',
 
     // Buyer Home
     'buyer.greeting': 'Welcome, Buyer!',
