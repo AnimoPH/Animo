@@ -145,7 +145,7 @@ export const LEGAL_CONTENT = {
             'Personal na Impormasyon: Buong Pangalan, Numero ng Telepono, Barangay sa Antipolo / Rizal, at Laki ng Sakahan.',
             'Impormasyon sa Pagbabayad: GCash mobile number. (HINDI kailanman kinokolekta o iniimbak ng Animo ang inyong GCash MPIN, OTP, o password).',
             'Datos sa Transaksyon: Litrato ng ani, kilo, sako, presyo bawat kilo, antas ng moisture, at kasaysayan ng mga order.',
-            'Teknikal na Datos: Device ID, notification token, at blockchain transaction hashes.',
+            'Teknikal na Datos: Device ID at blockchain transaction hashes.',
           ],
         },
         {
@@ -160,7 +160,7 @@ export const LEGAL_CONTENT = {
             'Pagpapakita ng inyong mga palay listing sa Animo Palengke.',
             'Pangangasiwa ng purchase requests, bayaran, at delivery coordination.',
             'Paggawa ng opisyal na digital receipts at blockchain audit logs.',
-            'Pagpapadala ng real-time farm at weather advisories mula sa PAGASA at LGU-MAO.',
+            'Pagpapakita ng card na Payo sa Bukid mula sa forecast ng ulan sa Antipolo at sa yugto ng iyong pananim.',
             'Pagpigil sa panloloko at pagpapatupad ng alituntunin sa merkado.',
           ],
         },
@@ -286,7 +286,7 @@ export const LEGAL_CONTENT = {
           category: 'farmer',
           categoryLabel: 'Magsasaka',
           question: 'Paano gumagana ang "Payo sa Bukid" at ulat-panahon?',
-          answer: 'Awtomatikong nakakonekta ang Animo sa PAGASA weather feeds at LGU Municipal Agriculture Office advisories. Kapag may inaasahang ulan o bagyo, makakatanggap ka ng babala upang maprotektahan ang binibilad na palay.',
+          answer: 'Gumagamit ang Payo sa Bukid ng isang forecast ng ulan para sa Antipolo at ng yugto ng iyong pananim. Ipinapakita ng card ang Maagang Anihin, Antalahin ang Anihan, o Walang Kailangang Gawin. Binabasa ito sa app.',
         },
         {
           id: 'faq-10',
@@ -447,7 +447,7 @@ export const LEGAL_CONTENT = {
             'Personal Information: Full Name, Mobile Phone Number, Barangay location in Antipolo/Rizal, and Farm Size.',
             'Payment Information: GCash mobile number. (Animo NEVER asks for, collects, or stores your GCash MPIN, OTP, or passwords).',
             'Transaction Information: Harvest photos, sack quantities, weight (kg), price per kg, moisture levels, and order histories.',
-            'Technical Information: Device identifiers, push notification tokens, and cryptographic transaction hashes.',
+            'Technical Information: Device identifiers and cryptographic transaction hashes.',
           ],
         },
         {
@@ -462,7 +462,7 @@ export const LEGAL_CONTENT = {
             'Displaying crop listings on the Animo Marketplace.',
             'Facilitating purchase requests, settlements, and delivery coordination.',
             'Generating official digital receipts and blockchain audit logs.',
-            'Delivering real-time weather and farm advisories from PAGASA and LGU-MAO.',
+            'Showing the Payo sa Bukid card from the Antipolo rainfall forecast and your crop stage.',
             'Preventing fraud and enforcing marketplace standards.',
           ],
         },
@@ -588,7 +588,7 @@ export const LEGAL_CONTENT = {
           category: 'farmer',
           categoryLabel: 'Farmers',
           question: 'How do Farm Advisories and Weather Alerts work?',
-          answer: 'Animo links with PAGASA weather data and LGU Municipal Agriculture Office notices. If heavy rains or typhoons approach, you will receive timely warnings to protect drying palay.',
+          answer: 'Payo sa Bukid uses one Antipolo rainfall forecast and your crop stage. The card shows Advance Cut, Delayed Harvest, or No Action Needed. You read it in the app.',
         },
         {
           id: 'faq-10',
