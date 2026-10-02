@@ -5,12 +5,10 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
-  Droplets,
   FileText,
   HelpCircle,
   Package,
   Phone,
-  Scale,
   Star,
   User,
   X,
@@ -23,12 +21,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
-import { PaymentSummary } from '@/components/animo/payment-summary';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
+import {
+  AmountComparisonCard,
+  RecordedPaymentMethodCard,
+  TransactionStatusRow,
+  TransactionSummaryCard,
+} from '@/components/animo/transaction-cycle-cards';
 import { BackHeader } from '@/components/animo/back-header';
-import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
 import { fetchCropListing } from '@/services/crop-listing-service';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
@@ -39,14 +40,14 @@ import {
   fetchTransactionCounterpart,
   markDelivered,
 } from '@/services/transaction-service';
-import { varietyLabel, type CropListing } from '@/types/crop-listing';
+import type { CropListing } from '@/types/crop-listing';
 import type { PurchaseRequest } from '@/types/purchase-request';
 import {
-  DISPLAY_STAGE_LABELS,
   DISPLAY_STAGE_TONE,
   getDisplayStageLabel,
   buildProgressSteps,
   deriveDisplayStage,
+  formatReferenceId,
   type DisplayStage,
   type PurchaseOutcome,
   type TransactionCounterpart,
@@ -173,7 +174,6 @@ export default function FarmerTransactionDetailScreen() {
 
   const outcome: PurchaseOutcome = { kind: 'matched', request, transaction };
   const stage = deriveDisplayStage(outcome);
-  const isCancelled = stage === 'transaction_cancelled' || stage === 'payment_failed';
   const isCompleted = stage === 'completed';
   const canCancel = transaction.status === 'Pending_Payment';
   const steps = buildProgressSteps(outcome, 'farmer', language);
@@ -184,20 +184,19 @@ export default function FarmerTransactionDetailScreen() {
       <BackHeader title={farmerHeaderTitle(stage, language)} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <StageBanner stage={stage} transaction={transaction} buyerName={buyer?.name} lang={language} />
+        <TransactionStatusRow label={getDisplayStageLabel(stage, language)} tone={DISPLAY_STAGE_TONE[stage]} />
+        <StageBanner stage={stage} lang={language} />
 
-        {listing ? <ListingCard listing={listing} transaction={transaction} isCancelled={isCancelled} lang={language} /> : null}
-
-        <ProgressTracker title={isTagalog ? 'Progreso ng Transaksyon' : 'Transaction Progress'} steps={steps} />
-
-        <PaymentSummary
-          rows={[
-            { label: isTagalog ? 'Dami ng Palay' : 'Quantity of Palay', amount: `${transaction.quantityKg} kg` },
-            { label: isTagalog ? 'Presyo bawat kilo' : 'Price per kg', amount: formatPeso(transaction.agreedPricePerKg) },
-            ...(transaction.payment ? [{ label: isTagalog ? 'Paraan ng Pagbabayad' : 'Payment Method', amount: transaction.payment.paymentMode }] : []),
-          ]}
-          total={{ label: isTagalog ? 'Kabuuang Halaga ng Transaksyon' : 'Total Transaction Amount', amount: transaction.totalAmount }}
-        />
+        {listing ? (
+          <TransactionSummaryCard
+            listing={listing}
+            quantityKg={transaction.quantityKg}
+            pricePerKg={transaction.agreedPricePerKg}
+            totalAmount={transaction.totalAmount}
+            referenceId={formatReferenceId(request.id, 'PR')}
+            language={language}
+          />
+        ) : null}
 
         {buyer ? (
           <BuyerPartyCard
@@ -208,6 +207,24 @@ export default function FarmerTransactionDetailScreen() {
             onCall={() => handleCallBuyer(buyer.phone)}
           />
         ) : null}
+
+        {transaction.payment ? (
+          <AmountComparisonCard
+            paidAmount={transaction.payment.amount}
+            agreedAmount={transaction.totalAmount}
+            isTagalog={isTagalog}
+          />
+        ) : null}
+
+        {transaction.payment ? (
+          <RecordedPaymentMethodCard
+            mode={transaction.payment.paymentMode}
+            reference={transaction.payment.gcashReferenceNumber}
+            isTagalog={isTagalog}
+          />
+        ) : null}
+
+        <ProgressTracker title={isTagalog ? 'Progreso ng Transaksyon' : 'Transaction Progress'} steps={steps} />
 
         {isCompleted ? (
           <Pressable
@@ -373,13 +390,9 @@ export default function FarmerTransactionDetailScreen() {
 
 function StageBanner({
   stage,
-  transaction,
-  buyerName,
   lang = 'tl',
 }: {
   stage: DisplayStage;
-  transaction: TransactionWithPayment;
-  buyerName?: string;
   lang?: 'tl' | 'en';
 }) {
   const isEn = lang === 'en';
@@ -433,61 +446,6 @@ function StageBanner({
           </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
             {header.caption}
-          </AnimoText>
-        </View>
-      </View>
-
-      <View style={styles.bannerMeta}>
-        <StatusBadge label={getDisplayStageLabel(stage, lang)} tone={DISPLAY_STAGE_TONE[stage]} />
-      </View>
-
-      <View style={styles.divider} />
-      {buyerName ? <MetaRow label={isEn ? 'Buyer' : 'Mamimili'} value={buyerName} /> : null}
-      {transaction.payment ? <MetaRow label={isEn ? 'Payment Method' : 'Paraan ng Bayad'} value={transaction.payment.paymentMode} /> : null}
-    </View>
-  );
-}
-
-function ListingCard({
-  listing,
-  transaction,
-  isCancelled,
-  lang = 'tl',
-}: {
-  listing: CropListing;
-  transaction: TransactionWithPayment;
-  isCancelled: boolean;
-  lang?: 'tl' | 'en';
-}) {
-  return (
-    <View style={[styles.listingCard, isCancelled && styles.listingCardMuted]}>
-      <View style={styles.listingHeader}>
-        <View style={styles.listingTitleGroup}>
-          <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            {varietyLabel(listing, lang)}
-          </AnimoText>
-        </View>
-        <AnimoText variant="price" color={AnimoColors.accentPrimary} style={styles.listingPriceText}>
-          {formatPeso(transaction.totalAmount)}
-        </AnimoText>
-      </View>
-
-      <View style={styles.specsRow}>
-        <View style={styles.specItem}>
-          <Scale size={14} color={AnimoColors.accentPrimary} />
-          <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-            {transaction.quantityKg} kg
-          </AnimoText>
-        </View>
-        <View style={styles.specItem}>
-          <Droplets size={14} color={AnimoColors.textMediumEmphasis} />
-          <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-            {listing.declaredMoisture}
-          </AnimoText>
-        </View>
-        <View style={styles.specItem}>
-          <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-            {formatPeso(transaction.agreedPricePerKg)} / kg
           </AnimoText>
         </View>
       </View>
@@ -549,8 +507,8 @@ function BuyerPartyCard({
           accessibilityLabel={isEn ? `Call ${buyer.name}` : `Tawagan si ${buyer.name}`}
           onPress={onCall}
           style={({ pressed }) => [styles.callBtn, pressed && styles.pressed]}>
-          <Phone size={15} color={AnimoColors.accentPrimary} />
-          <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.callBtnText}>
+          <Phone size={14} color={AnimoColors.white} />
+          <AnimoText variant="caption" color={AnimoColors.white} style={styles.callBtnText}>
             {isEn ? 'Call' : 'Tawagan'}
           </AnimoText>
         </Pressable>
@@ -559,24 +517,13 @@ function BuyerPartyCard({
       <View style={styles.divider} />
 
       <View style={styles.partyContactRow}>
-        <Phone size={15} color={AnimoColors.textMediumEmphasis} />
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+        <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
+          Contact Number:
+        </AnimoText>
+        <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.phoneValue}>
           {buyer.phone}
         </AnimoText>
       </View>
-    </View>
-  );
-}
-
-function MetaRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.metaRow}>
-      <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.metaLabel}>
-        {label}
-      </AnimoText>
-      <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.metaValue}>
-        {value}
-      </AnimoText>
     </View>
   );
 }
@@ -605,7 +552,7 @@ function FooterActions({
   if (stage === 'payment_sent') {
     return (
       <View style={styles.footerStack}>
-        <AnimoButton label={isEn ? 'Payment Received' : 'Natanggap ko na ang Bayad'} icon={Check} onPress={onConfirmPayment} />
+        <AnimoButton label={isEn ? 'Payment Received' : 'Natanggap ang Bayad'} icon={Check} onPress={onConfirmPayment} />
         {canCancel ? <AnimoButton label={isEn ? 'Cancel Transaction' : 'Kanselahin ang Transaksyon'} variant="dangerOutline" icon={X} onPress={onCancel} /> : null}
       </View>
     );
@@ -714,13 +661,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: AnimoColors.accentPrimaryLight,
+    backgroundColor: AnimoColors.accentPrimary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: AnimoRadius.pill,
   },
   callBtnText: { fontFamily: 'PlusJakartaSans_600SemiBold' },
-  partyContactRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
+  partyContactRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoSpacing.md, paddingVertical: 2 },
+  phoneValue: { flexShrink: 1, textAlign: 'right' },
   receiptRow: {
     flexDirection: 'row',
     alignItems: 'center',

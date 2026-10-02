@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Check, Info, X } from 'lucide-react-native';
+import { Check, CheckCircle2, Info, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { fetchCropListing } from '@/services/crop-listing-service';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import {
   cancelTransaction as cancelTransactionRpc,
@@ -20,13 +21,19 @@ import {
   fetchTransactionCounterpart,
 } from '@/services/transaction-service';
 import { useLanguage } from '@/hooks/use-language';
+import type { CropListing } from '@/types/crop-listing';
 import {
+  DISPLAY_STAGE_TONE,
   buildProgressSteps,
   cancelPolicy,
+  deriveDisplayStage,
+  formatReferenceId,
+  getDisplayStageLabel,
   type PurchaseOutcome,
   type TransactionCounterpart,
 } from '@/types/transaction';
 import { BackHeader } from '@/components/animo/back-header';
+import { TransactionStatusRow, TransactionSummaryCard } from '@/components/animo/transaction-cycle-cards';
 
 /**
  * Pickup coordination — there is no pickup/scheduling table in this schema,
@@ -40,6 +47,7 @@ export default function PickupScreen() {
   const { language, isTagalog } = useLanguage();
 
   const [outcome, setOutcome] = useState<PurchaseOutcome | null>(null);
+  const [listing, setListing] = useState<CropListing | null>(null);
   const [counterpart, setCounterpart] = useState<TransactionCounterpart | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +68,12 @@ export default function PickupScreen() {
         return;
       }
       setOutcome({ kind: 'matched', request, transaction });
-      setCounterpart(await fetchTransactionCounterpart(transaction.farmerId));
+      const [listingResult, counterpartResult] = await Promise.all([
+        fetchCropListing(request.listingId),
+        fetchTransactionCounterpart(transaction.farmerId),
+      ]);
+      setListing(listingResult);
+      setCounterpart(counterpartResult);
     } catch (e) {
       setError(
         e instanceof Error
@@ -128,26 +141,51 @@ export default function PickupScreen() {
       <BackHeader title="Pickup" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <TransactionStatusRow
+          label={getDisplayStageLabel(deriveDisplayStage(outcome), language)}
+          tone={DISPLAY_STAGE_TONE[deriveDisplayStage(outcome)]}
+        />
         <View style={styles.card}>
-          <AnimoText variant="h3" color={AnimoColors.black}>
-            {isTagalog ? 'Tinanggap ang Iyong Request' : 'Your Request Was Accepted'}
-          </AnimoText>
-          <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            {isTagalog
-              ? 'Makipag-ugnayan sa magsasaka para sa oras at lokasyon ng pickup. Walang naka-sistemang iskedyul — direktang usapan ito sa pagitan ninyo.'
-              : 'Coordinate with the farmer regarding pickup time and location. There is no automated schedule — arrange directly with the farmer.'}
-          </AnimoText>
+          <View style={styles.bannerRow}>
+            <View style={styles.bannerIcon}>
+              <CheckCircle2 size={20} color={AnimoColors.green} />
+            </View>
+            <View style={styles.bannerText}>
+              <AnimoText variant="h3" color={AnimoColors.black}>
+                {isTagalog ? 'Tinanggap ang Iyong Request' : 'Your Request Was Accepted'}
+              </AnimoText>
+              <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+                {isTagalog
+                  ? 'Makipag-ugnayan sa magsasaka para sa oras at lokasyon ng pickup. Walang naka-sistemang iskedyul — direktang usapan ito sa pagitan ninyo.'
+                  : 'Coordinate with the farmer regarding pickup time and location. There is no automated schedule — arrange directly with the farmer.'}
+              </AnimoText>
+            </View>
+          </View>
         </View>
-
-        {counterpart ? <FarmerCard farmer={counterpart} /> : <LockedFarmerCard />}
-
-        <ProgressTracker steps={buildProgressSteps(outcome, 'buyer', language)} />
 
         <NoticeBanner tone="info" icon={<Info size={16} color="#2563A8" />}>
           {isTagalog
             ? 'Kapag nakuha na ang palay, magpatuloy sa pagbabayad sa magsasaka.'
             : 'Once the palay has been picked up, proceed with paying the farmer.'}
         </NoticeBanner>
+
+        {listing ? (
+          <TransactionSummaryCard
+            listing={listing}
+            quantityKg={outcome.transaction.quantityKg}
+            pricePerKg={outcome.transaction.agreedPricePerKg}
+            totalAmount={outcome.transaction.totalAmount}
+            referenceId={formatReferenceId(outcome.request.id, 'PR')}
+            language={language}
+          />
+        ) : null}
+
+        {counterpart ? <FarmerCard farmer={counterpart} /> : <LockedFarmerCard />}
+
+        <ProgressTracker
+          title={isTagalog ? 'Progreso ng Transaksyon' : 'Transaction Progress'}
+          steps={buildProgressSteps(outcome, 'buyer', language)}
+        />
 
         {cancelError ? (
           <AnimoText variant="caption" color={AnimoColors.danger}>
@@ -220,6 +258,22 @@ const styles = StyleSheet.create({
     padding: AnimoSpacing.lg,
     gap: AnimoSpacing.sm,
     backgroundColor: AnimoColors.white,
+  },
+  bannerRow: {
+    flexDirection: 'row',
+    gap: AnimoSpacing.md,
+  },
+  bannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AnimoColors.greenTint,
+  },
+  bannerText: {
+    flex: 1,
+    gap: 2,
   },
   footerStack: {
     paddingHorizontal: AnimoSpacing.xl,

@@ -21,10 +21,13 @@ import { NoticeBanner } from '@/components/animo/notice-banner';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { fetchCropListing } from '@/services/crop-listing-service';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import { confirmPaymentSent, fetchTransactionByRequestId } from '@/services/transaction-service';
+import { TransactionSummaryCard } from '@/components/animo/transaction-cycle-cards';
+import type { CropListing } from '@/types/crop-listing';
 import { useLanguage } from '@/hooks/use-language';
-import { requestTotal, type PurchaseOutcome } from '@/types/transaction';
+import { formatReferenceId, requestTotal, type PurchaseOutcome } from '@/types/transaction';
 import { BackHeader } from '@/components/animo/back-header';
 
 type DiscrepancyReason = string;
@@ -52,9 +55,10 @@ const REASON_OPTIONS_EN = [
  */
 export default function PaymentConfirmationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { isTagalog } = useLanguage();
+  const { language, isTagalog } = useLanguage();
 
   const [outcome, setOutcome] = useState<PurchaseOutcome | null>(null);
+  const [listing, setListing] = useState<CropListing | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -78,6 +82,7 @@ export default function PaymentConfirmationScreen() {
         return;
       }
       setOutcome({ kind: 'matched', request, transaction });
+      setListing(await fetchCropListing(request.listingId));
     } catch (e) {
       setLoadError(
         e instanceof Error
@@ -152,9 +157,25 @@ export default function PaymentConfirmationScreen() {
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {listing ? (
+            <TransactionSummaryCard
+              listing={listing}
+              quantityKg={outcome.transaction.quantityKg}
+              pricePerKg={outcome.transaction.agreedPricePerKg}
+              totalAmount={agreedTotal}
+              referenceId={formatReferenceId(outcome.request.id, 'PR')}
+              language={language}
+            />
+          ) : null}
           {isMatch ? (
             <>
               <View style={styles.card}>
+                <View style={styles.statusRow}>
+                  <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+                    Status:
+                  </AnimoText>
+                  <StatusBadge label={isTagalog ? 'Naitala' : 'Recorded'} tone="success" />
+                </View>
                 <View style={styles.bannerRow}>
                   <View style={[styles.bannerIcon, styles.bannerIconSuccess]}>
                     <CheckCircle2 size={22} color={AnimoColors.green} />
@@ -167,9 +188,6 @@ export default function PaymentConfirmationScreen() {
                       {isTagalog ? 'Naitala ang bayad na binigay' : 'Payment recorded accurately'}
                     </AnimoText>
                   </View>
-                </View>
-                <View style={styles.bannerMeta}>
-                  <StatusBadge label={isTagalog ? 'Naitala' : 'Recorded'} tone="success" />
                 </View>
               </View>
 
@@ -400,6 +418,7 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.white,
   },
   warningCard: { borderColor: '#F0D79A', backgroundColor: '#FDF6E4' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoSpacing.md },
   bannerRow: { flexDirection: 'row', gap: AnimoSpacing.md, alignItems: 'center' },
   bannerIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   bannerIconSuccess: { backgroundColor: AnimoColors.greenTint },
