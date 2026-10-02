@@ -88,7 +88,7 @@ export default function SignOutModal({
               onPress={onCancel}
               style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
               <Text style={styles.cancelLabel}>
-                {isTagalog ? 'Kanselahin' : 'Cancel'}
+                {isTagalog ? 'Bumalik' : 'Go Back'}
               </Text>
             </Pressable>
             <Pressable
@@ -96,9 +96,9 @@ export default function SignOutModal({
               onPress={onConfirm}
               style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}>
               <Text style={styles.confirmLabel}>
-                {isTagalog ? 'Kumpirmahin' : 'Confirm'}
+                {isTagalog ? 'Sign-out' : 'Sign-out'}
               </Text>
-              <LogOut size={16} color={AnimoColors.white} />
+              <LogOut size={16} strokeWidth={3} color={AnimoColors.white} />
             </Pressable>
           </View>
         </Animated.View>

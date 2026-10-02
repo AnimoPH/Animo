@@ -13,7 +13,7 @@ import {
   Star,
   X,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -30,7 +30,6 @@ import { PalayReviewsCard } from '@/components/animo/palay-reviews';
 import { PriceRationaleCard } from '@/components/animo/price-rationale-card';
 import { BackHeader } from '@/components/animo/back-header';
 
-import { SpecBox } from '@/components/animo/spec-box';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
@@ -54,6 +53,36 @@ import {
   type PhotoType,
 } from '@/types/crop-listing';
 import type { PurchaseRequest } from '@/types/purchase-request';
+
+function PalayInfoRow({
+  icon,
+  label,
+  value,
+  showDivider,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  showDivider?: boolean;
+}) {
+  return (
+    <View style={[styles.specRow, showDivider && styles.specRowDivider]}>
+      <View style={styles.specRowLeft}>
+        {icon}
+        <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.specRowLabel}>
+          {label}
+        </AnimoText>
+      </View>
+      <AnimoText
+        variant="bodyEmphasis"
+        color={AnimoColors.accentPrimary}
+        style={styles.specRowValue}
+        numberOfLines={2}>
+        {value}
+      </AnimoText>
+    </View>
+  );
+}
 
 const DEFAULT_PALAY_PHOTOS: Record<PhotoType, string> = {
   Overview:
@@ -223,8 +252,43 @@ export default function ListingDetailScreen() {
 
   const activePhoto = galleryItems[selectedPhotoIndex] || galleryItems[0];
   const modalActivePhoto = galleryItems[modalPhotoIndex] || galleryItems[0];
-  const locationText = farmerProfile?.location || '';
   const specificVariety = specificVarietyDisplay(listing, language);
+  const palayInfoRows: { key: string; icon: ReactNode; label: string; value: string }[] = [
+    {
+      key: 'variety',
+      icon: <Sprout size={16} color={AnimoColors.textMediumEmphasis} />,
+      label: isTagalog ? 'Uri ng palay' : 'Rice Variety',
+      value: varietyLabel(listing, language),
+    },
+    ...(specificVariety
+      ? [
+          {
+            key: 'specificVariety',
+            icon: <Sprout size={16} color={AnimoColors.textMediumEmphasis} />,
+            label: isTagalog ? 'Tiyak na uri ng palay' : 'Specific Variety',
+            value: specificVariety,
+          },
+        ]
+      : []),
+    {
+      key: 'moisture',
+      icon: <Droplets size={16} color={AnimoColors.textMediumEmphasis} />,
+      label: 'Moisture',
+      value: moistureLabel(listing.declaredMoisture, language),
+    },
+    {
+      key: 'purity',
+      icon: <ShieldCheck size={16} color={AnimoColors.textMediumEmphasis} />,
+      label: isTagalog ? 'Kalidad' : 'Quality Grade',
+      value: purityLabel(listing.declaredPurityGrade, language),
+    },
+    {
+      key: 'weight',
+      icon: <Scale size={16} color={AnimoColors.textMediumEmphasis} />,
+      label: isTagalog ? 'Aktwal na timbang' : 'Actual Weight',
+      value: `${listing.netWeightKg} kg`,
+    },
+  ];
 
   const openModalAt = (index: number) => {
     setModalPhotoIndex(index);
@@ -362,51 +426,23 @@ export default function ListingDetailScreen() {
           </AnimoText>
         </View>
 
-        {/* Impormasyon ng Palay (with Green Icons) */}
+        {/* Impormasyon ng Palay — same row list as the farmer listing detail */}
         <View style={styles.section}>
           <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
             {isTagalog ? 'Impormasyon ng Palay' : 'Palay Information'}
           </AnimoText>
-          <View style={styles.specGrid}>
-            <SpecBox
-              icon={<Sprout size={16} color={AnimoColors.accentPrimary} />}
-              label={isTagalog ? 'Uri ng palay' : 'Palay variety'}
-              value={varietyLabel(listing, language)}
-            />
-            <SpecBox
-              icon={<Scale size={16} color={AnimoColors.accentPrimary} />}
-              label={isTagalog ? 'Aktwal na timbang' : 'Actual weight'}
-              value={`${listing.netWeightKg} kg`}
-            />
-            <SpecBox
-              icon={<Droplets size={16} color={AnimoColors.accentPrimary} />}
-              label="Moisture"
-              value={moistureLabel(listing.declaredMoisture, language)}
-            />
-            <SpecBox
-              icon={<ShieldCheck size={16} color={AnimoColors.accentPrimary} />}
-              label={isTagalog ? 'Kalidad' : 'Quality'}
-              value={purityLabel(listing.declaredPurityGrade, language)}
-            />
-            {locationText ? (
-              <SpecBox
-                icon={<MapPin size={16} color={AnimoColors.accentPrimary} />}
-                label={isTagalog ? 'Lokasyon' : 'Location'}
-                value={locationText}
+          <View style={styles.infoCard}>
+            {palayInfoRows.map((row, index) => (
+              <PalayInfoRow
+                key={row.key}
+                icon={row.icon}
+                label={row.label}
+                value={row.value}
+                showDivider={index < palayInfoRows.length - 1}
               />
-            ) : null}
+            ))}
           </View>
         </View>
-
-        <PalayReviewsCard
-          listingId={listing.id}
-          onPress={() =>
-            router.push({
-              pathname: '/(buyer)/palengke/reviews',
-              params: { id: listing.id },
-            })
-          }
-        />
 
         {/* Farmer Profile Summary Card (Clickable to view full details) */}
         {farmerProfile ? (
@@ -470,6 +506,16 @@ export default function ListingDetailScreen() {
             </Pressable>
           </View>
         ) : null}
+
+        <PalayReviewsCard
+          listingId={listing.id}
+          onPress={() =>
+            router.push({
+              pathname: '/(buyer)/palengke/reviews',
+              params: { id: listing.id },
+            })
+          }
+        />
       </ScrollView>
 
       <View style={styles.footer}>
@@ -725,10 +771,38 @@ const styles = StyleSheet.create({
   section: {
     gap: AnimoSpacing.md,
   },
-  specGrid: {
+  infoCard: {
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
+    borderRadius: AnimoRadius.lg,
+    backgroundColor: AnimoColors.surfacePrimary,
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingVertical: AnimoSpacing.sm,
+  },
+  specRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: AnimoSpacing.md,
+    paddingVertical: AnimoSpacing.md,
+  },
+  specRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: AnimoColors.borderLowEmphasis,
+  },
+  specRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AnimoSpacing.sm,
+    flexShrink: 1,
+  },
+  specRowLabel: {
+    flexShrink: 1,
+  },
+  specRowValue: {
+    textAlign: 'right',
+    flexShrink: 1,
+    maxWidth: '48%',
   },
   footer: {
     paddingHorizontal: AnimoSpacing.lg,
