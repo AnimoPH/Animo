@@ -20,8 +20,8 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { CancelRequestModal } from '@/components/animo/cancel-request-modal';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { LabeledInput } from '@/components/animo/labeled-input';
-import { ListingImage } from '@/components/animo/listing-image';
 import { PhotoSourceSheet } from '@/components/animo/photo-source-sheet';
+import { TransactionSummaryCard } from '@/components/animo/transaction-cycle-cards';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
 import { BackHeader } from '@/components/animo/back-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
@@ -30,8 +30,8 @@ import { fetchCropListing } from '@/services/crop-listing-service';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import { cancelTransaction as cancelTransactionRpc, fetchTransactionByRequestId, recordPayment } from '@/services/transaction-service';
 import { useLanguage } from '@/hooks/use-language';
-import { varietyLabel, type CropListing } from '@/types/crop-listing';
-import { buildProgressSteps, cancelPolicy, requestTotal, type PaymentMode, type PurchaseOutcome } from '@/types/transaction';
+import type { CropListing } from '@/types/crop-listing';
+import { buildProgressSteps, cancelPolicy, formatReferenceId, requestTotal, type PaymentMode, type PurchaseOutcome } from '@/types/transaction';
 
 /** Paraan ng Pagbabayad — buyer records the payment here via `record_payment`. */
 export default function PaymentScreen() {
@@ -194,56 +194,18 @@ export default function PaymentScreen() {
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          {/* Listing Product Card */}
+          {listing ? (
+            <TransactionSummaryCard
+              listing={listing}
+              quantityKg={transaction.quantityKg}
+              pricePerKg={transaction.agreedPricePerKg}
+              totalAmount={agreedTotal}
+              referenceId={formatReferenceId(outcome.request.id, 'PR')}
+              language={language}
+            />
+          ) : null}
+
           <View style={styles.card}>
-            <View style={styles.productRow}>
-              <ListingImage height={64} borderRadius={AnimoRadius.md} style={styles.thumb} />
-              <View style={styles.productInfo}>
-                <AnimoText variant="h3" color={AnimoColors.black}>
-                  {listing ? varietyLabel(listing, language) : 'Palay'}
-                </AnimoText>
-                <AnimoText variant="price" color={AnimoColors.green}>
-                  {formatPeso(transaction.agreedPricePerKg)} {isTagalog ? 'bawat kilo' : 'per kg'}
-                </AnimoText>
-              </View>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.rowBetween}>
-              <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                {isTagalog ? 'Dami' : 'Quantity'}
-              </AnimoText>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                {transaction.quantityKg} kg
-              </AnimoText>
-            </View>
-
-            <View style={styles.rowBetween}>
-              <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                {isTagalog ? 'Kabuuang halaga' : 'Total Amount'}
-              </AnimoText>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                {formatPeso(agreedTotal)}
-              </AnimoText>
-            </View>
-          </View>
-
-          {/* Buod ng Bayad + Actual Amount Input */}
-          <View style={styles.card}>
-            <AnimoText variant="h3" color={AnimoColors.black}>
-              {isTagalog ? 'Buod ng Bayad' : 'Payment Summary'}
-            </AnimoText>
-
-            <View style={styles.rowBetween}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.rowLabel}>
-                {isTagalog ? 'Kabuuang babayaran (Sistema)' : 'Total Payable (System)'}
-              </AnimoText>
-              <AnimoText variant="price" color={AnimoColors.black} style={styles.rowValue}>
-                {formatPeso(agreedTotal)}
-              </AnimoText>
-            </View>
-
             <View style={styles.inputSection}>
               <LabeledInput
                 label={isTagalog ? 'Halagang Aktwal na Binayaran (₱)' : 'Actual Amount Paid (₱)'}
@@ -395,7 +357,10 @@ export default function PaymentScreen() {
             </View>
           ) : null}
 
-          <ProgressTracker steps={buildProgressSteps(outcome, 'buyer', language)} />
+          <ProgressTracker
+            title={isTagalog ? 'Progreso ng Transaksyon' : 'Transaction Progress'}
+            steps={buildProgressSteps(outcome, 'buyer', language)}
+          />
 
           {submitError ? (
             <AnimoText variant="caption" color={AnimoColors.danger}>

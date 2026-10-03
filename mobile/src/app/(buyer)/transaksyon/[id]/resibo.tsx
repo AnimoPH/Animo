@@ -21,7 +21,7 @@ import {
   recordBlockchainReceipt,
   type Receipt,
 } from '@/services/transaction-service';
-import { varietyLabel, type CropListing } from '@/types/crop-listing';
+import { specificVarietyDisplay, varietyLabel, type CropListing } from '@/types/crop-listing';
 import {
   deriveDisplayStage,
   formatDate,
@@ -145,9 +145,13 @@ export default function BuyerReceiptScreen() {
   const isCompleted = stage === 'completed';
   const total = requestTotal(outcome);
 
+  const specificVariety = listing ? specificVarietyDisplay(listing, language) : null;
   const detailRows: { label: string; value: string }[] = [
     { label: isTagalog ? 'Transaction ID' : 'Transaction ID', value: formatReferenceId(transaction.id, 'TXN') },
     { label: isTagalog ? 'Uri ng Palay' : 'Crop Variety', value: listing ? varietyLabel(listing, language) : (isTagalog ? 'Palay' : 'Paddy') },
+    ...(specificVariety
+      ? [{ label: isTagalog ? 'Tiyak na uri ng Palay' : 'Specific Variety', value: specificVariety }]
+      : []),
     { label: isTagalog ? 'Dami' : 'Quantity', value: `${transaction.quantityKg} kg` },
     { label: isTagalog ? 'Presyo bawat kilo' : 'Price per kg', value: `${formatPeso(transaction.agreedPricePerKg)}/kg` },
     { label: isTagalog ? 'Paraan ng Bayad' : 'Payment Method', value: payment?.paymentMode ?? '—' },
@@ -264,15 +268,17 @@ export default function BuyerReceiptScreen() {
           ) : null}
           <AnimoButton
             label={isTagalog ? 'I-download ang Resibo' : 'Download Receipt'}
-            variant="secondary"
+            variant={isCompleted ? 'secondary' : 'primary'}
             icon={Download}
             onPress={() => setShowDownloadModal(true)}
           />
-          <AnimoButton
-            label={isTagalog ? 'Bumalik sa Transaksyon' : 'Back to Transactions'}
-            variant="neutralOutline"
-            onPress={() => router.replace('/(buyer)/transaksyon')}
-          />
+          {isCompleted ? null : (
+            <AnimoButton
+              label={isTagalog ? 'Bumalik sa Transaksyon' : 'Back to Transactions'}
+              variant="neutralOutline"
+              onPress={() => router.replace('/(buyer)/transaksyon')}
+            />
+          )}
         </View>
       </ScrollView>
 

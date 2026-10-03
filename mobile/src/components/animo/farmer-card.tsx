@@ -1,4 +1,4 @@
-import { Lock, Phone } from 'lucide-react-native';
+import { Phone } from 'lucide-react-native';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
@@ -43,22 +43,27 @@ export function FarmerCard({ farmer }: FarmerCardProps) {
             {isTagalog ? 'Magsasaka' : 'Farmer'}
           </AnimoText>
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isTagalog ? `Tawagan si ${farmer.name}` : `Call ${farmer.name}`}
+          onPress={() => Linking.openURL(`tel:${farmer.phone.replace(/\s/g, '')}`)}
+          style={({ pressed }) => [styles.callBtn, pressed && styles.pressed]}>
+          <Phone size={14} color={AnimoColors.white} />
+          <AnimoText variant="caption" color={AnimoColors.white} style={styles.callBtnText}>
+            {isTagalog ? 'Tawagan' : 'Call'}
+          </AnimoText>
+        </Pressable>
       </View>
 
       <View style={styles.divider} />
 
       <View style={styles.detailRow}>
-        <Phone size={18} color={AnimoColors.blackSecondary} />
-        <View style={styles.detailText}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-            {farmer.phone}
-          </AnimoText>
-        </View>
-        <Pressable onPress={() => Linking.openURL(`tel:${farmer.phone.replace(/\s/g, '')}`)} hitSlop={8}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
-            {isTagalog ? 'Tumawag' : 'Call'}
-          </AnimoText>
-        </Pressable>
+        <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+          Contact Number:
+        </AnimoText>
+        <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.phoneValue}>
+          {farmer.phone}
+        </AnimoText>
       </View>
     </View>
   );
@@ -72,29 +77,21 @@ export function LockedFarmerCard() {
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <View style={styles.lockedTitle}>
-          <Lock size={16} color={AnimoColors.blackSecondary} />
-          <AnimoText variant="h3" color={AnimoColors.black}>
-            {isTagalog ? 'Detalye ng Magsasaka' : 'Farmer Details'}
-          </AnimoText>
-        </View>
-        <StatusBadge label={isTagalog ? 'Naka-lock' : 'Locked'} tone="neutral" />
+        <AnimoText variant="h3" color={AnimoColors.black} style={styles.flex}>
+          {isTagalog ? 'Detalye ng Magsasaka' : 'Farmer Details'}
+        </AnimoText>
+        <StatusBadge label={isTagalog ? 'Naka-Lock' : 'Locked'} tone="neutral" />
       </View>
-
-      {rows.map((label) => (
-        <View key={label} style={styles.detailRow}>
-          <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.flex}>
-            {label}
-          </AnimoText>
-          <View style={styles.redacted} />
-        </View>
-      ))}
 
       <AnimoText variant="caption" color={AnimoColors.muted}>
         {isTagalog
           ? 'Mabubuksan ang buong detalye kapag tinanggap ng magsasaka ang request.'
           : 'Full details will be unlocked once the farmer accepts the request.'}
       </AnimoText>
+
+      {rows.map((label) => (
+        <View key={label} style={styles.redacted} />
+      ))}
     </View>
   );
 }
@@ -148,9 +145,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   redacted: {
-    width: 96,
     height: 10,
     borderRadius: 5,
     backgroundColor: AnimoColors.border,
+  },
+  callBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: AnimoColors.green,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: AnimoRadius.pill,
+  },
+  callBtnText: {
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+  },
+  phoneValue: {
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  pressed: {
+    opacity: 0.85,
   },
 });

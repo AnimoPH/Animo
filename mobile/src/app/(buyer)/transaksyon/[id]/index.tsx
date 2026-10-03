@@ -1,29 +1,21 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Check, Clock, Info, X, XCircle } from 'lucide-react-native';
+import { Check, Clock, Info, XCircle } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { CancelRequestModal } from '@/components/animo/cancel-request-modal';
 import { FarmerCard, LockedFarmerCard } from '@/components/animo/farmer-card';
-import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { NoticeBanner } from '@/components/animo/notice-banner';
-import { PaymentSummary } from '@/components/animo/payment-summary';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
-import { RequestListingCard } from '@/components/animo/request-listing-card';
+import { TransactionStatusRow, TransactionSummaryCard } from '@/components/animo/transaction-cycle-cards';
 import { BackHeader } from '@/components/animo/back-header';
-import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { fetchCropListing } from '@/services/crop-listing-service';
+import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import {
-  cancelPurchaseRequest as cancelPurchaseRequestRpc,
-  fetchPurchaseRequest,
-} from '@/services/purchase-request-service';
-import {
-  cancelTransaction as cancelTransactionRpc,
   fetchTransactionByRequestId,
   fetchTransactionCounterpart,
 } from '@/services/transaction-service';
@@ -31,15 +23,12 @@ import type { CropListing } from '@/types/crop-listing';
 import type { PurchaseRequest } from '@/types/purchase-request';
 import { useLanguage } from '@/hooks/use-language';
 import {
-  DISPLAY_STAGE_LABELS,
+  DISPLAY_STAGE_TONE,
   buildProgressSteps,
-  cancelPolicy,
   deriveDisplayStage,
-  formatDateTime,
   formatReferenceId,
   getDisplayStageLabel,
   requestTotal,
-  type CancelPolicy,
   type PurchaseOutcome,
   type TransactionCounterpart,
 } from '@/types/transaction';
@@ -61,10 +50,6 @@ export default function TransactionStatusScreen() {
   const [counterpart, setCounterpart] = useState<TransactionCounterpart | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [cancelling, setCancelling] = useState(false);
-  const [cancelError, setCancelError] = useState<string | null>(null);
-  const [showCancelledSuccessModal, setShowCancelledSuccessModal] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -137,36 +122,10 @@ export default function TransactionStatusScreen() {
   }
 
   const isDead = stage === 'request_rejected' || stage === 'request_cancelled';
-  const policy = cancelPolicy(outcome, undefined, language);
   const quantityKg = outcome.kind === 'matched' ? outcome.transaction.quantityKg : outcome.request.requestedQuantityKg;
   const total = outcome.kind === 'matched' ? requestTotal(outcome) : (listing?.pricePerKg ?? 0) * quantityKg;
   const pricePerKg = outcome.kind === 'matched' ? outcome.transaction.agreedPricePerKg : (listing?.pricePerKg ?? 0);
-  const referenceId =
-    outcome.kind === 'matched'
-      ? formatReferenceId(outcome.transaction.id, 'TXN')
-      : formatReferenceId(outcome.request.id, 'PR');
-
-  const handleConfirmCancel = async () => {
-    setCancelError(null);
-    try {
-      if (outcome.kind === 'matched') {
-        await cancelTransactionRpc(outcome.transaction.id);
-      } else {
-        await cancelPurchaseRequestRpc(outcome.request.id);
-      }
-      setCancelling(false);
-      setShowCancelledSuccessModal(true);
-    } catch (e) {
-      setCancelError(
-        e instanceof Error
-          ? e.message
-          : isTagalog
-            ? 'Hindi makansela ang transaksyon.'
-            : 'Could not cancel transaction.',
-      );
-      setCancelling(false);
-    }
-  };
+  const referenceId = formatReferenceId(outcome.request.id, 'PR');
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -174,35 +133,23 @@ export default function TransactionStatusScreen() {
       <BackHeader title={isTagalog ? 'Katayuan ng Transaksyon' : 'Transaction Status'} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <StageBanner
-          request={outcome.request}
-          isDead={isDead}
-          label={getDisplayStageLabel(stage, language)}
-          isTagalog={isTagalog}
-        />
-        <AnimoText variant="caption" color={AnimoColors.muted} style={styles.referenceCaption}>
-          {referenceId}
-        </AnimoText>
+        <TransactionStatusRow label={getDisplayStageLabel(stage, language)} tone={DISPLAY_STAGE_TONE[stage]} />
+        <StageBanner request={outcome.request} isDead={isDead} isTagalog={isTagalog} />
         {listing ? (
-          <RequestListingCard listing={listing} quantityKg={quantityKg} totalAmount={total} muted={isDead} />
+          <TransactionSummaryCard
+            listing={listing}
+            quantityKg={quantityKg}
+            pricePerKg={pricePerKg}
+            totalAmount={total}
+            referenceId={referenceId}
+            language={language}
+          />
         ) : null}
-        <ProgressTracker steps={buildProgressSteps(outcome, 'buyer', language)} />
-        <PaymentSummary
-          title={isTagalog ? 'Buod ng Bayad' : 'Payment Summary'}
-          rows={[
-            { label: isTagalog ? 'Dami ng Palay' : 'Palay Quantity', amount: `${quantityKg} kg` },
-            { label: isTagalog ? 'Presyo bawat kilo' : 'Price per kg', amount: pricePerKg },
-          ]}
-          total={{ label: isTagalog ? 'Kabuuang babayaran' : 'Total Payable', amount: total }}
-        />
-
         {counterpart ? <FarmerCard farmer={counterpart} /> : <LockedFarmerCard />}
-
-        {cancelError ? (
-          <AnimoText variant="caption" color={AnimoColors.danger}>
-            {cancelError}
-          </AnimoText>
-        ) : null}
+        <ProgressTracker
+          title={isTagalog ? 'Progreso ng Transaksyon' : 'Transaction Progress'}
+          steps={buildProgressSteps(outcome, 'buyer', language)}
+        />
 
         {isDead ? (
           <NoticeBanner tone="neutral" icon={<Info size={16} color={AnimoColors.muted} />}>
@@ -213,47 +160,19 @@ export default function TransactionStatusScreen() {
         ) : null}
       </ScrollView>
 
-      <StageFooter isDead={isDead} policy={policy} onCancel={() => setCancelling(true)} isTagalog={isTagalog} />
-
-      <CancelRequestModal
-        visible={cancelling}
-        title={policy.title}
-        body={policy.body}
-        consequences={policy.consequences}
-        confirmLabel={policy.confirmLabel}
-        onDismiss={() => setCancelling(false)}
-        onConfirm={handleConfirmCancel}
-      />
-
-      <FeedbackModal
-        visible={showCancelledSuccessModal}
-        tone="danger"
-        title={isTagalog ? 'Matagumpay na Nakansela' : 'Successfully Cancelled'}
-        message={
-          isTagalog
-            ? 'Nakansela na ang transaksyong ito. Muling nakalista ang palay para sa ibang mamimili.'
-            : 'This transaction has been cancelled. The palay is now available for other buyers.'
-        }
-        confirmLabel="OK"
-        onConfirm={() => {
-          setShowCancelledSuccessModal(false);
-          router.replace('/(buyer)/transaksyon');
-        }}
-      />
+      {isDead ? <StageFooter isTagalog={isTagalog} /> : null}
     </SafeAreaView>
   );
 }
 
-/** Top status card — icon, headline and the stage pill. */
+/** Top status card. The stage pill lives in TransactionStatusRow above this card. */
 function StageBanner({
   request,
   isDead,
-  label,
   isTagalog,
 }: {
   request: PurchaseRequest;
   isDead: boolean;
-  label: string;
   isTagalog: boolean;
 }) {
   if (isDead) {
@@ -275,9 +194,6 @@ function StageBanner({
             </AnimoText>
           </View>
         </View>
-        <View style={styles.bannerMeta}>
-          <StatusBadge label={label} tone="neutral" />
-        </View>
       </View>
     );
   }
@@ -297,66 +213,24 @@ function StageBanner({
           </AnimoText>
         </View>
       </View>
-      <View style={styles.bannerMeta}>
-        <StatusBadge label={label} tone="warning" />
-      </View>
-      <View style={styles.divider} />
-      <MetaRow label={isTagalog ? 'Naipadala' : 'Sent'} value={formatDateTime(request.submittedAt)} />
     </View>
   );
 }
 
-/** Footer action(s). */
-function StageFooter({
-  isDead,
-  policy,
-  onCancel,
-  isTagalog,
-}: {
-  isDead: boolean;
-  policy: CancelPolicy;
-  onCancel: () => void;
-  isTagalog: boolean;
-}) {
-  if (isDead) {
-    return (
-      <View style={styles.footerStack}>
-        <AnimoButton
-          label={isTagalog ? 'Mag-browse ng Ibang Listing' : 'Browse Other Listings'}
-          icon={Check}
-          onPress={() => router.replace('/(buyer)/palengke')}
-        />
-        <AnimoButton
-          label={isTagalog ? 'Tingnan ang Kasaysayan' : 'View History'}
-          variant="secondary"
-          onPress={() => router.replace('/(buyer)/transaksyon')}
-        />
-      </View>
-    );
-  }
-
+/** Footer for a rejected or cancelled request. A pending request has no action here. */
+function StageFooter({ isTagalog }: { isTagalog: boolean }) {
   return (
     <View style={styles.footerStack}>
-      {policy.triggerLabel ? (
-        <AnimoButton label={policy.triggerLabel} variant="dangerOutline" icon={X} onPress={onCancel} />
-      ) : null}
-    </View>
-  );
-}
-
-function MetaRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.metaRow}>
-      <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.metaLabel}>
-        {label}
-      </AnimoText>
-      <AnimoText
-        variant="bodyEmphasis"
-        color={AnimoColors.black}
-        style={styles.metaValue}
-        numberOfLines={1}>
-        {value}
-      </AnimoText>
+      <AnimoButton
+        label={isTagalog ? 'Mag-browse ng Ibang Listing' : 'Browse Other Listings'}
+        icon={Check}
+        onPress={() => router.replace('/(buyer)/palengke')}
+      />
+      <AnimoButton
+        label={isTagalog ? 'Tingnan ang Kasaysayan' : 'View History'}
+        variant="secondary"
+        onPress={() => router.replace('/(buyer)/transaksyon')}
+      />
     </View>
   );
 }
