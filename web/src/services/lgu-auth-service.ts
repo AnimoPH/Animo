@@ -69,8 +69,12 @@ export async function getLguSession(): Promise<LguSession | null> {
 }
 
 export function getDefaultLguCredentials() {
+  const email = import.meta.env.VITE_DEV_LGU_EMAIL ?? 'lgu@example.com';
+  if (!import.meta.env.DEV) {
+    return { email, password: '' };
+  }
   return {
-    email: import.meta.env.VITE_DEV_LGU_EMAIL ?? 'lgu@example.com',
+    email,
     password:
       import.meta.env.VITE_DEV_LGU_PASSWORD ??
       import.meta.env.VITE_DEV_FARMER_PASSWORD ??

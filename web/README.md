@@ -23,11 +23,10 @@ project’s `EXPO_PUBLIC_SUPABASE_*` values).
 
 ```bash
 cd ../mobile
-SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/seed-lgu-dev.mjs
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... LGU_DEV_PASSWORD=... node scripts/seed-lgu-dev.mjs
 ```
 
-Default credentials: `lgu@example.com` / same password as mobile dev farmer & buyer
-(`AnimoDevs@2026` unless you changed `EXPO_PUBLIC_DEV_FARMER_PASSWORD`).
+Sign in as `lgu@example.com`. The password is `LGU_DEV_PASSWORD`, or `EXPO_PUBLIC_DEV_FARMER_PASSWORD` if you use the same one as the mobile dev accounts. Keep it in your local env file.
 
 Apply migration `0020_lgu_official_auth_access.sql` (`supabase db push`) so LGU sessions
 can read registry tables under RLS.
