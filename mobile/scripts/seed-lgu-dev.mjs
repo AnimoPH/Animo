@@ -2,14 +2,18 @@
 /**
  * One-time dev seed: LGU official auth user + profile rows.
  * Usage (from mobile/):
- *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/seed-lgu-dev.mjs
+ *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... LGU_DEV_PASSWORD=... node scripts/seed-lgu-dev.mjs
  */
 import { createClient } from '@supabase/supabase-js';
 
 const url = process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const email = process.env.LGU_DEV_EMAIL ?? 'lgu@example.com';
-const password = process.env.LGU_DEV_PASSWORD ?? process.env.EXPO_PUBLIC_DEV_FARMER_PASSWORD ?? 'AnimoDevs@2026';
+const password = process.env.LGU_DEV_PASSWORD ?? process.env.EXPO_PUBLIC_DEV_FARMER_PASSWORD;
+if (!password) {
+  console.error('Set LGU_DEV_PASSWORD or EXPO_PUBLIC_DEV_FARMER_PASSWORD.');
+  process.exit(1);
+}
 const fullName = process.env.LGU_DEV_NAME ?? 'Ma. Reyes';
 const contact = process.env.LGU_DEV_CONTACT ?? '+639170000000';
 
