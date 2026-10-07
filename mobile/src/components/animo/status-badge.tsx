@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 
-export type BadgeTone = 'info' | 'success' | 'warning' | 'mild' | 'danger' | 'neutral';
+export type BadgeTone = 'info' | 'success' | 'warning' | 'mild' | 'orange' | 'olive' | 'danger' | 'neutral' | 'slate';
 
 export type StatusBadgeProps = {
   label: string;
@@ -17,9 +17,12 @@ const TONES: Record<BadgeTone, { bg: string; fg: string }> = {
   info: { bg: '#E3EEFB', fg: '#2563A8' },
   success: { bg: AnimoColors.greenTint, fg: AnimoColors.green },
   warning: { bg: '#FBF0D9', fg: '#B4791A' },
-  mild: { bg: AnimoColors.mildLight, fg: AnimoColors.moderate },
+  mild: { bg: AnimoColors.mildLight, fg: AnimoColors.mild },
+  orange: { bg: AnimoColors.moderateLight, fg: AnimoColors.moderate },
+  olive: { bg: AnimoColors.accentSecondaryLight, fg: AnimoColors.accentSecondary },
   danger: { bg: AnimoColors.dangerTint, fg: AnimoColors.danger },
   neutral: { bg: AnimoColors.surface, fg: AnimoColors.blackSecondary },
+  slate: { bg: '#E8EEF2', fg: '#546E7A' },
 };
 
 /** Small rounded status/tag pill (e.g. "Aktibo", "Tinantyang Presyo"). */

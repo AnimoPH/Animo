@@ -96,16 +96,16 @@ export type DisplayStage =
   | 'payment_failed';
 
 /** Matches `BadgeTone` in `src/components/animo/status-badge.tsx` (kept as a plain string union here to avoid a component import in a domain-types file). */
-export type DisplayStageTone = 'info' | 'success' | 'warning' | 'mild' | 'danger' | 'neutral';
+export type DisplayStageTone = 'info' | 'success' | 'warning' | 'mild' | 'orange' | 'olive' | 'danger' | 'neutral' | 'slate';
 
 export const DISPLAY_STAGE_TONE: Record<DisplayStage, DisplayStageTone> = {
   request_pending: 'warning',
-  request_rejected: 'neutral',
+  request_rejected: 'slate',
   request_cancelled: 'neutral',
   awaiting_payment: 'info',
   payment_sent: 'mild',
-  payment_confirmed: 'info',
-  delivered: 'info',
+  payment_confirmed: 'orange',
+  delivered: 'olive',
   completed: 'success',
   transaction_cancelled: 'neutral',
   payment_failed: 'danger',
@@ -117,7 +117,7 @@ export const DISPLAY_STAGE_LABELS: Record<DisplayStage, string> = {
   request_cancelled: 'Nakansela',
   awaiting_payment: 'Naghihintay ng Bayad',
   payment_sent: 'Kumpirmasyon ng Bayad',
-  payment_confirmed: 'Bayad Nakumpirma',
+  payment_confirmed: 'Naghihintay ng pickup',
   delivered: 'Naihatid',
   completed: 'Kumpleto',
   transaction_cancelled: 'Nakansela',
@@ -130,7 +130,7 @@ export const DISPLAY_STAGE_LABELS_EN: Record<DisplayStage, string> = {
   request_cancelled: 'Cancelled',
   awaiting_payment: 'Awaiting Payment',
   payment_sent: 'Verifying Payment',
-  payment_confirmed: 'Payment Confirmed',
+  payment_confirmed: 'Awaiting pickup',
   delivered: 'Delivered',
   completed: 'Completed',
   transaction_cancelled: 'Cancelled',

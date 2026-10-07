@@ -17,7 +17,7 @@ import type {
   TransactionMatchStatus,
   TransactionWithPayment,
 } from '@/types/transaction';
-import { DISPLAY_STAGE_LABELS, DISPLAY_STAGE_LABELS_EN, deriveDisplayStage } from '@/types/transaction';
+import { deriveDisplayStage } from '@/types/transaction';
 
 /**
  * Transaction/payment service — `transactionmatch` rows are only ever
@@ -304,34 +304,6 @@ export function sumCompletedEarnings(transactions: TransactionWithPayment[], lis
   return transactions
     .filter((tx) => tx.listingId === listingId && tx.status === 'Completed')
     .reduce((sum, tx) => sum + tx.totalAmount, 0);
-}
-
-/**
- * Farmer Part B list badges — local labels only; does not change global
- * DISPLAY_STAGE_LABELS used on detail/buyer screens.
- */
-const FARMER_LISTING_TXN_STAGE_LABELS: Partial<Record<DisplayStage, string>> = {
-  request_pending: 'Naghihintay ng sagot',
-  awaiting_payment: 'Naghihintay ng bayad',
-  payment_sent: 'Naghihintay ng bayad',
-  payment_confirmed: 'Naghihintay ng pickup',
-  delivered: 'Naghihintay ng pickup',
-  completed: 'Tapos na',
-};
-
-const FARMER_LISTING_TXN_STAGE_LABELS_EN: Partial<Record<DisplayStage, string>> = {
-  request_pending: 'Awaiting response',
-  awaiting_payment: 'Awaiting payment',
-  payment_sent: 'Awaiting payment',
-  payment_confirmed: 'Awaiting pickup',
-  delivered: 'Awaiting pickup',
-  completed: 'Completed',
-};
-
-export function getFarmerListingTxnStageLabel(stage: DisplayStage, lang: 'tl' | 'en' = 'tl'): string {
-  const map = lang === 'en' ? FARMER_LISTING_TXN_STAGE_LABELS_EN : FARMER_LISTING_TXN_STAGE_LABELS;
-  const fallback = lang === 'en' ? DISPLAY_STAGE_LABELS_EN[stage] : DISPLAY_STAGE_LABELS[stage];
-  return map[stage] ?? fallback ?? DISPLAY_STAGE_LABELS[stage];
 }
 
 export const LISTING_TXN_ONGOING_STAGES: DisplayStage[] = [

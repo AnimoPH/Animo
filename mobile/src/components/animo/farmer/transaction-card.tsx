@@ -3,29 +3,15 @@ import { AlertCircle } from 'lucide-react-native';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
+import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
 import {
+  DISPLAY_STAGE_TONE,
   isFarmerNeedsActionStage,
   type DisplayStage,
   type PaymentMode,
 } from '@/types/transaction';
 import { useLanguage } from '@/hooks/use-language';
-
-type StatusPillTone = 'peach' | 'blue' | 'green' | 'gray';
-
-function statusPillTone(stage: DisplayStage): StatusPillTone {
-  if (stage === 'request_pending') return 'peach';
-  if (stage === 'awaiting_payment' || stage === 'payment_sent') return 'blue';
-  if (stage === 'payment_confirmed' || stage === 'delivered' || stage === 'completed') return 'green';
-  return 'gray';
-}
-
-const PILL_TONE: Record<StatusPillTone, { background: string; text: string }> = {
-  peach: { background: AnimoColors.moderateLight, text: AnimoColors.moderate },
-  blue: { background: AnimoColors.focusRingLight, text: AnimoColors.focusRing },
-  green: { background: AnimoColors.accentPrimaryLight, text: AnimoColors.accentPrimary },
-  gray: { background: AnimoColors.surfaceTertiary, text: AnimoColors.textMediumEmphasis },
-};
 
 export type FarmerTransactionCardItem = {
   /** Routing key — a request_id for `request_pending` rows, a transaction_id otherwise. */
@@ -54,7 +40,6 @@ export type TransactionCardProps = {
 export function TransactionCard({ item, onPress }: TransactionCardProps) {
   const { t } = useLanguage();
   const needsAction = isFarmerNeedsActionStage(item.stage);
-  const pill = PILL_TONE[statusPillTone(item.stage)];
 
   const openTransactionDetail = () => {
     if (onPress) {
@@ -72,11 +57,7 @@ export function TransactionCard({ item, onPress }: TransactionCardProps) {
           <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.referenceId} numberOfLines={1}>
             {item.referenceId}
           </AnimoText>
-          <View style={[styles.statusPill, { backgroundColor: pill.background }]}>
-            <AnimoText variant="tag" color={pill.text}>
-              {item.statusLabel}
-            </AnimoText>
-          </View>
+          <StatusBadge label={item.statusLabel} tone={DISPLAY_STAGE_TONE[item.stage]} />
         </View>
 
         <View style={styles.divider} />
@@ -180,12 +161,6 @@ const styles = StyleSheet.create({
   },
   referenceId: {
     flex: 1,
-  },
-  statusPill: {
-    flexShrink: 0,
-    borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: AnimoSpacing.xs,
   },
   payPillGcash: {
     backgroundColor: AnimoColors.focusRingLight,

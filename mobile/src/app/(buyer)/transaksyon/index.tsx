@@ -34,7 +34,6 @@ import {
   fetchBuyerPurchaseOutcomes,
   fetchCounterpartNames,
   fetchFarmerNamesByListingIds,
-  getFarmerListingTxnStageLabel,
   isListingTxnCompleted,
   isListingTxnOngoing,
 } from '@/services/transaction-service';
