@@ -1,7 +1,7 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Bell, ChevronLeft, ChevronRight, ClipboardList, Filter, Search, X } from 'lucide-react-native';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -28,6 +28,7 @@ import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/a
 import { formatPeso } from '@/constants/marketplace';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useLanguage } from '@/hooks/use-language';
+import { parseBuyerTransactionListFilter } from '@/lib/buyer-transactions-nav';
 import { fetchCropListingsByIds } from '@/services/crop-listing-service';
 import {
   fetchBuyerPurchaseOutcomes,
@@ -91,6 +92,7 @@ function toCardItem(
 /** Buyer Transaksyon — requests & matched transactions matching farmer transaksyon UI layout. */
 export default function BuyerTransactionsScreen() {
   const { language, isTagalog, t } = useLanguage();
+  const { filter: filterParam } = useLocalSearchParams<{ filter?: string | string[] }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterValue>('Lahat');
   const [currentPage, setCurrentPage] = useState(1);
@@ -147,6 +149,14 @@ export default function BuyerTransactionsScreen() {
       load(false);
     }, [load]),
   );
+
+  useEffect(() => {
+    const next = parseBuyerTransactionListFilter(filterParam);
+    if (!next) return;
+    setActiveFilter(next);
+    setCurrentPage(1);
+    router.setParams({ filter: '' });
+  }, [filterParam]);
 
   useAutoRefresh(useCallback(() => load(true), [load]));
 

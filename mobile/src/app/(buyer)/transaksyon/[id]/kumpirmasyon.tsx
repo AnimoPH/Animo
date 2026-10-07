@@ -191,33 +191,11 @@ export default function PaymentConfirmationScreen() {
                 </View>
               </View>
 
-              <View style={styles.card}>
-                <AnimoText variant="caption" color={AnimoColors.muted}>
-                  {isTagalog ? 'Halagang Binayaran' : 'Amount Paid'}
-                </AnimoText>
-                <AnimoText variant="h1" color={AnimoColors.black}>
-                  {formatPeso(actualAmount)}
-                </AnimoText>
-
-                <View style={styles.divider} />
-
-                <View style={styles.rowBetween}>
-                  <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                    {isTagalog ? 'Napagkasunduang presyo' : 'Agreed Price'}
-                  </AnimoText>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    {formatPeso(agreedTotal)}
-                  </AnimoText>
-                </View>
-                <View style={styles.rowBetween}>
-                  <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                    {isTagalog ? 'Pagkakaiba' : 'Difference'}
-                  </AnimoText>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
-                    ₱0.00 · {isTagalog ? 'Tugma' : 'Exact match'}
-                  </AnimoText>
-                </View>
-              </View>
+              <PaidAmountCard
+                actualAmount={actualAmount}
+                agreedTotal={agreedTotal}
+                isTagalog={isTagalog}
+              />
 
               <View style={styles.card}>
                 <AnimoText variant="h3" color={AnimoColors.black}>
@@ -281,36 +259,11 @@ export default function PaymentConfirmationScreen() {
                 </View>
               </View>
 
-              <View style={styles.card}>
-                <AnimoText variant="h3" color={AnimoColors.black}>
-                  {isTagalog ? 'Halagang Binayaran' : 'Amount Paid'}
-                </AnimoText>
-                <View style={styles.rowBetween}>
-                  <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                    {isTagalog ? 'Napagkasunduang presyo' : 'Agreed Price'}
-                  </AnimoText>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    {formatPeso(agreedTotal)}
-                  </AnimoText>
-                </View>
-                <View style={styles.rowBetween}>
-                  <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                    {isTagalog ? 'Halagang binayaran' : 'Amount Paid'}
-                  </AnimoText>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    {formatPeso(actualAmount)}
-                  </AnimoText>
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.rowBetween}>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    {isTagalog ? 'Pagkakaiba' : 'Difference'}
-                  </AnimoText>
-                  <AnimoText variant="price" color={difference > 0 ? '#B4791A' : AnimoColors.danger}>
-                    {difference > 0 ? `+${formatPeso(difference)}` : `-${formatPeso(Math.abs(difference))}`}
-                  </AnimoText>
-                </View>
-              </View>
+              <PaidAmountCard
+                actualAmount={actualAmount}
+                agreedTotal={agreedTotal}
+                isTagalog={isTagalog}
+              />
 
               <View style={styles.card}>
                 <AnimoText variant="h3" color={AnimoColors.black}>
@@ -401,6 +354,56 @@ export default function PaymentConfirmationScreen() {
         }}
       />
     </SafeAreaView>
+  );
+}
+
+/** Large figure is the amount the buyer entered. Agreed price and the gap sit under it. */
+function PaidAmountCard({
+  actualAmount,
+  agreedTotal,
+  isTagalog,
+}: {
+  actualAmount: number;
+  agreedTotal: number;
+  isTagalog: boolean;
+}) {
+  const difference = actualAmount - agreedTotal;
+  const isMatch = Math.abs(difference) < 0.01;
+
+  return (
+    <View style={styles.card}>
+      <AnimoText variant="caption" color={AnimoColors.muted}>
+        {isTagalog ? 'Halagang Binayaran' : 'Amount Paid'}
+      </AnimoText>
+      <AnimoText variant="h1" color={AnimoColors.black}>
+        {formatPeso(actualAmount)}
+      </AnimoText>
+
+      <View style={styles.divider} />
+
+      <View style={styles.rowBetween}>
+        <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+          {isTagalog ? 'Napagkasunduang presyo' : 'Agreed Price'}
+        </AnimoText>
+        <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+          {formatPeso(agreedTotal)}
+        </AnimoText>
+      </View>
+      <View style={styles.rowBetween}>
+        <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+          {isTagalog ? 'Pagkakaiba' : 'Difference'}
+        </AnimoText>
+        <AnimoText
+          variant="bodyEmphasis"
+          color={isMatch ? AnimoColors.green : difference > 0 ? '#B4791A' : AnimoColors.danger}>
+          {isMatch
+            ? `₱0.00 · ${isTagalog ? 'Tugma' : 'Exact match'}`
+            : difference > 0
+              ? `+${formatPeso(difference)}`
+              : `-${formatPeso(Math.abs(difference))}`}
+        </AnimoText>
+      </View>
+    </View>
   );
 }
 

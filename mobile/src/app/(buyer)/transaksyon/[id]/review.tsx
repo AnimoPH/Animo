@@ -20,6 +20,7 @@ import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
+import { buyerTransactionsHref } from '@/lib/buyer-transactions-nav';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import { fetchOwnRatingForTransaction, submitRating } from '@/services/rating-service';
 import { fetchTransactionByRequestId, fetchTransactionCounterpart } from '@/services/transaction-service';
@@ -150,7 +151,7 @@ export default function ReviewFarmerScreen() {
   };
 
   const handleSkip = () => {
-    router.replace('/(buyer)/transaksyon');
+    router.dismissTo(buyerTransactionsHref('tapos'));
   };
 
   return (
@@ -273,7 +274,7 @@ export default function ReviewFarmerScreen() {
         confirmLabel={isTagalog ? 'Bumalik sa Transaksyon' : 'Back to Transactions'}
         onConfirm={() => {
           setShowSuccessModal(false);
-          router.replace('/(buyer)/transaksyon');
+          router.dismissTo(buyerTransactionsHref('tapos'));
         }}
       />
     </SafeAreaView>
