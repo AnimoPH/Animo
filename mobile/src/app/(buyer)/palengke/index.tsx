@@ -349,11 +349,11 @@ export default function MarketplaceScreen() {
           style={[styles.tabItem, activeTab === 'palay' && styles.tabItemActive]}>
           <Wheat
             size={16}
-            color={activeTab === 'palay' ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
+            color={activeTab === 'palay' ? AnimoColors.white : AnimoColors.textHighEmphasis}
           />
           <AnimoText
             variant="bodyEmphasis"
-            color={activeTab === 'palay' ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
+            color={activeTab === 'palay' ? AnimoColors.white : AnimoColors.textHighEmphasis}
             style={styles.tabText}>
             Palay ({displayedListings.length})
           </AnimoText>
@@ -365,11 +365,11 @@ export default function MarketplaceScreen() {
           style={[styles.tabItem, activeTab === 'magsasaka' && styles.tabItemActive]}>
           <Users
             size={16}
-            color={activeTab === 'magsasaka' ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
+            color={activeTab === 'magsasaka' ? AnimoColors.white : AnimoColors.textHighEmphasis}
           />
           <AnimoText
             variant="bodyEmphasis"
-            color={activeTab === 'magsasaka' ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
+            color={activeTab === 'magsasaka' ? AnimoColors.white : AnimoColors.textHighEmphasis}
             style={styles.tabText}>
             {isTagalog ? 'Magsasaka' : 'Farmers'} ({displayedFarmers.length})
           </AnimoText>
@@ -790,9 +790,13 @@ const styles = StyleSheet.create({
   },
   tabBarContainer: {
     flexDirection: 'row',
-    paddingHorizontal: AnimoSpacing.lg,
-    gap: AnimoSpacing.sm,
-    paddingBottom: AnimoSpacing.sm,
+    marginHorizontal: AnimoSpacing.lg,
+    marginBottom: AnimoSpacing.sm,
+    padding: 4,
+    borderRadius: AnimoRadius.pill,
+    backgroundColor: AnimoColors.surfacePrimary,
+    borderWidth: 1,
+    borderColor: AnimoColors.borderLowEmphasis,
   },
   tabItem: {
     flex: 1,
@@ -801,14 +805,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 10,
-    borderRadius: AnimoRadius.md,
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
+    borderRadius: AnimoRadius.pill,
+    backgroundColor: 'transparent',
   },
   tabItemActive: {
-    borderColor: AnimoColors.accentPrimary,
-    backgroundColor: AnimoColors.accentPrimaryLight,
+    backgroundColor: AnimoColors.accentPrimary,
   },
   tabText: {
     fontSize: 14.5,

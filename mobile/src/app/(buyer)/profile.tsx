@@ -12,12 +12,10 @@ import {
   HelpCircle,
   Lock,
   LogOut,
-  Phone,
   ShieldCheck,
   Sprout,
   Star,
   UserRound,
-  Wallet,
   X,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
@@ -26,6 +24,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
+import { BackHeader } from '@/components/animo/back-header';
+import { FormCard } from '@/components/animo/form-card';
 import {
   BuyerPreferencesForm,
   buyerPreferencesFormToInput,
@@ -46,6 +46,7 @@ import {
   AnimoType,
 } from '@/constants/animo';
 import { LegalTabKey } from '@/constants/legal-content';
+import { getRole } from '@/constants/roles';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
@@ -211,19 +212,16 @@ export default function BuyerProfileScreen() {
     }
   };
 
-  const handleSaveBuyerProfile = async () => {
-    const trimmedName = editFullName.trim();
-    const trimmedGcash = editGcashNumber.trim();
-    const gcashValid = trimmedGcash.length === 0 || GCASH_NUMBER_PATTERN.test(trimmedGcash);
+  const trimmedName = editFullName.trim();
+  const trimmedGcash = editGcashNumber.trim();
+  const gcashValid = trimmedGcash.length === 0 || GCASH_NUMBER_PATTERN.test(trimmedGcash);
+  const hasProfileChanges =
+    trimmedName !== (account?.fullName ?? '').trim() ||
+    trimmedGcash !== (account?.gcashNumber ?? '').trim();
+  const canSaveProfile = hasProfileChanges && trimmedName.length >= 2 && gcashValid;
 
-    if (trimmedName.length < 2) {
-      setProfileError(isTagalog ? 'Pakilagay ang buong pangalan.' : 'Please enter your full name.');
-      return;
-    }
-    if (!gcashValid) {
-      setProfileError(isTagalog ? '11 digits ang GCash, nagsisimula sa 09.' : 'GCash must be 11 digits starting with 09.');
-      return;
-    }
+  const handleSaveBuyerProfile = async () => {
+    if (!canSaveProfile) return;
 
     setProfileSaving(true);
     setProfileError(undefined);
@@ -583,62 +581,35 @@ export default function BuyerProfileScreen() {
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setShowPersonalInfoModal(false)}>
-        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
-          <View style={styles.modalHeader}>
-            <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-              {t('profile.personalInfo')}
-            </AnimoText>
-            <Pressable
-              onPress={() => setShowPersonalInfoModal(false)}
-              hitSlop={8}
-              style={styles.closeBtn}>
-              <X size={22} color={AnimoColors.textHighEmphasis} />
-            </Pressable>
-          </View>
+        <SafeAreaView style={styles.personalInfoSafeArea} edges={['top', 'bottom']}>
+          <BackHeader
+            title={isTagalog ? 'Personal na Impormasyon' : 'Personal Information'}
+            onBack={() => setShowPersonalInfoModal(false)}
+          />
 
           <KeyboardAvoidingView
-            style={{ flex: 1 }}
+            style={styles.flex}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <ScrollView
-              contentContainerStyle={styles.modalScroll}
+              contentContainerStyle={styles.personalInfoContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}>
-              <View style={styles.infoCard}>
-                <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={{ marginBottom: 4 }}>
-                  {isTagalog ? 'Account (Read-only)' : 'Account (Read-only)'}
-                </AnimoText>
-                <View style={styles.readOnlyField}>
-                  <Phone size={18} color={AnimoColors.accentPrimary} />
-                  <View style={styles.flex}>
-                    <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-                      {isTagalog ? 'Numero ng Telepono' : 'Phone Number'}
-                    </AnimoText>
-                    <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                      {account?.phone || '—'}
-                    </AnimoText>
-                  </View>
-                </View>
+              <FormCard title="Account">
+                <ProfileReadOnlyRow
+                  label={isTagalog ? 'Numero ng Telepono' : 'Phone Number'}
+                  value={account?.phone || '—'}
+                />
+                <ProfileReadOnlyRow
+                  label={isTagalog ? 'Tungkulin' : 'Role'}
+                  value={getRole(account?.role ?? 'mamimili')?.title ?? (isTagalog ? 'Mamimili' : 'Buyer')}
+                />
+                <ProfileReadOnlyRow
+                  label="Wallet Address"
+                  value={account?.walletAddress ?? (isTagalog ? 'Wala pang wallet' : 'No wallet yet')}
+                />
+              </FormCard>
 
-                <View style={styles.divider} />
-
-                <View style={styles.readOnlyField}>
-                  <Wallet size={18} color={AnimoColors.accentPrimary} />
-                  <View style={styles.flex}>
-                    <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-                      {isTagalog ? 'Wallet Address' : 'Wallet Address'}
-                    </AnimoText>
-                    <AnimoText variant="caption" color={AnimoColors.textHighEmphasis} numberOfLines={1} ellipsizeMode="middle">
-                      {account?.walletAddress ?? (isTagalog ? 'Wala pang wallet' : 'No wallet yet')}
-                    </AnimoText>
-                  </View>
-                </View>
-              </View>
-
-              <View style={[styles.infoCard, { marginTop: AnimoSpacing.md }]}>
-                <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={{ marginBottom: 8 }}>
-                  {isTagalog ? 'Maaaring I-edit' : 'Editable Details'}
-                </AnimoText>
-
+              <FormCard title={isTagalog ? 'Personal na Impormasyon' : 'Personal Information'}>
                 <LabeledInput
                   label={isTagalog ? 'Buong Pangalan' : 'Full Name'}
                   placeholder="Juan Dela Cruz"
@@ -646,29 +617,37 @@ export default function BuyerProfileScreen() {
                   value={editFullName}
                   onChangeText={setEditFullName}
                 />
-
                 <LabeledInput
                   label="GCash Number"
                   placeholder="09171234567"
                   keyboardType="number-pad"
                   maxLength={11}
                   value={editGcashNumber}
-                  onChangeText={(t) => setEditGcashNumber(t.replace(/\D/g, ''))}
-                  hint={isTagalog ? '11 digits, nagsisimula sa 09.' : '11 digits starting with 09.'}
+                  onChangeText={(text) => setEditGcashNumber(text.replace(/\D/g, ''))}
+                  error={!gcashValid}
+                  hint={
+                    gcashValid
+                      ? undefined
+                      : isTagalog
+                        ? '11 digits, nagsisimula sa 09.'
+                        : '11 digits starting with 09.'
+                  }
+                  hintTone={gcashValid ? 'muted' : 'danger'}
                 />
+              </FormCard>
 
-                {profileError ? (
-                  <AnimoText variant="caption" color={AnimoColors.danger} style={{ marginTop: 4 }}>
-                    {profileError}
-                  </AnimoText>
-                ) : null}
-              </View>
+              {profileError ? (
+                <AnimoText variant="body" color={AnimoColors.danger}>
+                  {profileError}
+                </AnimoText>
+              ) : null}
             </ScrollView>
 
-            <View style={styles.modalFooter}>
+            <View style={styles.personalInfoFooter}>
               <AnimoButton
-                label={isTagalog ? 'I-save ang Pagbabago' : 'Save Changes'}
+                label={isTagalog ? 'I-save' : 'Save'}
                 onPress={handleSaveBuyerProfile}
+                disabled={!canSaveProfile}
                 loading={profileSaving}
               />
             </View>
@@ -908,6 +887,19 @@ export default function BuyerProfileScreen() {
         initialTab={legalModalTab}
         onClose={() => setShowLegalModal(false)}
       />
+    </View>
+  );
+}
+
+function ProfileReadOnlyRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.profileReadOnlyRow}>
+      <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+        {label}
+      </AnimoText>
+      <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+        {value}
+      </AnimoText>
     </View>
   );
 }
@@ -1204,18 +1196,23 @@ const styles = StyleSheet.create({
     paddingVertical: AnimoSpacing.lg,
     gap: AnimoSpacing.md,
   },
-  infoCard: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
+  personalInfoSafeArea: {
+    flex: 1,
+    backgroundColor: AnimoColors.background,
   },
-  readOnlyField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.md,
-    paddingVertical: AnimoSpacing.sm,
+  personalInfoContent: {
+    paddingHorizontal: AnimoSpacing.xl,
+    paddingTop: AnimoSpacing.md,
+    paddingBottom: AnimoSpacing.xl,
+    gap: AnimoSpacing.lg,
+  },
+  personalInfoFooter: {
+    paddingHorizontal: AnimoSpacing.xl,
+    paddingTop: AnimoSpacing.md,
+    paddingBottom: AnimoSpacing.md,
+  },
+  profileReadOnlyRow: {
+    gap: AnimoSpacing.xs,
   },
   ratingSummaryBanner: {
     backgroundColor: AnimoColors.surfaceSecondary,

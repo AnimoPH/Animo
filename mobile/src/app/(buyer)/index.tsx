@@ -3,6 +3,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   Bell,
+  ChartNoAxesCombined,
   ChevronRight,
   Flame,
   ReceiptText,
@@ -206,7 +207,7 @@ export default function BuyerHomeScreen() {
                     {t('buyer.averagePrice')}
                   </AnimoText>
                   <View style={styles.trendRow}>
-                    <TrendingUp size={14} strokeWidth={2.5} color={AnimoColors.accentPrimary} />
+                    <ChartNoAxesCombined size={16} strokeWidth={2.5} color={AnimoColors.accentPrimary} />
                     <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
                       {t('buyer.stablePrice')}
                     </AnimoText>
@@ -254,7 +255,7 @@ export default function BuyerHomeScreen() {
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
                 <Sparkles size={18} color={AnimoColors.accentPrimary} />
-                <AnimoText variant="h2" color={AnimoColors.black}>
+                <AnimoText variant="h3" color={AnimoColors.black}>
                   {t('buyer.popularVarieties')}
                 </AnimoText>
               </View>
@@ -262,10 +263,10 @@ export default function BuyerHomeScreen() {
                 onPress={() => router.push('/(buyer)/palengke')}
                 hitSlop={10}
                 style={styles.seeAllButton}>
-                <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
+                <AnimoText variant="caption" color={AnimoColors.green}>
                   {t('common.seeAll')}
                 </AnimoText>
-                <ChevronRight size={15} color={AnimoColors.green} />
+                {/* <ChevronRight size={15} color={AnimoColors.green} /> */}
               </Pressable>
             </View>
 
@@ -351,7 +352,7 @@ export default function BuyerHomeScreen() {
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
               <Wheat size={18} color={AnimoColors.accentPrimary} />
-              <AnimoText variant="h2" color={AnimoColors.black}>
+              <AnimoText variant="h3" color={AnimoColors.black}>
                 {t('buyer.recommendations')}
               </AnimoText>
             </View>
@@ -359,10 +360,10 @@ export default function BuyerHomeScreen() {
               onPress={() => router.push('/(buyer)/palengke')}
               hitSlop={10}
               style={styles.seeAllButton}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
+              <AnimoText variant="caption" color={AnimoColors.green}>
                 {t('common.seeAll')}
               </AnimoText>
-              <ChevronRight size={15} color={AnimoColors.green} />
+              {/* <ChevronRight size={15} color={AnimoColors.green} /> */}
             </Pressable>
           </View>
 
@@ -563,13 +564,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   seeAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: AnimoRadius.sm,
-    backgroundColor: AnimoColors.greenTint,
+    // flexDirection: 'row',
+    // alignItems: 'center',
+    // gap: 2,
+    // paddingVertical: 4,
+    // paddingHorizontal: 8,
+    // borderRadius: AnimoRadius.sm,
+    // backgroundColor: AnimoColors.greenTint,
   },
   varietiesCarousel: {
     gap: AnimoSpacing.md,
