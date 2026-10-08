@@ -83,9 +83,10 @@ export default function FarmerNotificationsScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
       <BackHeader title={isTagalog ? 'Mga Notipikasyon' : 'Notifications'} />
+      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
 
       <View style={styles.filterBar}>
-        <FilterChips options={categoryFilters} value={filter} onChange={setFilter} />
+        <FilterChips inset={false} options={categoryFilters} value={filter} onChange={setFilter} />
         <Pressable onPress={handleMarkAllAsRead} hitSlop={8} style={styles.readAllButton}>
           <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
             {isTagalog ? 'Basahin Lahat' : 'Mark all as read'}
@@ -93,7 +94,6 @@ export default function FarmerNotificationsScreen() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         {loading ? (
           <AnimoText variant="body" color={AnimoColors.textLowEmphasis}>
             {isTagalog ? 'Naglo-load...' : 'Loading...'}

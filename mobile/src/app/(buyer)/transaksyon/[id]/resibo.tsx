@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { CheckCircle, Clock, Download, ExternalLink, Star } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -21,6 +21,10 @@ import {
   recordBlockchainReceipt,
   type Receipt,
 } from '@/services/transaction-service';
+import {
+  buyerTransactionsHref,
+  type BuyerTransactionListFilter,
+} from '@/lib/buyer-transactions-nav';
 import { specificVarietyDisplay, varietyLabel, type CropListing } from '@/types/crop-listing';
 import {
   deriveDisplayStage,
@@ -58,6 +62,13 @@ export default function BuyerReceiptScreen() {
   const [receiptPending, setReceiptPending] = useState(false);
   const [receiptFailed, setReceiptFailed] = useState(false);
   const receiptInFlight = useRef(false);
+  const navigation = useNavigation();
+  /** Filter to open when leaving. Null until the transaction has loaded. */
+  const exitFilterRef = useRef<BuyerTransactionListFilter | null>(null);
+  const leavingToListRef = useRef(false);
+
+  exitFilterRef.current =
+    outcome?.kind === 'matched' && deriveDisplayStage(outcome) === 'completed' ? 'tapos' : outcome ? 'kasalukuyan' : null;
 
   const ensureReceipt = useCallback(async (transactionId: string) => {
     if (receiptInFlight.current) return;
@@ -114,12 +125,32 @@ export default function BuyerReceiptScreen() {
     load();
   }, [load]);
 
+  const leaveReceipt = useCallback((filter: BuyerTransactionListFilter | null) => {
+    if (leavingToListRef.current) return;
+    leavingToListRef.current = true;
+    router.dismissTo(filter ? buyerTransactionsHref(filter) : buyerTransactionsHref());
+  }, []);
+
+  // Header, hardware, and gesture back must not reveal Paraan ng Pagbabayad,
+  // which stays under this screen when payment was pushed onto the stack.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (!navigation.isFocused()) return;
+      const type = e.data.action.type;
+      if (type !== 'GO_BACK' && type !== 'POP') return;
+      if (leavingToListRef.current) return;
+      e.preventDefault();
+      leaveReceipt(exitFilterRef.current);
+    });
+    return unsubscribe;
+  }, [navigation, leaveReceipt]);
+
   const screenTitle = isTagalog ? 'Digital na Resibo' : 'Digital Receipt';
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title={screenTitle} />
+        <BackHeader title={screenTitle} onBack={() => leaveReceipt(exitFilterRef.current)} />
         <View style={styles.missing}>
           <ActivityIndicator color={AnimoColors.accentPrimary} />
         </View>
@@ -131,7 +162,7 @@ export default function BuyerReceiptScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        <BackHeader title={screenTitle} />
+        <BackHeader title={screenTitle} onBack={() => leaveReceipt(exitFilterRef.current)} />
         <View style={styles.missing}>
           <Text style={styles.missingText}>{error ?? (isTagalog ? 'Hindi nahanap ang transaksyon na ito.' : 'Transaction not found.')}</Text>
         </View>
@@ -164,7 +195,7 @@ export default function BuyerReceiptScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <BackHeader title={screenTitle} />
+      <BackHeader title={screenTitle} onBack={() => leaveReceipt(isCompleted ? 'tapos' : 'kasalukuyan')} />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Hero — banner reflects real stage, not an assumed instant completion. */}
@@ -272,13 +303,11 @@ export default function BuyerReceiptScreen() {
             icon={Download}
             onPress={() => setShowDownloadModal(true)}
           />
-          {isCompleted ? null : (
-            <AnimoButton
-              label={isTagalog ? 'Bumalik sa Transaksyon' : 'Back to Transactions'}
-              variant="neutralOutline"
-              onPress={() => router.replace('/(buyer)/transaksyon')}
-            />
-          )}
+          <AnimoButton
+            label={isTagalog ? 'Bumalik sa Transaksyon' : 'Back to Transactions'}
+            variant="neutralOutline"
+            onPress={() => leaveReceipt(isCompleted ? 'tapos' : 'kasalukuyan')}
+          />
         </View>
       </ScrollView>
 

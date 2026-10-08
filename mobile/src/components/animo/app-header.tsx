@@ -4,7 +4,7 @@ import { Bell } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { AnimoColors, AnimoSpacing } from '@/constants/animo';
 
 export type AppHeaderProps = {
   /** Optional larger screen title shown under the brand row. */
@@ -21,8 +21,8 @@ export type AppHeaderProps = {
 };
 
 /**
- * Top app header used inside the tab modules: the "🌾 Animo" brand lockup with
- * a quick language toggle, a notification bell, and an optional big screen title below it.
+ * Top app header used inside the tab modules: the sign-in ANIMO lockup,
+ * a notification bell, and an optional big screen title below it.
  */
 export function AppHeader({
   title,
@@ -36,18 +36,12 @@ export function AppHeader({
   return (
     <View style={[styles.wrapper, !inset && styles.wrapperFlush]}>
       <View style={styles.row}>
-        <View style={styles.brand}>
-          <View style={styles.badge}>
-            <Image
-              source={require('@/assets/images/animo/icon-green.png')}
-              style={styles.logo}
-              contentFit="contain"
-            />
-          </View>
-          <AnimoText variant="h1" color={AnimoColors.green}>
-            Animo
-          </AnimoText>
-        </View>
+        <Image
+          source={require('@/assets/images/animo/Animo-Logo.png')}
+          style={styles.logo}
+          contentFit="contain"
+          accessibilityLabel="Animo"
+        />
 
         <View style={styles.rightActions}>
           <View ref={bellRef} collapsable={false}>
@@ -88,22 +82,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.sm,
-  },
-  badge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: AnimoColors.greenTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   logo: {
-    width: 28,
-    height: 28,
+    width: 132,
+    height: 40,
   },
   rightActions: {
     flexDirection: 'row',

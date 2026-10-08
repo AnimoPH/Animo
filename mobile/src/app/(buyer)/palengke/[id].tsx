@@ -43,7 +43,6 @@ import { fetchMyActiveRequestForListing } from '@/services/purchase-request-serv
 import { useLanguage } from '@/hooks/use-language';
 import {
   listingTitle,
-  minimumPurchaseKg,
   moistureLabel,
   purityLabel,
   specificVarietyDisplay,
@@ -387,7 +386,7 @@ export default function ListingDetailScreen() {
           </View>
 
           <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-            {listing.remainingQuantityKg} kg {isTagalog ? 'na natitira' : 'remaining'}
+            {listing.remainingQuantityKg} kg {isTagalog ? 'na available' : 'available'}
           </AnimoText>
 
           <View style={styles.priceBlock}>
@@ -422,7 +421,7 @@ export default function ListingDetailScreen() {
           <PriceRationaleCard listing={listing} />
 
           <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-            {isTagalog ? 'Pinakamaliit na order:' : 'Minimum order:'} {minimumPurchaseKg(listing)} kg
+            {isTagalog ? 'Pinakamaliit na order:' : 'Minimum order:'} {listing.minimumRequestKg} kg
           </AnimoText>
         </View>
 
@@ -538,7 +537,7 @@ export default function ListingDetailScreen() {
           }
           disabled={activeRequest !== null}
           onPress={() =>
-            router.push({ pathname: '/(buyer)/palengke/buy', params: { id: listing.id } })
+            router.push({ pathname: '/(buyer)/palengke/bid', params: { id: listing.id } })
           }
         />
       </View>

@@ -32,6 +32,11 @@ export default function ProfileEditScreen() {
   const [fullName, setFullName] = useState(account?.fullName ?? '');
   const [barangay, setBarangay] = useState<string | null>(account?.barangay ?? null);
   const [gcashNumber, setGcashNumber] = useState(account?.gcashNumber ?? '');
+  const [original] = useState({
+    fullName: account?.fullName?.trim() ?? '',
+    barangay: account?.barangay ?? null,
+    gcashNumber: account?.gcashNumber?.trim() ?? '',
+  });
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [showSuccess, setShowSuccess] = useState(false);
@@ -39,8 +44,14 @@ export default function ProfileEditScreen() {
   if (!account) return null;
 
   const roleTitle = getRole(account.role)?.title ?? 'Magsasaka';
-  const gcashValid = gcashNumber.trim().length === 0 || GCASH_NUMBER_PATTERN.test(gcashNumber);
-  const canSave = fullName.trim().length >= 2 && barangay !== null && gcashValid;
+  const trimmedName = fullName.trim();
+  const trimmedGcash = gcashNumber.trim();
+  const gcashValid = trimmedGcash.length === 0 || GCASH_NUMBER_PATTERN.test(trimmedGcash);
+  const hasChanges =
+    trimmedName !== original.fullName ||
+    barangay !== original.barangay ||
+    trimmedGcash !== original.gcashNumber;
+  const canSave = hasChanges && trimmedName.length >= 2 && barangay !== null && gcashValid;
 
   const handleSave = async () => {
     if (!canSave || !barangay) return;

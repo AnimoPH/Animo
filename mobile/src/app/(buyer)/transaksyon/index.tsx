@@ -1,14 +1,13 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Bell, ChevronLeft, ChevronRight, ClipboardList, Filter, Search, X } from 'lucide-react-native';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { Bell, ChevronLeft, ChevronRight, ClipboardList, Filter, Search } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -16,6 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
+import { FilterModal } from '@/components/animo/filter-modal';
+import { SearchFilterBar } from '@/components/animo/search-filter-bar';
 import {
   BuyerTransactionCard,
   type BuyerTransactionCardItem,
@@ -24,16 +25,16 @@ import {
   SpotlightTour,
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
-import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
+import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useLanguage } from '@/hooks/use-language';
+import { parseBuyerTransactionListFilter } from '@/lib/buyer-transactions-nav';
 import { fetchCropListingsByIds } from '@/services/crop-listing-service';
 import {
   fetchBuyerPurchaseOutcomes,
   fetchCounterpartNames,
   fetchFarmerNamesByListingIds,
-  getFarmerListingTxnStageLabel,
   isListingTxnCompleted,
   isListingTxnOngoing,
 } from '@/services/transaction-service';
@@ -91,8 +92,11 @@ function toCardItem(
 /** Buyer Transaksyon — requests & matched transactions matching farmer transaksyon UI layout. */
 export default function BuyerTransactionsScreen() {
   const { language, isTagalog, t } = useLanguage();
+  const { filter: filterParam } = useLocalSearchParams<{ filter?: string | string[] }>();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<FilterValue>('Lahat');
+  const [appliedFilter, setAppliedFilter] = useState<FilterValue>('Lahat');
+  const [draftFilter, setDraftFilter] = useState<FilterValue>('Lahat');
+  const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showTutorial, setShowTutorial] = useState(true);
 
@@ -105,7 +109,6 @@ export default function BuyerTransactionsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const searchBarRef = useRef<View>(null);
-  const filterRowRef = useRef<View>(null);
   const bellRef = useRef<View>(null);
 
   const load = useCallback(async (isRefresh: boolean) => {
@@ -148,6 +151,15 @@ export default function BuyerTransactionsScreen() {
     }, [load]),
   );
 
+  useEffect(() => {
+    const next = parseBuyerTransactionListFilter(filterParam);
+    if (!next) return;
+    setAppliedFilter(next);
+    setDraftFilter(next);
+    setCurrentPage(1);
+    router.setParams({ filter: '' });
+  }, [filterParam]);
+
   useAutoRefresh(useCallback(() => load(true), [load]));
 
   const items = useMemo(
@@ -168,9 +180,9 @@ export default function BuyerTransactionsScreen() {
   const filteredData = useMemo(() => {
     return items.filter(({ outcome, card }) => {
       const matchesFilter = (() => {
-        if (activeFilter === 'Lahat') return true;
-        if (activeFilter === 'Kasalukuyan') return isListingTxnOngoing(outcome);
-        if (activeFilter === 'Tapos na') return isListingTxnCompleted(outcome);
+        if (appliedFilter === 'Lahat') return true;
+        if (appliedFilter === 'Kasalukuyan') return isListingTxnOngoing(outcome);
+        if (appliedFilter === 'Tapos na') return isListingTxnCompleted(outcome);
         return true;
       })();
 
@@ -186,7 +198,27 @@ export default function BuyerTransactionsScreen() {
 
       return matchesFilter && matchesSearch;
     });
-  }, [items, activeFilter, searchQuery]);
+  }, [items, appliedFilter, searchQuery]);
+
+  const activeFilterCount = appliedFilter === 'Lahat' ? 0 : 1;
+
+  const openFilter = () => {
+    setDraftFilter(appliedFilter);
+    setModalOpen(true);
+  };
+
+  const applyFilters = () => {
+    setAppliedFilter(draftFilter);
+    setCurrentPage(1);
+    setModalOpen(false);
+  };
+
+  const resetFilters = () => {
+    setDraftFilter('Lahat');
+    setAppliedFilter('Lahat');
+    setCurrentPage(1);
+    setModalOpen(false);
+  };
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
   const validPage = Math.min(currentPage, totalPages);
@@ -195,11 +227,6 @@ export default function BuyerTransactionsScreen() {
     const start = (validPage - 1) * PAGE_SIZE;
     return filteredData.slice(start, start + PAGE_SIZE).map(({ card }) => card);
   }, [filteredData, validPage]);
-
-  const handleFilterSelect = (filter: FilterValue) => {
-    setActiveFilter(filter);
-    setCurrentPage(1);
-  };
 
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
@@ -212,7 +239,7 @@ export default function BuyerTransactionsScreen() {
       title: t('spotlight.buyerTxn.step1Title'),
       description: t('spotlight.buyerTxn.step1Desc'),
       icon: Filter,
-      targetRef: filterRowRef,
+      targetRef: searchBarRef,
       shape: 'rectangle',
       borderRadius: 16,
       padding: 6,
@@ -246,28 +273,54 @@ export default function BuyerTransactionsScreen() {
         onPressBell={() => router.push('/(buyer)/notipikasyon')}
       />
 
-      <View ref={searchBarRef} collapsable={false} style={styles.searchBar}>
-        <Search size={18} color={AnimoColors.objectLowEmphasis} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder={isTagalog ? 'Maghanap ng transaksyon...' : 'Search transactions...'}
-          placeholderTextColor={AnimoColors.textDisabled}
+      <View ref={searchBarRef} collapsable={false}>
+        <SearchFilterBar
           value={searchQuery}
           onChangeText={handleSearchChange}
-          returnKeyType="search"
-          underlineColorAndroid="transparent"
+          placeholder={
+            isTagalog ? 'Maghanap ng pangalan, presyo, katayuan...' : 'Search name, price, status...'
+          }
+          activeFilterCount={activeFilterCount}
+          onFilterPress={openFilter}
         />
-        {searchQuery.length > 0 ? (
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel={isTagalog ? 'I-clear ang search' : 'Clear search'}
-            onPress={() => handleSearchChange('')}
-            activeOpacity={0.85}
-            hitSlop={8}>
-            <X size={18} color={AnimoColors.objectLowEmphasis} />
-          </TouchableOpacity>
-        ) : null}
       </View>
+
+      <FilterModal
+        visible={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onReset={resetFilters}
+        onApply={applyFilters}
+        activeCount={draftFilter === 'Lahat' ? 0 : 1}>
+        <View style={styles.filterSection}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+            {isTagalog ? 'Katayuan' : 'Status'}
+          </AnimoText>
+          <View style={styles.chipsWrap}>
+            {FILTERS.map((filter) => {
+              const label =
+                filter === 'Lahat'
+                  ? isTagalog
+                    ? 'Lahat'
+                    : 'All'
+                  : filter === 'Kasalukuyan'
+                    ? isTagalog
+                      ? 'Kasalukuyan'
+                      : 'Active'
+                    : isTagalog
+                      ? 'Tapos na'
+                      : 'Completed';
+              return (
+                <FilterChoiceChip
+                  key={filter}
+                  label={label}
+                  active={draftFilter === filter}
+                  onPress={() => setDraftFilter(filter)}
+                />
+              );
+            })}
+          </View>
+        </View>
+      </FilterModal>
 
       {loading ? (
         <View style={styles.centerFill}>
@@ -288,46 +341,6 @@ export default function BuyerTransactionsScreen() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
-          ListHeaderComponent={
-            <View ref={filterRowRef} collapsable={false}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filters}
-                style={styles.filterScroll}>
-                {FILTERS.map((filter) => {
-                  const active = activeFilter === filter;
-                  const label =
-                    filter === 'Lahat'
-                      ? isTagalog
-                        ? 'Lahat'
-                        : 'All'
-                      : filter === 'Kasalukuyan'
-                        ? isTagalog
-                          ? 'Kasalukuyan'
-                          : 'Active'
-                        : isTagalog
-                          ? 'Tapos na'
-                          : 'Completed';
-                  return (
-                    <TouchableOpacity
-                      key={filter}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      onPress={() => handleFilterSelect(filter)}
-                      activeOpacity={0.85}
-                      style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}>
-                      <AnimoText
-                        variant="bodyEmphasis"
-                        color={active ? AnimoColors.white : AnimoColors.textMediumEmphasis}>
-                        {label}
-                      </AnimoText>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          }
           ListFooterComponent={
             <PaginationControls
               currentPage={validPage}
@@ -345,6 +358,8 @@ export default function BuyerTransactionsScreen() {
                 onClear={() => handleSearchChange('')}
                 isTagalog={isTagalog}
               />
+            ) : activeFilterCount > 0 ? (
+              <FilterEmptyState isTagalog={isTagalog} onClear={resetFilters} />
             ) : (
               <EmptyState isTagalog={isTagalog} />
             )
@@ -451,6 +466,51 @@ function PaginationControls({
   );
 }
 
+function FilterChoiceChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={[styles.chipItem, active && styles.chipItemActive]}>
+      <AnimoText
+        variant="body"
+        color={active ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
+        style={active ? styles.chipTextActive : undefined}>
+        {label}
+      </AnimoText>
+    </Pressable>
+  );
+}
+
+function FilterEmptyState({ isTagalog, onClear }: { isTagalog: boolean; onClear: () => void }) {
+  return (
+    <View style={styles.empty}>
+      <Filter size={48} color={AnimoColors.accentPrimaryLight} />
+      <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
+        {isTagalog ? 'Walang transaksyon sa filter na ito.' : 'No transactions match this filter.'}
+      </AnimoText>
+      <TouchableOpacity
+        accessibilityRole="button"
+        activeOpacity={0.85}
+        onPress={onClear}
+        style={styles.searchEmptyCta}>
+        <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
+          {isTagalog ? 'I-clear ang filter' : 'Clear filters'}
+        </AnimoText>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 function SearchEmptyState({
   query,
   onClear,
@@ -518,47 +578,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AnimoColors.appBackground,
   },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: SCREEN_PADDING,
-    marginTop: AnimoSpacing.md,
-    marginBottom: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.md,
-    paddingHorizontal: AnimoSpacing.md,
-    height: 50,
+  filterSection: {
     gap: AnimoSpacing.sm,
   },
-  searchInput: {
-    flex: 1,
-    height: '100%',
-    ...AnimoType.body,
-    color: AnimoColors.textHighEmphasis,
-    paddingVertical: 0,
+  chipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: AnimoSpacing.sm,
+    marginTop: 2,
   },
-  filterScroll: {
-    marginHorizontal: -SCREEN_PADDING,
-    marginBottom: AnimoSpacing.md,
-  },
-  filters: {
-    paddingHorizontal: SCREEN_PADDING,
-  },
-  pill: {
+  chipItem: {
+    paddingHorizontal: AnimoSpacing.md,
+    paddingVertical: 10,
     borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.sm,
-    marginRight: AnimoSpacing.sm,
-  },
-  pillActive: {
-    backgroundColor: AnimoColors.accentPrimary,
-  },
-  pillInactive: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: AnimoColors.borderLowEmphasis,
+    backgroundColor: AnimoColors.surfacePrimary,
+  },
+  chipItemActive: {
+    borderColor: AnimoColors.accentPrimary,
+    backgroundColor: AnimoColors.accentPrimaryLight,
+  },
+  chipTextActive: {
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    color: AnimoColors.accentPrimary,
   },
   centerFill: {
     flex: 1,
@@ -597,8 +640,8 @@ const styles = StyleSheet.create({
     marginTop: AnimoSpacing.xl,
   },
   paginationWrap: {
-    marginTop: AnimoSpacing.sm,
-    marginBottom: AnimoSpacing.xl,
+    marginTop: AnimoSpacing.md,
+    // marginBottom: AnimoSpacing.xl,
     alignItems: 'center',
     gap: AnimoSpacing.md,
   },

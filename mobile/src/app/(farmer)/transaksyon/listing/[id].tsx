@@ -31,7 +31,6 @@ import { fetchCropListing } from '@/services/crop-listing-service';
 import {
   fetchCounterpartNames,
   fetchListingPurchaseOutcomes,
-  getFarmerListingTxnStageLabel,
 } from '@/services/transaction-service';
 import {
   listingTitle,
@@ -46,6 +45,7 @@ import {
   formatDate,
   formatReferenceId,
   formatTime,
+  getDisplayStageLabel,
   requestTotal,
   type DisplayStage,
   type PurchaseOutcome,
@@ -91,7 +91,7 @@ function toCardItem(
       outcome.kind === 'matched' ? 'TXN' : 'PR',
     ),
     stage,
-    statusLabel: getFarmerListingTxnStageLabel(stage, lang),
+    statusLabel: getDisplayStageLabel(stage, lang),
     variety: listing ? varietyLabel(listing, lang) : 'Palay',
     moisture: listing ? moistureLabel(listing.declaredMoisture, lang) : '—',
     price: formatPeso(total),

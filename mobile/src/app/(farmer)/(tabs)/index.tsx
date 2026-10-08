@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -13,7 +14,7 @@ import {
   User,
   Wheat,
 } from 'lucide-react-native';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, type ComponentProps } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -40,7 +41,6 @@ import {
   type FarmerHomeStats,
 } from '@/services/farmer-home-service';
 import {
-  actionLabel,
   fetchCurrentAdvisory,
   type AdvisoryState,
   type RecommendedAction,
@@ -66,9 +66,30 @@ const ADVISORY_DESCRIPTIONS_EN: Record<RecommendedAction, string> = {
   No_Action_Needed: 'No heavy rain expected in the next 48 hours.',
 };
 
+const ADVISORY_HEADLINES: Record<RecommendedAction, string> = {
+  Advance_Cut: 'Maagang Anihin',
+  Delayed_Harvest: 'Antalahin ang Anihan',
+  No_Action_Needed: 'Maaraw ngayon',
+};
+
+const ADVISORY_HEADLINES_EN: Record<RecommendedAction, string> = {
+  Advance_Cut: 'Early Harvest',
+  Delayed_Harvest: 'Delay Harvest',
+  No_Action_Needed: 'Sunny today',
+};
+
+const ADVISORY_ICONS: Record<
+  RecommendedAction,
+  { name: ComponentProps<typeof Ionicons>['name']; color: string }
+> = {
+  Advance_Cut: { name: 'thunderstorm', color: AnimoColors.danger },
+  Delayed_Harvest: { name: 'rainy', color: AnimoColors.muted },
+  No_Action_Needed: { name: 'sunny', color: AdvisoryOrange },
+};
+
 /** Tahanan — farmer home: weather advisory, quick stats, sell CTA, activity feed. */
 export default function FarmerHomeScreen() {
-  const { t, language, isTagalog } = useLanguage();
+  const { t, isTagalog } = useLanguage();
   const params = useLocalSearchParams<{ startTour?: string }>();
   const [currentAdvisory, setCurrentAdvisory] = useState<AdvisoryState | null>(null);
   const [stats, setStats] = useState<FarmerHomeStats>(EMPTY_STATS);
@@ -209,8 +230,10 @@ export default function FarmerHomeScreen() {
           {currentAdvisory?.kind === 'active' ? (
             <AdvisoryCard
               title={isTagalog ? 'Payo sa Bukid' : 'Farm Advisory'}
-              badge={actionLabel(currentAdvisory.advisory.recommendedAction, language)}
+              headline={(isTagalog ? ADVISORY_HEADLINES : ADVISORY_HEADLINES_EN)[currentAdvisory.advisory.recommendedAction]}
               desc={(isTagalog ? ADVISORY_DESCRIPTIONS : ADVISORY_DESCRIPTIONS_EN)[currentAdvisory.advisory.recommendedAction]}
+              icon={ADVISORY_ICONS[currentAdvisory.advisory.recommendedAction].name}
+              iconColor={ADVISORY_ICONS[currentAdvisory.advisory.recommendedAction].color}
               onPress={() => router.push('/(farmer)/advisory')}
             />
           ) : currentAdvisory?.kind === 'awaiting_advisory' ? (
@@ -305,52 +328,54 @@ export default function FarmerHomeScreen() {
 
 function AdvisoryCard({
   title,
-  badge,
+  headline,
   desc,
+  icon,
+  iconColor,
   onPress,
 }: {
   title: string;
-  badge: string;
+  headline: string;
   desc: string;
+  icon: ComponentProps<typeof Ionicons>['name'];
+  iconColor: string;
   onPress: () => void;
 }) {
   return (
-    <View style={styles.advisoryCard}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.advisoryCard, pressed && styles.pressed]}>
       <View style={styles.advisoryTopRow}>
         <View style={styles.advisoryTopLeft}>
           <CloudRain size={18} color={AnimoColors.white} />
-          <AnimoText variant="h3" color={AnimoColors.white}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
             {title}
           </AnimoText>
         </View>
         <View style={styles.advisoryBadge}>
           <AnimoText
             variant="tag"
-            color={AnimoColors.white}
+            color={AdvisoryOrange}
             style={styles.advisoryBadgeText}>
-            {badge}
+            ADVISORY
           </AnimoText>
         </View>
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.advisoryInner,
-          pressed && styles.pressed,
-        ]}>
-        <View style={styles.advisoryIconWrap}>
-          <CloudRain size={24} color={AnimoColors.muted} />
-        </View>
+      <View style={styles.advisoryInner}>
+        <Ionicons name={icon} size={36} color={iconColor} />
         <View style={styles.advisoryTextWrap}>
-          <AnimoText variant="bodyEmphasis" color={AdvisoryOrange} numberOfLines={2}>
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+            {headline}
+          </AnimoText>
+          <AnimoText variant="tag" color={AnimoColors.muted}>
             {desc}
           </AnimoText>
         </View>
         <ChevronRight size={18} color={AnimoColors.muted} />
-      </Pressable>
-    </View>
+      </View>
+    </Pressable>
   );
 }
 
@@ -554,15 +579,24 @@ const styles = StyleSheet.create({
     paddingVertical: AnimoSpacing.sm,
   },
   advisoryCard: {
-    backgroundColor: AnimoColors.green,
+    backgroundColor: AnimoColors.white,
     borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.md,
-    gap: AnimoSpacing.md,
+    borderWidth: 1,
+    borderColor: AnimoColors.border,
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   advisoryTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: AnimoColors.green,
+    paddingHorizontal: AnimoSpacing.md,
+    paddingVertical: AnimoSpacing.md,
   },
   advisoryTopLeft: {
     flexDirection: 'row',
@@ -570,9 +604,9 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.sm,
   },
   advisoryBadge: {
-    backgroundColor: AdvisoryOrange,
+    backgroundColor: AnimoColors.white,
     borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.sm,
+    paddingHorizontal: AnimoSpacing.md,
     paddingVertical: AnimoSpacing.xs,
   },
   advisoryBadgeText: {
@@ -582,22 +616,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.md,
     padding: AnimoSpacing.md,
     gap: AnimoSpacing.md,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  advisoryIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: AnimoRadius.md,
-    backgroundColor: AnimoColors.greenTint,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   advisoryTextWrap: {
     flex: 1,
