@@ -60,8 +60,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   chip: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.sm,
+    paddingHorizontal: AnimoSpacing.md,
+    paddingVertical: AnimoSpacing.xs,
     borderRadius: AnimoRadius.pill,
     borderWidth: 1,
   },
