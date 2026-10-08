@@ -119,6 +119,9 @@ export default function BuyerProfileScreen() {
   const [buyerPreferences, setBuyerPreferences] = useState<BuyerPreferencesFormValues>(
     EMPTY_BUYER_PREFERENCES_FORM,
   );
+  const [savedBuyerPreferences, setSavedBuyerPreferences] = useState<BuyerPreferencesFormValues>(
+    EMPTY_BUYER_PREFERENCES_FORM,
+  );
   const [buyerPreferencesLoading, setBuyerPreferencesLoading] = useState(false);
   const [buyerPreferencesSaving, setBuyerPreferencesSaving] = useState(false);
   const [buyerPreferencesError, setBuyerPreferencesError] = useState<string | undefined>();
@@ -192,12 +195,26 @@ export default function BuyerProfileScreen() {
     setBuyerPreferencesLoading(true);
     setBuyerPreferencesError(undefined);
     fetchMyBuyerPreferences()
-      .then((prefs) => setBuyerPreferences(buyerPreferencesToForm(prefs)))
+      .then((prefs) => {
+        const form = buyerPreferencesToForm(prefs);
+        setBuyerPreferences(form);
+        setSavedBuyerPreferences(form);
+      })
       .catch(() => setBuyerPreferencesError('Hindi na-load ang kagustuhan sa pagbili.'))
       .finally(() => setBuyerPreferencesLoading(false));
   }, [showBuyerPreferencesModal]);
 
+  const quantityText = buyerPreferences.typicalQuantityKg.trim();
+  const parsedQuantity = parseFloat(quantityText);
+  const quantityValid =
+    quantityText.length === 0 || (Number.isFinite(parsedQuantity) && parsedQuantity > 0);
+  const preferencesChanged =
+    JSON.stringify(buyerPreferencesFormToInput(buyerPreferences)) !==
+    JSON.stringify(buyerPreferencesFormToInput(savedBuyerPreferences));
+  const canSavePreferences = !buyerPreferencesLoading && quantityValid && preferencesChanged;
+
   const handleSaveBuyerPreferences = async () => {
+    if (!canSavePreferences) return;
     setBuyerPreferencesSaving(true);
     setBuyerPreferencesError(undefined);
     try {
@@ -661,44 +678,42 @@ export default function BuyerProfileScreen() {
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setShowBuyerPreferencesModal(false)}>
-        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
-          <View style={styles.modalHeader}>
-            <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-              {isTagalog ? 'Kagustuhan sa Pagbili' : 'Buying Preferences'}
-            </AnimoText>
-            <Pressable
-              onPress={() => setShowBuyerPreferencesModal(false)}
-              hitSlop={8}
-              style={styles.closeBtn}>
-              <X size={22} color={AnimoColors.textHighEmphasis} />
-            </Pressable>
-          </View>
+        <SafeAreaView style={styles.personalInfoSafeArea} edges={['top', 'bottom']}>
+          <BackHeader
+            title={isTagalog ? 'Kagustuhan sa Pagbili' : 'Buying Preferences'}
+            onBack={() => setShowBuyerPreferencesModal(false)}
+          />
 
-          <ScrollView
-            contentContainerStyle={styles.modalScroll}
-            showsVerticalScrollIndicator={false}>
-            {buyerPreferencesLoading ? (
-              <AnimoText variant="body" color={AnimoColors.textLowEmphasis}>
-                {isTagalog ? 'Ikinakarga...' : 'Loading...'}
-              </AnimoText>
-            ) : (
-              <BuyerPreferencesForm values={buyerPreferences} onChange={setBuyerPreferences} />
-            )}
-            {buyerPreferencesError ? (
-              <AnimoText variant="body" color={AnimoColors.danger}>
-                {buyerPreferencesError}
-              </AnimoText>
-            ) : null}
-          </ScrollView>
+          <KeyboardAvoidingView
+            style={styles.flex}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <ScrollView
+              contentContainerStyle={styles.personalInfoContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}>
+              {buyerPreferencesLoading ? (
+                <AnimoText variant="body" color={AnimoColors.textLowEmphasis}>
+                  {isTagalog ? 'Ikinakarga...' : 'Loading...'}
+                </AnimoText>
+              ) : (
+                <BuyerPreferencesForm values={buyerPreferences} onChange={setBuyerPreferences} />
+              )}
+              {buyerPreferencesError ? (
+                <AnimoText variant="body" color={AnimoColors.danger}>
+                  {buyerPreferencesError}
+                </AnimoText>
+              ) : null}
+            </ScrollView>
 
-          <View style={styles.modalFooter}>
-            <AnimoButton
-              label={isTagalog ? 'I-save' : 'Save Preferences'}
-              onPress={handleSaveBuyerPreferences}
-              loading={buyerPreferencesSaving}
-              disabled={buyerPreferencesLoading}
-            />
-          </View>
+            <View style={styles.personalInfoFooter}>
+              <AnimoButton
+                label={isTagalog ? 'I-save' : 'Save Preferences'}
+                onPress={handleSaveBuyerPreferences}
+                loading={buyerPreferencesSaving}
+                disabled={!canSavePreferences}
+              />
+            </View>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
 
