@@ -1,12 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   Bell,
-  MapPin,
   Search,
   SlidersHorizontal,
-  Star,
-  Store,
   Users,
   Wheat,
   X,
@@ -655,40 +653,32 @@ function FarmerDirectoryCard({
       accessibilityRole="button"
       onPress={onPress}
       style={styles.farmerDirectoryCard}>
-      {/* Farmer Core Profile Row with Ratings on the Right */}
+      {/* Farmer Core Profile Row with Rating on the Right */}
       <View style={styles.farmerProfileMain}>
         <View style={styles.farmerAvatarWrap}>
-          <Store size={28} color={AnimoColors.accentPrimary} />
+          <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
+            {farmer.name[0] || 'M'}
+          </AnimoText>
         </View>
 
         <View style={styles.farmerInfoCol}>
           <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.farmerNameText}>
             {farmer.name}
           </AnimoText>
-          {farmer.location ? (
-            <View style={styles.farmerLocRow}>
-              <MapPin size={13} color={AnimoColors.textMediumEmphasis} />
-              <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                {farmer.location}
-              </AnimoText>
-            </View>
-          ) : null}
         </View>
 
-        {/* Reviews and Rating placed on the right */}
-        <View style={styles.farmerRatingRightCol}>
-          <View style={styles.farmerRatingRow}>
-            <Star
-              size={14}
-              color="#F59E0B"
-              fill={farmer.totalReviews > 0 ? '#F59E0B' : 'transparent'}
-            />
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.ratingNumberBold}>
-              {farmer.totalReviews > 0 ? farmer.averageRating : '—'}
-            </AnimoText>
-          </View>
+        {/* Rating placed on the right, inline */}
+        <View style={styles.farmerRatingRow}>
+          <Ionicons
+            name={farmer.totalReviews > 0 ? 'star' : 'star-outline'}
+            size={14}
+            color= {AnimoColors.accentPrimary}
+          />
+          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.ratingNumberBold}>
+            {farmer.totalReviews > 0 ? farmer.averageRating : '—'}
+          </AnimoText>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            ({farmer.totalReviews} {isEn ? 'reviews' : 'reviews'})
+            ({farmer.totalReviews} {farmer.totalReviews === 1 ? (isEn ? 'review' : 'review') : isEn ? 'reviews' : 'reviews'})
           </AnimoText>
         </View>
       </View>
@@ -703,8 +693,6 @@ function FarmerDirectoryCard({
             {farmer.totalSoldKg.toLocaleString()} kg
           </AnimoText>
         </View>
-
-        <View style={styles.footerDividerDot} />
 
         <View style={styles.farmerFooterStat}>
           <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
@@ -956,7 +944,7 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.white,
     borderRadius: AnimoRadius.lg,
     borderWidth: 1,
-    borderColor: AnimoColors.border,
+    borderColor: AnimoColors.borderLowEmphasis,
     padding: AnimoSpacing.lg,
     gap: AnimoSpacing.sm,
     shadowColor: '#000',
@@ -971,12 +959,14 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.md,
   },
   farmerAvatarWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 12,
     backgroundColor: AnimoColors.accentPrimaryLight,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: AnimoColors.accentPrimary,
   },
   farmerInfoCol: {
     flex: 1,
@@ -985,15 +975,6 @@ const styles = StyleSheet.create({
   farmerNameText: {
     fontSize: 17.5,
     fontFamily: 'PlusJakartaSans_700Bold',
-  },
-  farmerLocRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  farmerRatingRightCol: {
-    alignItems: 'flex-end',
-    gap: 2,
   },
   farmerRatingRow: {
     flexDirection: 'row',
@@ -1007,21 +988,15 @@ const styles = StyleSheet.create({
   farmerCardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
-    gap: AnimoSpacing.md,
   },
   farmerFooterStat: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-  },
-  footerDividerDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#D1D5DB',
   },
   centerState: {
     flex: 1,
