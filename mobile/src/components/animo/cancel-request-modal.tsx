@@ -15,6 +15,8 @@ export type CancelRequestModalProps = {
   consequences: string[];
   /** Label for the destructive action. */
   confirmLabel: string;
+  /** Dismiss without cancelling. Defaults to the app-language label. */
+  dismissLabel?: string;
   /** Dismiss without cancelling. */
   onDismiss: () => void;
   /** Confirm the cancellation. */
@@ -34,6 +36,7 @@ export function CancelRequestModal({
   body,
   consequences,
   confirmLabel,
+  dismissLabel,
   onDismiss,
   onConfirm,
 }: CancelRequestModalProps) {
@@ -96,7 +99,7 @@ export function CancelRequestModal({
             onPress={onDismiss}
             style={({ pressed }) => [styles.dismissButton, pressed && styles.pressed]}>
             <AnimoText variant="button" color={AnimoColors.black}>
-              {t('modal.dontProceed')}
+              {dismissLabel ?? t('modal.dontProceed')}
             </AnimoText>
           </Pressable>
         </View>

@@ -5,7 +5,9 @@
  * request screens use.
  *
  * `cancelDeadline` is server-set (submitted_at + 30s, see the
- * purchaserequest_set_cancel_deadline_trigger in 0001) — never compute or
+ * purchaserequest_set_cancel_deadline_trigger in 0001). It is the end of
+ * the free cancel period, not the last moment a buyer may cancel. A cancel
+ * is late when `cancelledAt` is after `cancelDeadline`. Never compute or
  * hardcode this window client-side.
  */
 
@@ -45,24 +47,25 @@ export type PurchaseRequest = {
   submittedAt: string;
   /** Last row change (status transitions, etc.) — migration 0028. */
   updatedAt: string;
+  /** End of the free cancel period (submitted_at + 30 seconds). */
   cancelDeadline: string | null;
+  /** Set when the buyer cancels. Late when this is after cancelDeadline. */
+  cancelledAt: string | null;
 };
 
-/** Payload for `submitPurchaseRequest` — exactly what the bid screen collects. */
+/** Payload for `submitPurchaseRequest` — exactly what the buy screen collects. */
 export type SubmitPurchaseRequestInput = {
   listingId: string;
   requestedQuantityKg: number;
 };
 
 /**
- * Mirrors `cancel_purchase_request`'s own guard, so the UI can gray the
- * cancel button out before the RPC even runs. The RPC's own check is still
- * the real enforcement — this is a display-only convenience.
+ * True while the purchase request is still Pending. The buyer may cancel
+ * until the farmer accepts. `cancelDeadline` is the free period, not a
+ * permission check. The RPC remains the real enforcement.
  */
 export function canCancelPurchaseRequest(
-  request: Pick<PurchaseRequest, 'status' | 'cancelDeadline'>,
-  now: number = Date.now(),
+  request: Pick<PurchaseRequest, 'status'>,
 ): boolean {
-  if (request.status !== 'Pending' || !request.cancelDeadline) return false;
-  return now < new Date(request.cancelDeadline).getTime();
+  return request.status === 'Pending';
 }
