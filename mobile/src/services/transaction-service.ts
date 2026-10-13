@@ -1,3 +1,4 @@
+import { GCASH_REF_FORMAT_MESSAGE } from '@/constants/payment';
 import { requireAuthUserId } from '@/services/crop-listing-service';
 import { unwrapFunctionError } from '@/services/auth-service';
 import {
@@ -338,6 +339,35 @@ export async function recordPayment(
 
   if (error) throw error;
   return data as string;
+}
+
+/**
+ * Tagalog copy for a failed record_payment. The database text is only used to
+ * choose the message; it is never returned.
+ */
+export function recordPaymentFailureMessage(error: unknown): string {
+  const message =
+    error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+      ? error.message.toLowerCase()
+      : '';
+  const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+
+  if (message.includes('gcash reference invalid format')) {
+    return GCASH_REF_FORMAT_MESSAGE;
+  }
+  if (message.includes('gcash reference required')) {
+    return 'Kailangan ang reference number para sa bayad sa GCash.';
+  }
+  if (message.includes('gcash reference already used') || code === '23505') {
+    return 'Nagamit na ang reference number na ito. Tingnan muli ang resibo ng GCash.';
+  }
+  if (message.includes('gcash reference not allowed for cash')) {
+    return 'Hindi kailangan ng reference number ang bayad na cash.';
+  }
+  if (message.includes('account is suspended')) {
+    return 'Hindi maitala ang bayad dahil na-suspend ang account.';
+  }
+  return 'Hindi maitala ang bayad. Subukan muli.';
 }
 
 export async function confirmPaymentSent(paymentId: string): Promise<void> {
