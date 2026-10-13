@@ -15,7 +15,13 @@ import {
   type ImageSourcePropType,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ChevronDown, CloudRain, RotateCcw, Sprout, type LucideIcon } from "lucide-react-native";
+import {
+  ChevronDown,
+  CloudRain,
+  RotateCcw,
+  Sprout,
+  type LucideIcon,
+} from "lucide-react-native";
 
 import { AnimoText } from "@/components/animo/animo-text";
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
@@ -34,7 +40,10 @@ import {
 const AdvisoryOrange = "#F57C00";
 const HISTORY_PREVIEW_COUNT = 5;
 
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -65,10 +74,17 @@ function formatIssuedAt(iso: string, isTagalog: boolean): string {
 function formatHistoryDate(iso: string, isTagalog: boolean): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString(isTagalog ? "fil-PH" : "en-US", { year: "numeric", month: "long", day: "numeric" });
+  return date.toLocaleDateString(isTagalog ? "fil-PH" : "en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
 
-function historyLabel(action: RecommendedAction, language: "tl" | "en"): string {
+function historyLabel(
+  action: RecommendedAction,
+  language: "tl" | "en",
+): string {
   if (action === "No_Action_Needed") {
     return language === "en" ? "No action needed" : "Walang kailangang gawin";
   }
@@ -78,7 +94,10 @@ function historyLabel(action: RecommendedAction, language: "tl" | "en"): string 
 function formatShortDate(dateStr: string, isTagalog: boolean): string {
   const date = new Date(`${dateStr}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString(isTagalog ? "fil-PH" : "en-US", { month: "short", day: "numeric" });
+  return date.toLocaleDateString(isTagalog ? "fil-PH" : "en-US", {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 /** Payo sa Bukid — the active advisory's rationale (ripeness, rain forecast, data freshness) plus retained history. */
@@ -95,11 +114,20 @@ export default function AdvisoryDetailScreen() {
     setLoading(true);
     setError(null);
     try {
-      const [currentResult, historyResult] = await Promise.all([fetchCurrentAdvisory(), fetchAdvisoryHistory()]);
+      const [currentResult, historyResult] = await Promise.all([
+        fetchCurrentAdvisory(),
+        fetchAdvisoryHistory(),
+      ]);
       setCurrent(currentResult);
       setHistory(historyResult);
     } catch (e) {
-      setError(e instanceof Error ? e.message : (isTagalog ? "Hindi ma-load ang payo." : "Could not load advisory."));
+      setError(
+        e instanceof Error
+          ? e.message
+          : isTagalog
+            ? "Hindi ma-load ang payo."
+            : "Could not load advisory.",
+      );
     } finally {
       setLoading(false);
     }
@@ -114,7 +142,9 @@ export default function AdvisoryDetailScreen() {
   // Only tag rows with their planting once a farmer actually has more than
   // one — otherwise it's a redundant label on every single entry.
   const showPlantingTag = new Set(history.map((h) => h.cropcycleId)).size > 1;
-  const visibleHistory = showAllHistory ? history : history.slice(0, HISTORY_PREVIEW_COUNT);
+  const visibleHistory = showAllHistory
+    ? history
+    : history.slice(0, HISTORY_PREVIEW_COUNT);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
@@ -131,7 +161,10 @@ export default function AdvisoryDetailScreen() {
           </AnimoText>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
           {current?.kind === "active" ? (
             <ActiveAdvisoryCard
               advisory={current.advisory}
@@ -142,7 +175,11 @@ export default function AdvisoryDetailScreen() {
             />
           ) : current?.kind === "awaiting_advisory" ? (
             <View style={[styles.activeCard, styles.shadow, styles.emptyCard]}>
-              <AnimoText variant="body" color={AnimoColors.muted} style={styles.centerText}>
+              <AnimoText
+                variant="body"
+                color={AnimoColors.muted}
+                style={styles.centerText}
+              >
                 {isTagalog
                   ? "Naitala na ang iyong taniman. Hinihintay ang susunod na pagsusuri ng panahon — makakatanggap ka ng babala sa loob ng ilang oras."
                   : "Your planting is recorded. Awaiting the next weather cycle analysis — you will receive an advisory within a few hours."}
@@ -150,7 +187,11 @@ export default function AdvisoryDetailScreen() {
             </View>
           ) : (
             <View style={[styles.activeCard, styles.shadow, styles.emptyCard]}>
-              <AnimoText variant="body" color={AnimoColors.muted} style={styles.centerText}>
+              <AnimoText
+                variant="body"
+                color={AnimoColors.muted}
+                style={styles.centerText}
+              >
                 {isTagalog
                   ? "Wala pang aktibong payo. Kailangan munang maitala ang iyong taniman."
                   : "No active advisory yet. Your planting needs to be recorded first."}
@@ -158,13 +199,23 @@ export default function AdvisoryDetailScreen() {
             </View>
           )}
 
-          <AnimoText variant="h3" color={AnimoColors.black} style={styles.sectionHeader}>
+          <AnimoText
+            variant="h3"
+            color={AnimoColors.black}
+            style={styles.sectionHeader}
+          >
             {isTagalog ? "Mga nakaraang payo" : "Past Advisories"}
           </AnimoText>
 
           {history.length === 0 ? (
-            <AnimoText variant="body" color={AnimoColors.muted} style={styles.emptyHistoryText}>
-              {isTagalog ? "Wala pang naitalang payo." : "No advisory history recorded."}
+            <AnimoText
+              variant="body"
+              color={AnimoColors.muted}
+              style={styles.emptyHistoryText}
+            >
+              {isTagalog
+                ? "Wala pang naitalang payo."
+                : "No advisory history recorded."}
             </AnimoText>
           ) : (
             <>
@@ -185,11 +236,16 @@ export default function AdvisoryDetailScreen() {
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => setShowAllHistory((v) => !v)}
-                  style={styles.viewAllButton}>
+                  style={styles.viewAllButton}
+                >
                   <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
                     {showAllHistory
-                      ? (isTagalog ? "Ipakita ang Kaunti" : "Show Less")
-                      : (isTagalog ? "Tingnan Lahat" : "View All")}
+                      ? isTagalog
+                        ? "Ipakita ang Kaunti"
+                        : "Show Less"
+                      : isTagalog
+                        ? "Tingnan Lahat"
+                        : "View All"}
                   </AnimoText>
                 </Pressable>
               ) : null}
@@ -216,7 +272,9 @@ function ActiveAdvisoryCard({
 }) {
   const issuedAt = advisory.forecastFetchedAt || advisory.dateIssued;
   const rainIsHeavy = advisory.recommendedAction !== "No_Action_Needed";
-  const chevronTurn = useRef(new Animated.Value(showDisclaimer ? 1 : 0)).current;
+  const chevronTurn = useRef(
+    new Animated.Value(showDisclaimer ? 1 : 0),
+  ).current;
 
   useEffect(() => {
     Animated.timing(chevronTurn, {
@@ -241,12 +299,30 @@ function ActiveAdvisoryCard({
       </View>
       <View style={styles.activeBody}>
         <View style={styles.metaRow}>
-          <AnimoText variant="caption" color={AnimoColors.muted} style={styles.metaDate}>
+          <AnimoText
+            variant="caption"
+            color={AnimoColors.muted}
+            style={styles.metaDate}
+          >
             {formatIssuedAt(issuedAt, isTagalog)}
           </AnimoText>
-          <View style={[styles.statusBadge, advisory.isStale && styles.statusBadgeStale]}>
-            <AnimoText variant="tag" color={advisory.isStale ? AdvisoryOrange : AnimoColors.green}>
-              {advisory.isStale ? (isTagalog ? "Luma" : "Stale") : (isTagalog ? "Sariwa" : "Fresh")}
+          <View
+            style={[
+              styles.statusBadge,
+              advisory.isStale && styles.statusBadgeStale,
+            ]}
+          >
+            <AnimoText
+              variant="tag"
+              color={advisory.isStale ? AdvisoryOrange : AnimoColors.green}
+            >
+              {advisory.isStale
+                ? isTagalog
+                  ? "Luma"
+                  : "Stale"
+                : isTagalog
+                  ? "Sariwa"
+                  : "Fresh"}
             </AnimoText>
           </View>
         </View>
@@ -256,19 +332,37 @@ function ActiveAdvisoryCard({
           {actionLabel(advisory.recommendedAction, language)}
         </AnimoText>
 
-        <Image source={ADVISORY_BANNERS[advisory.recommendedAction]} style={styles.banner} resizeMode="cover" />
+        <Image
+          source={ADVISORY_BANNERS[advisory.recommendedAction]}
+          style={styles.banner}
+          resizeMode="cover"
+        />
 
         <View style={styles.statsRow}>
           <View style={styles.statTile}>
-              <View style={styles.statTileIcon}>
+            <View style={styles.statTileIcon}>
               <Sprout size={20} color={AnimoColors.muted} />
             </View>
             <View>
-              <AnimoText variant="tag" color={AnimoColors.muted} style={styles.statLabel}>
+              <AnimoText
+                variant="tag"
+                color={AnimoColors.muted}
+                style={styles.statLabel}
+              >
                 {isTagalog ? "Antas ng Pagkahinog" : "Ripeness Level"}
               </AnimoText>
-              <AnimoText variant="h1" color={AnimoColors.black} style={styles.statValue}>
-                {Math.round(ripenessPct(advisory.plantingDate, advisory.riceTypeCategory) * 100)}%
+              <AnimoText
+                variant="h1"
+                color={AnimoColors.black}
+                style={styles.statValue}
+              >
+                {Math.round(
+                  ripenessPct(
+                    advisory.plantingDate,
+                    advisory.riceTypeCategory,
+                  ) * 100,
+                )}
+                %
               </AnimoText>
             </View>
           </View>
@@ -277,10 +371,18 @@ function ActiveAdvisoryCard({
               <CloudRain size={20} color={AnimoColors.muted} />
             </View>
             <View>
-              <AnimoText variant="tag" color={AnimoColors.muted} style={styles.statLabel}>
+              <AnimoText
+                variant="tag"
+                color={AnimoColors.muted}
+                style={styles.statLabel}
+              >
                 {isTagalog ? "Inaasahang Ulan" : "Expected Rain"}
               </AnimoText>
-              <AnimoText variant="h2" color={rainIsHeavy ? AdvisoryOrange : AnimoColors.black} style={styles.statValue}>
+              <AnimoText
+                variant="h2"
+                color={rainIsHeavy ? AdvisoryOrange : AnimoColors.black}
+                style={styles.statValue}
+              >
                 {advisory.precipitationMmH.toFixed(1)}
               </AnimoText>
             </View>
@@ -291,8 +393,13 @@ function ActiveAdvisoryCard({
           accessibilityRole="button"
           onPress={toggleDisclaimer}
           style={styles.disclaimerToggle}
-          hitSlop={8}>
-          <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.disclaimerLabel}>
+          hitSlop={8}
+        >
+          <AnimoText
+            variant="body"
+            color={AnimoColors.blackSecondary}
+            style={styles.disclaimerLabel}
+          >
             {isTagalog ? "Paano ito kinakalkula?" : "How is this computed?"}
           </AnimoText>
           <Animated.View
@@ -308,12 +415,17 @@ function ActiveAdvisoryCard({
                   },
                 ],
               },
-            ]}>
+            ]}
+          >
             <ChevronDown size={18} color={AnimoColors.muted} />
           </Animated.View>
         </Pressable>
         {showDisclaimer ? (
-          <AnimoText variant="caption" color={AnimoColors.muted} style={styles.disclaimer}>
+          <AnimoText
+            variant="caption"
+            color={AnimoColors.muted}
+            style={styles.disclaimer}
+          >
             {isTagalog
               ? "Batay ito sa isang simpleng panuntunan (antas ng pagkahinog + inaasahang ulan), hindi isang AI prediction. Hindi rin ito sumasalamin sa kondisyon ng lupa o pagbaha sa bukid."
               : "Based on agricultural guidelines (ripeness level + expected precipitation), not an AI prediction. Does not reflect soil condition or field flooding."}
@@ -350,7 +462,9 @@ function PastAdvisoryRow({
         </AnimoText>
         <AnimoText variant="caption" color={AnimoColors.muted}>
           {formatHistoryDate(entry.dateIssued, isTagalog)}
-          {showPlantingTag && entry.plantingDate ? ` · ${isTagalog ? "Tinanim" : "Planted"} ${formatShortDate(entry.plantingDate, isTagalog)}` : ""}
+          {showPlantingTag && entry.plantingDate
+            ? ` · ${isTagalog ? "Tinanim" : "Planted"} ${formatShortDate(entry.plantingDate, isTagalog)}`
+            : ""}
         </AnimoText>
       </View>
     </View>
@@ -362,7 +476,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AnimoColors.surfaceSecondary,
   },
-  centerState: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: AnimoSpacing.xl },
+  centerState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: AnimoSpacing.xl,
+  },
   centerText: { textAlign: "center" },
   content: {
     paddingBottom: AnimoSpacing.xxl,
@@ -421,9 +540,9 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.white,
     borderWidth: 1,
     borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.lg,
-    paddingVertical: AnimoSpacing.lg,
-    paddingHorizontal: AnimoSpacing.lg,
+    borderRadius: AnimoRadius.md,
+    paddingVertical: AnimoSpacing.md,
+    paddingHorizontal: AnimoSpacing.md,
     // alignItems: "flex-",
   },
   statTileIcon: {
@@ -432,14 +551,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: AnimoColors.surfaceTertiary,
     alignItems: "center",
-    justifyContent: "center",  
+    justifyContent: "center",
   },
   statValue: {
     fontSize: 20,
     lineHeight: 24,
   },
   statLabel: {
-    textAlign: "center",
+    textAlign: "left",
   },
   statusBadge: {
     backgroundColor: AnimoColors.greenTint,

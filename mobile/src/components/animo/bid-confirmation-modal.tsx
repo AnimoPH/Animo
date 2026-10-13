@@ -7,6 +7,7 @@ import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useCountdownTo } from '@/hooks/use-countdown-to';
 import { useLanguage } from '@/hooks/use-language';
+import { cancelPurchaseRequestFailureMessage } from '@/services/purchase-request-service';
 
 const SUCCESS_HOLD_MS = 1600; // how long the success message shows before redirect
 
@@ -71,15 +72,7 @@ export function BidConfirmationModal({
     try {
       await onCancel();
     } catch (error) {
-      // The deadline may have lapsed server-side between the last tick and
-      // this tap — surface it and let the countdown's own effect take over.
-      setCancelError(
-        error instanceof Error
-          ? error.message
-          : isTagalog
-            ? 'Hindi makansela ang request.'
-            : 'Could not cancel request.',
-      );
+      setCancelError(cancelPurchaseRequestFailureMessage(error));
       setPhase('counting');
     }
   };

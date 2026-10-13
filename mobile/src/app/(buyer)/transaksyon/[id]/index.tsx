@@ -1,12 +1,14 @@
+import NetInfo from '@react-native-community/netinfo';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Check, Clock, Info, XCircle } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { Check, Clock, Info, X, XCircle } from 'lucide-react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
+import { CancelRequestModal } from '@/components/animo/cancel-request-modal';
 import { FarmerCard, LockedFarmerCard } from '@/components/animo/farmer-card';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
@@ -14,7 +16,11 @@ import { TransactionStatusRow, TransactionSummaryCard } from '@/components/animo
 import { BackHeader } from '@/components/animo/back-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { fetchCropListing } from '@/services/crop-listing-service';
-import { fetchPurchaseRequest } from '@/services/purchase-request-service';
+import {
+  cancelPurchaseRequest,
+  cancelPurchaseRequestFailureMessage,
+  fetchPurchaseRequest,
+} from '@/services/purchase-request-service';
 import {
   fetchTransactionByRequestId,
   fetchTransactionCounterpart,
@@ -25,6 +31,7 @@ import { useLanguage } from '@/hooks/use-language';
 import {
   DISPLAY_STAGE_TONE,
   buildProgressSteps,
+  cancelPolicy,
   deriveDisplayStage,
   formatReferenceId,
   getDisplayStageLabel,
@@ -50,6 +57,9 @@ export default function TransactionStatusScreen() {
   const [counterpart, setCounterpart] = useState<TransactionCounterpart | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const cancelBusy = useRef(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -122,6 +132,31 @@ export default function TransactionStatusScreen() {
   }
 
   const isDead = stage === 'request_rejected' || stage === 'request_cancelled';
+  const isPending = stage === 'request_pending';
+  const policy = cancelPolicy(outcome);
+
+  const handleConfirmCancel = async () => {
+    if (!id || cancelBusy.current) return;
+    const net = await NetInfo.fetch();
+    if (net.isConnected === false || net.isInternetReachable === false) {
+      setCancelError('Kailangan ng internet para kanselahin ang request.');
+      setConfirmingCancel(false);
+      return;
+    }
+    cancelBusy.current = true;
+    setCancelError(null);
+    try {
+      await cancelPurchaseRequest(id);
+      setConfirmingCancel(false);
+      await load();
+    } catch (error) {
+      setCancelError(cancelPurchaseRequestFailureMessage(error));
+      setConfirmingCancel(false);
+      await load();
+    } finally {
+      cancelBusy.current = false;
+    }
+  };
   const quantityKg = outcome.kind === 'matched' ? outcome.transaction.quantityKg : outcome.request.requestedQuantityKg;
   const total = outcome.kind === 'matched' ? requestTotal(outcome) : (listing?.pricePerKg ?? 0) * quantityKg;
   const pricePerKg = outcome.kind === 'matched' ? outcome.transaction.agreedPricePerKg : (listing?.pricePerKg ?? 0);
@@ -160,7 +195,43 @@ export default function TransactionStatusScreen() {
         ) : null}
       </ScrollView>
 
-      {isDead ? <StageFooter isTagalog={isTagalog} /> : null}
+      {isPending ? (
+        <View style={styles.footerStack}>
+          {cancelError ? (
+            <AnimoText variant="caption" color={AnimoColors.danger}>
+              {cancelError}
+            </AnimoText>
+          ) : null}
+          <AnimoButton
+            label="Kanselahin ang Request"
+            variant="dangerOutline"
+            icon={X}
+            onPress={() => {
+              setCancelError(null);
+              setConfirmingCancel(true);
+            }}
+          />
+        </View>
+      ) : null}
+
+      {isDead ? (
+        <StageFooter
+          isTagalog={isTagalog}
+          listingId={outcome.request.listingId}
+          showOrderAgain={outcome.request.status === 'Cancelled'}
+        />
+      ) : null}
+
+      <CancelRequestModal
+        visible={confirmingCancel}
+        title={policy.title}
+        body={policy.body}
+        consequences={policy.consequences}
+        confirmLabel={policy.confirmLabel}
+        dismissLabel="Huwag ituloy"
+        onDismiss={() => setConfirmingCancel(false)}
+        onConfirm={handleConfirmCancel}
+      />
     </SafeAreaView>
   );
 }
@@ -217,13 +288,33 @@ function StageBanner({
   );
 }
 
-/** Footer for a rejected or cancelled request. A pending request has no action here. */
-function StageFooter({ isTagalog }: { isTagalog: boolean }) {
+/** Footer for a rejected or cancelled request. Pending cancel lives on the screen footer. */
+function StageFooter({
+  isTagalog,
+  listingId,
+  showOrderAgain,
+}: {
+  isTagalog: boolean;
+  listingId: string;
+  showOrderAgain: boolean;
+}) {
   return (
     <View style={styles.footerStack}>
+      {showOrderAgain ? (
+        <AnimoButton
+          label="Mag-order muli"
+          onPress={() =>
+            router.push({
+              pathname: '/(buyer)/palengke/buy',
+              params: { id: listingId },
+            })
+          }
+        />
+      ) : null}
       <AnimoButton
         label={isTagalog ? 'Mag-browse ng Ibang Listing' : 'Browse Other Listings'}
-        icon={Check}
+        icon={showOrderAgain ? undefined : Check}
+        variant={showOrderAgain ? 'secondary' : 'primary'}
         onPress={() => router.replace('/(buyer)/palengke')}
       />
       <AnimoButton

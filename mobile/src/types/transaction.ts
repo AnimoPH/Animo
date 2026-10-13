@@ -394,36 +394,24 @@ export type CancelPolicy = {
   triggerLabel: string;
 };
 
-export function cancelPolicy(outcome: PurchaseOutcome, now: number = Date.now(), lang: 'tl' | 'en' = 'tl'): CancelPolicy {
+export function cancelPolicy(outcome: PurchaseOutcome, _now: number = Date.now(), lang: 'tl' | 'en' = 'tl'): CancelPolicy {
   const isEn = lang === 'en';
   const stage = deriveDisplayStage(outcome);
 
   if (stage === 'request_pending') {
-    const deadline = outcome.request.cancelDeadline;
-    const withinWindow = !!deadline && now < new Date(deadline).getTime();
-    return withinWindow
-      ? {
-          allowed: true,
-          title: isEn ? 'Cancel request?' : 'Kanselahin ang request?',
-          body: isEn ? 'The farmer has not yet accepted this request, so you will not be charged.' : 'Hindi pa tinatanggap ng magsasaka ang request na ito, kaya wala kang babayaran.',
-          consequences: isEn ? [
-            'No penalty or cancellation fee.',
-            'You can place a request again anytime.',
-          ] : [
-            'Walang parusa o bayad sa pagkansela.',
-            'Maaari kang mag-request muli anumang oras.',
-          ],
-          confirmLabel: isEn ? 'Cancel Request' : 'Kanselahin ang Request',
-          triggerLabel: isEn ? 'Cancel Request' : 'Kanselahin ang Request',
-        }
-      : {
-          allowed: false,
-          title: isEn ? 'Cancellation expired' : 'Nag-expire na ang pagkansela',
-          body: isEn ? 'The 30-second window to independently cancel this request has expired.' : 'Lumipas na ang 30-segundong window para kanselahin nang mag-isa ang request na ito.',
-          consequences: [],
-          confirmLabel: '',
-          triggerLabel: '',
-        };
+    // Pending copy is Tagalog only. The 30-second cancel_deadline is the
+    // free period, not a cutoff, so this stage stays cancellable.
+    return {
+      allowed: true,
+      title: 'Kanselahin ang request?',
+      body: 'Hindi pa tinatanggap ng magsasaka ang purchase request na ito, kaya wala kang babayaran.',
+      consequences: [
+        'Walang parusa o bayad sa pagkansela.',
+        'Maaari kang magpadala ng bagong purchase request na may tamang kilo.',
+      ],
+      confirmLabel: 'Kanselahin ang Request',
+      triggerLabel: 'Kanselahin ang Request',
+    };
   }
 
   if (stage === 'awaiting_payment') {

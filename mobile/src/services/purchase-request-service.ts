@@ -20,10 +20,11 @@ export type PurchaseRequestRow = {
   submitted_at: string;
   updated_at: string;
   cancel_deadline: string | null;
+  cancelled_at: string | null;
 };
 
 export const PURCHASE_REQUEST_COLUMNS =
-  'request_id, listing_id, buyer_id, requested_quantity_kg, status, accepted_quantity_kg, submitted_at, updated_at, cancel_deadline' as const;
+  'request_id, listing_id, buyer_id, requested_quantity_kg, status, accepted_quantity_kg, submitted_at, updated_at, cancel_deadline, cancelled_at' as const;
 
 export function mapPurchaseRequest(row: PurchaseRequestRow): PurchaseRequest {
   return {
@@ -36,6 +37,7 @@ export function mapPurchaseRequest(row: PurchaseRequestRow): PurchaseRequest {
     submittedAt: row.submitted_at,
     updatedAt: row.updated_at,
     cancelDeadline: row.cancel_deadline,
+    cancelledAt: row.cancelled_at,
   };
 }
 
@@ -203,6 +205,58 @@ export async function fetchPurchaseRequestRollupByListing(): Promise<{
   return { pendingCounts, latestUpdatedAt };
 }
 
+function errorText(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+    return error.message;
+  }
+  return '';
+}
+
+/**
+ * Tagalog copy for a failed cancel. The database text is only used to choose
+ * the message; it is never returned.
+ */
+export function cancelPurchaseRequestFailureMessage(error: unknown): string {
+  const message = errorText(error).toLowerCase();
+  if (message.includes('account is suspended')) {
+    return 'Hindi makansela ang request dahil na-suspend ang account.';
+  }
+  if (message.includes('could not be cancelled')) {
+    return 'Hindi na makansela ang request. Maaaring tinanggap na o nakansela na ito.';
+  }
+  return 'Hindi makansela ang request. Subukan muli.';
+}
+
+/** True when accept lost because the request is no longer Pending. */
+export function isPurchaseRequestNoLongerPending(error: unknown): boolean {
+  return errorText(error).toLowerCase().includes('no longer pending');
+}
+
+/**
+ * Tagalog copy for a failed accept, other than a request that is no longer
+ * pending. The database text is only used to choose the message.
+ */
+export function acceptPurchaseRequestFailureMessage(error: unknown): string {
+  const message = errorText(error).toLowerCase();
+  if (message.includes('account is suspended')) {
+    return 'Hindi matanggap ang kahilingan dahil na-suspend ang account.';
+  }
+  if (message.includes('not found')) {
+    return 'Hindi nahanap ang kahilingan.';
+  }
+  if (message.includes('not authorized')) {
+    return 'Hindi ka pinahihintulutang tanggapin ang kahilingang ito.';
+  }
+  if (message.includes('greater than zero')) {
+    return 'Dapat mas malaki sa 0 ang tatanggaping dami.';
+  }
+  if (message.includes('cannot exceed') || message.includes('exceeds remaining')) {
+    return 'Mas malaki ang tatanggaping dami kaysa sa hinihiling o sa natitirang palay.';
+  }
+  return 'Hindi matanggap ang kahilingan.';
+}
+
 /** Farmer accepts (fully or partially) a pending request. Returns the new transaction_id. */
 export async function acceptPurchaseRequest(requestId: string, acceptedQuantityKg: number): Promise<string> {
   if (!(acceptedQuantityKg > 0)) {
@@ -224,7 +278,10 @@ export async function rejectPurchaseRequest(requestId: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Buyer cancels their own still-pending request, only inside the server-set cancel_deadline. */
+/**
+ * Buyer cancels their own still-pending purchase request. Allowed until the
+ * farmer accepts. `cancel_deadline` is the free period, not a cutoff.
+ */
 export async function cancelPurchaseRequest(requestId: string): Promise<void> {
   const { error } = await supabase.rpc('cancel_purchase_request', { p_request_id: requestId });
   if (error) throw error;
