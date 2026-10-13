@@ -1,3 +1,4 @@
+import NetInfo from '@react-native-community/netinfo';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
@@ -26,9 +27,15 @@ import { ProgressTracker } from '@/components/animo/progress-tracker';
 import { BackHeader } from '@/components/animo/back-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { GCASH_REF_FORMAT_MESSAGE, GCASH_REF_LENGTH, isValidGcashReference } from '@/constants/payment';
 import { fetchCropListing } from '@/services/crop-listing-service';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
-import { cancelTransaction as cancelTransactionRpc, fetchTransactionByRequestId, recordPayment } from '@/services/transaction-service';
+import {
+  cancelTransaction as cancelTransactionRpc,
+  fetchTransactionByRequestId,
+  recordPayment,
+  recordPaymentFailureMessage,
+} from '@/services/transaction-service';
 import { useLanguage } from '@/hooks/use-language';
 import type { CropListing } from '@/types/crop-listing';
 import { buildProgressSteps, cancelPolicy, formatReferenceId, requestTotal, type PaymentMode, type PurchaseOutcome } from '@/types/transaction';
@@ -151,31 +158,36 @@ export default function PaymentScreen() {
     setReceiptUri(result.assets[0].uri);
   };
 
-  const isGcashValid = method !== 'GCash' || gcashReference.trim().length >= 6;
+  const isGcashValid = method !== 'GCash' || isValidGcashReference(gcashReference);
+  const showGcashError = method === 'GCash' && gcashReference.length > 0 && !isValidGcashReference(gcashReference);
   const canContinue = actualAmountNum > 0 && isGcashValid && !submitting;
 
   const handleContinue = async () => {
+    if (!isGcashValid) {
+      setSubmitError(GCASH_REF_FORMAT_MESSAGE);
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
     try {
+      // No offline queue: the payment is only recorded with a live connection.
+      const net = await NetInfo.fetch();
+      if (net.isConnected === false || net.isInternetReachable === false) {
+        setSubmitError('Kailangan ng internet para maitala ang bayad.');
+        return;
+      }
       const paymentId = await recordPayment(
         transaction.id,
         method,
         actualAmountNum,
-        method === 'GCash' ? gcashReference.trim() : undefined,
+        method === 'GCash' ? gcashReference : undefined,
       );
       router.push({
         pathname: `/(buyer)/transaksyon/${outcome.request.id}/kumpirmasyon` as any,
         params: { paymentId },
       });
     } catch (e) {
-      setSubmitError(
-        e instanceof Error
-          ? e.message
-          : isTagalog
-            ? 'Hindi maitala ang bayad.'
-            : 'Failed to record payment.',
-      );
+      setSubmitError(recordPaymentFailureMessage(e));
     } finally {
       setSubmitting(false);
     }
@@ -291,14 +303,20 @@ export default function PaymentScreen() {
 
               <LabeledInput
                 label="GCash Reference Number"
-                placeholder={isTagalog ? 'Hal. 1002 9384 7182 9' : 'Ex. 1002 9384 7182 9'}
-                keyboardType="numeric"
+                placeholder={isTagalog ? 'Hal. 1002938471829' : 'Ex. 1002938471829'}
+                keyboardType="number-pad"
+                maxLength={GCASH_REF_LENGTH}
                 value={gcashReference}
-                onChangeText={setGcashReference}
+                onChangeText={(t) => setGcashReference(t.replace(/[^0-9]/g, ''))}
+                suffixText={`${gcashReference.length}/${GCASH_REF_LENGTH}`}
+                error={showGcashError}
+                hintTone={showGcashError ? 'danger' : 'muted'}
                 hint={
-                  isTagalog
-                    ? 'Ilagay ang reference number mula sa natanggap na resibo ng GCash.'
-                    : 'Enter the reference number from the GCash transaction receipt.'
+                  showGcashError
+                    ? GCASH_REF_FORMAT_MESSAGE
+                    : isTagalog
+                      ? 'Ilagay ang reference number mula sa natanggap na resibo ng GCash.'
+                      : 'Enter the reference number from the GCash transaction receipt.'
                 }
               />
 
