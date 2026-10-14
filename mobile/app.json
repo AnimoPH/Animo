@@ -20,7 +20,8 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "package": "com.mnrdsnts.animo"
     },
     "web": {
       "output": "single",
@@ -45,11 +46,24 @@
           "photosPermission": "Kailangan ng ANIMO ang access sa iyong mga larawan para mag-attach ng litrato ng iyong palay sa listing.",
           "cameraPermission": "Kailangan ng ANIMO ang access sa camera para kumuha ng litrato ng iyong palay para sa listing."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#208AEF"
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9855913f-0277-4946-a62a-e3f990b7eb1a"
+      }
+    },
+    "owner": "mnrdsnts"
   }
 }

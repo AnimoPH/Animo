@@ -1,9 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import { router } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import { fetchMyProfile, signOut as signOutRequest } from '@/services/auth-service';
 import { supabase } from '@/lib/supabase';
+import { clearPushToken, registerPushToken } from '@/services/push-registration';
 import type { Account, SessionStatus } from '@/types/auth';
 
 /**
@@ -58,6 +61,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         if (lastActiveAt !== null && Date.now() - lastActiveAt > SESSION_IDLE_LIMIT_MS) {
           // Idle past the 30-day window — force a fresh login even though the
           // refresh token might still technically be valid.
+          if (sessionData.session.user?.id) await clearPushToken(sessionData.session.user.id);
           await signOutRequest().catch(() => {});
           await AsyncStorage.removeItem(LAST_ACTIVE_KEY);
           setStatus('guest');
@@ -109,12 +113,38 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     };
   }, [hydrate]);
 
+  // Save the Expo push token once the account is signed in.
+  const accountId = account?.id ?? null;
+  useEffect(() => {
+    if (status !== 'authenticated' || !accountId) return;
+    registerPushToken(accountId);
+  }, [status, accountId]);
+
+  // Tapping a notification opens the in-app inbox for the signed-in role.
+  const role = account?.role ?? null;
+  const coldStartHandled = useRef(false);
+  useEffect(() => {
+    if (!role) return;
+    const inbox = role === 'magsasaka' ? '/(farmer)/notipikasyon' : '/(buyer)/notipikasyon';
+    const subscription = Notifications.addNotificationResponseReceivedListener(() => {
+      router.push(inbox);
+    });
+    if (!coldStartHandled.current) {
+      coldStartHandled.current = true;
+      Notifications.getLastNotificationResponseAsync().then((response) => {
+        if (response) router.push(inbox);
+      });
+    }
+    return () => subscription.remove();
+  }, [role]);
+
   const signOut = useCallback(async () => {
+    if (account) await clearPushToken(account.id);
     await signOutRequest();
     await AsyncStorage.removeItem(LAST_ACTIVE_KEY);
     setStatus('guest');
     setAccount(null);
-  }, []);
+  }, [account]);
 
   return (
     <SessionContext.Provider
