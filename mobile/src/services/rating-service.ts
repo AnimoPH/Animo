@@ -20,10 +20,11 @@ export type RatingRow = {
   rated_id: string;
   score: number;
   comment: string | null;
+  flagged_word_hit: boolean;
 };
 
 export const RATING_COLUMNS =
-  'rating_id, transaction_id, rater_id, rated_id, score, comment' as const;
+  'rating_id, transaction_id, rater_id, rated_id, score, comment, flagged_word_hit' as const;
 
 export function mapRating(row: RatingRow): Rating {
   return {
@@ -33,6 +34,7 @@ export function mapRating(row: RatingRow): Rating {
     ratedId: row.rated_id,
     score: Number(row.score),
     comment: row.comment,
+    flaggedWordHit: Boolean(row.flagged_word_hit),
   };
 }
 

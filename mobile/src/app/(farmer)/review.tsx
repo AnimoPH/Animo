@@ -59,6 +59,7 @@ export default function ReviewBuyerScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [reviewFlagged, setReviewFlagged] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -108,12 +109,13 @@ export default function ReviewBuyerScreen() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await submitRating({
+      const saved = await submitRating({
         transactionId: transaction.id,
         ratedId: transaction.buyerId,
         score: overallRating,
         comment,
       });
+      setReviewFlagged(saved.flaggedWordHit);
       setShowSuccessModal(true);
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Hindi naisumite ang review.');
@@ -239,7 +241,10 @@ export default function ReviewBuyerScreen() {
         visible={showSuccessModal}
         tone="success"
         title="Salamat sa Review!"
-        message={`Matagumpay na naitala ang iyong marka at komento para kay ${buyerName}.`}
+        message={
+          `Matagumpay na naitala ang iyong marka at komento para kay ${buyerName}.` +
+          (reviewFlagged ? ' Na-flag ang komento para sa LGU dahil sa ginamit na salita.' : '')
+        }
         confirmLabel="Bumalik sa Transaksyon"
         onConfirm={() => {
           setShowSuccessModal(false);

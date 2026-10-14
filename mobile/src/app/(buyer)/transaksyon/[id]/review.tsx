@@ -71,6 +71,7 @@ export default function ReviewFarmerScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [reviewFlagged, setReviewFlagged] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -136,12 +137,13 @@ export default function ReviewFarmerScreen() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await submitRating({
+      const saved = await submitRating({
         transactionId: outcome.transaction.id,
         ratedId: outcome.transaction.farmerId,
         score: overallRating,
         comment,
       });
+      setReviewFlagged(saved.flaggedWordHit);
       setShowSuccessModal(true);
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : (isTagalog ? 'Hindi naisumite ang review.' : 'Failed to submit review.'));
@@ -267,9 +269,14 @@ export default function ReviewFarmerScreen() {
         tone="success"
         title={isTagalog ? 'Salamat sa Review!' : 'Thank You for the Review!'}
         message={
-          isTagalog
+          (isTagalog
             ? `Matagumpay na naitala ang iyong marka at komento para kay ${farmerName}.`
-            : `Your rating and comment for ${farmerName} have been recorded successfully.`
+            : `Your rating and comment for ${farmerName} have been recorded successfully.`) +
+          (reviewFlagged
+            ? isTagalog
+              ? ' Na-flag ang komento para sa LGU dahil sa ginamit na salita.'
+              : ' The comment was flagged for the LGU because of a word it used.'
+            : '')
         }
         confirmLabel={isTagalog ? 'Bumalik sa Transaksyon' : 'Back to Transactions'}
         onConfirm={() => {
