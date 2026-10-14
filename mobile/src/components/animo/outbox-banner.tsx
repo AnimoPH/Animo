@@ -11,6 +11,7 @@ import { useOutboxItems } from '@/hooks/use-outbox-items';
 import { useSession } from '@/hooks/use-session';
 import { flushOutbox, removeOutboxItem, resendListingWithPrice, type OutboxItem } from '@/lib/outbox';
 import { deleteOutboxPhotos } from '@/lib/outbox/photo-files';
+import { refusalReason } from '@/lib/outbox/refusal-reason';
 
 /** "price changed: 18.83" -> 18.83 */
 function newPriceFrom(item: OutboxItem): number | null {
@@ -89,9 +90,9 @@ export function OutboxBanner() {
               ? isTagalog
                 ? `Habang offline ka, nagbago ang presyo. Ang bagong presyo ay ${formatPeso(stuckPrice)}/kg. Ipadala pa rin ang listing sa presyong ito?`
                 : `The price changed while you were offline. The new price is ${formatPeso(stuckPrice)}/kg. Send the listing at this price?`
-              : isTagalog
-                ? 'Tinanggihan ng server ang naka-save na aksyon. Alisin ito at subukan muli.'
-                : 'The server refused the saved action. Remove it and try again.'
+              : `${refusalReason(stuck.lastError, isTagalog)} ${
+                  isTagalog ? 'Alisin ito at subukan muli kung kailangan.' : 'Remove it and try again if you still need it.'
+                }`
           }
           confirmLabel={
             stuck.status === 'needs_review' && stuckPrice !== null
