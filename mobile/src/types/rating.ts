@@ -5,6 +5,7 @@ export type Rating = {
   ratedId: string;
   score: number;
   comment: string | null;
+  flaggedWordHit: boolean;
 };
 
 export type SubmitRatingInput = {
