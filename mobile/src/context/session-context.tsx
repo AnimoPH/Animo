@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
+import { useOutboxFlush } from '@/hooks/use-outbox-flush';
 import { fetchMyProfile, signOut as signOutRequest } from '@/services/auth-service';
 import { supabase } from '@/lib/supabase';
 import type { Account, SessionStatus } from '@/types/auth';
@@ -108,6 +109,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       appStateListener.remove();
     };
   }, [hydrate]);
+
+  useOutboxFlush(status === 'authenticated' ? (account?.id ?? null) : null);
 
   const signOut = useCallback(async () => {
     await signOutRequest();
