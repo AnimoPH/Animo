@@ -6,6 +6,9 @@
 #
 #   cd mobile/supabase && ./tests/run.sh [test-file.sql ...]
 #
+# A test file can start with "-- requires: 0042" and is skipped, not failed,
+# while that migration is not in migrations/ yet.
+#
 # Needs the local stack (npx supabase start). Set SUPABASE_DB_CONTAINER if the
 # container is not named supabase_db_mobile. Never run this against hosted.
 set -euo pipefail
@@ -29,6 +32,11 @@ files=("$@")
 total_pass=0; total_fail=0
 for t in "${files[@]}"; do
   [ "$(basename "$t")" = "00_fixtures.sql" ] && continue
+  need="$(sed -n 's/^-- requires: *\([0-9]*\).*/\1/p' "$t" | head -1)"
+  if [ -n "$need" ] && ! ls migrations/"$need"_*.sql >/dev/null 2>&1; then
+    echo "== $(basename "$t"): SKIPPED (needs migration $need)"
+    continue
+  fi
   out="$({ echo 'begin;'; [ -n "$pending" ] && cat $pending; cat tests/00_fixtures.sql "$t"; echo 'rollback;'; } | psql_admin 2>&1 || true)"
   pass="$(grep -c 'NOTICE:  PASS' <<<"$out" || true)"
   fail="$(grep -cE 'ERROR:|FAIL' <<<"$out" || true)"
