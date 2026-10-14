@@ -31,6 +31,8 @@ import {
 import { BackHeader } from '@/components/animo/back-header';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
+import { useSession } from '@/hooks/use-session';
+import { isOnlineNow, isSignalError, saveFarmerConfirmOffline } from '@/lib/outbox/enqueue-actions';
 import { fetchCropListing } from '@/services/crop-listing-service';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import {
@@ -80,6 +82,8 @@ export default function FarmerTransactionDetailScreen() {
   const [confirm, setConfirm] = useState<ConfirmKind>(null);
   const [actionConfirmType, setActionConfirmType] = useState<ActionConfirmType>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [savedOffline, setSavedOffline] = useState(false);
+  const { account } = useSession();
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showCancelSuccessModal, setShowCancelSuccessModal] = useState(false);
 
@@ -120,8 +124,18 @@ export default function FarmerTransactionDetailScreen() {
     setActionConfirmType(null);
     if (!transaction) return;
     setActionError(null);
+    const saveOffline = async () => {
+      if (!account || !transaction.payment) return false;
+      await saveFarmerConfirmOffline(account.id, transaction.payment.id);
+      setSavedOffline(true);
+      return true;
+    };
     try {
       if (type === 'confirm_payment' && transaction.payment) {
+        if (!(await isOnlineNow())) {
+          await saveOffline();
+          return;
+        }
         await confirmPaymentReceived(transaction.payment.id);
         setConfirm('payment_received');
       } else if (type === 'confirm_delivered') {
@@ -130,6 +144,8 @@ export default function FarmerTransactionDetailScreen() {
       }
       await load();
     } catch (e) {
+      // The signal dropped before the confirm reached the server: keep it instead of losing it.
+      if (type === 'confirm_payment' && isSignalError(e) && (await saveOffline().catch(() => false))) return;
       setActionError(e instanceof Error ? e.message : (isTagalog ? 'Hindi naisagawa ang aksyon.' : 'Action failed.'));
     }
   };
@@ -351,6 +367,22 @@ export default function FarmerTransactionDetailScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <FeedbackModal
+        visible={savedOffline}
+        tone="info"
+        title={isTagalog ? 'Na-save sa phone' : 'Saved on this phone'}
+        message={
+          isTagalog
+            ? 'Walang signal kaya naka-save ang kumpirmasyon ng bayad sa phone. Ipapadala ito isang beses pagbalik ng signal.'
+            : 'There is no signal, so the payment confirmation is saved on this phone. It is sent once when the signal returns.'
+        }
+        confirmLabel={isTagalog ? 'Sige' : 'OK'}
+        onConfirm={() => {
+          setSavedOffline(false);
+          router.replace('/(farmer)/(tabs)/transaksyon');
+        }}
+      />
 
       <FeedbackModal
         visible={showCancelSuccessModal}

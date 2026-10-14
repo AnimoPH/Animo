@@ -134,7 +134,10 @@ export async function fetchCropListing(id: string): Promise<CropListing | null> 
  * listing-verification queue (see the Aug 2026 data dictionary revision —
  * FraudDetectionRecord was dropped, and there is no 'Rejected' status).
  */
-export async function createCropListing(input: CreateCropListingInput): Promise<CropListing> {
+export async function createCropListing(
+  input: CreateCropListingInput,
+  clientRequestId?: string,
+): Promise<CropListing> {
   const farmerId = await requireAuthUserId();
 
   const netWeightKg = input.grossWeightKg - input.tareWeightKg;
@@ -152,6 +155,28 @@ export async function createCropListing(input: CreateCropListingInput): Promise<
   const specificCustom = input.specificVarietyNameCustom?.trim() || null;
   if (input.specificVarietyName === SPECIFIC_VARIETY_OTHER && !specificCustom) {
     throw new Error('Ilagay ang pangalan ng tiyak na uri ng palay.');
+  }
+
+  // With a client request id the server answers a repeat with the first listing,
+  // so a send that is cut off and retried from the outbox is not created twice.
+  if (clientRequestId) {
+    const { data, error } = await supabase.rpc('create_crop_listing', {
+      p_client_request_id: clientRequestId,
+      p_seen_price_per_kg: null,
+      p_listing_name: listingName,
+      p_declared_variety: input.declaredVariety,
+      p_declared_variety_custom: input.declaredVariety === 'Others' ? customVariety : null,
+      p_variety_code: input.varietyCode,
+      p_specific_variety_name: input.specificVarietyName ?? null,
+      p_specific_variety_name_custom:
+        input.specificVarietyName === SPECIFIC_VARIETY_OTHER ? specificCustom : null,
+      p_declared_moisture: input.declaredMoisture,
+      p_declared_purity_grade: input.declaredPurityGrade,
+      p_gross_weight_kg: input.grossWeightKg,
+      p_tare_weight_kg: input.tareWeightKg,
+    });
+    if (error) throw error;
+    return mapListing(data as CropListingRow);
   }
 
   const { data, error } = await supabase

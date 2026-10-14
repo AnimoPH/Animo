@@ -1,4 +1,3 @@
-import NetInfo from '@react-native-community/netinfo';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
@@ -20,6 +19,8 @@ import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { CancelRequestModal } from '@/components/animo/cancel-request-modal';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
+import { useSession } from '@/hooks/use-session';
+import { isOnlineNow, isSignalError, newRequestId, saveBuyerPaymentOffline } from '@/lib/outbox/enqueue-actions';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { PhotoSourceSheet } from '@/components/animo/photo-source-sheet';
 import { TransactionSummaryCard } from '@/components/animo/transaction-cycle-cards';
@@ -59,6 +60,10 @@ export default function PaymentScreen() {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const [savedOffline, setSavedOffline] = useState(false);
+  const [requestId] = useState(newRequestId);
+  const { account } = useSession();
 
   const [cancelling, setCancelling] = useState(false);
   const [showCancelledSuccessModal, setShowCancelledSuccessModal] = useState(false);
@@ -169,11 +174,24 @@ export default function PaymentScreen() {
     }
     setSubmitting(true);
     setSubmitError(null);
+    const saveOffline = async () => {
+      if (!account) return false;
+      await saveBuyerPaymentOffline(
+        account.id,
+        {
+          transactionId: transaction.id,
+          mode: method,
+          amount: actualAmountNum,
+          gcashReference: method === 'GCash' ? gcashReference : undefined,
+        },
+        requestId,
+      );
+      setSavedOffline(true);
+      return true;
+    };
     try {
-      // No offline queue: the payment is only recorded with a live connection.
-      const net = await NetInfo.fetch();
-      if (net.isConnected === false || net.isInternetReachable === false) {
-        setSubmitError('Kailangan ng internet para maitala ang bayad.');
+      if (!(await isOnlineNow())) {
+        await saveOffline();
         return;
       }
       const paymentId = await recordPayment(
@@ -181,12 +199,15 @@ export default function PaymentScreen() {
         method,
         actualAmountNum,
         method === 'GCash' ? gcashReference : undefined,
+        requestId,
       );
       router.push({
         pathname: `/(buyer)/transaksyon/${outcome.request.id}/kumpirmasyon` as any,
         params: { paymentId },
       });
     } catch (e) {
+      // The signal dropped before the payment reached the server: keep it instead of losing it.
+      if (isSignalError(e) && (await saveOffline().catch(() => false))) return;
       setSubmitError(recordPaymentFailureMessage(e));
     } finally {
       setSubmitting(false);
@@ -423,6 +444,22 @@ export default function PaymentScreen() {
         confirmLabel={policy.confirmLabel}
         onDismiss={() => setCancelling(false)}
         onConfirm={handleConfirmCancel}
+      />
+
+      <FeedbackModal
+        visible={savedOffline}
+        tone="info"
+        title={isTagalog ? 'Na-save sa phone' : 'Saved on this phone'}
+        message={
+          isTagalog
+            ? 'Walang signal kaya naka-save ang bayad sa phone. Itatala at ikukumpirma ito isang beses pagbalik ng signal.'
+            : 'There is no signal, so the payment is saved on this phone. It is recorded and confirmed once when the signal returns.'
+        }
+        confirmLabel={isTagalog ? 'Sige' : 'OK'}
+        onConfirm={() => {
+          setSavedOffline(false);
+          router.replace('/(buyer)/transaksyon');
+        }}
       />
 
       <FeedbackModal

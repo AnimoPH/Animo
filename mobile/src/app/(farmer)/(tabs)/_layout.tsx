@@ -1,7 +1,9 @@
 import { Redirect, Tabs, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
+import { View } from 'react-native';
 
 import { AnimoTabBar, type TabItem } from '@/components/animo/animo-tab-bar';
+import { OutboxBanner } from '@/components/animo/outbox-banner';
 import { homeRouteForRole } from '@/constants/roles';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useSession } from '@/hooks/use-session';
@@ -69,13 +71,16 @@ export default function FarmerLayout() {
   }
 
   return (
-    <Tabs
-      screenOptions={{ headerShown: false }}
-      tabBar={(props) => <AnimoTabBar {...props} items={items} />}>
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="palengke" />
-      <Tabs.Screen name="transaksyon" />
-      <Tabs.Screen name="profile" />
-    </Tabs>
+    <View style={{ flex: 1 }}>
+      <Tabs
+        screenOptions={{ headerShown: false }}
+        tabBar={(props) => <AnimoTabBar {...props} items={items} />}>
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="palengke" />
+        <Tabs.Screen name="transaksyon" />
+        <Tabs.Screen name="profile" />
+      </Tabs>
+      <OutboxBanner />
+    </View>
   );
 }
