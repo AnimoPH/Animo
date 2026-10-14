@@ -50,6 +50,7 @@
     "eslint": "^9.0.0",
     "eslint-config-expo": "~10.0.0",
     "supabase": "^2.113.0",
+    "tsx": "^4.23.15",
     "typescript": "~5.9.2"
   },
   "scripts": {
@@ -58,7 +59,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "node --import tsx --test tests/*.test.ts"
   },
   "private": true
 }
