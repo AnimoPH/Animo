@@ -19,7 +19,9 @@ import { FilterModal } from '@/components/animo/filter-modal';
 import { ListingTransactionSummaryCard } from '@/components/animo/farmer/listing-transaction-summary-card';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { SearchFilterBar } from '@/components/animo/search-filter-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  FARMER_TXN_TUTORIAL_KEY,
   SpotlightTour,
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
@@ -163,7 +165,7 @@ export default function FarmerTransactionsScreen() {
   const [appliedFilters, setAppliedFilters] = useState<TxnFilterDraft>(EMPTY_FILTERS);
   const [draftFilters, setDraftFilters] = useState<TxnFilterDraft>(EMPTY_FILTERS);
   const [modalOpen, setModalOpen] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const [listings, setListings] = useState<CropListing[]>([]);
   const [transactions, setTransactions] = useState<TransactionWithPayment[]>([]);
@@ -204,6 +206,13 @@ export default function FarmerTransactionsScreen() {
   useFocusEffect(
     useCallback(() => {
       load(false);
+      let active = true;
+      AsyncStorage.getItem(FARMER_TXN_TUTORIAL_KEY).then((seen) => {
+        if (active) setShowTutorial(seen !== 'true');
+      });
+      return () => {
+        active = false;
+      };
     }, [load]),
   );
 
@@ -467,7 +476,12 @@ export default function FarmerTransactionsScreen() {
       <SpotlightTour
         visible={showTutorial}
         steps={farmerTxnTourSteps}
-        onClose={() => setShowTutorial(false)}
+        role="magsasaka"
+        storageKey={FARMER_TXN_TUTORIAL_KEY}
+        onClose={() => {
+          setShowTutorial(false);
+          AsyncStorage.setItem(FARMER_TXN_TUTORIAL_KEY, 'true').catch(() => {});
+        }}
       />
     </SafeAreaView>
   );

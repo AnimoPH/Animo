@@ -290,11 +290,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: AnimoRadius.pill,
     backgroundColor: AnimoColors.greenTint,
     borderWidth: 1,
-    borderColor: 'rgba(46, 125, 50, 0.25)',
+    borderColor: 'rgba(26, 110, 30, 0.18)',
   },
   langToggleText: {
     fontSize: 13,

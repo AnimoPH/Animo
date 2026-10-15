@@ -136,13 +136,17 @@ export default function FarmerHomeScreen() {
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      AsyncStorage.getItem(FARMER_TUTORIAL_STORAGE_KEY).then((seen) => {
-        if (active) setShowTutorial(seen !== 'true');
-      });
+      if (params.startTour === 'true') {
+        setShowTutorial(true);
+      } else {
+        AsyncStorage.getItem(FARMER_TUTORIAL_STORAGE_KEY).then((seen) => {
+          if (active) setShowTutorial(seen !== 'true');
+        });
+      }
       return () => {
         active = false;
       };
-    }, []),
+    }, [params.startTour]),
   );
 
   const statCards = [
@@ -311,8 +315,15 @@ export default function FarmerHomeScreen() {
         role="magsasaka"
         steps={farmerTourSteps}
         scrollViewRef={scrollViewRef}
+        storageKey={FARMER_TUTORIAL_STORAGE_KEY}
         onClose={() => {
           setShowTutorial(false);
+          AsyncStorage.setItem(FARMER_TUTORIAL_STORAGE_KEY, 'true').catch(() => {});
+          // Drop the replay flag, otherwise coming back to this tab would
+          // re-open the tour because startTour is still on the route.
+          if (params.startTour === 'true') {
+            router.setParams({ startTour: undefined });
+          }
           // Guided next step, not a thing to stumble on later — matches
           // the tour's own "here's what this is" intent for a farmer who
           // has never logged a planting yet. Not shown once they've already

@@ -17,7 +17,9 @@ import { AppHeader } from '@/components/animo/app-header';
 import { FilterModal } from '@/components/animo/filter-modal';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { SearchFilterBar } from '@/components/animo/search-filter-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  FARMER_PALENGKE_TUTORIAL_KEY,
   SpotlightTour,
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
@@ -193,7 +195,7 @@ export default function FarmerPalengkeScreen() {
   const [appliedFilters, setAppliedFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
   const [draftFilters, setDraftFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
   const [modalOpen, setModalOpen] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const [listings, setListings] = useState<CropListing[]>([]);
   const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
@@ -239,6 +241,13 @@ export default function FarmerPalengkeScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
+      let active = true;
+      AsyncStorage.getItem(FARMER_PALENGKE_TUTORIAL_KEY).then((seen) => {
+        if (active) setShowTutorial(seen !== 'true');
+      });
+      return () => {
+        active = false;
+      };
     }, [load]),
   );
 
@@ -535,7 +544,12 @@ export default function FarmerPalengkeScreen() {
       <SpotlightTour
         visible={showTutorial}
         steps={palengkeTourSteps}
-        onClose={() => setShowTutorial(false)}
+        role="magsasaka"
+        storageKey={FARMER_PALENGKE_TUTORIAL_KEY}
+        onClose={() => {
+          setShowTutorial(false);
+          AsyncStorage.setItem(FARMER_PALENGKE_TUTORIAL_KEY, 'true').catch(() => {});
+        }}
       />
     </SafeAreaView>
   );
