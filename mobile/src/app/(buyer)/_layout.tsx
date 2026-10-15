@@ -1,8 +1,10 @@
 import { Redirect, Tabs, useFocusEffect } from 'expo-router';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
+import { View } from 'react-native';
 
 import { AnimoTabBar, type TabItem } from '@/components/animo/animo-tab-bar';
+import { OutboxBanner } from '@/components/animo/outbox-banner';
 import { homeRouteForRole } from '@/constants/roles';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useSession } from '@/hooks/use-session';
@@ -84,38 +86,41 @@ export default function BuyerLayout() {
   }
 
   return (
-    <Tabs
-      screenOptions={{ headerShown: false }}
-      tabBar={(props) => <AnimoTabBar {...props} items={items} />}>
-      <Tabs.Screen name="index" />
-      <Tabs.Screen
-        name="palengke"
-        options={({ route }) => {
-          // Hide the tab bar on listing detail / bid, keep it on the list.
-          const focused = getFocusedRouteNameFromRoute(route) ?? 'index';
-          return { tabBarStyle: PALENGKE_FULLSCREEN.includes(focused) ? { display: 'none' } : undefined };
-        }}
-      />
-      <Tabs.Screen
-        name="transaksyon"
-        options={({ route }) => {
-          // Hide the tab bar on a request's status + payment flow.
-          const focused = getFocusedRouteNameFromRoute(route) ?? 'index';
-          return {
-            tabBarStyle: TRANSAKSYON_FULLSCREEN.includes(focused)
-              ? { display: 'none' }
-              : undefined,
-          };
-        }}
-      />
-      <Tabs.Screen name="profile" />
-      <Tabs.Screen
-        name="notipikasyon"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-    </Tabs>
+    <View style={{ flex: 1 }}>
+      <Tabs
+        screenOptions={{ headerShown: false }}
+        tabBar={(props) => <AnimoTabBar {...props} items={items} />}>
+        <Tabs.Screen name="index" />
+        <Tabs.Screen
+          name="palengke"
+          options={({ route }) => {
+            // Hide the tab bar on listing detail / bid, keep it on the list.
+            const focused = getFocusedRouteNameFromRoute(route) ?? 'index';
+            return { tabBarStyle: PALENGKE_FULLSCREEN.includes(focused) ? { display: 'none' } : undefined };
+          }}
+        />
+        <Tabs.Screen
+          name="transaksyon"
+          options={({ route }) => {
+            // Hide the tab bar on a request's status + payment flow.
+            const focused = getFocusedRouteNameFromRoute(route) ?? 'index';
+            return {
+              tabBarStyle: TRANSAKSYON_FULLSCREEN.includes(focused)
+                ? { display: 'none' }
+                : undefined,
+            };
+          }}
+        />
+        <Tabs.Screen name="profile" />
+        <Tabs.Screen
+          name="notipikasyon"
+          options={{
+            href: null,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+      </Tabs>
+      <OutboxBanner />
+    </View>
   );
 }

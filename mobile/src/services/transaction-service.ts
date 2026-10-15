@@ -329,12 +329,14 @@ export async function recordPayment(
   mode: PaymentMode,
   amount: number,
   gcashReference?: string,
+  clientRequestId?: string,
 ): Promise<string> {
   const { data, error } = await supabase.rpc('record_payment', {
     p_transaction_id: transactionId,
     p_payment_mode: mode,
     p_amount: amount,
     p_gcash_reference: gcashReference ?? null,
+    p_client_request_id: clientRequestId ?? null,
   });
 
   if (error) throw error;

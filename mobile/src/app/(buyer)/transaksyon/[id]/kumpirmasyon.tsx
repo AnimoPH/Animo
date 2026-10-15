@@ -17,6 +17,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
+import { useSession } from '@/hooks/use-session';
+import { isOnlineNow, isSignalError, saveBuyerConfirmOffline } from '@/lib/outbox/enqueue-actions';
 import { NoticeBanner } from '@/components/animo/notice-banner';
 import { StatusBadge } from '@/components/animo/status-badge';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
@@ -65,6 +67,8 @@ export default function PaymentConfirmationScreen() {
   const [selectedReason, setSelectedReason] = useState<DiscrepancyReason | null>(null);
   const [explanation, setExplanation] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [savedOffline, setSavedOffline] = useState(false);
+  const { account } = useSession();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
@@ -134,10 +138,22 @@ export default function PaymentConfirmationScreen() {
   const handleConfirm = async () => {
     setSubmitting(true);
     setSubmitError(null);
+    const saveOffline = async () => {
+      if (!account) return false;
+      await saveBuyerConfirmOffline(account.id, payment.id);
+      setSavedOffline(true);
+      return true;
+    };
     try {
+      if (!(await isOnlineNow())) {
+        await saveOffline();
+        return;
+      }
       await confirmPaymentSent(payment.id);
       setShowConfirmModal(true);
     } catch (e) {
+      // The signal dropped before the confirm reached the server: keep it instead of losing it.
+      if (isSignalError(e) && (await saveOffline().catch(() => false))) return;
       setSubmitError(
         e instanceof Error
           ? e.message
@@ -337,6 +353,22 @@ export default function PaymentConfirmationScreen() {
           />
         </View>
       </KeyboardAvoidingView>
+
+      <FeedbackModal
+        visible={savedOffline}
+        tone="info"
+        title={isTagalog ? 'Na-save sa phone' : 'Saved on this phone'}
+        message={
+          isTagalog
+            ? 'Walang signal kaya naka-save ang kumpirmasyon sa phone. Ipapadala ito isang beses pagbalik ng signal.'
+            : 'There is no signal, so the confirmation is saved on this phone. It is sent once when the signal returns.'
+        }
+        confirmLabel={isTagalog ? 'Sige' : 'OK'}
+        onConfirm={() => {
+          setSavedOffline(false);
+          router.replace('/(buyer)/transaksyon');
+        }}
+      />
 
       <FeedbackModal
         visible={showConfirmModal}

@@ -3,12 +3,13 @@ import { Image } from "expo-image";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { Camera, X } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AnimoButton } from "@/components/animo/animo-button";
 import { AnimoText } from "@/components/animo/animo-text";
+import { FeedbackModal } from "@/components/animo/feedback-modal";
 import { ScreenHeader } from "@/components/animo/screen-header";
 import { PhotoSourceSheet } from "@/components/animo/photo-source-sheet";
 import { ProgressSteps } from "@/components/animo/farmer/progress-steps";
@@ -20,6 +21,15 @@ import { SegmentedChoice } from "@/components/animo/segmented-choice";
 
 import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
 import { useLanguage } from "@/hooks/use-language";
+import { useSession } from "@/hooks/use-session";
+import { formatPeso } from "@/constants/marketplace";
+import {
+  computeLockedPrice,
+  getCachedPriceFeed,
+  refreshPriceFeedCache,
+  type PriceFeedCache,
+} from "@/lib/outbox";
+import { isOnlineNow, isSignalError, newRequestId, saveListingOffline } from "@/lib/outbox/enqueue-actions";
 import { createCropListing, uploadListingPhoto } from "@/services/crop-listing-service";
 import {
   SPECIFIC_VARIETY_OTHER,
@@ -56,6 +66,7 @@ async function toUploadableJpeg(uri: string): Promise<string> {
 /** Gumawa ng Listing — farmer creates a new palay listing: photo, quality, weight. */
 export default function PalayListingScreen() {
   const { language, isTagalog } = useLanguage();
+  const { account } = useSession();
   const [variety, setVariety] = useState<DeclaredVariety | "">("");
   const [listingName, setListingName] = useState("");
   const [customVariety, setCustomVariety] = useState("");
@@ -80,6 +91,29 @@ export default function PalayListingScreen() {
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
   const [createdPrice, setCreatedPrice] = useState<number | null>(null);
 
+  // The peso shown before submitting comes from the feed saved on the phone, so
+  // it is there offline too. The server still locks its own price from the feed
+  // and only accepts the listing when it equals this one.
+  const [feed, setFeed] = useState<PriceFeedCache | null>(null);
+  const [savedOffline, setSavedOffline] = useState(false);
+  // One id per listing attempt: the online send and a later offline save share it,
+  // so the server sees them as the same listing.
+  const [requestId] = useState(newRequestId);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const cached = await getCachedPriceFeed();
+      if (!cancelled && cached) setFeed(cached);
+      if (await isOnlineNow()) {
+        const fresh = await refreshPriceFeedCache();
+        if (!cancelled && fresh) setFeed(fresh);
+      }
+    })().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const netWeight = Math.max(
     0,
     (parseFloat(grossWeight) || 0) - (parseFloat(tareWeight) || 0),
@@ -97,6 +131,9 @@ export default function PalayListingScreen() {
   const varietyCode: VarietyCode = needsSpecificVariety
     ? (specificVariety?.varietyCode ?? "OTHER")
     : "OTHER";
+
+  const shownPrice =
+    feed && purityGrade !== "" ? computeLockedPrice(feed, moistureType, varietyCode, purityGrade) : null;
 
   const hasAnyPhoto = Object.keys(photos).length > 0;
   const canSubmit =
@@ -165,6 +202,35 @@ export default function PalayListingScreen() {
     });
   };
 
+  const buildInput = () => ({
+    listingName,
+    declaredVariety: variety as DeclaredVariety,
+    customVariety: variety === "Others" ? customVariety : undefined,
+    varietyCode,
+    specificVarietyName: needsSpecificVariety ? specificVariety?.value ?? null : null,
+    specificVarietyNameCustom:
+      specificVariety?.value === SPECIFIC_VARIETY_OTHER ? specificVarietyCustom : undefined,
+    declaredMoisture: moistureType,
+    declaredPurityGrade: purityGrade as PurityGrade,
+    grossWeightKg: parseFloat(grossWeight) || 0,
+    tareWeightKg: parseFloat(tareWeight) || 0,
+  });
+
+  /** Keeps the listing on the phone to send when the signal returns. Returns false when it cannot. */
+  const saveOffline = async (): Promise<boolean> => {
+    if (!account || shownPrice === null) {
+      setErrorMessage(
+        isTagalog
+          ? "Walang naka-save na presyo sa phone. Kailangan ng signal para sa unang listing."
+          : "No price is saved on this phone yet. The first listing needs a signal.",
+      );
+      return false;
+    }
+    await saveListingOffline(account.id, buildInput(), photos, shownPrice, requestId);
+    setSavedOffline(true);
+    return true;
+  };
+
   const handleSubmit = async () => {
     if (submitting) return;
     setSubmitting(true);
@@ -175,19 +241,11 @@ export default function PalayListingScreen() {
 
       if (!listingId) {
         if (!canSubmit || !variety || !purityGrade) return;
-        const listing = await createCropListing({
-          listingName,
-          declaredVariety: variety,
-          customVariety: variety === "Others" ? customVariety : undefined,
-          varietyCode,
-          specificVarietyName: needsSpecificVariety ? specificVariety?.value ?? null : null,
-          specificVarietyNameCustom:
-            specificVariety?.value === SPECIFIC_VARIETY_OTHER ? specificVarietyCustom : undefined,
-          declaredMoisture: moistureType,
-          declaredPurityGrade: purityGrade,
-          grossWeightKg: parseFloat(grossWeight) || 0,
-          tareWeightKg: parseFloat(tareWeight) || 0,
-        });
+        if (!(await isOnlineNow())) {
+          await saveOffline();
+          return;
+        }
+        const listing = await createCropListing(buildInput(), requestId);
         listingId = listing.id;
         price = listing.pricePerKg;
         setCreatedListingId(listing.id);
@@ -212,6 +270,8 @@ export default function PalayListingScreen() {
 
       navigateToUploading(listingId, price);
     } catch (err) {
+      // The signal dropped before the listing reached the server: keep it instead of losing it.
+      if (!createdListingId && isSignalError(err) && (await saveOffline().catch(() => false))) return;
       setErrorMessage(
         err instanceof Error ? err.message : (isTagalog ? "Hindi na-submit ang listing." : "Failed to submit listing."),
       );
@@ -418,6 +478,19 @@ export default function PalayListingScreen() {
           <NetWeightField value={netWeight} isTagalog={isTagalog} />
         </View>
 
+        {shownPrice !== null ? (
+          <View style={[styles.card, styles.shadow]}>
+            <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+              {isTagalog ? "Presyo" : "Price"}: {formatPeso(shownPrice)}/kg
+            </AnimoText>
+            <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+              {isTagalog
+                ? `Mula sa huling datos ng presyo (${feed?.effectiveDate}). Hindi ito mababago ng magsasaka. Kung nagbago ang presyo bago maipadala, tatanungin ka muna.`
+                : `From the last saved price data (${feed?.effectiveDate}). The farmer cannot change it. If the price changes before it is sent, you will be asked first.`}
+            </AnimoText>
+          </View>
+        ) : null}
+
         {errorMessage ? (
           <AnimoText variant="body" color={AnimoColors.danger}>
             {errorMessage}
@@ -452,6 +525,22 @@ export default function PalayListingScreen() {
           )}
         </View>
       </ScrollView>
+
+      <FeedbackModal
+        visible={savedOffline}
+        tone="info"
+        title={isTagalog ? "Na-save sa phone" : "Saved on this phone"}
+        message={
+          isTagalog
+            ? "Walang signal kaya naka-save ang listing sa phone. Ipapadala ito isang beses pagbalik ng signal."
+            : "There is no signal, so the listing is saved on this phone. It is sent once when the signal returns."
+        }
+        confirmLabel={isTagalog ? "Sige" : "OK"}
+        onConfirm={() => {
+          setSavedOffline(false);
+          router.replace("/(farmer)/(tabs)/palengke");
+        }}
+      />
 
       <PhotoSourceSheet
         visible={activeSlot !== null}

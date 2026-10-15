@@ -51,7 +51,10 @@ export function mapPurchaseRequest(row: PurchaseRequestRow): PurchaseRequest {
  * from the same buyer on the same listing. An in-flight match still blocks
  * via purchaserequest_validate_availability (0021).
  */
-export async function submitPurchaseRequest(input: SubmitPurchaseRequestInput): Promise<PurchaseRequest> {
+export async function submitPurchaseRequest(
+  input: SubmitPurchaseRequestInput,
+  clientRequestId?: string,
+): Promise<PurchaseRequest> {
   const buyerId = await requireAuthUserId();
 
   if (!(input.requestedQuantityKg > 0)) {
@@ -64,6 +67,7 @@ export async function submitPurchaseRequest(input: SubmitPurchaseRequestInput): 
       listing_id: input.listingId,
       buyer_id: buyerId,
       requested_quantity_kg: input.requestedQuantityKg,
+      ...(clientRequestId ? { client_request_id: clientRequestId } : {}),
     })
     .select(PURCHASE_REQUEST_COLUMNS)
     .single();

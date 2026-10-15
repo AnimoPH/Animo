@@ -97,6 +97,13 @@ export async function openOutboxStore(): Promise<OutboxStore> {
         id,
       );
     },
+    async requeue(id, payload) {
+      await db.runAsync(
+        "update outbox set status = 'pending', attempts = 0, last_error = null, payload = ? where id = ?",
+        JSON.stringify(payload),
+        id,
+      );
+    },
     async remove(id) {
       await db.runAsync('delete from outbox where id = ?', id);
     },

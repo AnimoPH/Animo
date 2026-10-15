@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { uploadListingPhoto } from '@/services/crop-listing-service';
 import { SPECIFIC_VARIETY_OTHER } from '@/types/crop-listing';
 
+import { deleteOutboxPhotos } from './photo-files';
 import type { OutboxHandlers } from './types';
 
 /**
@@ -36,6 +37,7 @@ export const outboxHandlers: OutboxHandlers = {
     for (const photo of photos) {
       await uploadListingPhoto(listingId, photo.type, photo.uri);
     }
+    await deleteOutboxPhotos(clientRequestId);
   },
 
   async purchase_request({ listingId, requestedQuantityKg }, clientRequestId) {
@@ -78,6 +80,11 @@ export const outboxHandlers: OutboxHandlers = {
       p_payment_id: data as string,
     });
     if (confirmError) throw confirmError;
+  },
+
+  async buyer_confirm_payment({ paymentId }) {
+    const { error } = await supabase.rpc('buyer_confirm_payment_sent', { p_payment_id: paymentId });
+    if (error) throw error;
   },
 
   async farmer_confirm_payment({ paymentId }) {

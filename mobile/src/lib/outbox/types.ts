@@ -4,7 +4,8 @@ import type { PaymentMode } from '@/types/transaction';
 /**
  * What the phone can save while offline and send once the signal returns.
  * `buyer_payment` is the buyer's payment record plus the "I sent it" confirm,
- * `farmer_confirm_payment` is the farmer's "received" confirm.
+ * `buyer_confirm_payment` is the confirm alone, `farmer_confirm_payment` is the
+ * farmer's "received" confirm.
  */
 export type OutboxPayloads = {
   create_listing: {
@@ -20,6 +21,8 @@ export type OutboxPayloads = {
     amount: number;
     gcashReference?: string;
   };
+  /** The buyer's "I sent it" confirm on a payment that was already recorded. */
+  buyer_confirm_payment: { paymentId: string };
   farmer_confirm_payment: { paymentId: string };
 };
 
@@ -65,6 +68,8 @@ export interface OutboxStore {
   markPending(id: string, attempts: number, error: string): Promise<void>;
   markNeedsReview(id: string, error: string): Promise<void>;
   markFailed(id: string, attempts: number, error: string): Promise<void>;
+  /** Gives the item a new payload and puts it back in the queue with a fresh attempt count. */
+  requeue(id: string, payload: unknown): Promise<void>;
   remove(id: string): Promise<void>;
   /** Puts items left in 'sending' by a killed app back to pending. */
   resetSending(): Promise<void>;
