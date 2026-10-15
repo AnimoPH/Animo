@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { fetchMyProfile, signOut as signOutRequest } from '@/services/auth-service';
 import { supabase } from '@/lib/supabase';
@@ -124,7 +124,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const role = account?.role ?? null;
   const coldStartHandled = useRef(false);
   useEffect(() => {
-    if (!role) return;
+    if (!role || Platform.OS === 'web') return;
     const inbox = role === 'magsasaka' ? '/(farmer)/notipikasyon' : '/(buyer)/notipikasyon';
     const subscription = Notifications.addNotificationResponseReceivedListener(() => {
       router.push(inbox);

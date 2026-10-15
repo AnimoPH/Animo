@@ -9,16 +9,20 @@ import { supabase } from '@/lib/supabase';
  * Phone half of push delivery. The server half (user.expo_push_token, the
  * queue, the triggers, send-push-notifications) is in migrations 0030 and
  * 0032. Registration never blocks sign-in: every failure path returns null.
+ * Push does not exist on web (the notifications module has no web handler), so
+ * the browser preview skips all of it.
  */
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 const ANDROID_CHANNEL_ID = 'default';
 
@@ -38,7 +42,7 @@ export async function registerPushToken(
   client: TokenClient = supabase,
 ): Promise<string | null> {
   try {
-    if (!Device.isDevice) return null;
+    if (Platform.OS === 'web' || !Device.isDevice) return null;
 
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
