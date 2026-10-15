@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
+import { useOutboxFlush } from '@/hooks/use-outbox-flush';
 import { fetchMyProfile, signOut as signOutRequest } from '@/services/auth-service';
 import { supabase } from '@/lib/supabase';
 import { clearPushToken, registerPushToken } from '@/services/push-registration';
@@ -137,6 +138,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     return () => subscription.remove();
   }, [role]);
+
+  useOutboxFlush(status === 'authenticated' ? (account?.id ?? null) : null);
 
   const signOut = useCallback(async () => {
     if (account) await clearPushToken(account.id);
