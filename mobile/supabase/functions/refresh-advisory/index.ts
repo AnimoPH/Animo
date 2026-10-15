@@ -21,6 +21,13 @@ import {
   ripenessPct,
   type OwmForecastEntry,
 } from '../_shared/advisory-rule.ts';
+import {
+  fixturesEnabled,
+  parseFixtureCommand,
+  resetFixture,
+  runFixture,
+  type FixtureStore,
+} from '../_shared/advisory-fixture.ts';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -68,6 +75,56 @@ Deno.serve(async (req) => {
   );
 
   const now = new Date();
+
+  // Demo support: a fixture swaps the rain for one crop cycle, a reset clears
+  // that crop's advisory for today and then runs the normal path below.
+  // Needs the ADVISORY_FIXTURES_ENABLED secret, see _shared/advisory-fixture.ts.
+  const command = parseFixtureCommand(await req.json().catch(() => null));
+  if (command.kind === 'invalid') return jsonResponse({ error: command.error }, 400);
+  if (command.kind !== 'none' && !fixturesEnabled(Deno.env.get('ADVISORY_FIXTURES_ENABLED'))) {
+    return jsonResponse({ error: 'fixtures are turned off' }, 403);
+  }
+  if (command.kind !== 'none') {
+    const store: FixtureStore = {
+      async getCropcycle(id) {
+        const { data } = await adminClient
+          .from('cropcycle')
+          .select('planting_date, rice_type_category, status')
+          .eq('cropcycle_id', id)
+          .maybeSingle();
+        return data;
+      },
+      async insertForecast(row) {
+        const { error } = await adminClient.from('weather_forecast_feed').insert(row);
+        if (error) throw new Error(error.message);
+      },
+      async deleteTodaysAdvisory(cropcycleId, date) {
+        const { error } = await adminClient
+          .from('advisoryrecommendation')
+          .delete()
+          .eq('cropcycle_id', cropcycleId)
+          .eq('type', 'RainAdvisory')
+          .eq('trigger_source', 'WeatherFeed')
+          .eq('date_issued', date);
+        if (error) throw new Error(error.message);
+      },
+      async insertAdvisory(row) {
+        const { error } = await adminClient.from('advisoryrecommendation').insert(row);
+        if (error) throw new Error(error.message);
+      },
+    };
+    try {
+      if (command.kind === 'fixture') {
+        const result = await runFixture(store, command, now);
+        return result.ok ? jsonResponse(result, 200) : jsonResponse({ error: result.error }, result.status);
+      }
+      await resetFixture(store, command.cropcycleId, now);
+    } catch (err) {
+      console.error('refresh-advisory: fixture failed', err);
+      return jsonResponse({ error: err instanceof Error ? err.message : 'fixture failed' }, 500);
+    }
+  }
+
   const owmApiKey = Deno.env.get('OPENWEATHERMAP_API_KEY');
 
   let precipitationMmH: number;
