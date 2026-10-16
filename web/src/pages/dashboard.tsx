@@ -6,6 +6,7 @@ import {
   Gavel,
   PauseCircle,
   RefreshCw,
+  TrendingDown,
   TrendingUp,
   TriangleAlert,
   X,
@@ -14,6 +15,7 @@ import {
 import { ConsoleLayout } from '@/components/console-layout';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { useAuth } from '@/lib/auth-context';
 import {
   activateNfaInterventionWindow,
@@ -33,6 +35,10 @@ import {
   type PriceHistoryPoint,
 } from '@/services/lgu-console-service';
 
+// Same breakpoints as console-layout.tsx (its drawer switches at 640px).
+const TABLET_QUERY = '(max-width: 1024px)';
+const MOBILE_QUERY = '(max-width: 640px)';
+
 export type DashboardPageProps = {
   onSignOut: () => void;
 };
@@ -41,6 +47,8 @@ export type DashboardPageProps = {
 export function DashboardPage({ onSignOut }: DashboardPageProps) {
   const { session } = useAuth();
   const { t, isTagalog } = useLanguage();
+  const isTablet = useMediaQuery(TABLET_QUERY);
+  const isMobile = useMediaQuery(MOBILE_QUERY);
   const [priceFeed, setPriceFeed] = useState<MarketPriceFeed | null>(null);
   const [priceHistory, setPriceHistory] = useState<PriceHistoryPoint[]>([]);
   const [nfaActive, setNfaActive] = useState(false);
@@ -161,8 +169,19 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
   const psaFarmgate = latestHistory?.pricePerKg ?? null;
   const dryBase = priceFeed?.dryBasePerKg ?? latestHistory?.pricePerKg ?? null;
   const benchmarkDelta = dryBase != null ? priceDelta(dryBase, previousHistory?.pricePerKg) : null;
+  // Same subtraction priceDelta signs with (current - previous), so the icon always agrees with the +/- text.
+  const benchmarkFell = dryBase != null && previousHistory != null && dryBase - previousHistory.pricePerKg < 0;
   const lastSyncTime = latestHistory ? formatSyncTimestamp(latestHistory.month, isTagalog) : t('common.none');
   // Same date source and parsing as formatSyncTimestamp, so the badge matches the displayed "Last record".
+  // Desktop keeps the original style objects untouched; overrides apply only at ≤1024px / ≤640px.
+  const topCardsGridStyle = isMobile
+    ? { ...styles.topCardsGrid, ...styles.gridOneColumn }
+    : isTablet
+      ? { ...styles.topCardsGrid, ...styles.topCardsGridTablet }
+      : styles.topCardsGrid;
+  const midRowStyle = isTablet ? { ...styles.midRow, ...styles.gridOneColumn } : styles.midRow;
+  const metricCardStyle = isMobile ? { ...styles.metricCard, ...styles.cardPaddingMobile } : styles.metricCard;
+  const actionCardStyle = isMobile ? { ...styles.actionCard, ...styles.cardPaddingMobile } : styles.actionCard;
   const lastRecordMs = latestHistory ? new Date(`${latestHistory.month}T12:00:00`).getTime() : NaN;
   const lastRecordStale = Number.isFinite(lastRecordMs) && Date.now() - lastRecordMs > 24 * 60 * 60 * 1000;
 
@@ -176,8 +195,8 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
       {/* Top cards + full-width Sync card, stacked with a tighter 16px gap than the page's 24px */}
       <div style={styles.topCardsStack}>
         {/* Top Cards Grid */}
-        <section style={styles.topCardsGrid}>
-          <article className="animo-card" style={styles.metricCard}>
+        <section style={topCardsGridStyle}>
+          <article className="animo-card" style={metricCardStyle}>
             <div style={styles.metricTop}>
               <div style={styles.metricHead}>
                 <span style={styles.metricLabel}>
@@ -204,7 +223,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
             </div>
           </article>
   
-          <article className="animo-card" style={styles.metricCard}>
+          <article className="animo-card" style={metricCardStyle}>
             <div style={styles.metricTop}>
               <div style={styles.metricHead}>
                 <span style={styles.metricLabel}>{isTagalog ? 'PSA Farmgate sa Rizal' : 'PSA Rizal Farmgate'}</span>
@@ -218,7 +237,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
               {psaFarmgate != null && benchmarkDelta ? (
                 <div style={styles.comparisonRow}>
                   <span style={styles.trendPillGreen}>
-                    <TrendingUp size={14} /> {benchmarkDelta}
+                    {benchmarkFell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} {benchmarkDelta}
                   </span>
                   <span style={styles.comparisonText}>
                     {isTagalog ? 'vs nakaraang buwan sa talaan' : 'vs previous month in record'}
@@ -245,7 +264,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           <article
             className="animo-card"
             style={{
-              ...styles.actionCard,
+              ...actionCardStyle,
               ...(nfaActive ? styles.actionCardActiveBorder : styles.actionCardInactiveBorder),
             }}>
             <div style={styles.actionCardHead}>
@@ -325,7 +344,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
         </section>
   
         {/* Sync Market Prices from PSA Card — own full-width row below the top cards */}
-        <article className="animo-card" style={styles.actionCard}>
+        <article className="animo-card" style={actionCardStyle}>
           <div style={styles.actionCardHead}>
             <div>
               <span style={styles.actionBadgePsa}>
@@ -380,14 +399,20 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
         </article>
       </div>
 
-      <section style={styles.midRow}>
+      <section style={midRowStyle}>
         <PriceBenchmarkCard
           dryBase={dryBase}
           monthlyBars={monthlyBars}
           effectiveDate={priceFeed?.effectiveDate ?? latestHistory?.month ?? null}
           isTagalog={isTagalog}
+          compact={isMobile}
         />
-        <MarketPricingConfidenceCard nfaActive={nfaActive} marketStatus={marketStatus} isTagalog={isTagalog} />
+        <MarketPricingConfidenceCard
+          nfaActive={nfaActive}
+          marketStatus={marketStatus}
+          isTagalog={isTagalog}
+          compact={isMobile}
+        />
       </section>
 
       {showNfaModal ? (
@@ -523,14 +548,17 @@ function PriceBenchmarkCard({
   monthlyBars,
   effectiveDate,
   isTagalog,
+  compact,
 }: {
   dryBase: number | null;
   monthlyBars: ReturnType<typeof toMonthlyBars>;
   effectiveDate: string | null;
   isTagalog: boolean;
+  /** Mobile width: tighter card padding. */
+  compact: boolean;
 }) {
   return (
-    <article className="animo-card" style={styles.panel}>
+    <article className="animo-card" style={compact ? { ...styles.panel, ...styles.cardPaddingMobile } : styles.panel}>
       <div>
         <h2 style={styles.panelTitle}>
           {isTagalog ? 'Benchmark ng Presyo sa Rehiyon' : 'Regional Price Benchmark'}
@@ -591,10 +619,13 @@ function MarketPricingConfidenceCard({
   nfaActive,
   marketStatus,
   isTagalog,
+  compact,
 }: {
   nfaActive: boolean;
   marketStatus: MarketStatus | null;
   isTagalog: boolean;
+  /** Mobile width: tighter card padding. */
+  compact: boolean;
 }) {
   const checkLoading = marketStatus === null;
   const anomalyFlagged = marketStatus?.available === true && marketStatus.flagged;
@@ -605,7 +636,7 @@ function MarketPricingConfidenceCard({
   const meterState: 'normal' | 'alert' | 'pending' = elevated ? 'alert' : analysisPending ? 'pending' : 'normal';
 
   return (
-    <article className="animo-card" style={styles.panel}>
+    <article className="animo-card" style={compact ? { ...styles.panel, ...styles.cardPaddingMobile } : styles.panel}>
       <div style={styles.panelHead}>
         <div>
           <h2 style={styles.panelTitle}>
@@ -718,11 +749,12 @@ function MarketPricingConfidenceCard({
 
       {!checkLoading && marketStatus.available ? (
         <div style={anomalyFlagged ? styles.calloutWarningBox : styles.calloutInfoBox}>
-          <TriangleAlert
-            size={20}
-            color={anomalyFlagged ? 'var(--animo-warning)' : 'var(--animo-green)'}
-            style={{ flexShrink: 0 }}
-          />
+          {/* Icon shape differs by result, not just color: the status text comes from the server and may be vague. */}
+          {anomalyFlagged ? (
+            <TriangleAlert size={20} color="var(--animo-warning)" style={{ flexShrink: 0 }} />
+          ) : (
+            <CheckCircle2 size={20} color="var(--animo-green)" style={{ flexShrink: 0 }} />
+          )}
           <span>{marketStatus.statusLabel}</span>
         </div>
       ) : !checkLoading ? (
@@ -761,6 +793,13 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 18,
     alignItems: 'stretch',
   },
+  // Tablet (≤1024px): at most 2 columns. Each track is at least half the row, so a 3rd card always
+  // wraps; the 240px floor drops to 1 column when the content area (sidebar still visible) gets too narrow.
+  topCardsGridTablet: { gridTemplateColumns: 'repeat(auto-fit, minmax(max(240px, calc((100% - 18px) / 2)), 1fr))' },
+  // Tablet + mobile: midRow stacks; mobile: top cards stack too. minmax(0, …) lets wide content shrink instead of overflowing.
+  gridOneColumn: { gridTemplateColumns: 'minmax(0, 1fr)' },
+  // Mobile (≤640px): matches the 16px side gutter console-layout.tsx uses at this width.
+  cardPaddingMobile: { padding: 16 },
   metricCard: {
     display: 'flex',
     flexDirection: 'column',

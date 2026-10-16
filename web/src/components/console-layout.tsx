@@ -1,10 +1,11 @@
-import { type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import {
   Bell,
   CloudDrizzle,
   Layers,
   LogOut,
+  Menu,
   Settings2,
   ShoppingBag,
   Users,
@@ -12,6 +13,7 @@ import {
 
 import { AnimoMark } from '@/components/animo-mark';
 import { useLanguage } from '@/hooks/use-language';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { useAuth } from '@/lib/auth-context';
 
 const NAV_ICONS = {
@@ -22,6 +24,10 @@ const NAV_ICONS = {
   buyers: ShoppingBag,
   settings: Settings2,
 } as const;
+
+/** At or below this width the sidebar leaves the grid and becomes a slide-in drawer. */
+const MOBILE_QUERY = '(max-width: 640px)';
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 export type ConsoleLayoutProps = {
   /** Page heading shown at the top of the content column. */
@@ -40,7 +46,55 @@ export function ConsoleLayout({
   children,
 }: ConsoleLayoutProps) {
   const { session } = useAuth();
-  const { t } = useLanguage();
+  const { t, isTagalog } = useLanguage();
+  const isMobile = useMediaQuery(MOBILE_QUERY);
+  const reduceMotion = useMediaQuery(REDUCED_MOTION_QUERY);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerActive = isMobile && drawerOpen;
+
+  const closeDrawer = () => setDrawerOpen(false);
+
+  // Widening past the breakpoint while the drawer is open drops it back into the grid.
+  useEffect(() => {
+    if (!isMobile) setDrawerOpen(false);
+  }, [isMobile]);
+
+  // While the drawer is open: Escape closes it (focus back on the hamburger) and the page behind can't scroll.
+  useEffect(() => {
+    if (!drawerActive) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setDrawerOpen(false);
+        menuButtonRef.current?.focus();
+      }
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [drawerActive]);
+
+  const sidebarStyle: CSSProperties = isMobile
+    ? {
+        ...styles.sidebar,
+        ...styles.sidebarDrawer,
+        transform: drawerOpen ? 'translateX(0)' : 'translateX(-100%)',
+        // Hidden (not just off-screen) when closed, so its links aren't reachable by Tab.
+        visibility: drawerOpen ? 'visible' : 'hidden',
+        transition: reduceMotion ? 'none' : 'transform 220ms ease, visibility 220ms',
+      }
+    : styles.sidebar;
+
+  const titleBlock = (
+    <div>
+      <h1 style={styles.pageTitle}>{title}</h1>
+      <p style={styles.pageSubtitle}>{subtitle}</p>
+    </div>
+  );
 
   const navItems = [
     { key: 'dashboard', label: t('nav.dashboard'), sublabel: t('nav.dashboardSub'), path: '/dashboard' },
@@ -64,10 +118,10 @@ export function ConsoleLayout({
   const officerRoleLine = 'LGU Antipolo, Rizal';
 
   return (
-    <div style={styles.shell}>
-      <aside style={styles.sidebar}>
+    <div style={isMobile ? { ...styles.shell, ...styles.shellMobile } : styles.shell}>
+      <aside id="console-sidebar" style={sidebarStyle}>
         {/* Quick Action: ANIMO brand links directly to Dashboard */}
-        <Link to="/dashboard" style={styles.sidebarBrandLink} title={t('nav.dashboard')}>
+        <Link to="/dashboard" style={styles.sidebarBrandLink} title={t('nav.dashboard')} onClick={closeDrawer}>
           <AnimoMark size={44} tone="green" />
           <div>
             <div style={styles.sidebarBrandName}>ANIMO</div>
@@ -84,6 +138,7 @@ export function ConsoleLayout({
                 <NavLink
                   key={item.key}
                   to={item.path}
+                  onClick={closeDrawer}
                   style={({ isActive }) => ({
                     ...styles.navItem,
                     ...(isActive ? styles.navItemActive : null),
@@ -112,7 +167,7 @@ export function ConsoleLayout({
 
         <div style={styles.sidebarFooter}>
           {/* Quick Action: Sidebar User links directly to Settings */}
-          <Link to="/settings" style={styles.sidebarUserLink} title={t('nav.settings')}>
+          <Link to="/settings" style={styles.sidebarUserLink} title={t('nav.settings')} onClick={closeDrawer}>
             <span style={styles.avatar}>{officerInitials}</span>
             <span>
               <span style={styles.userName}>{officerName}</span>
@@ -126,12 +181,36 @@ export function ConsoleLayout({
         </div>
       </aside>
 
-      <main style={styles.main}>
+      {drawerActive ? (
+        <div
+          style={styles.drawerBackdrop}
+          onClick={() => {
+            closeDrawer();
+            menuButtonRef.current?.focus();
+          }}
+          aria-hidden="true"
+        />
+      ) : null}
+
+      <main style={isMobile ? { ...styles.main, ...styles.mainMobile } : styles.main}>
         <header style={styles.topBar}>
-          <div>
-            <h1 style={styles.pageTitle}>{title}</h1>
-            <p style={styles.pageSubtitle}>{subtitle}</p>
-          </div>
+          {isMobile ? (
+            <div style={styles.topBarLead}>
+              <button
+                ref={menuButtonRef}
+                type="button"
+                onClick={() => setDrawerOpen(true)}
+                style={styles.menuButton}
+                aria-label={isTagalog ? 'Buksan ang menu' : 'Open menu'}
+                aria-controls="console-sidebar"
+                aria-expanded={drawerOpen}>
+                <Menu size={22} color="var(--animo-black)" />
+              </button>
+              {titleBlock}
+            </div>
+          ) : (
+            titleBlock
+          )}
           <div style={styles.topBarActions}>
             {/* Quick Action: Header Profile links directly to Settings */}
             <Link to="/settings" style={styles.topUserLink} title={t('nav.settings')}>
@@ -169,6 +248,39 @@ const styles: Record<string, React.CSSProperties> = {
     height: '100vh',
     boxShadow: '1px 0 3px rgba(0,0,0,0.03)',
   },
+  // Mobile (≤640px) overrides — layered on top of `shell` / `sidebar`, never used on wider screens.
+  shellMobile: { gridTemplateColumns: '1fr' },
+  // Full shorthand (not paddingLeft/Right) so React never mixes padding and its longhands when the breakpoint flips.
+  mainMobile: { padding: '28px 16px 48px' },
+  sidebarDrawer: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: 'min(280px, 85vw)',
+    height: '100dvh',
+    overflowY: 'auto',
+    zIndex: 1001,
+    boxShadow: '4px 0 24px rgba(18, 18, 18, 0.18)',
+  },
+  drawerBackdrop: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(18, 18, 18, 0.45)',
+    zIndex: 1000,
+  },
+  topBarLead: { display: 'flex', alignItems: 'flex-start', gap: 12, minWidth: 0 },
+  menuButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 44,
+    height: 44,
+    flexShrink: 0,
+    borderRadius: 'var(--animo-radius-md)',
+    border: '1.5px solid var(--animo-border)',
+    background: 'var(--animo-white)',
+  },
   sidebarBrandLink: {
     display: 'flex',
     alignItems: 'center',
@@ -203,6 +315,8 @@ const styles: Record<string, React.CSSProperties> = {
   navItemActive: {
     background: 'var(--animo-green-tint)',
     color: 'var(--animo-green)',
+    // Left edge bar: a shape cue for the current page, so it isn't marked by color alone.
+    boxShadow: 'inset 3px 0 0 var(--animo-green)',
   },
   navLabel: { display: 'block', fontSize: 15, fontWeight: 700 },
   navSublabel: { display: 'block', fontSize: 12, color: 'var(--animo-muted)' },
