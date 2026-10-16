@@ -599,6 +599,10 @@ function MarketPricingConfidenceCard({
   const checkLoading = marketStatus === null;
   const anomalyFlagged = marketStatus?.available === true && marketStatus.flagged;
   const elevated = nfaActive || anomalyFlagged;
+  // Same states the "Automated Analysis" row reads: still loading, or loaded but unavailable.
+  const analysisPending = marketStatus?.available !== true;
+  // An official NFA alert is known even while analysis is pending, so alert wins over pending.
+  const meterState: 'normal' | 'alert' | 'pending' = elevated ? 'alert' : analysisPending ? 'pending' : 'normal';
 
   return (
     <article className="animo-card" style={styles.panel}>
@@ -613,21 +617,68 @@ function MarketPricingConfidenceCard({
               : 'Official alert + automated price analysis'}
           </p>
         </div>
-        <span style={elevated ? styles.warningBadge : styles.normalBadge}>
-          {elevated
+        <span
+          style={
+            meterState === 'alert'
+              ? styles.warningBadge
+              : meterState === 'pending'
+                ? { ...styles.normalBadge, background: 'var(--animo-surface)', color: 'var(--animo-muted)' }
+                : styles.normalBadge
+          }>
+          {meterState === 'alert'
             ? isTagalog
               ? 'May Alerto'
               : 'Alert Active'
-            : isTagalog
-              ? 'Normal'
-              : 'Normal'}
+            : meterState === 'pending'
+              ? isTagalog
+                ? 'Hinihintay'
+                : 'Pending'
+              : isTagalog
+                ? 'Normal'
+                : 'Normal'}
         </span>
       </div>
 
       <div style={styles.meterTrack}>
-        <span style={{ ...styles.meterSegment, background: elevated ? 'var(--animo-border)' : 'var(--animo-green)' }} />
-        <span style={{ ...styles.meterSegment, background: elevated ? 'var(--animo-warning)' : 'var(--animo-border)' }} />
-        <span style={{ ...styles.meterSegment, background: 'var(--animo-border)' }} />
+        <span
+          style={{
+            ...styles.meterSegment,
+            background: meterState === 'normal' ? 'var(--animo-green)' : 'var(--animo-border)',
+          }}
+        />
+        <span
+          style={{
+            ...styles.meterSegment,
+            background: meterState === 'alert' ? 'var(--animo-warning)' : 'var(--animo-border)',
+          }}
+        />
+        <span
+          style={{
+            ...styles.meterSegment,
+            background: meterState === 'pending' ? 'var(--animo-muted)' : 'var(--animo-border)',
+          }}
+        />
+      </div>
+
+      <div style={styles.legendList}>
+        <span style={styles.legendItem}>
+          <span style={{ ...styles.legendDot, background: 'var(--animo-green)' }} />
+          {isTagalog
+            ? 'Normal: naka-off ang sahig ng presyo ng NFA at walang biglaang pagbabago'
+            : 'Normal: NFA price floor off and no sudden change detected'}
+        </span>
+        <span style={styles.legendItem}>
+          <span style={{ ...styles.legendDot, background: 'var(--animo-warning)' }} />
+          {isTagalog
+            ? 'May Alerto: naka-on ang sahig ng presyo ng NFA o may biglaang pagbabago'
+            : 'Alert Active: NFA price floor on, or a sudden change detected'}
+        </span>
+        <span style={styles.legendItem}>
+          <span style={{ ...styles.legendDot, background: 'var(--animo-muted)' }} />
+          {isTagalog
+            ? 'Hindi pa available ang automated analysis'
+            : 'Analysis pending: automated check still running or not available'}
+        </span>
       </div>
 
       <dl style={styles.statList}>
@@ -962,7 +1013,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
     gap: 18,
-    alignItems: 'start',
+    alignItems: 'stretch',
   },
   panel: { display: 'flex', flexDirection: 'column', gap: 16, padding: 24 },
   panelHead: {
@@ -1034,6 +1085,7 @@ const styles: Record<string, React.CSSProperties> = {
   meterTrack: { display: 'flex', gap: 8 },
   meterSegment: { flex: 1, height: 8, borderRadius: 'var(--animo-radius-pill)' },
   legendRow: { display: 'flex', gap: 18, flexWrap: 'wrap' },
+  legendList: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: -6 },
   legendItem: {
     display: 'inline-flex',
     alignItems: 'center',
