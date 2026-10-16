@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useEffect } from 'react';
-import { useWindowDimensions, StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -8,84 +8,116 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Defs, Rect, Stop, RadialGradient } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
-import { AnimoLoginColors } from '@/constants/animo';
+import { AnimoColors, AnimoLoginColors, AnimoSpacing } from '@/constants/animo';
 
-// On a tall phone the artwork can breathe; on a short one the form has to win,
+// On a tall phone the arch can breathe; on a short one the form has to win,
 // otherwise the sign-in button is pushed off the first screen.
-const HERO_HEIGHT_RATIO_TALL = 0.42;
-const HERO_HEIGHT_RATIO_SHORT = 0.3;
 const SHORT_SCREEN_DP = 700;
-const HERO_MAX_HEIGHT_DP = 340;
-const HERO_MIN_HEIGHT_DP = 150;
+const ARCH_HEIGHT_TALL = 0.36;
+const ARCH_HEIGHT_SHORT = 0.26;
+const ARCH_MAX_HEIGHT_DP = 320;
+const ARCH_MIN_HEIGHT_DP = 150;
+const RING_GAP = 8;
 
 /**
- * Logo lockup + full-width hero illustration for the login phone step.
- *
- * A soft sunrise wash sits behind the artwork so the illustration reads as part
- * of a warm scene rather than a sticker on flat grey, and so the page carries
- * colour down into the green card instead of meeting it at a hard seam.
+ * Hero for the login phone step: the farm illustration seen through an arch,
+ * like a window onto the field. The arch is the one bold shape on the screen;
+ * everything below it stays plain white.
  */
 export function LoginHeroSection() {
-  const { height: windowHeight } = useWindowDimensions();
-  const ratio =
-    windowHeight < SHORT_SCREEN_DP ? HERO_HEIGHT_RATIO_SHORT : HERO_HEIGHT_RATIO_TALL;
-  const heroHeight = Math.max(
-    HERO_MIN_HEIGHT_DP,
-    Math.min(windowHeight * ratio, HERO_MAX_HEIGHT_DP),
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const ratio = windowHeight < SHORT_SCREEN_DP ? ARCH_HEIGHT_SHORT : ARCH_HEIGHT_TALL;
+  const archHeight = Math.max(
+    ARCH_MIN_HEIGHT_DP,
+    Math.min(windowHeight * ratio, ARCH_MAX_HEIGHT_DP),
   );
+  const archWidth = windowWidth - AnimoSpacing.xl * 2;
+  // A true half-circle crown on wide arches, a softer one on narrow/tall ones.
+  const crownRadius = Math.min(archWidth / 2, archHeight * 0.7);
 
-  // The scene settles in rather than snapping — a gentle rise, once.
-  const artOpacity = useSharedValue(0);
-  const artTranslate = useSharedValue(12);
-  const washOpacity = useSharedValue(0);
+  const archOpacity = useSharedValue(0);
+  const archTranslate = useSharedValue(16);
+  const artTranslate = useSharedValue(28);
 
   useEffect(() => {
-    washOpacity.value = withTiming(1, {
-      duration: 900,
-      easing: Easing.out(Easing.ease),
-    });
-    artOpacity.value = withDelay(
-      90,
-      withTiming(1, { duration: 620, easing: Easing.out(Easing.cubic) }),
-    );
-    artTranslate.value = withDelay(
-      90,
-      withTiming(0, { duration: 760, easing: Easing.out(Easing.cubic) }),
-    );
-  }, [artOpacity, artTranslate, washOpacity]);
+    const out = Easing.out(Easing.cubic);
+    archOpacity.value = withTiming(1, { duration: 600, easing: out });
+    archTranslate.value = withTiming(0, { duration: 700, easing: out });
+    artTranslate.value = withDelay(150, withTiming(0, { duration: 800, easing: out }));
+  }, [archOpacity, archTranslate, artTranslate]);
 
-  const washStyle = useAnimatedStyle(() => ({ opacity: washOpacity.value }));
+  const archStyle = useAnimatedStyle(() => ({
+    opacity: archOpacity.value,
+    transform: [{ translateY: archTranslate.value }],
+  }));
   const artStyle = useAnimatedStyle(() => ({
-    opacity: artOpacity.value,
     transform: [{ translateY: artTranslate.value }],
   }));
 
   return (
-    <View style={[styles.wrap, { height: heroHeight }]}>
-      {/* Sunrise wash: warm at the horizon, clearing toward the top. */}
-      <Animated.View style={[StyleSheet.absoluteFill, washStyle]} pointerEvents="none">
-        <Svg width="100%" height="100%" accessibilityElementsHidden>
+    <View style={styles.wrap}>
+      {/* Outline arch, offset from the green one — a second frame around the window. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.ring,
+          {
+            borderTopLeftRadius: crownRadius + RING_GAP,
+            borderTopRightRadius: crownRadius + RING_GAP,
+          },
+          archStyle,
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.arch,
+          {
+            height: archHeight,
+            borderTopLeftRadius: crownRadius,
+            borderTopRightRadius: crownRadius,
+          },
+          archStyle,
+        ]}>
+        {/* Green sky with a low sun and faint terrace rows. */}
+        <Svg
+          style={StyleSheet.absoluteFill}
+          width="100%"
+          height="100%"
+          viewBox="0 0 400 300"
+          preserveAspectRatio="xMidYMid slice"
+          accessibilityElementsHidden>
           <Defs>
-            <RadialGradient id="loginSunrise" cx="50%" cy="88%" rx="78%" ry="62%">
-              <Stop offset="0%" stopColor="#FBE7A6" stopOpacity={0.72} />
-              <Stop offset="45%" stopColor="#F5E6BE" stopOpacity={0.4} />
-              <Stop offset="100%" stopColor={AnimoLoginColors.pageBackground} stopOpacity={0} />
-            </RadialGradient>
+            <LinearGradient id="archSky" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#145A18" />
+              <Stop offset="1" stopColor="#2E7D32" />
+            </LinearGradient>
           </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill="url(#loginSunrise)" />
+          <Rect x="0" y="0" width="400" height="300" fill="url(#archSky)" />
+          <Circle cx="200" cy="170" r="92" fill="#FBE7A6" opacity={0.2} />
+          <Circle cx="200" cy="170" r="58" fill="#FBE7A6" opacity={0.28} />
+          {[0, 1, 2].map((i) => (
+            <Path
+              key={i}
+              d="M0 250 C90 222 170 240 250 232 S360 214 400 210"
+              transform={`translate(0 ${i * 18})`}
+              fill="none"
+              stroke="rgba(255, 255, 255, 0.1)"
+              strokeWidth={1.5}
+            />
+          ))}
         </Svg>
-      </Animated.View>
 
-      <Animated.View style={[styles.bannerWrap, artStyle]}>
-        <Image
-          source={require('@/assets/images/animo/login-banner.png')}
-          style={styles.bannerImage}
-          contentFit="contain"
-          contentPosition="bottom"
-          accessibilityLabel="Mga magsasaka sa bukid"
-        />
+        <Animated.View style={[styles.art, artStyle]}>
+          <Image
+            source={require('@/assets/images/animo/login-banner.png')}
+            style={styles.artImage}
+            contentFit="contain"
+            contentPosition="bottom"
+            accessibilityLabel="Mga magsasaka sa bukid"
+          />
+        </Animated.View>
       </Animated.View>
     </View>
   );
@@ -93,17 +125,33 @@ export function LoginHeroSection() {
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: AnimoLoginColors.pageBackground,
-    flexShrink: 1,
-    flexGrow: 0,
+    paddingHorizontal: AnimoSpacing.xl,
+    paddingTop: RING_GAP,
+    backgroundColor: AnimoColors.background,
   },
-  bannerWrap: {
-    flex: 1,
+  ring: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: AnimoSpacing.xl - RING_GAP,
+    right: AnimoSpacing.xl - RING_GAP,
+    borderWidth: 1.5,
+    borderBottomWidth: 0,
+    borderColor: AnimoColors.accentPrimaryLight,
+  },
+  arch: {
     width: '100%',
-    alignSelf: 'stretch',
     overflow: 'hidden',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    backgroundColor: AnimoLoginColors.brandGreen,
   },
-  bannerImage: {
+  art: {
+    ...StyleSheet.absoluteFillObject,
+    top: 16,
+    paddingHorizontal: AnimoSpacing.md,
+  },
+  artImage: {
     width: '100%',
     height: '100%',
   },

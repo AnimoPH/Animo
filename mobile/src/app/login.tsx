@@ -21,7 +21,7 @@ import { LoginFooterSection } from '@/components/animo/login/login-footer-sectio
 import { LoginFormSection } from '@/components/animo/login/login-form-section';
 import { LoginHeroSection } from '@/components/animo/login/login-hero-section';
 import { OtpVerification } from '@/components/animo/otp-verification';
-import { AnimoColors, AnimoLoginColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { homeRouteForRole, type RoleId } from '@/constants/roles';
 import { fetchMyProfile, sendOtp, signInDevAccount, verifyOtp } from '@/services/auth-service';
 import { useLanguage } from '@/hooks/use-language';
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.background,
   },
   safeAreaPhone: {
-    backgroundColor: AnimoLoginColors.pageBackground,
+    backgroundColor: AnimoColors.background,
   },
   flex: {
     flex: 1,
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.xs,
-    paddingBottom: AnimoSpacing.xs,
+    paddingBottom: AnimoSpacing.md,
   },
   langTogglePill: {
     flexDirection: 'row',
