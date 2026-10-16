@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { BidConfirmationModal } from '@/components/animo/bid-confirmation-modal';
+import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { ListingImage } from '@/components/animo/listing-image';
 import { StatusBadge } from '@/components/animo/status-badge';
@@ -23,6 +24,8 @@ import { formatPeso } from '@/constants/marketplace';
 import { cancelPurchaseRequest, submitPurchaseRequest } from '@/services/purchase-request-service';
 import { fetchMarketplaceListing } from '@/services/marketplace-service';
 import { useLanguage } from '@/hooks/use-language';
+import { useSession } from '@/hooks/use-session';
+import { isOnlineNow, isSignalError, newRequestId, savePurchaseRequestOffline } from '@/lib/outbox/enqueue-actions';
 import { minimumPurchaseKg, varietyLabel, type CropListing } from '@/types/crop-listing';
 import type { PurchaseRequest } from '@/types/purchase-request';
 import { BackHeader } from '@/components/animo/back-header';
@@ -40,6 +43,9 @@ export default function BuyScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedRequest, setSubmittedRequest] = useState<PurchaseRequest | null>(null);
+  const [savedOffline, setSavedOffline] = useState(false);
+  const { account } = useSession();
+  const [requestId, setRequestId] = useState(newRequestId);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,13 +115,26 @@ export default function BuyScreen() {
     if (!canConfirm) return;
     setSubmitting(true);
     setSubmitError(null);
+    const saveOffline = async () => {
+      if (!account) return false;
+      await savePurchaseRequestOffline(account.id, { listingId: listing.id, requestedQuantityKg: qtyNum }, requestId);
+      setSavedOffline(true);
+      return true;
+    };
     try {
-      const request = await submitPurchaseRequest({
-        listingId: listing.id,
-        requestedQuantityKg: qtyNum,
-      });
+      if (!(await isOnlineNow())) {
+        await saveOffline();
+        return;
+      }
+      const request = await submitPurchaseRequest(
+        { listingId: listing.id, requestedQuantityKg: qtyNum },
+        requestId,
+      );
       setSubmittedRequest(request);
+      setRequestId(newRequestId());
     } catch (error) {
+      // The signal dropped before the request reached the server: keep it instead of losing it.
+      if (isSignalError(error) && (await saveOffline().catch(() => false))) return;
       setSubmitError(
         error instanceof Error
           ? error.message
@@ -263,6 +282,22 @@ export default function BuyScreen() {
           />
         </View>
       </KeyboardAvoidingView>
+
+      <FeedbackModal
+        visible={savedOffline}
+        tone="info"
+        title={isTagalog ? 'Na-save sa phone' : 'Saved on this phone'}
+        message={
+          isTagalog
+            ? 'Walang signal kaya naka-save ang request sa phone. Ipapadala ito isang beses pagbalik ng signal.'
+            : 'There is no signal, so the request is saved on this phone. It is sent once when the signal returns.'
+        }
+        confirmLabel={isTagalog ? 'Sige' : 'OK'}
+        onConfirm={() => {
+          setSavedOffline(false);
+          router.replace('/(buyer)/transaksyon');
+        }}
+      />
 
       <BidConfirmationModal
         visible={submittedRequest !== null}

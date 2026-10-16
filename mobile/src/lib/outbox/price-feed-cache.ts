@@ -13,7 +13,7 @@ export type PriceFeedCache = {
   savedAt: number;
 };
 
-/** Reads the latest feed row and the premium table and keeps them on the phone. Call while online. */
+/** Reads the current bases and the premium table and keeps them on the phone. Call while online. */
 export async function refreshPriceFeedCache(): Promise<PriceFeedCache | null> {
   const { data: feed, error: feedError } = await supabase
     .from('marketpricefeed')
@@ -28,9 +28,17 @@ export async function refreshPriceFeedCache(): Promise<PriceFeedCache | null> {
     .select('variety_code, grade, premium_per_kg');
   if (premiumError) return null;
 
+  // The base a new listing locks is the feed's starting base blended with this
+  // month's paid trades (migration 0042). Fall back to the raw feed when that
+  // function is not there yet.
+  const { data: bases } = await supabase.rpc('effective_base_prices');
+  const effective = Array.isArray(bases) ? bases[0] : bases;
+  const dry = effective?.dry_base_price_per_kg ?? feed.dry_base_price_per_kg;
+  const wet = effective?.wet_base_price_per_kg ?? feed.wet_base_price_per_kg;
+
   const cache: PriceFeedCache = {
-    dryBasePerKg: feed.dry_base_price_per_kg === null ? null : Number(feed.dry_base_price_per_kg),
-    wetBasePerKg: Number(feed.wet_base_price_per_kg),
+    dryBasePerKg: dry === null || dry === undefined ? null : Number(dry),
+    wetBasePerKg: Number(wet),
     effectiveDate: feed.effective_date,
     premiums: (premiums ?? []).map((row) => ({
       varietyCode: row.variety_code,
