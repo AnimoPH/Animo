@@ -14,6 +14,14 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+import {
+  decideAdvisory,
+  isRainExpected,
+  maxRainInWindow,
+  ripenessPct,
+  type OwmForecastEntry,
+} from '../_shared/advisory-rule.ts';
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -26,24 +34,6 @@ const CORS_HEADERS = {
 const ANTIPOLO_LAT = 14.5842;
 const ANTIPOLO_LON = 121.1763;
 
-// PAGASA Yellow rainfall warning level, sustained across the 24-48h window —
-// locked in Research Notes Sec. L.
-const RAIN_THRESHOLD_MM_H = 7.5;
-const WINDOW_START_HOURS = 24;
-const WINDOW_END_HOURS = 48;
-
-// Locked maturity-day constants per rice_type_category. Organic is flagged
-// in the docs as an unconfirmed assumption pending agriculture-specialist
-// review — kept as documented for v1, not a build blocker.
-const MATURITY_DAYS: Record<string, number> = {
-  Hybrid: 110,
-  Inbred: 120,
-  Organic: 120,
-  Specialty: 122,
-};
-
-const RIPENESS_CUTOFF = 0.85;
-
 function jsonResponse(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
@@ -51,26 +41,7 @@ function jsonResponse(body: unknown, status: number) {
   });
 }
 
-type OwmForecastEntry = {
-  dt: number;
-  rain?: { '3h'?: number };
-};
 type OwmForecastResponse = { list?: OwmForecastEntry[] };
-
-/** Max mm/h across 3-hour forecast slots landing in [nowMs+24h, nowMs+48h]. */
-function maxRainInWindow(entries: OwmForecastEntry[], nowMs: number): number {
-  const windowStart = nowMs + WINDOW_START_HOURS * 60 * 60 * 1000;
-  const windowEnd = nowMs + WINDOW_END_HOURS * 60 * 60 * 1000;
-  let max = 0;
-  for (const entry of entries) {
-    const entryMs = entry.dt * 1000;
-    if (entryMs < windowStart || entryMs > windowEnd) continue;
-    const mm3h = entry.rain?.['3h'] ?? 0;
-    const mmPerHour = mm3h / 3;
-    if (mmPerHour > max) max = mmPerHour;
-  }
-  return max;
-}
 
 type CropcycleRow = {
   cropcycle_id: string;
@@ -78,14 +49,6 @@ type CropcycleRow = {
   rice_type_category: string | null;
   farm_id: string;
 };
-
-function ripenessPct(plantingDate: string, riceTypeCategory: string, today: Date): number | null {
-  const maturityDays = MATURITY_DAYS[riceTypeCategory];
-  if (!maturityDays) return null;
-  const planted = new Date(`${plantingDate}T00:00:00Z`);
-  const daysSince = (today.getTime() - planted.getTime()) / (24 * 60 * 60 * 1000);
-  return daysSince / maturityDays;
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
@@ -131,7 +94,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  const rainExpected = precipitationMmH >= RAIN_THRESHOLD_MM_H;
+  const rainExpected = isRainExpected(precipitationMmH);
 
   const { error: feedError } = await adminClient.from('weather_forecast_feed').insert({
     precipitation_mm_h: precipitationMmH,
@@ -159,11 +122,7 @@ Deno.serve(async (req) => {
       const ripeness = ripenessPct(row.planting_date, row.rice_type_category, now);
       if (ripeness === null) return null;
 
-      const recommendedAction = !rainExpected
-        ? 'No_Action_Needed'
-        : ripeness >= RIPENESS_CUTOFF
-          ? 'Advance_Cut'
-          : 'Delayed_Harvest';
+      const recommendedAction = decideAdvisory(rainExpected, ripeness);
 
       return {
         cropcycle_id: row.cropcycle_id,
