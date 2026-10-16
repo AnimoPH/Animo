@@ -17,11 +17,13 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
 import { FilterModal } from '@/components/animo/filter-modal';
 import { SearchFilterBar } from '@/components/animo/search-filter-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   BuyerTransactionCard,
   type BuyerTransactionCardItem,
 } from '@/components/animo/buyer/buyer-transaction-card';
 import {
+  BUYER_TXN_TUTORIAL_KEY,
   SpotlightTour,
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
@@ -98,7 +100,7 @@ export default function BuyerTransactionsScreen() {
   const [draftFilter, setDraftFilter] = useState<FilterValue>('Lahat');
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [showTutorial, setShowTutorial] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const [outcomes, setOutcomes] = useState<PurchaseOutcome[]>([]);
   const [listingsById, setListingsById] = useState<Map<string, CropListing>>(new Map());
@@ -148,6 +150,13 @@ export default function BuyerTransactionsScreen() {
   useFocusEffect(
     useCallback(() => {
       load(false);
+      let active = true;
+      AsyncStorage.getItem(BUYER_TXN_TUTORIAL_KEY).then((seen) => {
+        if (active) setShowTutorial(seen !== 'true');
+      });
+      return () => {
+        active = false;
+      };
     }, [load]),
   );
 
@@ -370,7 +379,11 @@ export default function BuyerTransactionsScreen() {
       <SpotlightTour
         visible={showTutorial}
         steps={buyerTxnTourSteps}
-        onClose={() => setShowTutorial(false)}
+        storageKey={BUYER_TXN_TUTORIAL_KEY}
+        onClose={() => {
+          setShowTutorial(false);
+          AsyncStorage.setItem(BUYER_TXN_TUTORIAL_KEY, 'true').catch(() => {});
+        }}
       />
     </SafeAreaView>
   );

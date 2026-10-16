@@ -21,7 +21,7 @@ import { LoginFooterSection } from '@/components/animo/login/login-footer-sectio
 import { LoginFormSection } from '@/components/animo/login/login-form-section';
 import { LoginHeroSection } from '@/components/animo/login/login-hero-section';
 import { OtpVerification } from '@/components/animo/otp-verification';
-import { AnimoColors, AnimoLoginColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { homeRouteForRole, type RoleId } from '@/constants/roles';
 import { fetchMyProfile, sendOtp, signInDevAccount, verifyOtp } from '@/services/auth-service';
 import { useLanguage } from '@/hooks/use-language';
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.background,
   },
   safeAreaPhone: {
-    backgroundColor: AnimoLoginColors.pageBackground,
+    backgroundColor: AnimoColors.background,
   },
   flex: {
     flex: 1,
@@ -283,18 +283,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: AnimoSpacing.lg,
     paddingTop: AnimoSpacing.xs,
-    paddingBottom: AnimoSpacing.xs,
+    paddingBottom: AnimoSpacing.md,
   },
   langTogglePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: AnimoRadius.pill,
     backgroundColor: AnimoColors.greenTint,
     borderWidth: 1,
-    borderColor: 'rgba(46, 125, 50, 0.25)',
+    borderColor: 'rgba(26, 110, 30, 0.18)',
   },
   langToggleText: {
     fontSize: 13,

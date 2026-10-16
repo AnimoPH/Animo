@@ -22,11 +22,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
 import { MarketplaceListingCard } from '@/components/animo/buyer/marketplace-listing-card';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import {
+  BUYER_PALENGKE_TUTORIAL_KEY,
   SpotlightTour,
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
@@ -92,7 +94,7 @@ export default function MarketplaceScreen() {
   const [activeTab, setActiveTab] = useState<TabMode>('palay');
   const [modalOpen, setModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showTutorial, setShowTutorial] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Draft filter state (committed when user taps "Ilapat" in modal)
   const [quantityText, setQuantityText] = useState('');
@@ -150,6 +152,13 @@ export default function MarketplaceScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
+      let active = true;
+      AsyncStorage.getItem(BUYER_PALENGKE_TUTORIAL_KEY).then((seen) => {
+        if (active) setShowTutorial(seen !== 'true');
+      });
+      return () => {
+        active = false;
+      };
     }, [load]),
   );
 
@@ -287,7 +296,11 @@ export default function MarketplaceScreen() {
       <SpotlightTour
         steps={buyerPalengkeTourSteps}
         visible={showTutorial}
-        onClose={() => setShowTutorial(false)}
+        storageKey={BUYER_PALENGKE_TUTORIAL_KEY}
+        onClose={() => {
+          setShowTutorial(false);
+          AsyncStorage.setItem(BUYER_PALENGKE_TUTORIAL_KEY, 'true').catch(() => {});
+        }}
       />
 
       {/* Top Search Bar & Filter Icon Side-by-Side */}

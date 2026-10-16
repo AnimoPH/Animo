@@ -1,40 +1,59 @@
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { AnimoLoginColors, AnimoSpacing } from '@/constants/animo';
+import { LegalModal } from '@/components/animo/legal-modal';
+import { AnimoColors, AnimoSpacing } from '@/constants/animo';
+import type { LegalTabKey } from '@/constants/legal-content';
+import { useLanguage } from '@/hooks/use-language';
 
-/** Terms copy on the dark-green login card footer. Links are styled only (no navigation). */
+/** Terms copy on the login footer. Links open the legal modal. */
 export function LoginFooterSection() {
+  const { t } = useLanguage();
+  const [legalTab, setLegalTab] = useState<LegalTabKey | null>(null);
+
   return (
     <View style={styles.wrap}>
-      <AnimoText variant="caption" color={AnimoLoginColors.linkOnGreen} style={styles.text}>
-        Sa pagpapatuloy, sumasang-ayon kayo sa aming{' '}
-        <AnimoText variant="caption" color={AnimoLoginColors.linkOnGreen} style={styles.link}>
-          Terms of Service
+      <AnimoText variant="tag" color={AnimoColors.muted} style={styles.text}>
+        {t('login.termsPrefix')}{' '}
+        <AnimoText
+          variant="tag"
+          color={AnimoColors.green}
+          style={styles.link}
+          onPress={() => setLegalTab('terms')}>
+          {t('login.termsOfService')}
         </AnimoText>{' '}
-        at{' '}
-        <AnimoText variant="caption" color={AnimoLoginColors.linkOnGreen} style={styles.link}>
-          Privacy Policy
+        {t('login.termsAnd')}{' '}
+        <AnimoText
+          variant="tag"
+          color={AnimoColors.green}
+          style={styles.link}
+          onPress={() => setLegalTab('privacy')}>
+          {t('login.privacyPolicy')}
         </AnimoText>
         .
       </AnimoText>
+
+      <LegalModal
+        visible={legalTab !== null}
+        initialTab={legalTab ?? 'terms'}
+        onClose={() => setLegalTab(null)}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.md,
-    paddingBottom: AnimoSpacing.sm,
-    minHeight: 56,
+    paddingHorizontal: AnimoSpacing.sm,
+    paddingTop: AnimoSpacing.sm,
     justifyContent: 'center',
   },
   text: {
     textAlign: 'center',
+    lineHeight: 18,
   },
   link: {
     textDecorationLine: 'underline',
-    paddingVertical: AnimoSpacing.sm,
   },
 });

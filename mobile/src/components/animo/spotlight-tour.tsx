@@ -16,9 +16,12 @@ import {
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Dimensions,
   Easing,
   Modal,
+  Platform,
   Pressable,
+  StatusBar,
   StyleSheet,
   useWindowDimensions,
   View,
@@ -31,6 +34,26 @@ import { useLanguage } from '@/hooks/use-language';
 
 export const TUTORIAL_STORAGE_KEY = 'animo.hasSeenTutorial';
 export const FARMER_TUTORIAL_STORAGE_KEY = 'animo.hasSeenFarmerTutorial';
+export const BUYER_PALENGKE_TUTORIAL_KEY = 'animo.tutorial.buyer.palengke';
+export const BUYER_TXN_TUTORIAL_KEY = 'animo.tutorial.buyer.transaksyon';
+export const FARMER_PALENGKE_TUTORIAL_KEY = 'animo.tutorial.farmer.palengke';
+export const FARMER_TXN_TUTORIAL_KEY = 'animo.tutorial.farmer.transaksyon';
+
+/**
+ * Every tutorial key for a role. The profile toggle flips all of them together,
+ * so turning the tour back on replays the sub-tab tours too — not just the home one.
+ */
+export const BUYER_TUTORIAL_KEYS = [
+  TUTORIAL_STORAGE_KEY,
+  BUYER_PALENGKE_TUTORIAL_KEY,
+  BUYER_TXN_TUTORIAL_KEY,
+] as const;
+
+export const FARMER_TUTORIAL_KEYS = [
+  FARMER_TUTORIAL_STORAGE_KEY,
+  FARMER_PALENGKE_TUTORIAL_KEY,
+  FARMER_TXN_TUTORIAL_KEY,
+] as const;
 
 export type SpotlightStep = {
   id: string;
@@ -75,6 +98,21 @@ export function SpotlightTour({
   storageKey,
 }: SpotlightTourProps) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const screenDimensions = Dimensions.get('screen');
+  const modalWidth = Math.max(windowWidth, screenDimensions.width);
+  const modalHeight = Math.max(windowHeight, screenDimensions.height);
+  const statusBarOffset = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0;
+
+  // Fallback coordinates were authored against a 812pt-tall reference phone.
+  // Real measurement is the primary path; these only matter when a target ref
+  // has not mounted yet, so scale them rather than letting them land off-target
+  // on a short (or very tall) screen.
+  const REFERENCE_HEIGHT = 812;
+  const verticalScale = Math.min(1.35, Math.max(0.78, windowHeight / REFERENCE_HEIGHT));
+  const fallbackY = (y: number) => Math.round(y * verticalScale) + statusBarOffset;
+  const fallbackH = (h: number) => Math.round(h * verticalScale);
+  const gutter = windowWidth < 360 ? 12 : 16;
+
   const { t } = useLanguage();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [measuredLayout, setMeasuredLayout] = useState<TargetLayout | null>(null);
@@ -100,10 +138,10 @@ export function SpotlightTour({
           borderRadius: 20,
           padding: 6,
           fallbackLayout: {
-            x: 16,
-            y: 90,
-            width: windowWidth - 32,
-            height: 120,
+            x: gutter,
+            y: fallbackY(90),
+            width: windowWidth - gutter * 2,
+            height: fallbackH(120),
           },
         },
         {
@@ -115,10 +153,10 @@ export function SpotlightTour({
           borderRadius: 16,
           padding: 6,
           fallbackLayout: {
-            x: 16,
-            y: 225,
-            width: windowWidth - 32,
-            height: 90,
+            x: gutter,
+            y: fallbackY(225),
+            width: windowWidth - gutter * 2,
+            height: fallbackH(90),
           },
         },
         {
@@ -130,10 +168,10 @@ export function SpotlightTour({
           borderRadius: 20,
           padding: 6,
           fallbackLayout: {
-            x: 16,
-            y: 330,
-            width: windowWidth - 32,
-            height: 100,
+            x: gutter,
+            y: fallbackY(330),
+            width: windowWidth - gutter * 2,
+            height: fallbackH(100),
           },
         },
         {
@@ -144,8 +182,8 @@ export function SpotlightTour({
           shape: 'circle',
           padding: 6,
           fallbackLayout: {
-            x: windowWidth - 62,
-            y: 44,
+            x: windowWidth - gutter - 46,
+            y: 44 + statusBarOffset,
             width: 44,
             height: 44,
           },
@@ -161,10 +199,10 @@ export function SpotlightTour({
           borderRadius: 20,
           padding: 6,
           fallbackLayout: {
-            x: 16,
-            y: 140,
-            width: windowWidth - 32,
-            height: 160,
+            x: gutter,
+            y: fallbackY(140),
+            width: windowWidth - gutter * 2,
+            height: fallbackH(160),
           },
         },
         {
@@ -176,10 +214,10 @@ export function SpotlightTour({
           borderRadius: 16,
           padding: 6,
           fallbackLayout: {
-            x: 16,
-            y: 315,
-            width: windowWidth - 32,
-            height: 80,
+            x: gutter,
+            y: fallbackY(315),
+            width: windowWidth - gutter * 2,
+            height: fallbackH(80),
           },
         },
         {
@@ -191,10 +229,10 @@ export function SpotlightTour({
           borderRadius: 20,
           padding: 6,
           fallbackLayout: {
-            x: 16,
-            y: 410,
-            width: windowWidth - 32,
-            height: 170,
+            x: gutter,
+            y: fallbackY(410),
+            width: windowWidth - gutter * 2,
+            height: fallbackH(170),
           },
         },
         {
@@ -205,8 +243,8 @@ export function SpotlightTour({
           shape: 'circle',
           padding: 6,
           fallbackLayout: {
-            x: windowWidth - 62,
-            y: 44,
+            x: windowWidth - gutter - 46,
+            y: 44 + statusBarOffset,
             width: 44,
             height: 44,
           },
@@ -255,12 +293,14 @@ export function SpotlightTour({
     }
 
     // 3. React Native measureInWindow (iOS / Android)
+    // On Android, views measured in the Activity Window are shifted down by statusBarOffset
+    // because Modal with statusBarTranslucent starts at y=0 of the physical screen.
     if (typeof node?.measureInWindow === 'function') {
       node.measureInWindow((x: number, y: number, width: number, height: number) => {
         if (width > 0 && height > 0) {
           setMeasuredLayout({
             x: Math.round(x),
-            y: Math.round(y),
+            y: Math.round(y + statusBarOffset),
             width: Math.round(width),
             height: Math.round(height),
           });
@@ -269,7 +309,7 @@ export function SpotlightTour({
             if (w > 0 && h > 0) {
               setMeasuredLayout({
                 x: Math.round(pageX),
-                y: Math.round(pageY),
+                y: Math.round(pageY + statusBarOffset),
                 width: Math.round(w),
                 height: Math.round(h),
               });
@@ -287,7 +327,7 @@ export function SpotlightTour({
     if (currentStep?.fallbackLayout) {
       setMeasuredLayout(currentStep.fallbackLayout);
     }
-  }, [currentStep]);
+  }, [currentStep, statusBarOffset]);
 
   // Pulse animation loop
   useEffect(() => {
@@ -316,6 +356,9 @@ export function SpotlightTour({
   useEffect(() => {
     if (!visible) return;
 
+    // Reset layout for new step so previous step's coordinates do not persist
+    setMeasuredLayout(null);
+
     fadeAnim.setValue(0);
     slideAnim.setValue(8);
 
@@ -333,27 +376,47 @@ export function SpotlightTour({
       }),
     ]).start();
 
-    // Scroll if needed
-    if (currentStep?.scrollTargetY !== undefined && scrollViewRef?.current) {
-      try {
-        scrollViewRef.current.scrollTo({
-          y: currentStep.scrollTargetY,
-          animated: true,
-        });
-      } catch {
-        // ignore scroll error
+    // Scroll if needed: dynamically compute offset inside ScrollView or fallback to scrollTargetY
+    if (scrollViewRef?.current && currentStep?.targetRef?.current) {
+      const node = currentStep.targetRef.current;
+      if (typeof node.measureLayout === 'function') {
+        try {
+          node.measureLayout(
+            scrollViewRef.current,
+            (_left: number, top: number) => {
+              if (top > 0) {
+                scrollViewRef.current.scrollTo({
+                  y: Math.max(0, top - 80),
+                  animated: true,
+                });
+              }
+            },
+            () => {},
+          );
+        } catch {
+          // ignore layout measure error
+        }
+      } else if (currentStep.scrollTargetY !== undefined) {
+        try {
+          scrollViewRef.current.scrollTo({
+            y: currentStep.scrollTargetY,
+            animated: true,
+          });
+        } catch {
+          // ignore scroll error
+        }
       }
     }
 
     // Initial immediate measurement
     measureTarget();
 
-    // Staggered follow-up measurements to accommodate rendering & layout passes
-    const t1 = setTimeout(measureTarget, 50);
-    const t2 = setTimeout(measureTarget, 150);
-    const t3 = setTimeout(measureTarget, 350);
-    const t4 = setTimeout(measureTarget, 700);
-    const t5 = setTimeout(measureTarget, 1200);
+    // Staggered follow-up measurements to accommodate rendering, fonts & layout passes
+    const t1 = setTimeout(measureTarget, 40);
+    const t2 = setTimeout(measureTarget, 120);
+    const t3 = setTimeout(measureTarget, 280);
+    const t4 = setTimeout(measureTarget, 600);
+    const t5 = setTimeout(measureTarget, 1100);
 
     return () => {
       clearTimeout(t1);
@@ -368,6 +431,9 @@ export function SpotlightTour({
 
   const handleFinish = async () => {
     try {
+      // Only this tour's own key. Writing the role-wide key here would mark
+      // every other tour as seen, so a user who finished Palengke would never
+      // be shown the Transaksyon tour.
       await AsyncStorage.setItem(effectiveStorageKey, 'true');
     } catch {
       // ignore
@@ -393,16 +459,16 @@ export function SpotlightTour({
   // Compute spotlight cutout geometry
   const pad = currentStep.padding ?? 6;
   const layout = measuredLayout || currentStep.fallbackLayout || {
-    x: 16,
-    y: 120,
-    width: windowWidth - 32,
-    height: 120,
+    x: gutter,
+    y: fallbackY(100),
+    width: windowWidth - gutter * 2,
+    height: fallbackH(80),
   };
 
-  const cutoutX = Math.max(4, layout.x - pad);
-  const cutoutY = Math.max(4, layout.y - pad);
-  const cutoutW = Math.min(windowWidth - 8, layout.width + pad * 2);
-  const cutoutH = layout.height + pad * 2;
+  const cutoutX = Math.max(6, Math.min(windowWidth - 20, layout.x - pad));
+  const cutoutY = Math.max(6, layout.y - pad);
+  const cutoutW = Math.max(20, Math.min(windowWidth - cutoutX - 6, layout.width + pad * 2));
+  const cutoutH = Math.max(20, layout.height + pad * 2);
 
   const isCircle = currentStep.shape === 'circle';
   const targetRadius = isCircle
@@ -412,23 +478,28 @@ export function SpotlightTour({
   const targetCenterX = cutoutX + cutoutW / 2;
   const targetCenterY = cutoutY + cutoutH / 2;
 
-  // Compute Tooltip position
-  const estimatedTooltipHeight = 225;
+  // Compute Tooltip position. The card grows with its text, so the estimate is
+  // capped against the viewport — on a short screen a fixed 215 would be taller
+  // than the space available and the clamp below would push it off-screen.
+  const estimatedTooltipHeight = Math.min(215, Math.round(windowHeight * 0.34));
+  const edgeMargin = 16;
   const spaceBelow = windowHeight - (cutoutY + cutoutH);
   const spaceAbove = cutoutY;
 
   // Place below if there is enough space below or if space below is greater than above
-  const isBelow = spaceBelow >= estimatedTooltipHeight || spaceBelow >= spaceAbove;
+  const isBelow = spaceBelow >= estimatedTooltipHeight + 20 || spaceBelow >= spaceAbove;
 
-  const tooltipWidth = Math.min(windowWidth - 32, 400);
-  const tooltipLeft = (windowWidth - tooltipWidth) / 2;
+  const tooltipWidth = Math.min(windowWidth - gutter * 2, 390);
+  const tooltipLeft = Math.max(gutter, (windowWidth - tooltipWidth) / 2);
 
   let tooltipTop = isBelow
-    ? cutoutY + cutoutH + 16
-    : cutoutY - estimatedTooltipHeight - 16;
+    ? cutoutY + cutoutH + 14
+    : cutoutY - estimatedTooltipHeight - 14;
 
-  // Clamp within viewport
-  tooltipTop = Math.max(16, Math.min(windowHeight - estimatedTooltipHeight - 16, tooltipTop));
+  // Clamp within viewport. Math.max is applied last so a screen too short for
+  // the estimate still pins the card on-screen instead of going negative.
+  const maxTooltipTop = windowHeight - estimatedTooltipHeight - edgeMargin;
+  tooltipTop = Math.max(edgeMargin, Math.min(maxTooltipTop, tooltipTop));
 
   const StepIcon = currentStep.icon || Sparkles;
   const isLastStep = currentStepIndex === steps.length - 1;
@@ -446,13 +517,13 @@ export function SpotlightTour({
       <View style={styles.container}>
         {/* Dimmed Focus Backdrop with SVG Cutout */}
         <Svg
-          width={windowWidth}
-          height={windowHeight}
+          width={modalWidth}
+          height={modalHeight}
           style={StyleSheet.absoluteFill}>
           <Defs>
             <Mask id={`spotlight-mask-${currentStepIndex}`}>
               {/* White fills everything (dark overlay applies) */}
-              <Rect x="0" y="0" width={windowWidth} height={windowHeight} fill="white" />
+              <Rect x="0" y="0" width={modalWidth} height={modalHeight} fill="white" />
               {/* Black cutout creates transparent hole */}
               {isCircle ? (
                 <Circle
@@ -477,8 +548,8 @@ export function SpotlightTour({
           <Rect
             x="0"
             y="0"
-            width={windowWidth}
-            height={windowHeight}
+            width={modalWidth}
+            height={modalHeight}
             fill="rgba(15, 23, 42, 0.82)"
             mask={`url(#spotlight-mask-${currentStepIndex})`}
           />

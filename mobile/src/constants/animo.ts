@@ -208,6 +208,8 @@ export const AnimoLoginColors = {
   linkOnWhite: '#1A6E1E',
   /** Body/label/helper text sitting directly on the green form card. */
   textOnGreen: '#FFFFFF',
+  /** Softer white for helper text on green, so hints recede behind labels. */
+  hintOnGreen: 'rgba(255, 255, 255, 0.72)',
 } as const;
 
 /** Fonts to load with `useFonts`. */

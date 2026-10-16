@@ -26,7 +26,10 @@ import { AnimoText } from '@/components/animo/animo-text';
 import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { LegalModal } from '@/components/animo/legal-modal';
 import { OnboardingWalkthroughModal } from '@/components/animo/onboarding-walkthrough-modal';
-import { FARMER_TUTORIAL_STORAGE_KEY } from '@/components/animo/spotlight-tour';
+import {
+  FARMER_TUTORIAL_KEYS,
+  FARMER_TUTORIAL_STORAGE_KEY,
+} from '@/components/animo/spotlight-tour';
 import SignOutModal from '@/components/signout-modal';
 import {
   AnimoColors,
@@ -163,8 +166,10 @@ export default function FarmerProfileScreen() {
   const handleTutorialToggle = async (on: boolean) => {
     setTutorialEnabled(on);
     try {
-      if (on) await AsyncStorage.removeItem(FARMER_TUTORIAL_STORAGE_KEY);
-      else await AsyncStorage.setItem(FARMER_TUTORIAL_STORAGE_KEY, 'true');
+      if (on) await AsyncStorage.multiRemove([...FARMER_TUTORIAL_KEYS]);
+      else {
+        await AsyncStorage.multiSet(FARMER_TUTORIAL_KEYS.map((key) => [key, 'true']));
+      }
     } catch {
       setTutorialEnabled(!on);
     }

@@ -37,7 +37,10 @@ import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { LegalModal } from '@/components/animo/legal-modal';
 import { OnboardingWalkthroughModal } from '@/components/animo/onboarding-walkthrough-modal';
-import { TUTORIAL_STORAGE_KEY } from '@/components/animo/spotlight-tour';
+import {
+  BUYER_TUTORIAL_KEYS,
+  TUTORIAL_STORAGE_KEY,
+} from '@/components/animo/spotlight-tour';
 import SignOutModal from '@/components/signout-modal';
 import {
   AnimoColors,
@@ -278,8 +281,10 @@ export default function BuyerProfileScreen() {
   const handleTutorialToggle = async (on: boolean) => {
     setTutorialEnabled(on);
     try {
-      if (on) await AsyncStorage.removeItem(TUTORIAL_STORAGE_KEY);
-      else await AsyncStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
+      if (on) await AsyncStorage.multiRemove([...BUYER_TUTORIAL_KEYS]);
+      else {
+        await AsyncStorage.multiSet(BUYER_TUTORIAL_KEYS.map((key) => [key, 'true']));
+      }
     } catch {
       setTutorialEnabled(!on);
     }
