@@ -11,12 +11,13 @@ import {
   Phone,
   Search,
   ShieldCheck,
-  TriangleAlert,
   X,
 } from 'lucide-react';
 
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { ConsoleLayout } from '@/components/console-layout';
 import { useLanguage } from '@/hooks/use-language';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { useAuth } from '@/lib/auth-context';
 import { barangayLabel } from '@/lib/barangay-label';
 import { supabase } from '@/lib/supabase';
@@ -27,9 +28,12 @@ import {
   fetchLguUserProfile,
   fetchRizalPriceHistory,
   formatRegisteredDate,
-  formatSyncTimestamp,
   type PriceHistoryPoint,
 } from '@/services/lgu-console-service';
+
+// Same breakpoints as dashboard.tsx / console-layout.tsx.
+const TABLET_QUERY = '(max-width: 1024px)';
+const MOBILE_QUERY = '(max-width: 640px)';
 
 export type SettingsPageProps = {
   onSignOut: () => void;
@@ -46,12 +50,16 @@ const LEGAL_ICONS = {
 export function SettingsPage({ onSignOut }: SettingsPageProps) {
   const { session } = useAuth();
   const { t, language, setLanguage, isTagalog } = useLanguage();
+  const isTablet = useMediaQuery(TABLET_QUERY);
+  const isMobile = useMediaQuery(MOBILE_QUERY);
   const [contactNumber, setContactNumber] = useState<string>('—');
   const [registeredDate, setRegisteredDate] = useState<string>('—');
   const [barangayCoverage, setBarangayCoverage] = useState<string>('—');
   const [priceHistory, setPriceHistory] = useState<PriceHistoryPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   // Change Password state
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -118,12 +126,17 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
   const legalLinks = useMemo(() => getLegalLinks(language), [language]);
 
   const latestHistory = priceHistory.at(-1);
-  const lastSyncTime = latestHistory ? formatSyncTimestamp(latestHistory.month, isTagalog) : (isTagalog ? 'Wala pa' : 'None');
+  // The newest PSA price month (date only); this is not a sync time, so no time of day is shown.
+  const latestPriceData = latestHistory ? formatRegisteredDate(latestHistory.month, isTagalog) : (isTagalog ? 'Wala pa' : 'None');
 
   const appInfo = useMemo(() => [
     { label: isTagalog ? 'Bersyon' : 'Version', value: 'ANIMO LGU 1.4.0' },
-    { label: isTagalog ? 'Huling sync ng presyo' : 'Latest price sync', value: lastSyncTime },
-  ], [isTagalog, lastSyncTime]);
+    { label: isTagalog ? 'Pinakabagong datos ng presyo' : 'Latest price data', value: latestPriceData },
+  ], [isTagalog, latestPriceData]);
+
+  // Desktop keeps the original style objects; overrides apply only at ≤1024px / ≤640px.
+  const gridStyle = isTablet ? { ...styles.grid, ...styles.gridOneColumn } : styles.grid;
+  const panelStyle = isMobile ? { ...styles.panel, ...styles.panelMobile } : styles.panel;
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,7 +175,11 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
   return (
     <ConsoleLayout
       title={t('settings.title')}
-      subtitle={t('settings.subtitle')}
+      subtitle={
+        isTagalog
+          ? 'Ang iyong account, wika ng display, at mga legal na kasunduan'
+          : 'Your account, display language, and legal agreements'
+      }
       onSignOut={onSignOut}>
       {toastMessage && (
         <div style={styles.toast}>
@@ -174,27 +191,19 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
       {loading ? <p style={styles.loadNotice}>{t('common.loading')}</p> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
 
-      <div style={styles.grid}>
-        <article className="animo-card" style={styles.panel}>
+      <div style={gridStyle}>
+        <article className="animo-card" style={panelStyle}>
           <div style={styles.panelHead}>
             <div>
               <h2 style={styles.panelTitle}>{t('settings.personalDetails')}</h2>
               <p style={styles.panelSubtitle}>{t('settings.personalSubtitle')}</p>
             </div>
-            <button
-              type="button"
-              disabled
-              style={{ ...styles.editButton, opacity: 0.5, cursor: 'not-allowed' }}
-              title={t('common.comingSoon')}>
-              {t('common.comingSoon')}
-            </button>
           </div>
 
           <div style={styles.identity}>
             <span style={styles.avatarLarge}>{initials}</span>
             <div>
               <div style={styles.identityName}>{fullName}</div>
-              <div style={styles.identityRole}>LGU Official · Antipolo, Rizal</div>
               <div style={styles.chipRow}>
                 <span style={styles.chipVerified}>Verified LGU Account</span>
               </div>
@@ -220,12 +229,14 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
               <button
                 type="button"
                 onClick={() => setLanguage('tl')}
+                aria-pressed={language === 'tl'}
                 style={{
                   ...styles.langCard,
                   ...(language === 'tl' ? styles.langCardActive : styles.langCardInactive),
                 }}>
                 <div style={styles.langCardTop}>
                   <span style={styles.langTitle}>{t('settings.tagalogOption')}</span>
+                  {language === 'tl' ? <Check size={16} color="var(--animo-green)" aria-hidden="true" /> : null}
                 </div>
                 <p style={styles.langDesc}>{t('settings.tagalogDesc')}</p>
               </button>
@@ -233,12 +244,14 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
               <button
                 type="button"
                 onClick={() => setLanguage('en')}
+                aria-pressed={language === 'en'}
                 style={{
                   ...styles.langCard,
                   ...(language === 'en' ? styles.langCardActive : styles.langCardInactive),
                 }}>
                 <div style={styles.langCardTop}>
                   <span style={styles.langTitle}>{t('settings.englishOption')}</span>
+                  {language === 'en' ? <Check size={16} color="var(--animo-green)" aria-hidden="true" /> : null}
                 </div>
                 <p style={styles.langDesc}>{t('settings.englishDesc')}</p>
               </button>
@@ -257,23 +270,25 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
                   ? 'I-update ang password para sa iyong LGU session'
                   : 'Update password for your LGU session'
               }
+              bordered
               onClick={() => setShowPasswordModal(true)}
             />
             <ActionRow
-              icon={<Phone size={20} color="var(--animo-black-secondary)" />}
+              icon={<Phone size={20} color="var(--animo-muted)" />}
               title="Two-factor authentication"
               subtitle={
                 isTagalog
                   ? 'Hindi pa available sa prototype'
                   : 'Not yet available in prototype'
               }
+              bordered
               disabled
             />
           </div>
         </article>
 
         <aside style={styles.sideColumn}>
-          <article className="animo-card" style={styles.panel}>
+          <article className="animo-card" style={panelStyle}>
             <div>
               <h2 style={styles.panelTitle}>{t('settings.legalSection')}</h2>
               <p style={styles.panelSubtitle}>{t('settings.legalSubtitle')}</p>
@@ -308,25 +323,30 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
               </dl>
             </div>
 
-            <button type="button" onClick={onSignOut} style={styles.signOutButton}>
+            <button type="button" onClick={() => setConfirmSignOut(true)} style={styles.signOutButton}>
               {t('nav.signOut')}
             </button>
-
-            <div style={styles.warning}>
-              <TriangleAlert
-                size={18}
-                color="var(--animo-danger)"
-                style={{ flexShrink: 0, marginTop: 1 }}
-              />
-              <span>
-                {isTagalog
-                  ? 'Kakailanganin mong mag-login muli para makita ang dashboard.'
-                  : 'You will need to log in again to access the dashboard.'}
-              </span>
-            </div>
           </article>
         </aside>
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmSignOut}
+        title={isTagalog ? 'Mag-sign Out' : 'Sign Out'}
+        message={
+          isTagalog
+            ? 'Kakailanganin mong mag-log in muli para ma-access ang dashboard.'
+            : 'You will need to log in again to access the dashboard.'
+        }
+        confirmLabel={isTagalog ? 'Mag-sign Out' : 'Sign Out'}
+        cancelLabel={isTagalog ? 'Kanselahin' : 'Cancel'}
+        destructive
+        onCancel={() => setConfirmSignOut(false)}
+        onConfirm={() => {
+          setConfirmSignOut(false);
+          onSignOut();
+        }}
+      />
 
       {/* Change Password Modal */}
       {showPasswordModal && (
@@ -627,17 +647,18 @@ function ActionRow({
       type="button"
       disabled={disabled}
       onClick={onClick}
+      aria-disabled={disabled || undefined}
       style={{
         ...styles.actionRow,
         ...(bordered ? styles.actionRowBordered : null),
-        ...(disabled ? { opacity: 0.55, cursor: 'not-allowed' } : null),
+        ...(disabled ? styles.actionRowDisabled : null),
       }}>
       {icon}
       <span style={styles.actionText}>
-        <span style={styles.actionTitle}>{title}</span>
+        <span style={{ ...styles.actionTitle, ...(disabled ? { color: 'var(--animo-muted)' } : null) }}>{title}</span>
         <span style={styles.actionSubtitle}>{subtitle}</span>
       </span>
-      <ChevronRight size={20} color="var(--animo-muted)" />
+      <ChevronRight size={20} color={disabled ? 'var(--animo-border)' : 'var(--animo-muted)'} />
     </button>
   );
 }
@@ -650,6 +671,10 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'start',
   },
   sideColumn: { display: 'flex', flexDirection: 'column', gap: 18 },
+  // Tablet + mobile: stack the two columns (account card above the legal/app-info card).
+  gridOneColumn: { gridTemplateColumns: 'minmax(0, 1fr)' },
+  // Mobile (≤640px): matches the 16px gutter and card padding used on the dashboard.
+  panelMobile: { padding: 16 },
   loadNotice: {
     margin: '0 0 12px',
     color: 'var(--animo-black-secondary)',
@@ -687,20 +712,12 @@ const styles: Record<string, React.CSSProperties> = {
     paddingBottom: 20,
     borderBottom: '1px solid var(--animo-border)',
   },
-  panelTitle: { fontSize: 20, fontWeight: 700 },
+  // margin 0 drops the browser's default h2 margin (~17px); panelSubtitle's marginTop: 4 sets the gap.
+  panelTitle: { margin: 0, fontSize: 20, fontWeight: 700 },
   panelSubtitle: {
     fontSize: 14,
     color: 'var(--animo-muted)',
     marginTop: 4,
-  },
-  editButton: {
-    padding: '8px 16px',
-    borderRadius: 'var(--animo-radius-md)',
-    border: '1px solid var(--animo-border)',
-    background: 'var(--animo-surface)',
-    fontSize: 13,
-    fontWeight: 600,
-    color: 'var(--animo-muted)',
   },
   identity: {
     display: 'flex',
@@ -723,11 +740,6 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   identityName: { fontSize: 18, fontWeight: 700 },
-  identityRole: {
-    fontSize: 14,
-    color: 'var(--animo-black-secondary)',
-    marginTop: 2,
-  },
   chipRow: {
     display: 'flex',
     gap: 8,
@@ -811,6 +823,12 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--animo-border)',
     background: 'var(--animo-white)',
   },
+  // Greyed-out, inert row: surface fill instead of white, muted text, no pointer.
+  actionRowDisabled: {
+    background: 'var(--animo-surface)',
+    cursor: 'not-allowed',
+    opacity: 0.7,
+  },
   actionText: {
     display: 'flex',
     flexDirection: 'column',
@@ -831,25 +849,14 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     padding: '12px 16px',
     borderRadius: 'var(--animo-radius-md)',
-    background: 'var(--animo-danger-tint)',
-    border: '1px solid rgba(220, 38, 38, 0.25)',
-    color: 'var(--animo-danger)',
+    // Solid fill so the button reads as the action, distinct from the tinted note below it.
+    background: 'var(--animo-danger)',
+    border: '1px solid var(--animo-danger)',
+    color: 'var(--animo-white)',
     fontWeight: 700,
     fontSize: 14,
     cursor: 'pointer',
     marginTop: 20,
-  },
-  warning: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 8,
-    padding: '10px 12px',
-    background: 'var(--animo-danger-tint)',
-    borderRadius: 'var(--animo-radius-md)',
-    fontSize: 12,
-    color: 'var(--animo-danger)',
-    marginTop: 12,
-    lineHeight: '16px',
   },
   modalOverlay: {
     position: 'fixed',

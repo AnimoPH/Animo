@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 import { AnimoMark } from '@/components/animo-mark';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useLanguage } from '@/hooks/use-language';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useAuth } from '@/lib/auth-context';
@@ -50,6 +51,7 @@ export function ConsoleLayout({
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const reduceMotion = useMediaQuery(REDUCED_MOTION_QUERY);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerActive = isMobile && drawerOpen;
 
@@ -114,7 +116,7 @@ export function ConsoleLayout({
       .slice(0, 2) ?? '—';
   const officerName = session?.fullName ?? t('header.officer');
   // `session` carries no role/office field (only userId, email, fullName); every
-  // signed-in user is an LGU_Official of this LGU, so both identity blocks share one line.
+  // signed-in user is an LGU_Official of this LGU, so the sidebar identity block shows the office.
   const officerRoleLine = 'LGU Antipolo, Rizal';
 
   return (
@@ -174,7 +176,7 @@ export function ConsoleLayout({
               <span style={styles.userRole}>{officerRoleLine}</span>
             </span>
           </Link>
-          <button type="button" onClick={onSignOut} style={styles.signOut}>
+          <button type="button" onClick={() => setConfirmSignOut(true)} style={styles.signOut}>
             <LogOut size={20} />
             {t('nav.signOut')}
           </button>
@@ -211,20 +213,28 @@ export function ConsoleLayout({
           ) : (
             titleBlock
           )}
-          <div style={styles.topBarActions}>
-            {/* Quick Action: Header Profile links directly to Settings */}
-            <Link to="/settings" style={styles.topUserLink} title={t('nav.settings')}>
-              <span style={styles.avatar}>{officerInitials}</span>
-              <span>
-                <span style={styles.userName}>{officerName}</span>
-                <span style={styles.userRole}>{officerRoleLine}</span>
-              </span>
-            </Link>
-          </div>
         </header>
 
         {children}
       </main>
+
+      <ConfirmDialog
+        isOpen={confirmSignOut}
+        title={isTagalog ? 'Mag-sign Out' : 'Sign Out'}
+        message={
+          isTagalog
+            ? 'Kakailanganin mong mag-log in muli para ma-access ang dashboard.'
+            : 'You will need to log in again to access the dashboard.'
+        }
+        confirmLabel={isTagalog ? 'Mag-sign Out' : 'Sign Out'}
+        cancelLabel={isTagalog ? 'Kanselahin' : 'Cancel'}
+        destructive
+        onCancel={() => setConfirmSignOut(false)}
+        onConfirm={() => {
+          setConfirmSignOut(false);
+          onSignOut();
+        }}
+      />
     </div>
   );
 }
@@ -373,30 +383,15 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '28px 32px 48px',
     minWidth: 0,
   },
+  // Title (plus the hamburger on mobile) is the header's only content now.
   topBar: {
     display: 'flex',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 24,
-    flexWrap: 'wrap',
   },
   pageTitle: { margin: '0 0 4px', fontSize: 26, fontWeight: 800 },
   pageSubtitle: {
     margin: 0,
     fontSize: 15,
     color: 'var(--animo-black-secondary)',
-  },
-  topBarActions: { display: 'flex', alignItems: 'center' },
-  topUserLink: {
-    display: 'flex',
-    alignItems: 'center',
-    minHeight: 44,
-    gap: 12,
-    textDecoration: 'none',
-    color: 'inherit',
-    padding: '4px 10px',
-    borderRadius: 'var(--animo-radius-md)',
-    transition: 'background 120ms ease',
-    cursor: 'pointer',
   },
 };
