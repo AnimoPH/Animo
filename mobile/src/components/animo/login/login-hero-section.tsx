@@ -79,7 +79,8 @@ export function LoginHeroSection() {
             borderTopRightRadius: crownRadius,
           },
           archStyle,
-        ]}>
+        ]}
+      >
         {/* Green sky with a low sun and faint terrace rows. */}
         <Svg
           style={StyleSheet.absoluteFill}
@@ -87,7 +88,8 @@ export function LoginHeroSection() {
           height="100%"
           viewBox="0 0 400 300"
           preserveAspectRatio="xMidYMid slice"
-          accessibilityElementsHidden>
+          accessibilityElementsHidden
+        >
           <Defs>
             <LinearGradient id="archSky" x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0" stopColor="#145A18" />
@@ -95,8 +97,8 @@ export function LoginHeroSection() {
             </LinearGradient>
           </Defs>
           <Rect x="0" y="0" width="400" height="300" fill="url(#archSky)" />
-          <Circle cx="200" cy="170" r="92" fill="#FBE7A6" opacity={0.2} />
-          <Circle cx="200" cy="170" r="58" fill="#FBE7A6" opacity={0.28} />
+          <Circle cx="200" cy="170" r="92" fill="#FBE7A6" opacity={0.15} />
+          <Circle cx="200" cy="170" r="58" fill="#17a41e" opacity={0.5} />
           {[0, 1, 2].map((i) => (
             <Path
               key={i}
@@ -111,7 +113,7 @@ export function LoginHeroSection() {
 
         <Animated.View style={[styles.art, artStyle]}>
           <Image
-            source={require('@/assets/images/animo/login-banner.png')}
+            source={require("@/assets/images/animo/animo-mascot.png")}
             style={styles.artImage}
             contentFit="contain"
             contentPosition="bottom"
