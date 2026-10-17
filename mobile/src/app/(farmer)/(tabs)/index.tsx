@@ -297,12 +297,7 @@ export default function FarmerHomeScreen() {
           ) : (
             <View style={styles.activityList}>
               {activities.map((activity, index) => (
-                <View key={`${activity.id}-${index}`}>
-                  <ActivityRow activity={activity} />
-                  {index < activities.length - 1 ? (
-                    <View style={styles.divider} />
-                  ) : null}
-                </View>
+                <ActivityRow key={`${activity.id}-${index}`} activity={activity} />
               ))}
             </View>
           )}
@@ -696,14 +691,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: AnimoSpacing.lg,
   },
+  // `gap` spaces the cards without adding trailing space after the last one.
   activityList: {
     gap: AnimoSpacing.md,
   },
+  // Each activity is its own card; same radius as the stat cards and sell CTA above.
   activityRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: AnimoSpacing.md,
-    paddingVertical: AnimoSpacing.sm,
+    padding: AnimoSpacing.md,
+    backgroundColor: AnimoColors.white,
+    borderRadius: AnimoRadius.md,
+    borderWidth: 1,
+    borderColor: AnimoColors.border,
   },
   avatar: {
     width: 42,
@@ -716,9 +717,5 @@ const styles = StyleSheet.create({
   activityTextWrap: {
     flex: 1,
     gap: 4,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: AnimoColors.border,
   },
 });

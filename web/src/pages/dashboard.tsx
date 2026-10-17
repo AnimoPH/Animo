@@ -6,6 +6,7 @@ import {
   Gavel,
   PauseCircle,
   RefreshCw,
+  TrendingDown,
   TrendingUp,
   TriangleAlert,
   X,
@@ -14,6 +15,7 @@ import {
 import { ConsoleLayout } from '@/components/console-layout';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { useAuth } from '@/lib/auth-context';
 import {
   activateNfaInterventionWindow,
@@ -33,6 +35,10 @@ import {
   type PriceHistoryPoint,
 } from '@/services/lgu-console-service';
 
+// Same breakpoints as console-layout.tsx (its drawer switches at 640px).
+const TABLET_QUERY = '(max-width: 1024px)';
+const MOBILE_QUERY = '(max-width: 640px)';
+
 export type DashboardPageProps = {
   onSignOut: () => void;
 };
@@ -41,6 +47,8 @@ export type DashboardPageProps = {
 export function DashboardPage({ onSignOut }: DashboardPageProps) {
   const { session } = useAuth();
   const { t, isTagalog } = useLanguage();
+  const isTablet = useMediaQuery(TABLET_QUERY);
+  const isMobile = useMediaQuery(MOBILE_QUERY);
   const [priceFeed, setPriceFeed] = useState<MarketPriceFeed | null>(null);
   const [priceHistory, setPriceHistory] = useState<PriceHistoryPoint[]>([]);
   const [nfaActive, setNfaActive] = useState(false);
@@ -161,7 +169,21 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
   const psaFarmgate = latestHistory?.pricePerKg ?? null;
   const dryBase = priceFeed?.dryBasePerKg ?? latestHistory?.pricePerKg ?? null;
   const benchmarkDelta = dryBase != null ? priceDelta(dryBase, previousHistory?.pricePerKg) : null;
+  // Same subtraction priceDelta signs with (current - previous), so the icon always agrees with the +/- text.
+  const benchmarkFell = dryBase != null && previousHistory != null && dryBase - previousHistory.pricePerKg < 0;
   const lastSyncTime = latestHistory ? formatSyncTimestamp(latestHistory.month, isTagalog) : t('common.none');
+  // Same date source and parsing as formatSyncTimestamp, so the badge matches the displayed "Last record".
+  // Desktop keeps the original style objects untouched; overrides apply only at ≤1024px / ≤640px.
+  const topCardsGridStyle = isMobile
+    ? { ...styles.topCardsGrid, ...styles.gridOneColumn }
+    : isTablet
+      ? { ...styles.topCardsGrid, ...styles.topCardsGridTablet }
+      : styles.topCardsGrid;
+  const midRowStyle = isTablet ? { ...styles.midRow, ...styles.gridOneColumn } : styles.midRow;
+  const metricCardStyle = isMobile ? { ...styles.metricCard, ...styles.cardPaddingMobile } : styles.metricCard;
+  const actionCardStyle = isMobile ? { ...styles.actionCard, ...styles.cardPaddingMobile } : styles.actionCard;
+  const lastRecordMs = latestHistory ? new Date(`${latestHistory.month}T12:00:00`).getTime() : NaN;
+  const lastRecordStale = Number.isFinite(lastRecordMs) && Date.now() - lastRecordMs > 24 * 60 * 60 * 1000;
 
   return (
     <ConsoleLayout
@@ -170,156 +192,159 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
       onSignOut={onSignOut}>
       {loading ? <p style={styles.loadNotice}>{t('common.loading')}</p> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
-      {/* Top Cards Grid */}
-      <section style={styles.topCardsGrid}>
-        <article className="animo-card" style={styles.metricCard}>
-          <div style={styles.metricTop}>
-            <div style={styles.metricHead}>
-              <span style={styles.metricLabel}>
-                {isTagalog ? 'Presyo ng Patuyong Palay (Dry Base)' : 'Dry Base Price'}
-              </span>
-              <span style={styles.metricIcon}>
-                <TrendingUp size={20} color="var(--animo-green)" />
-              </span>
-            </div>
-            <div style={styles.metricValue}>{dryBase != null ? formatPeso(dryBase) : '—'}</div>
-            <div style={styles.comparisonRow}>
-              <span style={styles.comparisonText}>
-                {isTagalog ? 'Awtomatikong pagtantiya batay sa datos ng PSA' : 'Automated estimate based on PSA data'}
-              </span>
-            </div>
-          </div>
-          <div style={styles.metricBottom}>
-            <div style={styles.metricDelta}>
-              <span>
-                {isTagalog ? 'Presyo ng Basang Palay (survey):' : 'Wet Base Price (survey):'}{' '}
-                {priceFeed ? formatPeso(priceFeed.wetBasePerKg) : '—'}
-              </span>
-            </div>
-          </div>
-        </article>
-
-        <article className="animo-card" style={styles.metricCard}>
-          <div style={styles.metricTop}>
-            <div style={styles.metricHead}>
-              <span style={styles.metricLabel}>{isTagalog ? 'PSA Farmgate sa Rizal' : 'PSA Rizal Farmgate'}</span>
-              <span style={styles.metricIcon}>
-                <Coins size={20} color="var(--animo-green)" />
-              </span>
-            </div>
-            <div style={styles.metricValue}>
-              {psaFarmgate != null ? formatPeso(psaFarmgate) : '—'}
-            </div>
-            {psaFarmgate != null && benchmarkDelta ? (
-              <div style={styles.comparisonRow}>
-                <span style={styles.trendPillGreen}>
-                  <TrendingUp size={14} /> {benchmarkDelta}
+      {/* Top cards + full-width Sync card, stacked with a tighter 16px gap than the page's 24px */}
+      <div style={styles.topCardsStack}>
+        {/* Top Cards Grid */}
+        <section style={topCardsGridStyle}>
+          <article className="animo-card" style={metricCardStyle}>
+            <div style={styles.metricTop}>
+              <div style={styles.metricHead}>
+                <span style={styles.metricLabel}>
+                  {isTagalog ? 'Presyo ng Patuyong Palay (Dry Base)' : 'Dry Base Price'}
                 </span>
-                <span style={styles.comparisonText}>
-                  {isTagalog ? 'vs nakaraang buwan sa talaan' : 'vs previous month in record'}
+                <span style={styles.metricIcon}>
+                  <TrendingUp size={20} color="var(--animo-green)" />
                 </span>
               </div>
-            ) : null}
-          </div>
-          <div style={styles.metricBottom}>
-            <div style={styles.metricDelta}>
-              {psaFarmgate != null ? (
-                <span>{isTagalog ? 'kada kilo · PSA OpenSTAT · Lalawigan ng Rizal' : 'per kg · PSA OpenSTAT · Rizal province'}</span>
-              ) : (
-                <span>
-                  {isTagalog
-                    ? 'Wala pang PSA price history para sa Rizal. I-click ang "I-sync mula sa PSA" sa ibaba.'
-                    : 'No PSA price history for Rizal yet. Click "Sync from PSA" below.'}
+              <div style={styles.metricValue}>{dryBase != null ? formatPeso(dryBase) : '—'}</div>
+              <div style={styles.comparisonRow}>
+                <span style={styles.comparisonText}>
+                  {isTagalog ? 'Awtomatikong pagtantiya batay sa datos ng PSA' : 'Automated estimate based on PSA data'}
                 </span>
-              )}
+              </div>
             </div>
-          </div>
-        </article>
-
-        {/* NFA Volatility Fallback Card */}
-        <article
-          className="animo-card"
-          style={{
-            ...styles.actionCard,
-            ...(nfaActive ? styles.actionCardActiveBorder : styles.actionCardInactiveBorder),
-          }}>
-          <div style={styles.actionCardHead}>
-            <div>
+            <div style={styles.metricBottom}>
+              <div style={styles.metricDelta}>
+                <span>
+                  {isTagalog ? 'Presyo ng Basang Palay (survey):' : 'Wet Base Price (survey):'}{' '}
+                  {priceFeed ? formatPeso(priceFeed.wetBasePerKg) : '—'}
+                </span>
+              </div>
+            </div>
+          </article>
+  
+          <article className="animo-card" style={metricCardStyle}>
+            <div style={styles.metricTop}>
+              <div style={styles.metricHead}>
+                <span style={styles.metricLabel}>{isTagalog ? 'PSA Farmgate sa Rizal' : 'PSA Rizal Farmgate'}</span>
+                <span style={styles.metricIcon}>
+                  <Coins size={20} color="var(--animo-green)" />
+                </span>
+              </div>
+              <div style={styles.metricValue}>
+                {psaFarmgate != null ? formatPeso(psaFarmgate) : '—'}
+              </div>
+              {psaFarmgate != null && benchmarkDelta ? (
+                <div style={styles.comparisonRow}>
+                  <span style={styles.trendPillGreen}>
+                    {benchmarkFell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} {benchmarkDelta}
+                  </span>
+                  <span style={styles.comparisonText}>
+                    {isTagalog ? 'vs nakaraang buwan sa talaan' : 'vs previous month in record'}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+            <div style={styles.metricBottom}>
+              <div style={styles.metricDelta}>
+                {psaFarmgate != null ? (
+                  <span>{isTagalog ? 'kada kilo · PSA OpenSTAT · Lalawigan ng Rizal' : 'per kg · PSA OpenSTAT · Rizal province'}</span>
+                ) : (
+                  <span>
+                    {isTagalog
+                      ? 'Wala pang PSA price history para sa Rizal. I-click ang "I-sync mula sa PSA" sa ibaba.'
+                      : 'No PSA price history for Rizal yet. Click "Sync from PSA" below.'}
+                  </span>
+                )}
+              </div>
+            </div>
+          </article>
+  
+          {/* NFA Volatility Fallback Card */}
+          <article
+            className="animo-card"
+            style={{
+              ...actionCardStyle,
+              ...(nfaActive ? styles.actionCardActiveBorder : styles.actionCardInactiveBorder),
+            }}>
+            <div style={styles.actionCardHead}>
+              <div>
+                <span
+                  style={
+                    nfaActive ? styles.actionBadgeActive : styles.actionBadgeInactive
+                  }>
+                  {nfaActive
+                    ? isTagalog
+                      ? 'NAKA-ON ANG SAHIG NG PRESYO'
+                      : 'NFA PRICE FLOOR IS ON'
+                    : isTagalog
+                      ? 'Patakaran'
+                      : 'Policy'}
+                </span>
+                <h3 style={styles.actionCardTitle}>
+                  {isTagalog ? 'Sahig ng presyo ng NFA' : 'NFA price floor'}
+                </h3>
+              </div>
               <span
                 style={
-                  nfaActive ? styles.actionBadgeActive : styles.actionBadgeInactive
+                  nfaActive
+                    ? styles.actionIconCircleActive
+                    : styles.actionIconCircleInactive
                 }>
-                {nfaActive
-                  ? isTagalog
-                    ? 'NAKA-ON ANG SAHIG NG PRESYO'
-                    : 'NFA PRICE FLOOR IS ON'
-                  : isTagalog
-                    ? 'Sahig ng presyo ng NFA'
-                    : 'NFA price floor'}
+                <Gavel
+                  size={22}
+                  color={nfaActive ? 'var(--animo-green)' : 'var(--animo-muted)'}
+                />
               </span>
-              <h3 style={styles.actionCardTitle}>
-                {isTagalog ? 'Sahig ng presyo ng NFA' : 'NFA price floor'}
-              </h3>
             </div>
-            <span
-              style={
-                nfaActive
-                  ? styles.actionIconCircleActive
-                  : styles.actionIconCircleInactive
-              }>
-              <Gavel
-                size={22}
-                color={nfaActive ? 'var(--animo-green)' : 'var(--animo-muted)'}
-              />
-            </span>
-          </div>
-
-          <p style={styles.actionCardDesc}>
-            {nfaActive
-              ? isTagalog
-                ? 'Naka-on ang pinakamababang presyo ng NFA upang protektahan ang mga magsasaka laban sa biglaang pagbaba ng presyo.'
-                : 'The NFA price floor is on, to protect farmers from a sudden drop.'
-              : isTagalog
-                ? 'Umiiral ang presyo ng merkado. Hindi naka-on ang pinakamababang presyo ng NFA.'
-                : 'The market price is in effect. The NFA price floor is off.'}
-          </p>
-
-          <div style={styles.actionCardStatusRow}>
-            <span style={styles.actionStatusLabel}>{isTagalog ? 'Katayuan:' : 'Status:'}</span>
-            <span
-              style={{
-                ...styles.actionStatusValue,
-                color: nfaActive ? 'var(--animo-green)' : 'var(--animo-muted)',
-              }}>
+  
+            <p style={styles.actionCardDesc}>
               {nfaActive
-                ? `● ${isTagalog ? 'Aktibo' : 'Active'}`
-                : `○ ${isTagalog ? 'Hindi aktibo' : 'Inactive'}`}
-            </span>
-          </div>
-
-          {nfaActive ? (
-            <button
-              type="button"
-              onClick={() => setShowNfaModal(true)}
-              disabled={togglingNfa}
-              style={styles.actionButtonDisable}>
-              <PauseCircle size={18} />
-              {isTagalog ? 'I-off ang sahig ng presyo ng NFA' : 'Turn off the NFA price floor'}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowNfaModal(true)}
-              disabled={togglingNfa}
-              style={styles.actionButtonGreen}>
-              <Gavel size={18} />
-              {isTagalog ? 'I-on ang sahig ng presyo ng NFA' : 'Turn on the NFA price floor'}
-            </button>
-          )}
-        </article>
-
-        {/* Sync Market Prices from PSA Card */}
-        <article className="animo-card" style={styles.actionCard}>
+                ? isTagalog
+                  ? 'Naka-on ang pinakamababang presyo ng NFA upang protektahan ang mga magsasaka laban sa biglaang pagbaba ng presyo.'
+                  : 'The NFA price floor is on, to protect farmers from a sudden drop.'
+                : isTagalog
+                  ? 'Umiiral ang presyo ng merkado. Hindi naka-on ang pinakamababang presyo ng NFA.'
+                  : 'The market price is in effect. The NFA price floor is off.'}
+            </p>
+  
+            <div style={styles.actionCardStatusRow}>
+              <span style={styles.actionStatusLabel}>{isTagalog ? 'Katayuan:' : 'Status:'}</span>
+              <span
+                style={{
+                  ...styles.actionStatusValue,
+                  color: nfaActive ? 'var(--animo-green)' : 'var(--animo-muted)',
+                }}>
+                {nfaActive
+                  ? `● ${isTagalog ? 'Aktibo' : 'Active'}`
+                  : `○ ${isTagalog ? 'Hindi aktibo' : 'Inactive'}`}
+              </span>
+            </div>
+  
+            {nfaActive ? (
+              <button
+                type="button"
+                onClick={() => setShowNfaModal(true)}
+                disabled={togglingNfa}
+                style={styles.actionButtonDisable}>
+                <PauseCircle size={18} />
+                {isTagalog ? 'I-off ang sahig ng presyo ng NFA' : 'Turn off the NFA price floor'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowNfaModal(true)}
+                disabled={togglingNfa}
+                style={styles.actionButtonPsa}>
+                <Gavel size={18} />
+                {isTagalog ? 'I-on ang sahig ng presyo ng NFA' : 'Turn on the NFA price floor'}
+              </button>
+            )}
+          </article>
+        </section>
+  
+        {/* Sync Market Prices from PSA Card — own full-width row below the top cards */}
+        <article className="animo-card" style={actionCardStyle}>
           <div style={styles.actionCardHead}>
             <div>
               <span style={styles.actionBadgePsa}>
@@ -333,26 +358,33 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
               <Database size={22} color="var(--animo-green)" />
             </span>
           </div>
-
+  
           <p style={styles.actionCardDesc}>
             {isTagalog
               ? 'Kinukuha ang pinakabagong Rizal farmgate prices mula sa PSA. Pagkatapos, awtomatikong iaaply ito sa presyo ng modelo ng ANIMO.'
               : 'Fetches the latest Rizal farmgate prices from PSA, then automatically applies them to the ANIMO pricing model.'}
           </p>
-
+  
           <div style={styles.actionCardStatusRow}>
             <span style={styles.actionStatusLabel}>{isTagalog ? 'Huling tala:' : 'Last record:'}</span>
-            <span style={styles.actionStatusValue}>{lastSyncTime}</span>
+            <span style={styles.lastRecordValueGroup}>
+              {lastRecordStale ? (
+                <span style={styles.warningBadge}>
+                  {isTagalog ? 'Maaaring luma na ang datos' : 'Data may be outdated'}
+                </span>
+              ) : null}
+              <span style={styles.actionStatusValue}>{lastSyncTime}</span>
+            </span>
           </div>
-
+  
           {syncNotice ? <p style={styles.loadNotice}>{syncNotice}</p> : null}
-
+  
           <button
             type="button"
             onClick={() => void handlePsaSync()}
             disabled={syncing}
             style={{
-              ...styles.actionButtonPsa,
+              ...styles.actionButtonGreen,
               ...(syncing ? { opacity: 0.7, cursor: 'wait' } : null),
             }}>
             <RefreshCw size={18} />
@@ -365,16 +397,22 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                 : 'Sync from PSA'}
           </button>
         </article>
-      </section>
+      </div>
 
-      <section style={styles.midRow}>
+      <section style={midRowStyle}>
         <PriceBenchmarkCard
           dryBase={dryBase}
           monthlyBars={monthlyBars}
           effectiveDate={priceFeed?.effectiveDate ?? latestHistory?.month ?? null}
           isTagalog={isTagalog}
+          compact={isMobile}
         />
-        <MarketPricingConfidenceCard nfaActive={nfaActive} marketStatus={marketStatus} isTagalog={isTagalog} />
+        <MarketPricingConfidenceCard
+          nfaActive={nfaActive}
+          marketStatus={marketStatus}
+          isTagalog={isTagalog}
+          compact={isMobile}
+        />
       </section>
 
       {showNfaModal ? (
@@ -510,14 +548,17 @@ function PriceBenchmarkCard({
   monthlyBars,
   effectiveDate,
   isTagalog,
+  compact,
 }: {
   dryBase: number | null;
   monthlyBars: ReturnType<typeof toMonthlyBars>;
   effectiveDate: string | null;
   isTagalog: boolean;
+  /** Mobile width: tighter card padding. */
+  compact: boolean;
 }) {
   return (
-    <article className="animo-card" style={styles.panel}>
+    <article className="animo-card" style={compact ? { ...styles.panel, ...styles.cardPaddingMobile } : styles.panel}>
       <div>
         <h2 style={styles.panelTitle}>
           {isTagalog ? 'Benchmark ng Presyo sa Rehiyon' : 'Regional Price Benchmark'}
@@ -578,17 +619,24 @@ function MarketPricingConfidenceCard({
   nfaActive,
   marketStatus,
   isTagalog,
+  compact,
 }: {
   nfaActive: boolean;
   marketStatus: MarketStatus | null;
   isTagalog: boolean;
+  /** Mobile width: tighter card padding. */
+  compact: boolean;
 }) {
   const checkLoading = marketStatus === null;
   const anomalyFlagged = marketStatus?.available === true && marketStatus.flagged;
   const elevated = nfaActive || anomalyFlagged;
+  // Same states the "Automated Analysis" row reads: still loading, or loaded but unavailable.
+  const analysisPending = marketStatus?.available !== true;
+  // An official NFA alert is known even while analysis is pending, so alert wins over pending.
+  const meterState: 'normal' | 'alert' | 'pending' = elevated ? 'alert' : analysisPending ? 'pending' : 'normal';
 
   return (
-    <article className="animo-card" style={styles.panel}>
+    <article className="animo-card" style={compact ? { ...styles.panel, ...styles.cardPaddingMobile } : styles.panel}>
       <div style={styles.panelHead}>
         <div>
           <h2 style={styles.panelTitle}>
@@ -600,21 +648,68 @@ function MarketPricingConfidenceCard({
               : 'Official alert + automated price analysis'}
           </p>
         </div>
-        <span style={elevated ? styles.warningBadge : styles.normalBadge}>
-          {elevated
+        <span
+          style={
+            meterState === 'alert'
+              ? styles.warningBadge
+              : meterState === 'pending'
+                ? { ...styles.normalBadge, background: 'var(--animo-surface)', color: 'var(--animo-muted)' }
+                : styles.normalBadge
+          }>
+          {meterState === 'alert'
             ? isTagalog
               ? 'May Alerto'
               : 'Alert Active'
-            : isTagalog
-              ? 'Normal'
-              : 'Normal'}
+            : meterState === 'pending'
+              ? isTagalog
+                ? 'Hinihintay'
+                : 'Pending'
+              : isTagalog
+                ? 'Normal'
+                : 'Normal'}
         </span>
       </div>
 
       <div style={styles.meterTrack}>
-        <span style={{ ...styles.meterSegment, background: elevated ? 'var(--animo-border)' : 'var(--animo-green)' }} />
-        <span style={{ ...styles.meterSegment, background: elevated ? 'var(--animo-warning)' : 'var(--animo-border)' }} />
-        <span style={{ ...styles.meterSegment, background: 'var(--animo-border)' }} />
+        <span
+          style={{
+            ...styles.meterSegment,
+            background: meterState === 'normal' ? 'var(--animo-green)' : 'var(--animo-border)',
+          }}
+        />
+        <span
+          style={{
+            ...styles.meterSegment,
+            background: meterState === 'alert' ? 'var(--animo-warning)' : 'var(--animo-border)',
+          }}
+        />
+        <span
+          style={{
+            ...styles.meterSegment,
+            background: meterState === 'pending' ? 'var(--animo-muted)' : 'var(--animo-border)',
+          }}
+        />
+      </div>
+
+      <div style={styles.legendList}>
+        <span style={styles.legendItem}>
+          <span style={{ ...styles.legendDot, background: 'var(--animo-green)' }} />
+          {isTagalog
+            ? 'Normal: naka-off ang sahig ng presyo ng NFA at walang biglaang pagbabago'
+            : 'Normal: NFA price floor off and no sudden change detected'}
+        </span>
+        <span style={styles.legendItem}>
+          <span style={{ ...styles.legendDot, background: 'var(--animo-warning)' }} />
+          {isTagalog
+            ? 'May Alerto: naka-on ang sahig ng presyo ng NFA o may biglaang pagbabago'
+            : 'Alert Active: NFA price floor on, or a sudden change detected'}
+        </span>
+        <span style={styles.legendItem}>
+          <span style={{ ...styles.legendDot, background: 'var(--animo-muted)' }} />
+          {isTagalog
+            ? 'Hindi pa available ang automated analysis'
+            : 'Analysis pending: automated check still running or not available'}
+        </span>
       </div>
 
       <dl style={styles.statList}>
@@ -654,11 +749,12 @@ function MarketPricingConfidenceCard({
 
       {!checkLoading && marketStatus.available ? (
         <div style={anomalyFlagged ? styles.calloutWarningBox : styles.calloutInfoBox}>
-          <TriangleAlert
-            size={20}
-            color={anomalyFlagged ? 'var(--animo-warning)' : 'var(--animo-green)'}
-            style={{ flexShrink: 0 }}
-          />
+          {/* Icon shape differs by result, not just color: the status text comes from the server and may be vague. */}
+          {anomalyFlagged ? (
+            <TriangleAlert size={20} color="var(--animo-warning)" style={{ flexShrink: 0 }} />
+          ) : (
+            <CheckCircle2 size={20} color="var(--animo-green)" style={{ flexShrink: 0 }} />
+          )}
           <span>{marketStatus.statusLabel}</span>
         </div>
       ) : !checkLoading ? (
@@ -686,12 +782,24 @@ function StatRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  topCardsStack: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16,
+  },
   topCardsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
     gap: 18,
     alignItems: 'stretch',
   },
+  // Tablet (≤1024px): at most 2 columns. Each track is at least half the row, so a 3rd card always
+  // wraps; the 240px floor drops to 1 column when the content area (sidebar still visible) gets too narrow.
+  topCardsGridTablet: { gridTemplateColumns: 'repeat(auto-fit, minmax(max(240px, calc((100% - 18px) / 2)), 1fr))' },
+  // Tablet + mobile: midRow stacks; mobile: top cards stack too. minmax(0, …) lets wide content shrink instead of overflowing.
+  gridOneColumn: { gridTemplateColumns: 'minmax(0, 1fr)' },
+  // Mobile (≤640px): matches the 16px side gutter console-layout.tsx uses at this width.
+  cardPaddingMobile: { padding: 16 },
   metricCard: {
     display: 'flex',
     flexDirection: 'column',
@@ -885,6 +993,13 @@ const styles: Record<string, React.CSSProperties> = {
   actionStatusValue: {
     fontWeight: 700,
   },
+  lastRecordValueGroup: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
   actionButtonGreen: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -937,7 +1052,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
     gap: 18,
-    alignItems: 'start',
+    alignItems: 'stretch',
   },
   panel: { display: 'flex', flexDirection: 'column', gap: 16, padding: 24 },
   panelHead: {
@@ -1009,6 +1124,7 @@ const styles: Record<string, React.CSSProperties> = {
   meterTrack: { display: 'flex', gap: 8 },
   meterSegment: { flex: 1, height: 8, borderRadius: 'var(--animo-radius-pill)' },
   legendRow: { display: 'flex', gap: 18, flexWrap: 'wrap' },
+  legendList: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: -6 },
   legendItem: {
     display: 'inline-flex',
     alignItems: 'center',

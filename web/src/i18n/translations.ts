@@ -318,7 +318,7 @@ export const WEB_TRANSLATIONS = {
     'login.emailLabel': 'Email Address',
     'login.passwordLabel': 'Password',
     'login.rememberMe': 'Remember me on this device',
-    'login.submitBtn': 'Sign In to Console',
+    'login.submitBtn': 'Sign In',
     'login.submittingBtn': 'Signing In…',
     'login.invalidCredentials': 'Invalid email or password.',
     'login.demoCredentialsNotice': 'Default credentials for testing:',

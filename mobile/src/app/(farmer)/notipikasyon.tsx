@@ -2,7 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { CheckCircle2, ChevronRight, Megaphone } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
@@ -95,9 +95,12 @@ export default function FarmerNotificationsScreen() {
       </View>
 
         {loading ? (
-          <AnimoText variant="body" color={AnimoColors.textLowEmphasis}>
-            {isTagalog ? 'Naglo-load...' : 'Loading...'}
-          </AnimoText>
+          <View style={styles.loadingState}>
+            <ActivityIndicator
+              color={AnimoColors.accentPrimary}
+              accessibilityLabel={isTagalog ? 'Naglo-load' : 'Loading'}
+            />
+          </View>
         ) : null}
         {loadError ? (
           <AnimoText variant="body" color={AnimoColors.danger}>
@@ -216,6 +219,12 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: AnimoColors.accentPrimary,
+  },
+  // Same spinner as the Transaksyon tab, centered in the content area below the filter pills.
+  loadingState: {
+    paddingVertical: AnimoSpacing.xxl,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyState: {
     paddingVertical: AnimoSpacing.xxl,
