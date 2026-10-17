@@ -57,7 +57,7 @@ export default function ListingResultScreen() {
             color={AnimoColors.textMediumEmphasis}
             style={styles.title}
           >
-            Inirerekomendang Presyo
+            Patas na Presyo
           </AnimoText>
 
           <AnimoText variant="display" color={AnimoColors.accentPrimary}>
