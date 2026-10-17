@@ -275,11 +275,11 @@ export default function BuyerTransactionsScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <StatusBar style="dark" />
       <AppHeader
         bellRef={bellRef}
-        onPressBell={() => router.push('/(buyer)/notipikasyon')}
+        onPressBell={() => router.push("/(buyer)/notipikasyon")}
       />
 
       <View ref={searchBarRef} collapsable={false}>
@@ -287,7 +287,9 @@ export default function BuyerTransactionsScreen() {
           value={searchQuery}
           onChangeText={handleSearchChange}
           placeholder={
-            isTagalog ? 'Maghanap ng pangalan, presyo, katayuan...' : 'Search name, price, status...'
+            isTagalog
+              ? "Pangalan, presyo, katayuan..."
+              : "Name, price, status..."
           }
           activeFilterCount={activeFilterCount}
           onFilterPress={openFilter}
@@ -299,25 +301,29 @@ export default function BuyerTransactionsScreen() {
         onClose={() => setModalOpen(false)}
         onReset={resetFilters}
         onApply={applyFilters}
-        activeCount={draftFilter === 'Lahat' ? 0 : 1}>
+        activeCount={draftFilter === "Lahat" ? 0 : 1}
+      >
         <View style={styles.filterSection}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-            {isTagalog ? 'Katayuan' : 'Status'}
+          <AnimoText
+            variant="bodyEmphasis"
+            color={AnimoColors.textHighEmphasis}
+          >
+            {isTagalog ? "Katayuan" : "Status"}
           </AnimoText>
           <View style={styles.chipsWrap}>
             {FILTERS.map((filter) => {
               const label =
-                filter === 'Lahat'
+                filter === "Lahat"
                   ? isTagalog
-                    ? 'Lahat'
-                    : 'All'
-                  : filter === 'Kasalukuyan'
+                    ? "Lahat"
+                    : "All"
+                  : filter === "Kasalukuyan"
                     ? isTagalog
-                      ? 'Kasalukuyan'
-                      : 'Active'
+                      ? "Kasalukuyan"
+                      : "Active"
                     : isTagalog
-                      ? 'Tapos na'
-                      : 'Completed';
+                      ? "Tapos na"
+                      : "Completed";
               return (
                 <FilterChoiceChip
                   key={filter}
@@ -349,7 +355,12 @@ export default function BuyerTransactionsScreen() {
           renderItem={({ item }) => <BuyerTransactionCard item={item} />}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => load(true)}
+            />
+          }
           ListFooterComponent={
             <PaginationControls
               currentPage={validPage}
@@ -361,10 +372,10 @@ export default function BuyerTransactionsScreen() {
             />
           }
           ListEmptyComponent={
-            searchQuery.trim() !== '' ? (
+            searchQuery.trim() !== "" ? (
               <SearchEmptyState
                 query={searchQuery}
-                onClear={() => handleSearchChange('')}
+                onClear={() => handleSearchChange("")}
                 isTagalog={isTagalog}
               />
             ) : activeFilterCount > 0 ? (
@@ -382,7 +393,7 @@ export default function BuyerTransactionsScreen() {
         storageKey={BUYER_TXN_TUTORIAL_KEY}
         onClose={() => {
           setShowTutorial(false);
-          AsyncStorage.setItem(BUYER_TXN_TUTORIAL_KEY, 'true').catch(() => {});
+          AsyncStorage.setItem(BUYER_TXN_TUTORIAL_KEY, "true").catch(() => {});
         }}
       />
     </SafeAreaView>

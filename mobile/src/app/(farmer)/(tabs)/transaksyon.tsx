@@ -310,7 +310,7 @@ export default function FarmerTransactionsScreen() {
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder={
-            isTagalog ? 'Maghanap ng pangalan, presyo, katayuan...' : 'Search name, price, status...'
+            isTagalog ? 'Pangalan, presyo, katayuan...' : 'Name, price, status...'
           }
           activeFilterCount={activeFilterCount}
           onFilterPress={openModal}
