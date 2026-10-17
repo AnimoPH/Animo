@@ -9,7 +9,6 @@ import {
   ReceiptText,
   ShoppingBag,
   Sparkles,
-  TrendingUp,
   Wheat,
 } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
@@ -88,13 +87,17 @@ export default function BuyerHomeScreen() {
     useCallback(() => {
       load();
       let active = true;
-      AsyncStorage.getItem(TUTORIAL_STORAGE_KEY).then((seen) => {
-        if (active) setShowTutorial(seen !== 'true');
-      });
+      if (params.startTour === 'true') {
+        setShowTutorial(true);
+      } else {
+        AsyncStorage.getItem(TUTORIAL_STORAGE_KEY).then((seen) => {
+          if (active) setShowTutorial(seen !== 'true');
+        });
+      }
       return () => {
         active = false;
       };
-    }, [load]),
+    }, [load, params.startTour]),
   );
 
   useAutoRefresh(load);
@@ -164,8 +167,9 @@ export default function BuyerHomeScreen() {
         </View>
 
         {/* Market Insights & Popularity Card */}
-        {insights ? (
-          <View ref={marketTrendsRef} collapsable={false} style={styles.marketInsightCard}>
+        <View ref={marketTrendsRef} collapsable={false}>
+          {insights ? (
+            <View style={styles.marketInsightCard}>
             <View style={styles.marketInsightTopRow}>
               <View style={styles.marketInsightTopLeft}>
                 <Flame size={18} color={AnimoColors.white} />
@@ -230,8 +234,9 @@ export default function BuyerHomeScreen() {
                 </View>
               </View>
             </View>
-          </View>
-        ) : null}
+            </View>
+          ) : null}
+        </View>
 
         {/* Colored Quick Actions */}
         <View ref={quickActionsRef} collapsable={false} style={styles.actions}>
@@ -250,8 +255,9 @@ export default function BuyerHomeScreen() {
         </View>
 
         {/* Patok na Uri ng Palay — live avg of Available listings per variety */}
-        {insights && insights.popularVarieties.length > 0 ? (
-          <View ref={varietiesRef} collapsable={false} style={styles.varietiesSection}>
+        <View ref={varietiesRef} collapsable={false}>
+          {insights && insights.popularVarieties.length > 0 ? (
+            <View style={styles.varietiesSection}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
                 <Sparkles size={18} color={AnimoColors.accentPrimary} />
@@ -346,6 +352,7 @@ export default function BuyerHomeScreen() {
             </ScrollView>
           </View>
         ) : null}
+      </View>
 
         {/* Mga Rekomendasyon Section */}
         <View style={styles.recommendationsSection}>
@@ -387,7 +394,16 @@ export default function BuyerHomeScreen() {
         role="mamimili"
         steps={buyerTourSteps}
         scrollViewRef={scrollViewRef}
-        onClose={() => setShowTutorial(false)}
+        storageKey={TUTORIAL_STORAGE_KEY}
+        onClose={() => {
+          setShowTutorial(false);
+          AsyncStorage.setItem(TUTORIAL_STORAGE_KEY, 'true').catch(() => {});
+          // Drop the replay flag, otherwise coming back to this tab would
+          // re-open the tour because startTour is still on the route.
+          if (params.startTour === 'true') {
+            router.setParams({ startTour: undefined });
+          }
+        }}
       />
     </SafeAreaView>
   );

@@ -1,16 +1,18 @@
-import type { ReactNode } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { useEffect, type ReactNode } from "react";
+import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from "react-native-reanimated";
 
 import { AnimoButton } from "@/components/animo/animo-button";
 import { AnimoText } from "@/components/animo/animo-text";
 import { LoginPhoneInput } from "@/components/animo/login-phone-input";
 import { NoticeBanner } from "@/components/animo/notice-banner";
-import {
-  AnimoColors,
-  AnimoLoginColors,
-  AnimoRadius,
-  AnimoSpacing,
-} from "@/constants/animo";
+import { AnimoColors, AnimoRadius, AnimoSpacing } from "@/constants/animo";
 import { useLanguage } from "@/hooks/use-language";
 
 export type LoginFormSectionProps = {
@@ -27,7 +29,7 @@ export type LoginFormSectionProps = {
   devSlot?: ReactNode;
 };
 
-/** Dark-green form card for the login phone step — fields sit directly on the green surface. */
+/** White form area for the login phone step, sitting below the arch hero. */
 export function LoginFormSection({
   phone,
   onChangePhone,
@@ -42,132 +44,132 @@ export function LoginFormSection({
   devSlot,
 }: LoginFormSectionProps) {
   const { t } = useLanguage();
+  // Short screens tighten the spacing so the sign-in button stays above the fold.
+  const { height: windowHeight } = useWindowDimensions();
+  const compact = windowHeight < SHORT_SCREEN_DP;
+
+  // The form settles in once, just after the arch.
+  const opacity = useSharedValue(0);
+  const translate = useSharedValue(14);
+
+  useEffect(() => {
+    opacity.value = withDelay(
+      220,
+      withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }),
+    );
+    translate.value = withDelay(
+      220,
+      withTiming(0, { duration: 600, easing: Easing.out(Easing.cubic) }),
+    );
+  }, [opacity, translate]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translate.value }],
+  }));
 
   return (
-    <View style={styles.container}>
-      <View style={styles.contentGroup}>
-        {/* Header title */}
+    <Animated.View style={[styles.container, compact && styles.containerCompact, animStyle]}>
+      <View style={[styles.contentGroup, compact && styles.contentGroupCompact]}>
         <View style={styles.headingBlock}>
-          <AnimoText variant="h1" color={AnimoLoginColors.textOnGreen}>
-            {t('login.welcomeTitle')}
+          <AnimoText variant={compact ? "h2" : "h1"} color={AnimoColors.black}>
+            {t("login.welcomeTitle")}
           </AnimoText>
-          <AnimoText variant="body" color={AnimoLoginColors.textOnGreen}>
-            {t('login.welcomeSubtitle')}
+          <AnimoText
+            variant={compact ? "caption" : "body"}
+            color={AnimoColors.blackSecondary}
+          >
+            {t("login.welcomeWarmSubtitle")}
           </AnimoText>
         </View>
 
-        {/* Form */}
-        <View style={styles.formBlock}>
-          {/* Upper Section */}
-          <View style={styles.upperSection}>
-            {/* Input Form */}
-            <View style={styles.labelRow}>
-              <AnimoText variant="button" color={AnimoColors.surfacePrimary}>
-                {t('login.phoneLabel')}
+        <View style={styles.upperSection}>
+          <View style={styles.labelRow}>
+            <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+              {t("login.phoneLabel")}
+            </AnimoText>
+            <Pressable
+              accessibilityRole="link"
+              onPress={onClearAccount}
+              hitSlop={LINK_HIT_SLOP}
+              style={({ pressed }) => pressed && styles.linkPressed}
+            >
+              <AnimoText variant="tag" color={AnimoColors.green} style={styles.link}>
+                {t("login.differentAccount")}
               </AnimoText>
-              <Pressable
-                accessibilityRole="link"
-                onPress={onClearAccount}
-                hitSlop={LINK_HIT_SLOP}
-                style={styles.linkTouch}
-              >
-                <AnimoText
-                  variant="tag"
-                  color={AnimoLoginColors.linkOnGreen}
-                  style={styles.link}
-                >
-                  {t('login.differentAccount')}
-                </AnimoText>
-              </Pressable>
-            </View>
-
-            <LoginPhoneInput
-              value={phone}
-              onChangeText={onChangePhone}
-              hintColor={AnimoLoginColors.textOnGreen}
-              error={Boolean(errorMessage)}
-            />
+            </Pressable>
           </View>
-          {errorMessage ? (
-            <NoticeBanner tone="danger">{errorMessage}</NoticeBanner>
-          ) : null}
 
-          {/* Bottom Section */}
-          <View style={styles.lowerSection}>
-            {/* Button Section */}
-            <AnimoButton
-              label={primaryLabel}
-              onPress={onPrimary}
-              disabled={primaryDisabled}
-              loading={submitting}
-              variant="primary"
-              style={styles.primaryButton}
-              textColor={AnimoColors.accentPrimary}
-            />
+          <LoginPhoneInput
+            value={phone}
+            onChangeText={onChangePhone}
+            hint={t("login.phoneHint")}
+            error={Boolean(errorMessage)}
+          />
+          {errorMessage ? <NoticeBanner tone="danger">{errorMessage}</NoticeBanner> : null}
+        </View>
 
-            <View style={styles.registerRow}>
-              <AnimoText variant="body" color={AnimoLoginColors.textOnGreen}>
-                {t('login.noAccount')}{" "}
+        <View style={styles.lowerSection}>
+          <AnimoButton
+            label={primaryLabel}
+            onPress={onPrimary}
+            disabled={primaryDisabled}
+            loading={submitting}
+            variant="primary"
+            style={styles.primaryButton}
+          />
+
+          <View style={styles.registerRow}>
+            <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+              {t("login.noAccount")}{" "}
+            </AnimoText>
+            <Pressable
+              accessibilityRole="link"
+              onPress={onRegister}
+              hitSlop={LINK_HIT_SLOP}
+              style={({ pressed }) => pressed && styles.linkPressed}
+            >
+              <AnimoText variant="bodyEmphasis" color={AnimoColors.green} style={styles.link}>
+                {t("login.register")}
               </AnimoText>
-              <Pressable
-                accessibilityRole="link"
-                onPress={onRegister}
-                hitSlop={LINK_HIT_SLOP}
-                style={styles.linkTouch}
-              >
-                <AnimoText
-                  variant="bodyEmphasis"
-                  color={AnimoLoginColors.linkOnGreen}
-                  style={styles.link}
-                >
-                  {t('login.register')}
-                </AnimoText>
-              </Pressable>
-            </View>
+            </Pressable>
           </View>
         </View>
       </View>
 
       <View style={styles.footerGroup}>
-        {/* Terms & Policy */}
-        {/* {footer} */}
-
-        {/* Dev Mode */}
+        {footer}
         {devSlot}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
-const CARD_TOP_RADIUS = 32;
+const SHORT_SCREEN_DP = 700;
 const LINK_HIT_SLOP = { top: 16, bottom: 16, left: 8, right: 8 };
 
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     flexShrink: 0,
-    marginTop: AnimoSpacing.lg,
-    backgroundColor: AnimoLoginColors.brandGreen,
-    borderTopLeftRadius: CARD_TOP_RADIUS,
-    borderTopRightRadius: CARD_TOP_RADIUS,
+    backgroundColor: AnimoColors.background,
     paddingTop: AnimoSpacing.xl,
     paddingHorizontal: AnimoSpacing.xl,
+    paddingBottom: AnimoSpacing.lg,
+  },
+  containerCompact: {
+    paddingTop: AnimoSpacing.lg,
   },
   contentGroup: {
     flexGrow: 0,
     flexShrink: 0,
     gap: AnimoSpacing.xl,
   },
+  contentGroupCompact: {
+    gap: AnimoSpacing.lg,
+  },
   headingBlock: {
     gap: AnimoSpacing.xs,
-  },
-  formBlock: {
-    gap: AnimoSpacing.xl,
-  },
-  footerGroup: {
-    flexGrow: 0,
-    flexShrink: 0,
-    marginTop: AnimoSpacing.xl,
   },
   upperSection: {
     gap: AnimoSpacing.md,
@@ -181,23 +183,23 @@ const styles = StyleSheet.create({
   link: {
     textDecorationLine: "underline",
   },
-  linkTouch: {
-    justifyContent: "center",
-    alignItems: "center",
+  linkPressed: {
+    opacity: 0.6,
   },
   primaryButton: {
-    // minHeight: 56,
-    backgroundColor: AnimoColors.accentSecondaryLight,
-    paddingVertical: AnimoSpacing.lg,
     borderRadius: AnimoRadius.md,
   },
   lowerSection: {
     gap: AnimoSpacing.lg,
   },
-
   registerRow: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+  },
+  footerGroup: {
+    flexGrow: 0,
+    flexShrink: 0,
+    marginTop: AnimoSpacing.lg,
   },
 });

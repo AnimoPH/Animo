@@ -1,417 +1,553 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowRight, Globe } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useCallback, useEffect, useRef } from 'react';
+import {
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import Animated, {
+  Easing,
+  ReduceMotion,
+  type SharedValue,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
-  withTiming,
+  withDelay as rnDelay,
+  withRepeat as rnRepeat,
+  withTiming as rnTiming,
 } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Ellipse, Line } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { DevLoginBar } from '@/components/animo/dev-login-bar';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
-import { SHOW_DEV_TOOLS } from '@/constants/dev-tools';
-import { homeRouteForRole, type RoleId } from '@/constants/roles';
+import { AnimoColors } from '@/constants/animo';
+import { homeRouteForRole } from '@/constants/roles';
 import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
-import { signInDevAccount } from '@/services/auth-service';
 
-// Animation duration for the entrance .
-const ENTRANCE_EASE = { duration: 700 };
+const MINIMUM_SPLASH_MS = 3000;
+
+// The splash is brief, decorative and runs once, so it plays even when the OS
+// or browser asks for reduced motion (Reanimated would otherwise skip it all).
+const timing = (
+  to: number,
+  config: Parameters<typeof rnTiming>[1],
+  cb?: Parameters<typeof rnTiming>[2],
+): number => rnTiming(to, { ...config, reduceMotion: ReduceMotion.Never }, cb) as unknown as number;
+const withDelay = (ms: number, anim: number): number =>
+  rnDelay(ms, anim as never, ReduceMotion.Never) as unknown as number;
+const repeat = (anim: number, reps: number, reverse: boolean): number =>
+  rnRepeat(anim as never, reps, reverse, undefined, ReduceMotion.Never) as unknown as number;
 
 /**
- * Landing / Splash Screen.
+ * Splash screen.
  *
- * Branded first screen: logo, tagline, subtitle, and sign-in CTA.
- * Dev role bypass is gated by SHOW_DEV_TOOLS.
+ * The Animo wordmark on a white field with a faint sunrise, and one memorable
+ * moment: layered rice-terrace ridges rise from the bottom edge. The front
+ * ridge is the same green as the login card, so the splash hands off to it.
  */
-export default function LandingScreen() {
-  const { refresh } = useSession();
-  const { language, setLanguage, t, isTagalog } = useLanguage();
-  const [submitting, setSubmitting] = useState(false);
-  const [devRole, setDevRole] = useState<RoleId | null>(null);
-  const [devError, setDevError] = useState<string | undefined>();
+const RIDGE_VIEWBOX = { width: 400, height: 240 };
 
-  const logoOpacity = useSharedValue(0);
-  const logoScale = useSharedValue(0.9);
-  const textOpacity = useSharedValue(0);
-  const buttonOpacity = useSharedValue(0);
-  const buttonTranslateY = useSharedValue(14);
-
-  useEffect(() => {
-    logoOpacity.value = withTiming(1, ENTRANCE_EASE);
-    logoScale.value = withTiming(1, ENTRANCE_EASE);
-    textOpacity.value = withDelay(140, withTiming(1, ENTRANCE_EASE));
-    buttonOpacity.value = withDelay(300, withTiming(1, ENTRANCE_EASE));
-    buttonTranslateY.value = withDelay(300, withTiming(0, ENTRANCE_EASE));
-  }, [buttonOpacity, buttonTranslateY, logoOpacity, logoScale, textOpacity]);
-
-  const logoAnimStyle = useAnimatedStyle(() => ({
-    opacity: logoOpacity.value,
-    transform: [{ scale: logoScale.value }],
-  }));
-
-  const textAnimStyle = useAnimatedStyle(() => ({
-    opacity: textOpacity.value,
-  }));
-
-  const buttonAnimStyle = useAnimatedStyle(() => ({
-    opacity: buttonOpacity.value,
-    transform: [{ translateY: buttonTranslateY.value }],
-  }));
-
-  const handleGetStarted = () => {
-    router.replace('/login');
-  };
-
-  const handleRegister = () => {
-    router.push('/onboarding/role');
-  };
-
-  const handleDevLogin = async (role: RoleId) => {
-    setSubmitting(true);
-    setDevRole(role);
-    setDevError(undefined);
-    try {
-      const profile = await signInDevAccount(role);
-      await refresh();
-      router.replace(homeRouteForRole(profile.role));
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : typeof err === 'object' && err && 'message' in err
-            ? String((err as { message: unknown }).message)
-            : 'Dev login failed.';
-      setDevError(message);
-      setSubmitting(false);
-      setDevRole(null);
-    }
-  };
-
-  const toggleLanguage = () => {
-    setLanguage(language === 'tl' ? 'en' : 'tl');
-  };
-
+/** One ridge of the terrace: its own SVG so each can rise on its own beat. */
+function Ridge({
+  height,
+  fill,
+  d,
+  contours = 0,
+  animStyle,
+}: {
+  height: number;
+  fill: string;
+  d: string;
+  /** Number of faint terrace rows drawn below the ridge line. */
+  contours?: number;
+  animStyle: StyleProp<ViewStyle>;
+}) {
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
+    <Animated.View style={[styles.ridge, { height }, animStyle]} pointerEvents="none">
+      <Svg
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${RIDGE_VIEWBOX.width} ${RIDGE_VIEWBOX.height}`}
+        preserveAspectRatio="xMidYMax slice"
+        accessibilityElementsHidden>
+        <Path d={d} fill={fill} />
+        {Array.from({ length: contours }, (_, i) => (
+          <Path
+            key={i}
+            d={d.replace(/ L400 240 L0 240 Z$/, '')}
+            transform={`translate(0 ${(i + 1) * 15})`}
+            fill="none"
+            stroke="rgba(255, 255, 255, 0.16)"
+            strokeWidth={1.5}
+          />
+        ))}
+      </Svg>
+    </Animated.View>
+  );
+}
 
-      <View style={styles.bgGlowTop} />
-      <View style={styles.bgGlowBottom} />
-      <View style={styles.textureClip} pointerEvents="none">
-        <FieldTexture />
+// Far to near. Each ridge sits lower and darker, so the field recedes into haze.
+const RIDGES = [
+  { d: 'M0 70 C70 40 140 52 210 62 S340 36 400 44 L400 240 L0 240 Z', fill: '#E3F1E3', contours: 0, rise: 50 },
+  { d: 'M0 98 C60 72 130 64 200 84 S340 66 400 56 L400 240 L0 240 Z', fill: AnimoColors.accentPrimaryLight, contours: 1, rise: 64 },
+  { d: 'M0 128 C80 100 150 112 230 118 S350 100 400 96 L400 240 L0 240 Z', fill: AnimoColors.greenDisabled, contours: 2, rise: 78 },
+  { d: 'M0 160 C70 126 150 132 220 142 S350 122 400 112 L400 240 L0 240 Z', fill: AnimoColors.accentPrimary, contours: 3, rise: 92 },
+  { d: 'M0 202 C80 172 160 188 240 180 S360 166 400 160 L400 240 L0 240 Z', fill: AnimoColors.green, contours: 3, rise: 110 },
+] as const;
+
+/**
+ * Sun in three stacked layers so each can move on its own: a halo that breathes,
+ * rays that turn slowly, and a steady core.
+ */
+function Sun({
+  size,
+  haloStyle,
+  raysStyle,
+}: {
+  size: number;
+  haloStyle: StyleProp<ViewStyle>;
+  raysStyle: StyleProp<ViewStyle>;
+}) {
+  const rays = Array.from({ length: 12 }, (_, i) => (i * Math.PI) / 6);
+  const box = { width: size, height: size };
+  return (
+    <View style={box}>
+      <Animated.View style={[StyleSheet.absoluteFill, haloStyle]}>
+        <Svg {...box} viewBox="-60 -60 120 120" accessibilityElementsHidden>
+          <Circle r={58} fill="#FBE7A6" opacity={0.18} />
+          <Circle r={44} fill="#FBE7A6" opacity={0.32} />
+        </Svg>
+      </Animated.View>
+      <Animated.View style={[StyleSheet.absoluteFill, raysStyle]}>
+        <Svg {...box} viewBox="-60 -60 120 120" accessibilityElementsHidden>
+          {rays.map((a, i) => (
+            <Path
+              key={i}
+              d={`M${Math.cos(a) * 33} ${Math.sin(a) * 33} L${Math.cos(a) * (i % 2 ? 40 : 44)} ${Math.sin(a) * (i % 2 ? 40 : 44)}`}
+              stroke="#F5C84C"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+            />
+          ))}
+        </Svg>
+      </Animated.View>
+      <View style={StyleSheet.absoluteFill}>
+        <Svg {...box} viewBox="-60 -60 120 120" accessibilityElementsHidden>
+          <Circle r={26} fill="#F9D56E" />
+          <Circle r={26} fill="#FBE7A6" opacity={0.55} cx={-4} cy={-4} />
+        </Svg>
       </View>
-
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.topBar}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Switch language to ${isTagalog ? 'English' : 'Tagalog'}`}
-            onPress={toggleLanguage}
-            style={({ pressed }) => [styles.langToggle, pressed && styles.pressed]}>
-            <Globe size={15} color={AnimoColors.white} />
-            <AnimoText variant="tag" color={AnimoColors.white} style={styles.langText}>
-              {isTagalog ? 'Tagalog' : 'English'}
-            </AnimoText>
-          </Pressable>
-        </View>
-
-        <View style={styles.centerHero}>
-          <Animated.View style={[styles.logoGlowRing, logoAnimStyle]}>
-            <View style={styles.logoBadge}>
-              <Image
-                source={require('@/assets/images/animo/icon-green.png')}
-                style={styles.logo}
-                contentFit="contain"
-              />
-            </View>
-          </Animated.View>
-
-          <Animated.View style={[styles.textBlock, textAnimStyle]}>
-            <AnimoText variant="display" color={AnimoColors.white} style={styles.title}>
-              {t('app.name')}
-            </AnimoText>
-
-            <AnimoText variant="h3" color={AnimoColors.white} style={styles.tagline}>
-              {t('landing.tagline')}
-            </AnimoText>
-
-            <AnimoText variant="body" color="rgba(255,255,255,0.85)" style={styles.subtitle}>
-              {t('landing.subtitle')}
-            </AnimoText>
-          </Animated.View>
-        </View>
-
-        <View style={styles.bottomArea}>
-          <Animated.View style={[styles.ctaGroup, buttonAnimStyle]}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('landing.signIn')}
-              onPress={handleGetStarted}
-              style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-              <AnimoText variant="button" color={AnimoColors.green}>
-                {t('landing.getStarted')} / {t('landing.signIn')}
-              </AnimoText>
-              <ArrowRight size={18} color={AnimoColors.green} />
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('role.title')}
-              onPress={handleRegister}
-              style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
-                {t('landing.roleSelect')}
-              </AnimoText>
-            </Pressable>
-          </Animated.View>
-
-          {SHOW_DEV_TOOLS ? (
-            <View style={styles.devBarContainer}>
-              <DevLoginBar
-                onSelect={handleDevLogin}
-                submitting={submitting}
-                activeRole={devRole}
-                error={devError}
-              />
-            </View>
-          ) : null}
-        </View>
-      </SafeAreaView>
     </View>
   );
 }
 
+const CLOUD_W = 120;
+
+function Cloud({ scale = 1 }: { scale?: number }) {
+  return (
+    <Svg width={CLOUD_W * scale} height={48 * scale} viewBox="0 0 120 48" accessibilityElementsHidden>
+      {/* Flat, single-tone cloud: no highlight or shading, just a soft green shape. */}
+      <Ellipse cx={34} cy={32} rx={28} ry={12} fill="#CFE8D0" />
+      <Ellipse cx={62} cy={24} rx={26} ry={17} fill="#CFE8D0" />
+      <Ellipse cx={90} cy={32} rx={26} ry={12} fill="#CFE8D0" />
+      <Ellipse cx={62} cy={34} rx={44} ry={11} fill="#CFE8D0" />
+    </Svg>
+  );
+}
+
+// Mostly along the top of the sky, each at its own size, pace and starting point.
+const CLOUDS = [
+  { top: 0.03, scale: 1.15, phase: 0.55, opacity: 0.95 },
+  { top: 0.075, scale: 0.7, phase: 0.05, opacity: 0.8 },
+  { top: 0.045, scale: 0.9, phase: 0.82, opacity: 0.9 },
+  { top: 0.12, scale: 0.95, phase: 0.3, opacity: 0.9 },
+  { top: 0.19, scale: 0.7, phase: 0.72, opacity: 0.7 },
+] as const;
+
+function DriftingCloud({
+  drift,
+  travel,
+  top,
+  scale,
+  phase,
+  opacity,
+}: {
+  drift: SharedValue<number>;
+  travel: number;
+  top: number;
+  scale: number;
+  phase: number;
+  opacity: number;
+}) {
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: ((drift.value + phase) % 1) * travel - CLOUD_W * 1.2 }],
+  }));
+  return (
+    <Animated.View style={[styles.sky, { top, opacity }, style]}>
+      <Cloud scale={scale} />
+    </Animated.View>
+  );
+}
+
 /**
- * Low-contrast field-row + grain overlay — texture only, not a competing image.
- * Sized via percentage + viewBox so it never contributes a fixed pixel width
- * to layout (useWindowDimensions pixel width was overflowing on web preview).
+ * One bird in profile, facing left. The body is static; the wings are separate
+ * layers hinged at the shoulder so they can really beat up and down.
  */
-function FieldTexture() {
-  const { width, height } = useWindowDimensions();
-  // Guard against 0 during first layout; viewBox still needs positive dims.
-  const vbW = Math.max(width, 1);
-  const vbH = Math.max(height, 1);
-  const rowCount = 18;
-  const rowGap = vbH / (rowCount - 1);
-  const grainPositions = [
-    [0.12, 0.18],
-    [0.28, 0.42],
-    [0.45, 0.22],
-    [0.62, 0.55],
-    [0.78, 0.3],
-    [0.18, 0.68],
-    [0.55, 0.75],
-    [0.88, 0.62],
-    [0.35, 0.88],
-    [0.72, 0.12],
-    [0.95, 0.45],
-    [0.25, 0.95],
-    [0.55, 0.25],
-    [0.85, 0.55],
-    [0.15, 0.85],
-    [0.45, 0.15],
-    [0.75, 0.45],
-    [0.05, 0.75],
-    [0.35, 0.05],
-    [0.95, 0.65],
-    [0.25, 0.95],
-    [0.15, 0.30],
-    [0.15, 0.05],
-    [0.15, 0.60],
-    [0.45, 0.65],
-    [0.60, 0.60],
-  ] as const;
+function Bird({
+  scale = 1,
+  nearWing,
+  farWing,
+}: {
+  scale?: number;
+  nearWing: StyleProp<ViewStyle>;
+  farWing: StyleProp<ViewStyle>;
+}) {
+  const ink = '#1A6E1E';
+  const wing = 'M20 20 Q21 4 40 1 Q33 12 29 20 Z';
+  return (
+    <View style={{ width: 46 * scale, height: 30 * scale }}>
+      <View style={{ width: 46, height: 30, transform: [{ scale }], transformOrigin: 'top left' }}>
+        {/* Far wing sits behind the body, a touch paler. */}
+        <Animated.View style={[styles.wingBox, { left: 2 }, farWing]}>
+          <Svg width={40} height={40} viewBox="0 0 40 40" accessibilityElementsHidden>
+            <Path d={wing} fill={ink} opacity={0.45} />
+          </Svg>
+        </Animated.View>
+
+        <Svg width={46} height={30} viewBox="0 0 46 30" style={StyleSheet.absoluteFill} accessibilityElementsHidden>
+          {/* Tail, body, head, beak. */}
+          <Path d="M30 16 L45 11 L43 16 L45 21 Z" fill={ink} opacity={0.85} />
+          <Ellipse cx={22} cy={17} rx={12} ry={5.5} fill={ink} opacity={0.9} />
+          <Circle cx={10} cy={15} r={4.2} fill={ink} opacity={0.9} />
+          <Path d="M6.2 14 L1 16 L6.4 17 Z" fill="#F5C84C" />
+          <Circle cx={9} cy={14} r={0.9} fill="#FFFFFF" />
+        </Svg>
+
+        <Animated.View style={[styles.wingBox, { left: -1 }, nearWing]}>
+          <Svg width={40} height={40} viewBox="0 0 40 40" accessibilityElementsHidden>
+            <Path d={wing} fill={ink} />
+          </Svg>
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
+
+// V formation, leader first. x/y are offsets in dp from the leader.
+const FLOCK = [
+  { x: 0, y: 24, scale: 1, beat: 0 },
+  { x: 40, y: 6, scale: 0.85, beat: 0.18 },
+  { x: 40, y: 44, scale: 0.85, beat: 0.36 },
+  { x: 78, y: -10, scale: 0.7, beat: 0.55 },
+  { x: 78, y: 62, scale: 0.7, beat: 0.73 },
+] as const;
+
+function FlockBird({
+  flap,
+  beat,
+  scale,
+}: {
+  flap: SharedValue<number>;
+  beat: number;
+  scale: number;
+}) {
+  // `flap` loops 0→1 once per wingbeat; each bird is offset so they never sync.
+  const wing = (lag: number) => {
+    'worklet';
+    const v = 0.5 + 0.5 * Math.sin((flap.value + beat) * Math.PI * 2);
+    return { transform: [{ rotate: `${-35 + v * 120 - lag}deg` }] };
+  };
+  const near = useAnimatedStyle(() => wing(0));
+  const far = useAnimatedStyle(() => wing(14));
+  return <Bird scale={scale} nearWing={near} farWing={far} />;
+}
+
+function Flock({ flap }: { flap: SharedValue<number> }) {
+  return (
+    <View style={styles.flock}>
+      {FLOCK.map((b, i) => (
+        <View key={i} style={{ position: 'absolute', left: b.x, top: b.y }}>
+          <FlockBird flap={flap} beat={b.beat} scale={b.scale} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+export default function SplashScreen() {
+  const { status, account } = useSession();
+  const { t } = useLanguage();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const hasNavigated = useRef(false);
+
+  // The terrace keeps its proportions on tablets and stays modest on short phones.
+  const ridgeHeight = Math.min(
+    windowHeight * 0.4,
+    (windowWidth * RIDGE_VIEWBOX.height) / RIDGE_VIEWBOX.width,
+  );
+
+  const sunSize = Math.min(150, windowWidth * 0.36);
+
+  const logoOpacity = useSharedValue(0);
+  const logoTranslate = useSharedValue(14);
+  const logoScale = useSharedValue(0.94);
+  const tagOpacity = useSharedValue(0);
+  const washOpacity = useSharedValue(0);
+  const sunRise = useSharedValue(0);
+  // Ambient loops that keep the scene alive after the entrance.
+  const spin = useSharedValue(0);
+  const pulse = useSharedValue(0);
+  const sway = useSharedValue(0);
+  const drift = useSharedValue(0);
+  const fly = useSharedValue(0);
+  const flap = useSharedValue(0);
+  const r0 = useSharedValue(0);
+  const r1 = useSharedValue(0);
+  const r2 = useSharedValue(0);
+  const r3 = useSharedValue(0);
+  const r4 = useSharedValue(0);
+  const screenOpacity = useSharedValue(1);
+
+  const navigateToDestination = useCallback(() => {
+    if (hasNavigated.current) return;
+    hasNavigated.current = true;
+
+    screenOpacity.value = timing(0, { duration: 450, easing: Easing.inOut(Easing.ease) }, () => {
+      if (status === 'authenticated' && account) {
+        router.replace(homeRouteForRole(account.role));
+      } else {
+        router.replace('/login');
+      }
+    });
+  }, [account, screenOpacity, status]);
+
+  // One orchestrated entrance: the wash warms, the mark settles, then the
+  // ridges rise back-to-front and the tagline arrives last.
+  useEffect(() => {
+    const out = Easing.out(Easing.cubic);
+
+    washOpacity.value = timing(1, { duration: 900, easing: Easing.out(Easing.ease) });
+    logoOpacity.value = timing(1, { duration: 700, easing: out });
+    logoTranslate.value = timing(0, { duration: 800, easing: out });
+    logoScale.value = timing(1, { duration: 900, easing: out });
+
+    // The sun climbs first, then the ridges follow far to near.
+    sunRise.value = withDelay(150, timing(1, { duration: 1500, easing: out }));
+    [r0, r1, r2, r3, r4].forEach((r, i) => {
+      r.value = withDelay(250 + i * 130, timing(1, { duration: 900, easing: out }));
+    });
+    tagOpacity.value = withDelay(1000, timing(1, { duration: 600, easing: out }));
+
+    // Ambient life: rays turn, halo breathes, ridges sway, clouds and birds drift.
+    const inOut = Easing.inOut(Easing.sin);
+    spin.value = repeat(timing(1, { duration: 12000, easing: Easing.linear }), -1, false);
+    pulse.value = repeat(timing(1, { duration: 1700, easing: inOut }), -1, true);
+    sway.value = repeat(timing(1, { duration: 2400, easing: inOut }), -1, true);
+    drift.value = repeat(timing(1, { duration: 20000, easing: Easing.linear }), -1, false);
+    fly.value = withDelay(900, repeat(timing(1, { duration: 7000, easing: Easing.linear }), -1, false));
+    flap.value = repeat(timing(1, { duration: 700, easing: Easing.linear }), -1, false);
+  }, [
+    drift,
+    flap,
+    fly,
+    pulse,
+    spin,
+    sway,
+    logoOpacity,
+    logoScale,
+    logoTranslate,
+    r0,
+    r1,
+    r2,
+    r3,
+    r4,
+    sunRise,
+    tagOpacity,
+    washOpacity,
+  ]);
+
+  // Leave once the minimum dwell has passed and the session has hydrated.
+  useEffect(() => {
+    if (status === 'loading') return;
+
+    const timer = setTimeout(navigateToDestination, MINIMUM_SPLASH_MS);
+    return () => clearTimeout(timer);
+  }, [status, navigateToDestination]);
+
+  const screenAnimStyle = useAnimatedStyle(() => ({ opacity: screenOpacity.value }));
+  const washAnimStyle = useAnimatedStyle(() => ({ opacity: washOpacity.value }));
+  const tagAnimStyle = useAnimatedStyle(() => ({ opacity: tagOpacity.value }));
+  const logoAnimStyle = useAnimatedStyle(() => ({
+    opacity: logoOpacity.value,
+    transform: [{ translateY: logoTranslate.value }, { scale: logoScale.value }],
+  }));
+
+  const riseStyle = (value: typeof r0, distance: number, amplitude: number) => {
+    'worklet';
+    return {
+      opacity: value.value,
+      transform: [
+        { translateX: (sway.value - 0.5) * 2 * amplitude },
+        { translateY: (1 - value.value) * distance },
+      ],
+    };
+  };
+  // Near ridges sway further than far ones, which reads as depth.
+  const ridgeStyles = [
+    useAnimatedStyle(() => riseStyle(r0, RIDGES[0].rise, 3)),
+    useAnimatedStyle(() => riseStyle(r1, RIDGES[1].rise, 5)),
+    useAnimatedStyle(() => riseStyle(r2, RIDGES[2].rise, 7)),
+    useAnimatedStyle(() => riseStyle(r3, RIDGES[3].rise, 9)),
+    useAnimatedStyle(() => riseStyle(r4, RIDGES[4].rise, 11)),
+  ];
+  const sunAnimStyle = useAnimatedStyle(() => ({
+    opacity: sunRise.value,
+    transform: [{ translateY: (1 - sunRise.value) * 90 }],
+  }));
+  const haloStyle = useAnimatedStyle(() => ({
+    opacity: 0.75 + pulse.value * 0.25,
+    transform: [{ scale: 1 + pulse.value * 0.1 }],
+  }));
+  const raysStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spin.value * 360}deg` }],
+  }));
+
+  const travel = windowWidth + CLOUD_W * 2;
+  const birdsStyle = useAnimatedStyle(() => ({
+    opacity: fly.value > 0 ? 1 : 0,
+    transform: [
+      { translateX: windowWidth + 20 - fly.value * (windowWidth + 110) },
+      { translateY: Math.sin(fly.value * Math.PI * 2) * 10 },
+    ],
+  }));
 
   return (
-    <Svg
-      width="100%"
-      height="100%"
-      viewBox={`0 0 ${vbW} ${vbH}`}
-      preserveAspectRatio="none"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants">
-      {Array.from({ length: rowCount }, (_, i) => (
-        <Line
-          key={`row-${i}`}
-          x1={0}
-          y1={i * rowGap}
-          x2={vbW}
-          y2={i * rowGap + vbW * 0.05}
-          stroke="rgba(255,255,255,0.03)"
-          strokeWidth={2}
-        />
-      ))}
-      {/* Palay Grain */}
-      {grainPositions.map(([nx, ny], i) => (
-        <Ellipse
-          key={`grain-${i}`}
-          cx={nx * vbW}
-          cy={ny * vbH}
-          // Grain sizes
-          rx={9}
-          ry={3}
-          fill="rgba(255,255,255,0.06)"
-          rotation={-18 + (i % 5) * 8}
-          origin={`${nx * vbW}, ${ny * vbH}`}
-        />
-      ))}
-    </Svg>
+    <Pressable
+      style={styles.container}
+      onPress={() => {
+        if (status !== 'loading') navigateToDestination();
+      }}
+      accessibilityLabel="Animo">
+      <Animated.View style={[StyleSheet.absoluteFill, styles.content, screenAnimStyle]}>
+        <StatusBar style="dark" />
+
+        {/* Sunrise wash — the same warm horizon the login hero sits in. */}
+        <Animated.View style={[StyleSheet.absoluteFill, washAnimStyle]} pointerEvents="none">
+          <Svg width="100%" height="100%" accessibilityElementsHidden>
+            <Defs>
+              <RadialGradient id="splashSunrise" cx="50%" cy="100%" rx="90%" ry="55%">
+                <Stop offset="0%" stopColor="#FBE7A6" stopOpacity={0.6} />
+                <Stop offset="50%" stopColor="#F5E6BE" stopOpacity={0.28} />
+                <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+              </RadialGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#splashSunrise)" />
+          </Svg>
+        </Animated.View>
+
+        {/* Clouds along the top of the sky and a flock of birds crossing it. */}
+        <Animated.View style={[StyleSheet.absoluteFill, washAnimStyle]} pointerEvents="none">
+          {CLOUDS.map((c, i) => (
+            <DriftingCloud
+              key={i}
+              drift={drift}
+              travel={travel}
+              top={windowHeight * c.top}
+              scale={c.scale}
+              phase={c.phase}
+              opacity={c.opacity}
+            />
+          ))}
+          <Animated.View style={[styles.sky, { top: windowHeight * 0.17 }, birdsStyle]}>
+            <Flock flap={flap} />
+          </Animated.View>
+        </Animated.View>
+
+        <View style={[styles.hero, { paddingBottom: ridgeHeight * 0.7 }]}>
+          <Animated.View style={logoAnimStyle}>
+            <Image
+              source={require('@/assets/images/animo/Animo-Logo.png')}
+              style={styles.logoImage}
+              contentFit="contain"
+              priority="high"
+              accessibilityLabel="Animo"
+            />
+          </Animated.View>
+          <Animated.View style={tagAnimStyle}>
+            <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.tagline}>
+              {t('landing.tagline')}
+            </AnimoText>
+          </Animated.View>
+        </View>
+
+        <Animated.View
+          style={[styles.sun, { bottom: ridgeHeight * 0.62, width: sunSize, height: sunSize }, sunAnimStyle]}
+          pointerEvents="none">
+          <Sun size={sunSize} haloStyle={haloStyle} raysStyle={raysStyle} />
+        </Animated.View>
+
+        {RIDGES.map((ridge, i) => (
+          <Ridge
+            key={i}
+            height={ridgeHeight}
+            fill={ridge.fill}
+            d={ridge.d}
+            contours={ridge.contours}
+            animStyle={ridgeStyles[i]}
+          />
+        ))}
+      </Animated.View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#145319',
-    // Clip glow circles (positioned with negative offsets) and any texture overflow
-    // so they cannot widen the layout past the screen — especially on web preview.
-    overflow: 'hidden',
-  },
-  textureClip: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: 'hidden',
-  },
-  bgGlowTop: {
-    position: 'absolute',
-    top: -60,
-    right: -60,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  bgGlowBottom: {
-    position: 'absolute',
-    bottom: -80,
-    left: -60,
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: 'rgba(46, 125, 50, 0.4)',
-  },
-  safeArea: {
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: AnimoSpacing.lg,
-  },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingVertical: AnimoSpacing.sm,
-  },
-  langToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: 6,
-    borderRadius: AnimoRadius.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  langText: {
-    fontSize: 12.5,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-  },
-  centerHero: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: AnimoSpacing.sm,
-    gap: AnimoSpacing.md,
-  },
-  logoGlowRing: {
-    width: 148,
-    height: 148,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoBadge: {
-    width: 124,
-    height: 124,
-    borderRadius: 32,
     backgroundColor: AnimoColors.white,
+  },
+  content: {
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 6,
+    overflow: 'hidden',
   },
-  logo: {
-    width: 86,
-    height: 86,
-  },
-  textBlock: {
+  hero: {
     alignItems: 'center',
-    gap: AnimoSpacing.sm,
+    gap: 14,
   },
-  title: {
-    fontSize: 36,
-    lineHeight: 42,
-    letterSpacing: 0.5,
-    textAlign: 'center',
+  logoImage: {
+    width: 252,
+    height: 73,
   },
   tagline: {
     textAlign: 'center',
-    fontSize: 16,
-    lineHeight: 22,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-    opacity: 0.95,
   },
-  subtitle: {
-    textAlign: 'center',
-    fontSize: 13,
-    lineHeight: 18,
-    maxWidth: 320,
+  wingBox: {
+    position: 'absolute',
+    top: -4,
+    width: 40,
+    height: 40,
   },
-  bottomArea: {
-    paddingBottom: AnimoSpacing.md,
-    gap: AnimoSpacing.xs,
+  flock: {
+    width: 130,
+    height: 100,
   },
-  ctaGroup: {
-    gap: AnimoSpacing.xs,
+  sky: {
+    position: 'absolute',
+    left: 0,
   },
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.md,
-    paddingVertical: 14,
-    gap: AnimoSpacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
+  sun: {
+    position: 'absolute',
+    right: '10%',
   },
-  secondaryButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: AnimoSpacing.xs,
-  },
-  devBarContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.sm,
-    marginTop: AnimoSpacing.xs,
-  },
-  pressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.99 }],
+  ridge: {
+    position: 'absolute',
+    left: -14,
+    right: -14,
+    bottom: 0,
   },
 });
