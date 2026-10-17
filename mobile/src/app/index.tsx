@@ -316,13 +316,17 @@ export default function SplashScreen() {
     if (hasNavigated.current) return;
     hasNavigated.current = true;
 
-    screenOpacity.value = timing(0, { duration: 450, easing: Easing.inOut(Easing.ease) }, () => {
+    // No animation callback: it would run on the UI thread, where router.replace
+    // is not callable and the release build crashes when the fade ends.
+    const FADE_MS = 450;
+    screenOpacity.value = timing(0, { duration: FADE_MS, easing: Easing.inOut(Easing.ease) });
+    setTimeout(() => {
       if (status === 'authenticated' && account) {
         router.replace(homeRouteForRole(account.role));
       } else {
         router.replace('/login');
       }
-    });
+    }, FADE_MS);
   }, [account, screenOpacity, status]);
 
   // One orchestrated entrance: the wash warms, the mark settles, then the
