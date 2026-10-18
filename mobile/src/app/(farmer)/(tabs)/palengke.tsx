@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { Bell, ImageIcon, Plus, Search } from 'lucide-react-native';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -28,6 +28,9 @@ import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
+import { useOutboxItems } from '@/hooks/use-outbox-items';
+import { useSession } from '@/hooks/use-session';
+import { pendingListingCards, type PendingListingCard } from '@/lib/outbox/pending-listing-cards';
 import { fetchCoverPhotos, fetchMyCropListings } from '@/services/crop-listing-service';
 import { fetchPendingPurchaseRequestCountsByListing } from '@/services/purchase-request-service';
 import {
@@ -209,6 +212,9 @@ export default function FarmerPalengkeScreen() {
 
   const latestRequestId = useRef(0);
 
+  const { account } = useSession();
+  const waitingCards = pendingListingCards(useOutboxItems(account?.id ?? null));
+
   const load = useCallback(async () => {
     const requestId = ++latestRequestId.current;
     setErrorMessage(undefined);
@@ -252,6 +258,15 @@ export default function FarmerPalengkeScreen() {
   );
 
   useAutoRefresh(load);
+
+  // A saved listing that was just sent is now on the server: fetch the list again
+  // instead of waiting for the next timer tick.
+  const waitingCount = waitingCards.length;
+  const previousWaiting = useRef(waitingCount);
+  useEffect(() => {
+    if (waitingCount < previousWaiting.current) load();
+    previousWaiting.current = waitingCount;
+  }, [waitingCount, load]);
 
   const activeFilterCount = countActiveFilters(appliedFilters);
 
@@ -477,6 +492,20 @@ export default function FarmerPalengkeScreen() {
       </FilterModal>
 
       <View style={styles.listContainer}>
+        {waitingCards.length > 0 ? (
+          <View style={styles.waitingList}>
+            {waitingCards.slice(0, 3).map((card) => (
+              <WaitingListingRow key={card.id} card={card} />
+            ))}
+            {waitingCards.length > 3 ? (
+              <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+                {isTagalog
+                  ? `+${waitingCards.length - 3} pang naghihintay`
+                  : `+${waitingCards.length - 3} more waiting`}
+              </AnimoText>
+            ) : null}
+          </View>
+        ) : null}
         {loading ? (
           <View style={styles.centerState}>
             <ActivityIndicator color={AnimoColors.accentPrimary} />
@@ -580,6 +609,40 @@ function FilterChoiceChip({
   );
 }
 
+/** A listing saved on the phone that the server does not have yet. */
+function WaitingListingRow({ card }: { card: PendingListingCard }) {
+  const { isTagalog } = useLanguage();
+  const label =
+    card.state === 'review'
+      ? isTagalog ? 'Nagbago ang presyo. Tingnan sa ibaba.' : 'Price changed. See below.'
+      : card.state === 'failed'
+        ? isTagalog ? 'Hindi naipadala. Tingnan sa ibaba.' : 'Not sent. See below.'
+        : isTagalog ? 'Naghihintay ng signal' : 'Waiting for signal';
+  const tone: BadgeTone = card.state === 'waiting' ? 'info' : card.state === 'review' ? 'warning' : 'danger';
+
+  return (
+    <View style={[styles.waitingRow, styles.shadow]}>
+      <View style={styles.waitingPhoto}>
+        {card.coverUri ? (
+          <Image source={{ uri: card.coverUri }} style={styles.photoImage} contentFit="cover" />
+        ) : (
+          <ImageIcon size={20} color={AnimoColors.objectLowEmphasis} />
+        )}
+      </View>
+      <View style={styles.waitingBody}>
+        <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} numberOfLines={1}>
+          {card.name}
+        </AnimoText>
+        <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+          {card.netWeightKg} kg
+          {card.seenPricePerKg !== null ? ` · ${formatPeso(card.seenPricePerKg)}/kg` : ''}
+        </AnimoText>
+        <StatusBadge label={label} tone={tone} />
+      </View>
+    </View>
+  );
+}
+
 /**
  * Simplified Aking Ani card: photo, status, title, price, pending count, Tingnan.
  * Specs (moisture, purity, remaining kg, harvest) live on the detail Detalye tab.
@@ -670,6 +733,33 @@ function FarmerMarketplaceCard({
 }
 
 const styles = StyleSheet.create({
+  waitingList: {
+    gap: AnimoSpacing.sm,
+    paddingHorizontal: AnimoSpacing.lg,
+    paddingBottom: AnimoSpacing.sm,
+  },
+  waitingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AnimoSpacing.md,
+    padding: AnimoSpacing.sm,
+    borderRadius: AnimoRadius.md,
+    backgroundColor: AnimoColors.surfacePrimary,
+  },
+  waitingPhoto: {
+    width: 56,
+    height: 56,
+    borderRadius: AnimoRadius.sm,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AnimoColors.surface,
+  },
+  waitingBody: {
+    flex: 1,
+    gap: 4,
+    alignItems: 'flex-start',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: AnimoColors.appBackground,
