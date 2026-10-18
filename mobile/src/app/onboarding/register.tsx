@@ -247,7 +247,10 @@ export default function RegisterScreen() {
                 setOtp('');
                 setOtpError(false);
                 setOtpErrorMessage(undefined);
-                sendOtp(phone, { isRegistration: true }).catch(() => {});
+                sendOtp(phone, { isRegistration: true }).catch((err) => {
+                  setOtpError(true);
+                  setOtpErrorMessage(err instanceof Error ? err.message : undefined);
+                });
               }}
             />
           )}

@@ -235,7 +235,10 @@ export default function LoginScreen() {
                 setOtp('');
                 setOtpError(false);
                 setOtpErrorMessage(undefined);
-                sendOtp(phone, { isRegistration: false }).catch(() => {});
+                sendOtp(phone, { isRegistration: false }).catch((err) => {
+                  setOtpError(true);
+                  setOtpErrorMessage(err instanceof Error ? err.message : undefined);
+                });
               }}
             />
           </ScrollView>
