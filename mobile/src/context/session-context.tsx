@@ -2,9 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 
 import { useOutboxFlush } from '@/hooks/use-outbox-flush';
+import { resolveSession, type ProfileCheck } from '@/lib/account-cache';
 import { fetchMyProfile, signOut as signOutRequest } from '@/services/auth-service';
 import { isRealTap, requestInbox } from '@/lib/notification-route';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +21,8 @@ import type { Account, SessionStatus } from '@/types/auth';
  */
 const HAS_REGISTERED_KEY = 'animo.hasRegisteredOnDevice';
 const LAST_ACTIVE_KEY = 'animo.session.lastActiveAt';
+/** Last account the server confirmed, so a failed check does not read as signed out. */
+const ACCOUNT_CACHE_KEY = 'animo.session.account';
 const SESSION_IDLE_LIMIT_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 type SessionContextValue = {
@@ -30,6 +34,15 @@ type SessionContextValue = {
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
 };
+
+async function readCachedAccount(): Promise<Account | null> {
+  try {
+    const raw = await AsyncStorage.getItem(ACCOUNT_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as Account) : null;
+  } catch {
+    return null;
+  }
+}
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
@@ -46,14 +59,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
     const run = (async () => {
       try {
-        const [registeredFlag, lastActiveRaw, { data: sessionData }] = await Promise.all([
-          AsyncStorage.getItem(HAS_REGISTERED_KEY),
-          AsyncStorage.getItem(LAST_ACTIVE_KEY),
-          supabase.auth.getSession(),
-        ]);
+        const [registeredFlag, lastActiveRaw, { data: sessionData, error: sessionError }] =
+          await Promise.all([
+            AsyncStorage.getItem(HAS_REGISTERED_KEY),
+            AsyncStorage.getItem(LAST_ACTIVE_KEY),
+            supabase.auth.getSession(),
+          ]);
         setHasRegisteredOnDevice(registeredFlag === 'true');
 
         if (!sessionData.session) {
+          // Opened offline with an expired token: the refresh could not reach the
+          // server, which is not the same as being signed out.
+          const cached = isAuthRetryableFetchError(sessionError) ? await readCachedAccount() : null;
+          if (cached) {
+            setAccount(cached);
+            setStatus('authenticated');
+            return;
+          }
+          await AsyncStorage.removeItem(ACCOUNT_CACHE_KEY);
           setStatus('guest');
           setAccount(null);
           return;
@@ -65,7 +88,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           // refresh token might still technically be valid.
           if (sessionData.session.user?.id) await clearPushToken(sessionData.session.user.id);
           await signOutRequest().catch(() => {});
-          await AsyncStorage.removeItem(LAST_ACTIVE_KEY);
+          await AsyncStorage.multiRemove([LAST_ACTIVE_KEY, ACCOUNT_CACHE_KEY]);
           setStatus('guest');
           setAccount(null);
           return;
@@ -73,17 +96,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
         await AsyncStorage.setItem(LAST_ACTIVE_KEY, String(Date.now()));
 
-        const profile = await fetchMyProfile();
-        if (!profile) {
-          setStatus('needs-profile');
-          setAccount(null);
-          return;
+        let check: ProfileCheck;
+        try {
+          check = { kind: 'ok', account: await fetchMyProfile() };
+        } catch {
+          check = { kind: 'failed' };
         }
+        const cached = check.kind === 'failed' ? await readCachedAccount() : null;
+        const view = resolveSession(check, cached, sessionData.session.user.id);
 
-        await AsyncStorage.setItem(HAS_REGISTERED_KEY, 'true');
-        setHasRegisteredOnDevice(true);
-        setAccount(profile);
-        setStatus('authenticated');
+        if (check.kind === 'ok' && check.account) {
+          await AsyncStorage.setItem(ACCOUNT_CACHE_KEY, JSON.stringify(check.account));
+          await AsyncStorage.setItem(HAS_REGISTERED_KEY, 'true');
+          setHasRegisteredOnDevice(true);
+        }
+        setAccount(view.account);
+        setStatus(view.status);
       } catch {
         // Network hiccup or malformed session — fail safe to guest rather than
         // getting stuck on the splash screen.
@@ -151,7 +179,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     if (account) await clearPushToken(account.id);
     await signOutRequest();
-    await AsyncStorage.removeItem(LAST_ACTIVE_KEY);
+    await AsyncStorage.multiRemove([LAST_ACTIVE_KEY, ACCOUNT_CACHE_KEY]);
     setStatus('guest');
     setAccount(null);
   }, [account]);

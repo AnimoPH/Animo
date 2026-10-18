@@ -136,8 +136,10 @@ function mapAccount(user: UserRow, extension: ExtensionRow | null): Account {
 
 /** Returns the caller's account, or `null` if they've verified OTP but haven't finished registration yet. */
 export async function fetchMyProfile(): Promise<Account | null> {
-  const { data: userData } = await supabase.auth.getUser();
-  const authUser = userData.user;
+  // getSession reads the saved session on the phone; getUser asks the server and
+  // returns no user on a bad connection, which looked like "not registered".
+  const { data: sessionData } = await supabase.auth.getSession();
+  const authUser = sessionData.session?.user;
   if (!authUser) return null;
 
   const { data: user, error } = await supabase
