@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { Camera, X } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -99,20 +99,29 @@ export default function PalayListingScreen() {
   // One id per listing attempt: the online send and a later offline save share it,
   // so the server sees them as the same listing.
   const [requestId] = useState(newRequestId);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
+  const [loadingFeed, setLoadingFeed] = useState(false);
+  const loadFeed = useCallback(async (): Promise<PriceFeedCache | null> => {
+    setLoadingFeed(true);
+    try {
       const cached = await getCachedPriceFeed();
-      if (!cancelled && cached) setFeed(cached);
+      if (cached) setFeed(cached);
       if (await isOnlineNow()) {
         const fresh = await refreshPriceFeedCache();
-        if (!cancelled && fresh) setFeed(fresh);
+        if (fresh) {
+          setFeed(fresh);
+          return fresh;
+        }
       }
-    })().catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+      return cached;
+    } catch {
+      return null;
+    } finally {
+      setLoadingFeed(false);
+    }
   }, []);
+  useEffect(() => {
+    loadFeed();
+  }, [loadFeed]);
 
   const netWeight = Math.max(
     0,
@@ -218,7 +227,13 @@ export default function PalayListingScreen() {
 
   /** Keeps the listing on the phone to send when the signal returns. Returns false when it cannot. */
   const saveOffline = async (): Promise<boolean> => {
-    if (!account || shownPrice === null) {
+    let price = shownPrice;
+    if (account && price === null && purityGrade !== "") {
+      // No saved price yet: one try to fetch it now, in case the signal just came back.
+      const fresh = await loadFeed();
+      if (fresh) price = computeLockedPrice(fresh, moistureType, varietyCode, purityGrade);
+    }
+    if (!account || price === null) {
       setErrorMessage(
         isTagalog
           ? "Walang naka-save na presyo sa phone. Kailangan ng signal para sa unang listing."
@@ -226,7 +241,7 @@ export default function PalayListingScreen() {
       );
       return false;
     }
-    await saveListingOffline(account.id, buildInput(), photos, shownPrice, requestId);
+    await saveListingOffline(account.id, buildInput(), photos, price, requestId);
     setSavedOffline(true);
     return true;
   };
@@ -477,6 +492,23 @@ export default function PalayListingScreen() {
           />
           <NetWeightField value={netWeight} isTagalog={isTagalog} />
         </View>
+
+        {feed === null ? (
+          <View style={[styles.card, styles.shadow]}>
+            <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+              {isTagalog
+                ? "Wala pang naka-save na presyo sa phone. Kailangan ng signal sa unang listing para makuha ito."
+                : "No price is saved on this phone yet. The first listing needs a signal to get it."}
+            </AnimoText>
+            <Pressable onPress={loadFeed} disabled={loadingFeed} accessibilityRole="button">
+              <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
+                {loadingFeed
+                  ? isTagalog ? "Kinukuha..." : "Loading..."
+                  : isTagalog ? "Subukan muli" : "Try again"}
+              </AnimoText>
+            </Pressable>
+          </View>
+        ) : null}
 
         {shownPrice !== null ? (
           <View style={[styles.card, styles.shadow]}>
