@@ -75,8 +75,10 @@ export function mapListing(row: CropListingRow): CropListing {
 }
 
 export async function requireAuthUserId(): Promise<string> {
-  const { data } = await supabase.auth.getUser();
-  const authUser = data.user;
+  // The saved session, not getUser: getUser asks the server and returns no user on
+  // a weak signal, which showed up as "login again" for a signed-in person.
+  const { data } = await supabase.auth.getSession();
+  const authUser = data.session?.user;
   if (!authUser) throw new Error('Kailangan mag-login muli.');
   return authUser.id;
 }

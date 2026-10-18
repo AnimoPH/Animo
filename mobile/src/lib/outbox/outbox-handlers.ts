@@ -41,8 +41,8 @@ export const outboxHandlers: OutboxHandlers = {
   },
 
   async purchase_request({ listingId, requestedQuantityKg }, clientRequestId) {
-    const { data: userData } = await supabase.auth.getUser();
-    const buyerId = userData.user?.id;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const buyerId = sessionData.session?.user.id;
     if (!buyerId) throw new Error('Walang naka-sign in na user.');
 
     const { error } = await supabase.from('purchaserequest').insert({

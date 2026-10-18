@@ -197,8 +197,8 @@ async function fetchMyProfileOrThrow(): Promise<Account> {
  * consistency with `fetchMyProfile`, not the real guard.
  */
 export async function updateMyFarmerProfile(input: UpdateFarmerProfileInput): Promise<Account> {
-  const { data: userData } = await supabase.auth.getUser();
-  const authUser = userData.user;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const authUser = sessionData.session?.user;
   if (!authUser) throw new Error('Kailangan mag-login muli.');
 
   const { error: userError } = await supabase
@@ -221,8 +221,8 @@ export async function updateMyFarmerProfile(input: UpdateFarmerProfileInput): Pr
  * the columns migration 0001 grants `authenticated` write access to for buyers.
  */
 export async function updateMyBuyerProfile(input: UpdateBuyerProfileInput): Promise<Account> {
-  const { data: userData } = await supabase.auth.getUser();
-  const authUser = userData.user;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const authUser = sessionData.session?.user;
   if (!authUser) throw new Error('Kailangan mag-login muli.');
 
   const { error: userError } = await supabase
