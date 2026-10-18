@@ -2,6 +2,15 @@
 // A tap on a cold start arrives while the splash is still showing, and opening
 // the inbox then made the splash replace it with the home screen a moment later.
 
+/**
+ * Android builds a "tap" out of any launch intent that carries extras, and some
+ * launchers add extras to a normal open. Those fake taps have no message id, a
+ * real push tap always does.
+ */
+export function isRealTap(identifier: string | null | undefined): boolean {
+  return typeof identifier === 'string' && identifier.length > 0;
+}
+
 let splashDone = false;
 let waiting: (() => void) | null = null;
 const handled = new Set<string>();
