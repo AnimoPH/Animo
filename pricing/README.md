@@ -168,6 +168,24 @@ npx supabase stop
 
 ---
 
+## Putting the model on the hosted project (demo / defense)
+
+`start-tunnel.sh` runs the container, opens a Cloudflare quick tunnel and saves the tunnel link as the `PRICING_SERVICE_URL` secret on the hosted Supabase project, so the hosted edge functions can reach your laptop.
+
+```bash
+cd ~/Desktop/Animo/pricing
+./start-tunnel.sh
+```
+
+Needs Docker, `cloudflared`, and a Supabase CLI login with access to the project (`npx supabase login`).
+
+- Only one person should run it at a time. It overwrites the shared secret, so the last run wins and the earlier tunnel stops being used.
+- Keep the terminal and the machine on. The link changes every time `cloudflared` restarts, so run the script again after a restart.
+- It stops any other `cloudflared` tunnel on the same machine.
+- Stop: `docker rm -f animo-pricing-service && pkill -f "cloudflared tunnel"`
+
+---
+
 ## FastAPI only (no database)
 
 ```bash
