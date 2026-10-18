@@ -124,6 +124,15 @@ export async function fetchMyNotifications(role: 'farmer' | 'buyer'): Promise<In
   });
 }
 
+export async function fetchUnreadNotificationCount(): Promise<number> {
+  const { count, error } = await supabase
+    .from('push_notification_queue')
+    .select('notification_id', { count: 'exact', head: true })
+    .is('read_at', null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function markNotificationRead(id: string): Promise<void> {
   const { error } = await supabase
     .from('push_notification_queue')

@@ -1,15 +1,19 @@
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Bell } from 'lucide-react-native';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoSpacing } from '@/constants/animo';
+import { useAutoRefresh } from '@/hooks/use-auto-refresh';
+import { fetchUnreadNotificationCount } from '@/services/notification-service';
 
 export type AppHeaderProps = {
   /** Optional larger screen title shown under the brand row. */
   title?: string;
   onPressBell?: () => void;
+  /** Overrides the count the header reads itself. */
   unreadCount?: number;
   /**
    * When true (default), the header adds its own horizontal padding.
@@ -27,10 +31,20 @@ export type AppHeaderProps = {
 export function AppHeader({
   title,
   onPressBell,
-  unreadCount = 3,
+  unreadCount,
   inset = true,
   bellRef,
 }: AppHeaderProps) {
+  const [unread, setUnread] = useState(0);
+  const loadUnread = useCallback(() => {
+    fetchUnreadNotificationCount()
+      .then(setUnread)
+      .catch(() => {});
+  }, []);
+  useFocusEffect(loadUnread);
+  useAutoRefresh(loadUnread);
+  const shownUnread = unreadCount ?? unread;
+
   const handleBellPress = onPressBell || (() => router.push('/(buyer)/notipikasyon'));
 
   return (
@@ -51,7 +65,7 @@ export function AppHeader({
               style={styles.bell}
               accessibilityLabel="Mga abiso">
               <Bell size={20} color={AnimoColors.black} />
-              {unreadCount > 0 && (
+              {shownUnread > 0 && (
                 <View style={styles.unreadDot} />
               )}
             </Pressable>
