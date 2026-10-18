@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 
 import {
+  isRealTap,
   requestInbox,
   resetNotificationRoute,
   splashFinished,
@@ -47,5 +48,19 @@ describe('notification tap routing', () => {
     requestInbox('tap-4', () => (opened += 1));
     requestInbox('tap-5', () => (opened += 1));
     assert.equal(opened, 2);
+  });
+});
+
+// Some launchers add extras to a normal app open, and Android turns those into a
+// fake notification tap with no message id.
+describe('fake taps from launch extras', () => {
+  it('ignores a tap with no message id', () => {
+    assert.equal(isRealTap(undefined), false);
+    assert.equal(isRealTap(null), false);
+    assert.equal(isRealTap(''), false);
+  });
+
+  it('keeps a tap that has a message id', () => {
+    assert.equal(isRealTap('0:1699999999999%abc'), true);
   });
 });

@@ -6,7 +6,7 @@ import { AppState, Platform } from 'react-native';
 
 import { useOutboxFlush } from '@/hooks/use-outbox-flush';
 import { fetchMyProfile, signOut as signOutRequest } from '@/services/auth-service';
-import { requestInbox } from '@/lib/notification-route';
+import { isRealTap, requestInbox } from '@/lib/notification-route';
 import { supabase } from '@/lib/supabase';
 import { clearPushToken, registerPushToken } from '@/services/push-registration';
 import type { Account, SessionStatus } from '@/types/auth';
@@ -132,6 +132,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       // Android keeps returning the last tapped notification on every later start,
       // so clear it once it is handled.
       Notifications.clearLastNotificationResponse();
+      if (!isRealTap(response.notification.request.identifier)) return;
       const tapId = `${response.notification.request.identifier}:${response.notification.date}`;
       requestInbox(tapId, () => router.push(inbox));
     };
