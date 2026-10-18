@@ -218,15 +218,17 @@ export default function FarmerListingTransactionsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <StatusBar style="dark" />
-      <BackHeader title={isTagalog ? 'Listahan ng Transaksyon' : 'Transaction List'} />
+      <BackHeader
+        title={isTagalog ? "Listahan ng Transaksyon" : "Transaction List"}
+      />
 
       <SearchFilterBar
         value={searchQuery}
         onChangeText={setSearchQuery}
         placeholder={
-          isTagalog ? 'Maghanap ng pangalan, presyo, katayuan...' : 'Search name, price, status...'
+          isTagalog ? "Pangalan, presyo, katayuan..." : "Name, price, status..."
         }
         activeFilterCount={activeFilterCount}
         onFilterPress={openModal}
@@ -237,11 +239,14 @@ export default function FarmerListingTransactionsScreen() {
         onClose={() => setModalOpen(false)}
         onReset={resetFilters}
         onApply={applyFilters}
-        activeCount={draftFilter === 'all' ? 0 : 1}
+        activeCount={draftFilter === "all" ? 0 : 1}
       >
         <View style={styles.filterSection}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-            {isTagalog ? 'Katayuan' : 'Status'}
+          <AnimoText
+            variant="bodyEmphasis"
+            color={AnimoColors.textHighEmphasis}
+          >
+            {isTagalog ? "Katayuan" : "Status"}
           </AnimoText>
           <View style={styles.chipsWrap}>
             {STATUS_FILTERS.map((choice) => (
@@ -275,13 +280,13 @@ export default function FarmerListingTransactionsScreen() {
             <TransactionCard
               item={card}
               onPress={() =>
-                deriveDisplayStage(outcome) === 'request_pending'
+                deriveDisplayStage(outcome) === "request_pending"
                   ? router.push({
-                      pathname: '/(farmer)/listing-detail',
-                      params: { id: listingId, tab: 'orders' },
+                      pathname: "/(farmer)/listing-detail",
+                      params: { id: listingId, tab: "orders" },
                     })
                   : router.push({
-                      pathname: '/(farmer)/transaksyon/[id]',
+                      pathname: "/(farmer)/transaksyon/[id]",
                       params: { id: card.id },
                     })
               }
@@ -289,7 +294,12 @@ export default function FarmerListingTransactionsScreen() {
           )}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => load(true)}
+            />
+          }
           ListHeaderComponent={
             listing ? (
               <PalayInformationCard
@@ -303,31 +313,39 @@ export default function FarmerListingTransactionsScreen() {
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
+              <AnimoText
+                variant="h3"
+                color={AnimoColors.textHighEmphasis}
+                style={styles.emptyTitle}
+              >
                 {searchQuery.trim()
                   ? isTagalog
                     ? `Walang resulta para sa "${searchQuery}"`
                     : `No results for "${searchQuery}"`
                   : activeFilterCount > 0
                     ? isTagalog
-                      ? 'Walang transaksyon sa filter na ito.'
-                      : 'No transactions match this filter.'
+                      ? "Walang transaksyon sa filter na ito."
+                      : "No transactions match this filter."
                     : isTagalog
-                      ? 'Wala pang transaksyon sa listing na ito'
-                      : 'No transactions for this listing yet'}
+                      ? "Wala pang transaksyon sa listing na ito"
+                      : "No transactions for this listing yet"}
               </AnimoText>
-              <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
+              <AnimoText
+                variant="body"
+                color={AnimoColors.textLowEmphasis}
+                style={styles.emptyBody}
+              >
                 {searchQuery.trim()
                   ? isTagalog
-                    ? 'Subukan ang ibang keyword o i-clear ang search.'
-                    : 'Try another keyword or clear search.'
+                    ? "Subukan ang ibang keyword o i-clear ang search."
+                    : "Try another keyword or clear search."
                   : activeFilterCount > 0
                     ? isTagalog
-                      ? 'Subukan ang ibang katayuan o i-clear ang filter.'
-                      : 'Try another status or clear the filter.'
+                      ? "Subukan ang ibang katayuan o i-clear ang filter."
+                      : "Try another status or clear the filter."
                     : isTagalog
-                      ? 'Kapag may bumili, lalabas dito ang kanilang mga kahilingan at bayad.'
-                      : 'When buyers place requests, their orders and payments will appear here.'}
+                      ? "Kapag may bumili, lalabas dito ang kanilang mga kahilingan at bayad."
+                      : "When buyers place requests, their orders and payments will appear here."}
               </AnimoText>
             </View>
           }

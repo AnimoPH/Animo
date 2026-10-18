@@ -354,7 +354,7 @@ export default function PaymentScreen() {
                     <View style={styles.receiptInfo}>
                       <View style={styles.receiptAttachedRow}>
                         <CheckCircle2 size={16} color={AnimoColors.accentPrimary} />
-                        <AnimoText variant="bodyEmphasis" color={AnimoColors.accentPrimary}>
+                        <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
                           {isTagalog ? 'Naka-attach (lokal lang)' : 'Attached (local only)'}
                         </AnimoText>
                       </View>
