@@ -27,6 +27,7 @@ import { AnimoColors } from '@/constants/animo';
 import { homeRouteForRole } from '@/constants/roles';
 import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
+import { splashFinished } from '@/lib/notification-route';
 
 const MINIMUM_SPLASH_MS = 3000;
 
@@ -326,6 +327,7 @@ export default function SplashScreen() {
       } else {
         router.replace('/login');
       }
+      splashFinished();
     }, FADE_MS);
   }, [account, screenOpacity, status]);
 
