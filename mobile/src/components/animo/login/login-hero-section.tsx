@@ -12,14 +12,16 @@ import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-nativ
 
 import { AnimoColors, AnimoLoginColors, AnimoSpacing } from '@/constants/animo';
 
-// On a tall phone the arch can breathe; on a short one the form has to win,
-// otherwise the sign-in button is pushed off the first screen.
-const SHORT_SCREEN_DP = 700;
-const ARCH_HEIGHT_TALL = 0.36;
-const ARCH_HEIGHT_SHORT = 0.26;
-const ARCH_MAX_HEIGHT_DP = 320;
-const ARCH_MIN_HEIGHT_DP = 150;
-const RING_GAP = 8;
+// The arch is sized so the whole phone step (arch, title, phone field, Mag-Login,
+// register line and the terms line) fits without scrolling. The form's tall layout
+// needs ~790dp, so anything shorter than SHORT_SCREEN_DP gets the compact form and a
+// smaller arch. The form section reads the same cutoff, so they always switch together.
+export const SHORT_SCREEN_DP = 820;
+const ARCH_HEIGHT_TALL = 0.27;
+const ARCH_HEIGHT_SHORT = 0.2;
+const ARCH_MAX_HEIGHT_DP = 240;
+const ARCH_MIN_HEIGHT_DP = 120;
+const RING_GAP = 10;
 
 /**
  * Hero for the login phone step: the farm illustration seen through an arch,

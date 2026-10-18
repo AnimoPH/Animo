@@ -10,6 +10,7 @@ import Animated, {
 
 import { AnimoButton } from "@/components/animo/animo-button";
 import { AnimoText } from "@/components/animo/animo-text";
+import { SHORT_SCREEN_DP } from "@/components/animo/login/login-hero-section";
 import { LoginPhoneInput } from "@/components/animo/login-phone-input";
 import { NoticeBanner } from "@/components/animo/notice-banner";
 import { AnimoColors, AnimoRadius, AnimoSpacing } from "@/constants/animo";
@@ -83,7 +84,7 @@ export function LoginFormSection({
           </AnimoText>
         </View>
 
-        <View style={styles.upperSection}>
+        <View style={[styles.upperSection, compact && styles.upperSectionCompact]}>
           <View style={styles.labelRow}>
             <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
               {t("login.phoneLabel")}
@@ -109,7 +110,7 @@ export function LoginFormSection({
           {errorMessage ? <NoticeBanner tone="danger">{errorMessage}</NoticeBanner> : null}
         </View>
 
-        <View style={styles.lowerSection}>
+        <View style={[styles.lowerSection, compact && styles.lowerSectionCompact]}>
           <AnimoButton
             label={primaryLabel}
             onPress={onPrimary}
@@ -137,7 +138,7 @@ export function LoginFormSection({
         </View>
       </View>
 
-      <View style={styles.footerGroup}>
+      <View style={[styles.footerGroup, compact && styles.footerGroupCompact]}>
         {footer}
         {devSlot}
       </View>
@@ -145,7 +146,6 @@ export function LoginFormSection({
   );
 }
 
-const SHORT_SCREEN_DP = 700;
 const LINK_HIT_SLOP = { top: 16, bottom: 16, left: 8, right: 8 };
 
 const styles = StyleSheet.create({
@@ -157,8 +157,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: AnimoSpacing.xl,
     paddingBottom: AnimoSpacing.lg,
   },
+  // Compact (short screens): gaps shrink, text sizes and the 56dp button do not.
   containerCompact: {
-    paddingTop: AnimoSpacing.lg,
+    paddingTop: AnimoSpacing.md,
   },
   contentGroup: {
     flexGrow: 0,
@@ -166,13 +167,16 @@ const styles = StyleSheet.create({
     gap: AnimoSpacing.xl,
   },
   contentGroupCompact: {
-    gap: AnimoSpacing.lg,
+    gap: AnimoSpacing.md,
   },
   headingBlock: {
     gap: AnimoSpacing.xs,
   },
   upperSection: {
     gap: AnimoSpacing.md,
+  },
+  upperSectionCompact: {
+    gap: AnimoSpacing.sm,
   },
   labelRow: {
     flexDirection: "row",
@@ -192,6 +196,9 @@ const styles = StyleSheet.create({
   lowerSection: {
     gap: AnimoSpacing.lg,
   },
+  lowerSectionCompact: {
+    gap: AnimoSpacing.md,
+  },
   registerRow: {
     flexDirection: "row",
     justifyContent: "center",
@@ -201,5 +208,8 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     flexShrink: 0,
     marginTop: AnimoSpacing.lg,
+  },
+  footerGroupCompact: {
+    marginTop: AnimoSpacing.sm,
   },
 });
