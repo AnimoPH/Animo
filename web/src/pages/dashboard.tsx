@@ -789,7 +789,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   topCardsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))',
     gap: 18,
     alignItems: 'stretch',
   },
@@ -1050,7 +1050,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   midRow: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(360px, 100%), 1fr))',
     gap: 18,
     alignItems: 'stretch',
   },
