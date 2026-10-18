@@ -40,6 +40,18 @@ export function notificationText(item: InboxNotification, isTagalog: boolean): {
     return { title, body };
   }
 
+  if (item.kind === 'purchase_request_received') {
+    return isTagalog
+      ? { title: 'Bagong Kahilingan', body: 'May bagong purchase request sa iyong listing.' }
+      : { title: 'New purchase request', body: 'A buyer sent a purchase request on your listing.' };
+  }
+
+  if (item.kind === 'purchase_request_cancelled') {
+    return isTagalog
+      ? { title: 'Kinansela ang Kahilingan', body: 'Kinansela ng mamimili ang purchase request.' }
+      : { title: 'Purchase request cancelled', body: 'The buyer cancelled the purchase request.' };
+  }
+
   if (item.kind === 'purchase_request_accepted') {
     return isTagalog
       ? { title: 'Tinanggap ang kahilingan', body: 'Tinanggap ng magsasaka ang iyong kahilingan sa pagbili.' }
@@ -79,6 +91,8 @@ export function notificationText(item: InboxNotification, isTagalog: boolean): {
 }
 
 const TRANSACTION_KINDS = new Set([
+  'purchase_request_received',
+  'purchase_request_cancelled',
   'purchase_request_accepted',
   'purchase_request_rejected',
   'transaction_completed',
@@ -95,6 +109,9 @@ type QueueRow = {
 
 function targetRoute(role: 'farmer' | 'buyer', kind: string, transactionId: string | undefined): string | null {
   if (kind === 'advisory' && role === 'farmer') return '/(farmer)/advisory';
+  if ((kind === 'purchase_request_received' || kind === 'purchase_request_cancelled') && role === 'farmer') {
+    return '/(farmer)/(tabs)/transaksyon';
+  }
   if (!transactionId) return null;
   if (kind !== 'purchase_request_accepted' && kind !== 'transaction_completed') return null;
   return role === 'farmer'
