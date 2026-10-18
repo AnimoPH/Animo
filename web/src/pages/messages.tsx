@@ -6,6 +6,7 @@ import { ConsoleLayout } from '@/components/console-layout';
 import { barangayLabel } from '@/lib/barangay-label';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import type { WebTranslationKey } from '@/i18n/translations';
 import {
   fetchLguAdvisoryOverview,
@@ -43,6 +44,7 @@ const ACTION_TINT: Record<AdvisoryAction, string> = {
 /** Live advisory groups for the LGU alert list. Farmer counts are people holding the recommendation. */
 export function MessagesPage({ onSignOut }: MessagesPageProps) {
   const { t, isTagalog } = useLanguage();
+  const isTablet = useMediaQuery('(max-width: 1024px)');
   const [overview, setOverview] = useState<LguAdvisoryOverview | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<LguAdvisoryGroup | null>(null);
   const [loading, setLoading] = useState(true);
@@ -102,7 +104,7 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
       title={t('messages.title')}
       subtitle={t('messages.subtitle')}
       onSignOut={onSignOut}>
-      <div style={styles.grid}>
+      <div style={isTablet ? { ...styles.grid, ...styles.gridOneColumn } : styles.grid}>
         <article className="animo-card" style={styles.panel}>
           <div style={styles.panelHead}>
             <div>
@@ -304,6 +306,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 18,
     alignItems: 'start',
   },
+  gridOneColumn: { gridTemplateColumns: 'minmax(0, 1fr)' },
   sideColumn: { display: 'flex', flexDirection: 'column', gap: 18 },
   panel: { display: 'flex', flexDirection: 'column', gap: 18, padding: 24 },
   panelHead: {
@@ -341,6 +344,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
+    flexWrap: 'wrap',
   },
   alertTitle: {
     display: 'inline-flex',

@@ -311,7 +311,7 @@ function BuyerRow({
 const styles: Record<string, React.CSSProperties> = {
   summaryRow: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))',
     gap: 18,
   },
   summaryCard: {
@@ -376,7 +376,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '0 14px',
     height: 44,
     flex: 1,
-    minWidth: 260,
+    minWidth: 'min(260px, 100%)',
   },
   searchInput: {
     flex: 1,

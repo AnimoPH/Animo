@@ -15,6 +15,7 @@ import { FarmBackdrop } from '@/components/farm-backdrop';
 import { LabeledInput } from '@/components/labeled-input';
 import { LanguageSwitch } from '@/components/language-switch';
 import { useLanguage } from '@/hooks/use-language';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { useAuth } from '@/lib/auth-context';
 import {
   getDefaultLguCredentials,
@@ -29,6 +30,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const { refresh } = useAuth();
   const { t } = useLanguage();
+  const isNarrow = useMediaQuery('(max-width: 760px)');
   const [email, setEmail] = useState(defaults.email);
   const [password, setPassword] = useState(defaults.password);
   const [showPassword, setShowPassword] = useState(false);
@@ -59,7 +61,7 @@ export function LoginPage() {
   }
 
   return (
-    <div style={styles.page}>
+    <div style={isNarrow ? { ...styles.page, ...styles.pageNarrow } : styles.page}>
       <aside style={styles.brandPanel}>
         <FarmBackdrop />
         <div style={styles.brandInner}>
@@ -83,7 +85,7 @@ export function LoginPage() {
         </div>
       </aside>
 
-      <main style={styles.formPanel}>
+      <main style={isNarrow ? { ...styles.formPanel, ...styles.formPanelNarrow } : styles.formPanel}>
         <div style={styles.topLangBar}>
           <LanguageSwitch variant="login" />
         </div>
@@ -168,6 +170,7 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: '100vh',
     background: 'var(--animo-white)',
   },
+  pageNarrow: { gridTemplateColumns: 'minmax(0, 1fr)', minHeight: 'auto' },
   brandPanel: {
     position: 'relative',
     overflow: 'hidden',
@@ -220,6 +223,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     padding: 48,
   },
+  formPanelNarrow: { padding: '88px 24px 40px' },
   topLangBar: {
     position: 'absolute',
     top: 24,

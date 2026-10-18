@@ -955,7 +955,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   metaGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))',
     gap: 16,
   },
   metaItem: {
@@ -1024,7 +1024,7 @@ const styles: Record<string, React.CSSProperties> = {
   panelSubtitle: { margin: 0, fontSize: 14, color: 'var(--animo-black-secondary)' },
   reviewsHead: {
     display: 'grid',
-    gridTemplateColumns: 'auto 1fr',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))',
     gap: 32,
     alignItems: 'center',
   },
@@ -1054,7 +1054,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   criteriaGrid: {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))',
     gap: 12,
   },
   criteriaItem: {

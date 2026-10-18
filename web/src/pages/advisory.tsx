@@ -220,7 +220,7 @@ const styles: Record<string, React.CSSProperties> = {
   panelSubtitle: { margin: 0, fontSize: 14, color: 'var(--animo-black-secondary)' },
   advisoryList: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))',
     gap: 14,
   },
   advisoryCard: {
