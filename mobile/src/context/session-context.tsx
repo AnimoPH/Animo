@@ -6,6 +6,7 @@ import { AppState, Platform } from 'react-native';
 
 import { useOutboxFlush } from '@/hooks/use-outbox-flush';
 import { fetchMyProfile, signOut as signOutRequest } from '@/services/auth-service';
+import { requestInbox } from '@/lib/notification-route';
 import { supabase } from '@/lib/supabase';
 import { clearPushToken, registerPushToken } from '@/services/push-registration';
 import type { Account, SessionStatus } from '@/types/auth';
@@ -127,13 +128,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!role || Platform.OS === 'web') return;
     const inbox = role === 'magsasaka' ? '/(farmer)/notipikasyon' : '/(buyer)/notipikasyon';
-    const subscription = Notifications.addNotificationResponseReceivedListener(() => {
-      router.push(inbox);
-    });
+    const openInbox = (response: Notifications.NotificationResponse) => {
+      // Android keeps returning the last tapped notification on every later start,
+      // so clear it once it is handled.
+      Notifications.clearLastNotificationResponse();
+      const tapId = `${response.notification.request.identifier}:${response.notification.date}`;
+      requestInbox(tapId, () => router.push(inbox));
+    };
+    const subscription = Notifications.addNotificationResponseReceivedListener(openInbox);
     if (!coldStartHandled.current) {
       coldStartHandled.current = true;
       Notifications.getLastNotificationResponseAsync().then((response) => {
-        if (response) router.push(inbox);
+        if (response) openInbox(response);
       });
     }
     return () => subscription.remove();
