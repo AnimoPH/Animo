@@ -53,6 +53,24 @@ export function notificationText(item: InboxNotification, isTagalog: boolean): {
       : { title: 'Purchase request cancelled', body: 'The buyer cancelled the purchase request.' };
   }
 
+  if (item.kind === 'payment_sent') {
+    return isTagalog
+      ? { title: 'Nagbayad ang Mamimili', body: 'Ipinadala na ng mamimili ang bayad. Pakikumpirma kung natanggap mo na.' }
+      : { title: 'Buyer paid', body: 'The buyer says the payment was sent. Please confirm when you receive it.' };
+  }
+
+  if (item.kind === 'payment_confirmed') {
+    return isTagalog
+      ? { title: 'Natanggap ang Bayad', body: 'Kinumpirma ng magsasaka na natanggap niya ang bayad mo.' }
+      : { title: 'Payment received', body: 'The farmer confirmed that your payment arrived.' };
+  }
+
+  if (item.kind === 'rating_received') {
+    return isTagalog
+      ? { title: 'May Bagong Rating', body: 'May nag-rate sa iyo sa isang nakumpletong transaksyon.' }
+      : { title: 'New rating', body: 'Someone rated you on a completed transaction.' };
+  }
+
   if (item.kind === 'purchase_request_accepted') {
     return isTagalog
       ? { title: 'Tinanggap ang kahilingan', body: 'Tinanggap ng magsasaka ang iyong kahilingan sa pagbili.' }
@@ -92,6 +110,9 @@ export function notificationText(item: InboxNotification, isTagalog: boolean): {
 }
 
 const TRANSACTION_KINDS = new Set([
+  'payment_sent',
+  'payment_confirmed',
+  'rating_received',
   'purchase_request_received',
   'purchase_request_cancelled',
   'purchase_request_accepted',

@@ -37,4 +37,12 @@ describe('where an inbox row opens', () => {
     assert.equal(noticeTarget('buyer', 'purchase_request_rejected', { requestId: 'r1' }), null);
     assert.equal(noticeTarget('buyer', 'account_suspended', {}), null);
   });
+
+  it('opens the trade from the payment and rating notices', () => {
+    const ids = { transactionId: 't1', requestId: 'r1' };
+    assert.equal(noticeTarget('farmer', 'payment_sent', ids), '/(farmer)/transaksyon/t1');
+    assert.equal(noticeTarget('buyer', 'payment_confirmed', ids), '/(buyer)/transaksyon/r1');
+    assert.equal(noticeTarget('farmer', 'rating_received', ids), '/(farmer)/transaksyon/t1');
+    assert.equal(noticeTarget('buyer', 'rating_received', ids), '/(buyer)/transaksyon/r1');
+  });
 });
