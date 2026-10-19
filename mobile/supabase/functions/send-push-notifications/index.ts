@@ -113,6 +113,9 @@ Deno.serve(async (req) => {
       title: row.title,
       body: row.body,
       data: row.data ?? {},
+      // high priority wakes a phone that is dozing, so the notice is not held back
+      sound: 'default',
+      priority: 'high',
     }));
 
     try {

@@ -22,9 +22,10 @@ function newPriceFrom(item: OutboxItem): number | null {
 /**
  * Shows what the phone saved while offline and could not send yet. A listing
  * the server refused because the feed peso changed waits here until the
- * farmer confirms the new peso or drops it.
+ * farmer confirms the new peso or drops it. `rightInset` keeps it clear of a
+ * button on the right edge, like the + on Aking Ani.
  */
-export function OutboxBanner() {
+export function OutboxBanner({ rightInset = 0 }: { rightInset?: number }) {
   const { isTagalog } = useLanguage();
   const { account } = useSession();
   const items = useOutboxItems(account?.id ?? null);
@@ -64,7 +65,7 @@ export function OutboxBanner() {
   return (
     <>
       <Pressable
-        style={styles.banner}
+        style={[styles.banner, rightInset > 0 && { right: AnimoSpacing.lg + rightInset }]}
         disabled={!stuck}
         onPress={() => setReviewing(true)}
         accessibilityRole={stuck ? 'button' : 'text'}>
