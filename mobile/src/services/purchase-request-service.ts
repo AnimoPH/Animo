@@ -1,3 +1,4 @@
+import { isSuspensionNotice } from '@/lib/suspension';
 import { requireAuthUserId } from '@/services/crop-listing-service';
 import { supabase } from '@/lib/supabase';
 import type { PurchaseRequest, PurchaseRequestStatus, SubmitPurchaseRequestInput } from '@/types/purchase-request';
@@ -222,6 +223,7 @@ function errorText(error: unknown): string {
  * the message; it is never returned.
  */
 export function cancelPurchaseRequestFailureMessage(error: unknown): string {
+  if (isSuspensionNotice(errorText(error))) return errorText(error);
   const message = errorText(error).toLowerCase();
   if (message.includes('account is suspended')) {
     return 'Hindi makansela ang request dahil na-suspend ang account.';
@@ -242,6 +244,7 @@ export function isPurchaseRequestNoLongerPending(error: unknown): boolean {
  * pending. The database text is only used to choose the message.
  */
 export function acceptPurchaseRequestFailureMessage(error: unknown): string {
+  if (isSuspensionNotice(errorText(error))) return errorText(error);
   const message = errorText(error).toLowerCase();
   if (message.includes('account is suspended')) {
     return 'Hindi matanggap ang kahilingan dahil na-suspend ang account.';

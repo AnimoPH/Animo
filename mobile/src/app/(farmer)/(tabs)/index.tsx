@@ -26,6 +26,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
+import { SuspensionNotice } from '@/components/animo/suspension-notice';
 import { AppHeader } from '@/components/animo/app-header';
 import {
   SpotlightTour,
@@ -230,6 +231,8 @@ export default function FarmerHomeScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
         }>
+        <SuspensionNotice />
+
         <View ref={advisoryRef} collapsable={false}>
           {currentAdvisory?.kind === 'active' ? (
             <AdvisoryCard

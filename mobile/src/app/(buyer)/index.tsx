@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { AppHeader } from '@/components/animo/app-header';
+import { SuspensionNotice } from '@/components/animo/suspension-notice';
 import { MarketplaceListingCard } from '@/components/animo/buyer/marketplace-listing-card';
 import {
   SpotlightTour,
@@ -156,6 +157,8 @@ export default function BuyerHomeScreen() {
         ref={scrollViewRef}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
+        <SuspensionNotice />
+
         {/* Welcome Greeting */}
         <View style={styles.hero}>
           <AnimoText variant="h1" color={AnimoColors.black}>
