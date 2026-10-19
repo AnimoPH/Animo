@@ -32,6 +32,7 @@ import { formatPeso } from '@/constants/marketplace';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useLanguage } from '@/hooks/use-language';
 import { parseBuyerTransactionListFilter } from '@/lib/buyer-transactions-nav';
+import { visiblePages } from '@/lib/visible-pages';
 import { fetchCropListingsByIds } from '@/services/crop-listing-service';
 import {
   fetchBuyerPurchaseOutcomes,
@@ -448,7 +449,7 @@ function PaginationControls({
         </TouchableOpacity>
 
         <View style={styles.pageNumbersRow}>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+          {visiblePages(currentPage, totalPages).map((pageNum) => {
             const isActive = pageNum === currentPage;
             return (
               <TouchableOpacity

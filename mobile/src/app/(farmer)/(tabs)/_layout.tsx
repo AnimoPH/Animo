@@ -80,7 +80,8 @@ export default function FarmerLayout() {
         <Tabs.Screen name="transaksyon" />
         <Tabs.Screen name="profile" />
       </Tabs>
-      <OutboxBanner />
+      {/* 72 keeps the banner left of the + button on Aking Ani (56 wide, 24 from the edge) */}
+      <OutboxBanner rightInset={72} />
     </View>
   );
 }
