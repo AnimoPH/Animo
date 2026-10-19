@@ -45,7 +45,7 @@ import {
   type CropListing,
   type DeclaredVariety,
 } from '@/types/crop-listing';
-import type { TransactionWithPayment } from '@/types/transaction';
+import { displayStageForMatch, isFarmerNeedsActionStage, type TransactionWithPayment } from '@/types/transaction';
 
 const SCREEN_PADDING = AnimoSpacing.lg;
 
@@ -154,6 +154,8 @@ type ListingRollup = {
   soldKg: number;
   earnings: number;
   pendingCount: number;
+  /** Matched sales on this listing that wait on the farmer (payment to confirm, palay to hand over). */
+  actionCount: number;
   varietyLine: string;
   lastActivityAt: string;
 };
@@ -229,6 +231,9 @@ export default function FarmerTransactionsScreen() {
           soldKg: sumCompletedSoldKg(transactions, listing.id),
           earnings: sumCompletedEarnings(transactions, listing.id),
           pendingCount: pendingCounts.get(listing.id) ?? 0,
+          actionCount: transactions.filter(
+            (tx) => tx.listingId === listing.id && isFarmerNeedsActionStage(displayStageForMatch(tx)),
+          ).length,
           varietyLine: specific ? `${variety} (${specific})` : variety,
           lastActivityAt: listingLastActivityAt(
             listing.id,
@@ -449,7 +454,7 @@ export default function FarmerTransactionsScreen() {
               remainingKg={item.listing.remainingQuantityKg}
               soldKg={item.soldKg}
               earnings={item.earnings}
-              needsAction={item.pendingCount > 0}
+              needsAction={item.pendingCount > 0 || item.actionCount > 0}
               onPress={() =>
                 router.push({
                   pathname: '/(farmer)/transaksyon/listing/[id]' as any,

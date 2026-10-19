@@ -18,7 +18,14 @@ export function noticeTarget(
   if ((kind === 'purchase_request_received' || kind === 'purchase_request_cancelled') && role === 'farmer') {
     return '/(farmer)/(tabs)/transaksyon';
   }
-  if (kind !== 'purchase_request_accepted' && kind !== 'transaction_completed') return null;
+  const TRADE_KINDS = [
+    'purchase_request_accepted',
+    'transaction_completed',
+    'payment_sent',
+    'payment_confirmed',
+    'rating_received',
+  ];
+  if (!TRADE_KINDS.includes(kind)) return null;
   if (role === 'farmer') return ids.transactionId ? `/(farmer)/transaksyon/${ids.transactionId}` : null;
   return ids.requestId ? `/(buyer)/transaksyon/${ids.requestId}` : null;
 }

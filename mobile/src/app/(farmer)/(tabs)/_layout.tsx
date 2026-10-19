@@ -8,6 +8,8 @@ import { homeRouteForRole } from '@/constants/roles';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useSession } from '@/hooks/use-session';
 import { fetchPendingPurchaseRequestCountsByListing } from '@/services/purchase-request-service';
+import { fetchFarmerTransactions } from '@/services/transaction-service';
+import { displayStageForMatch, isFarmerNeedsActionStage } from '@/types/transaction';
 
 /** Bottom navigation for the farmer (Magsasaka) module. */
 const FARMER_TAB_DEFS: Omit<TabItem, 'showBadge'>[] = [
@@ -26,14 +28,13 @@ export default function FarmerLayout() {
   const checkNeedsAction = useCallback(async () => {
     if (!isFarmerSession) return;
     try {
-      const counts = await fetchPendingPurchaseRequestCountsByListing();
-      let any = false;
-      for (const n of counts.values()) {
-        if (n > 0) {
-          any = true;
-          break;
-        }
-      }
+      const [counts, transactions] = await Promise.all([
+        fetchPendingPurchaseRequestCountsByListing(),
+        fetchFarmerTransactions().catch(() => []),
+      ]);
+      const any =
+        [...counts.values()].some((n) => n > 0) ||
+        transactions.some((tx) => isFarmerNeedsActionStage(displayStageForMatch(tx)));
       setTransaksyonNeedsAction(any);
     } catch {
       // Keep the last known badge state on transient failures.
