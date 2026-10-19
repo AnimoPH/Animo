@@ -1,4 +1,5 @@
 import { actionLabel, type RecommendedAction } from '@/services/advisory-service';
+import { noticeTarget } from '@/lib/notification-target';
 import { supabase } from '@/lib/supabase';
 
 export type NotificationCategory = 'lahat' | 'transaksyon' | 'palengke' | 'sistema';
@@ -102,22 +103,11 @@ type QueueRow = {
   notification_id: string;
   title: string;
   body: string;
-  data: { type?: string; transaction_id?: string } | null;
+  data: { type?: string; transaction_id?: string; request_id?: string } | null;
   created_at: string;
   read_at: string | null;
 };
 
-function targetRoute(role: 'farmer' | 'buyer', kind: string, transactionId: string | undefined): string | null {
-  if (kind === 'advisory' && role === 'farmer') return '/(farmer)/advisory';
-  if ((kind === 'purchase_request_received' || kind === 'purchase_request_cancelled') && role === 'farmer') {
-    return '/(farmer)/(tabs)/transaksyon';
-  }
-  if (!transactionId) return null;
-  if (kind !== 'purchase_request_accepted' && kind !== 'transaction_completed') return null;
-  return role === 'farmer'
-    ? `/(farmer)/transaksyon/${transactionId}`
-    : `/(buyer)/transaksyon/${transactionId}`;
-}
 
 export async function fetchMyNotifications(role: 'farmer' | 'buyer'): Promise<InboxNotification[]> {
   const { data, error } = await supabase
@@ -126,8 +116,29 @@ export async function fetchMyNotifications(role: 'farmer' | 'buyer'): Promise<In
     .order('created_at', { ascending: false });
   if (error) throw error;
 
-  return ((data ?? []) as QueueRow[]).map((row) => {
+  const rows = (data ?? []) as QueueRow[];
+
+  // A buyer's transaction screen is opened with the purchase request id. Completed
+  // notices only carry the transaction id, so look the request up for those.
+  const requestByTransaction = new Map<string, string>();
+  if (role === 'buyer') {
+    const missing = rows
+      .filter((row) => !row.data?.request_id && row.data?.transaction_id)
+      .map((row) => row.data!.transaction_id as string);
+    if (missing.length > 0) {
+      const { data: matches } = await supabase
+        .from('transactionmatch')
+        .select('transaction_id, request_id')
+        .in('transaction_id', missing);
+      for (const match of (matches ?? []) as { transaction_id: string; request_id: string }[]) {
+        requestByTransaction.set(match.transaction_id, match.request_id);
+      }
+    }
+  }
+
+  return rows.map((row) => {
     const kind = row.data?.type ?? '';
+    const transactionId = row.data?.transaction_id;
     return {
       id: row.notification_id,
       kind,
@@ -136,7 +147,10 @@ export async function fetchMyNotifications(role: 'farmer' | 'buyer'): Promise<In
       createdAt: row.created_at,
       read: row.read_at != null,
       category: TRANSACTION_KINDS.has(kind) ? 'transaksyon' : 'sistema',
-      targetRoute: targetRoute(role, kind, row.data?.transaction_id),
+      targetRoute: noticeTarget(role, kind, {
+        transactionId,
+        requestId: row.data?.request_id ?? (transactionId ? requestByTransaction.get(transactionId) : undefined),
+      }),
     };
   });
 }
