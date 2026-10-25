@@ -13,6 +13,7 @@ const farmer: Account = {
   gcashNumber: null,
   walletAddress: null,
   accountStatus: 'Active',
+  suspensionReason: null,
   dateRegistered: '2026-10-18',
 };
 

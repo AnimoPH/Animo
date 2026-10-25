@@ -103,6 +103,7 @@ type UserRow = {
   full_name: string;
   contact_number: string;
   account_status: 'Active' | 'Suspended';
+  suspension_reason: string | null;
   date_registered: string;
 };
 
@@ -130,6 +131,7 @@ function mapAccount(user: UserRow, extension: ExtensionRow | null): Account {
     gcashNumber: extension?.gcash_number ?? null,
     walletAddress: extension?.wallet_address ?? null,
     accountStatus: user.account_status,
+    suspensionReason: user.suspension_reason ?? null,
     dateRegistered: user.date_registered,
   };
 }
@@ -144,7 +146,7 @@ export async function fetchMyProfile(): Promise<Account | null> {
 
   const { data: user, error } = await supabase
     .from('user')
-    .select('user_id, role, full_name, contact_number, account_status, date_registered')
+    .select('user_id, role, full_name, contact_number, account_status, suspension_reason, date_registered')
     .eq('user_id', authUser.id)
     .maybeSingle();
 
