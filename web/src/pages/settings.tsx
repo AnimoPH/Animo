@@ -14,9 +14,9 @@ import {
   X,
 } from "lucide-react";
 
-import { LoadingBar } from '@/components/loading-bar';
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ConsoleLayout } from "@/components/console-layout";
+import { LoadingBar } from "@/components/loading-bar";
 import { useLanguage } from "@/hooks/use-language";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useAuth } from "@/lib/auth-context";

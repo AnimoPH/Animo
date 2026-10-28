@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { CloudDrizzle, CloudSun, MapPin, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-import { LoadingBar } from '@/components/loading-bar';
 import { ConsoleLayout } from '@/components/console-layout';
+import { LoadingBar } from '@/components/loading-bar';
 import { barangayLabel } from '@/lib/barangay-label';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';

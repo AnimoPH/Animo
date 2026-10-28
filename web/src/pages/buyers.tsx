@@ -5,8 +5,8 @@ import {
   X,
 } from 'lucide-react';
 
-import { LoadingBar } from '@/components/loading-bar';
 import { ConsoleLayout } from '@/components/console-layout';
+import { LoadingBar } from '@/components/loading-bar';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
 import {
