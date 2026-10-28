@@ -1034,6 +1034,9 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     color: "var(--animo-black)",
     textAlign: "right",
+    margin: 0,
+    minWidth: 0,
+    overflowWrap: "anywhere",
   },
   sectionHeading: {
     fontSize: 16,
