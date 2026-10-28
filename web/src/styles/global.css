@@ -194,3 +194,32 @@ a {
     opacity: 0.6;
   }
 }
+
+.animo-skeleton {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
+  background: linear-gradient(
+    90deg,
+    var(--animo-surface) 25%,
+    var(--animo-border) 50%,
+    var(--animo-surface) 75%
+  );
+  background-size: 300% 100%;
+  animation: animo-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes animo-skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animo-skeleton {
+    animation: none;
+  }
+}

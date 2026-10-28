@@ -14,6 +14,7 @@ import {
 
 import { ConsoleLayout } from '@/components/console-layout';
 import { LoadingBar } from '@/components/loading-bar';
+import { Skeleton } from '@/components/skeleton';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
 import { useMediaQuery } from '@/hooks/use-media-query';
@@ -164,6 +165,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
     }
   }
 
+  const showSkeleton = loading && priceFeed === null;
   const monthlyBars = useMemo(() => toMonthlyBars(priceHistory, 7, isTagalog), [priceHistory, isTagalog]);
   const latestHistory = priceHistory.at(-1);
   const previousHistory = priceHistory.at(-2);
@@ -207,7 +209,9 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                   <TrendingUp size={20} color="var(--animo-green)" />
                 </span>
               </div>
-              <div style={styles.metricValue}>{dryBase != null ? formatPeso(dryBase) : '—'}</div>
+              <div style={styles.metricValue}>
+                {showSkeleton ? <Skeleton width={120} height={32} /> : dryBase != null ? formatPeso(dryBase) : '—'}
+              </div>
               <div style={styles.comparisonRow}>
                 <span style={styles.comparisonText}>
                   {isTagalog ? 'Awtomatikong pagtantiya batay sa datos ng PSA' : 'Automated estimate based on PSA data'}
@@ -218,7 +222,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
               <div style={styles.metricDelta}>
                 <span>
                   {isTagalog ? 'Presyo ng Basang Palay (survey):' : 'Wet Base Price (survey):'}{' '}
-                  {priceFeed ? formatPeso(priceFeed.wetBasePerKg) : '—'}
+                  {showSkeleton ? <Skeleton width={64} /> : priceFeed ? formatPeso(priceFeed.wetBasePerKg) : '—'}
                 </span>
               </div>
             </div>
@@ -233,7 +237,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                 </span>
               </div>
               <div style={styles.metricValue}>
-                {psaFarmgate != null ? formatPeso(psaFarmgate) : '—'}
+                {showSkeleton ? <Skeleton width={120} height={32} /> : psaFarmgate != null ? formatPeso(psaFarmgate) : '—'}
               </div>
               {psaFarmgate != null && benchmarkDelta ? (
                 <div style={styles.comparisonRow}>
@@ -248,7 +252,9 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
             </div>
             <div style={styles.metricBottom}>
               <div style={styles.metricDelta}>
-                {psaFarmgate != null ? (
+                {showSkeleton ? (
+                  <Skeleton width={200} />
+                ) : psaFarmgate != null ? (
                   <span>{isTagalog ? 'kada kilo · PSA OpenSTAT · Lalawigan ng Rizal' : 'per kg · PSA OpenSTAT · Rizal province'}</span>
                 ) : (
                   <span>
@@ -374,7 +380,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
                   {isTagalog ? 'Maaaring luma na ang datos' : 'Data may be outdated'}
                 </span>
               ) : null}
-              <span style={styles.actionStatusValue}>{lastSyncTime}</span>
+              <span style={styles.actionStatusValue}>{showSkeleton ? <Skeleton width={120} /> : lastSyncTime}</span>
             </span>
           </div>
   
@@ -407,6 +413,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
           effectiveDate={priceFeed?.effectiveDate ?? latestHistory?.month ?? null}
           isTagalog={isTagalog}
           compact={isMobile}
+          loading={showSkeleton}
         />
         <MarketPricingConfidenceCard
           nfaActive={nfaActive}
@@ -544,12 +551,15 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
   );
 }
 
+const SKELETON_BAR_LEVELS = [0.45, 0.6, 0.5, 0.75, 0.55, 0.7, 0.65];
+
 function PriceBenchmarkCard({
   dryBase,
   monthlyBars,
   effectiveDate,
   isTagalog,
   compact,
+  loading,
 }: {
   dryBase: number | null;
   monthlyBars: ReturnType<typeof toMonthlyBars>;
@@ -557,6 +567,7 @@ function PriceBenchmarkCard({
   isTagalog: boolean;
   /** Mobile width: tighter card padding. */
   compact: boolean;
+  loading: boolean;
 }) {
   return (
     <article className="animo-card" style={compact ? { ...styles.panel, ...styles.cardPaddingMobile } : styles.panel}>
@@ -570,7 +581,9 @@ function PriceBenchmarkCard({
       </div>
 
       <div style={styles.priceHeadline}>
-        <span style={styles.priceValue}>{dryBase != null ? formatPeso(dryBase) : '—'}</span>
+        <span style={styles.priceValue}>
+          {loading ? <Skeleton width={120} height={32} /> : dryBase != null ? formatPeso(dryBase) : '—'}
+        </span>
         <span style={styles.priceUnit}>{isTagalog ? 'kada kilo (dry)' : 'per kg (dry)'}</span>
       </div>
 
@@ -583,7 +596,13 @@ function PriceBenchmarkCard({
       </div>
 
       <div style={styles.chart}>
-        {monthlyBars.length === 0 ? (
+        {loading ? (
+          SKELETON_BAR_LEVELS.map((level, index) => (
+            <div key={index} style={styles.chartColumn}>
+              <Skeleton width="100%" height={`${level * 100}%`} radius="var(--animo-radius-sm)" />
+            </div>
+          ))
+        ) : monthlyBars.length === 0 ? (
           <span style={styles.priceSource}>
             {isTagalog ? 'Walang price history pa.' : 'No price history yet.'}
           </span>

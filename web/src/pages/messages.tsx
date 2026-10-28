@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 
 import { ConsoleLayout } from '@/components/console-layout';
 import { LoadingBar } from '@/components/loading-bar';
+import { Skeleton } from '@/components/skeleton';
 import { barangayLabel } from '@/lib/barangay-label';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
@@ -67,6 +68,7 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
 
   useAutoRefresh(() => void loadOverview());
 
+  const showSkeleton = loading && overview === null;
   const groups = overview?.groups ?? [];
   const counts = Object.fromEntries(
     ACTION_ORDER.map((action) => [
@@ -126,6 +128,14 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
             <p style={styles.notice}>{t('advisory.empty')}</p>
           ) : null}
 
+          {showSkeleton ? (
+            <div style={styles.alertList}>
+              {[0, 1, 2].map((index) => (
+                <GroupRowSkeleton key={index} />
+              ))}
+            </div>
+          ) : null}
+
           {groups.length > 0 ? (
             <div style={styles.alertList}>
               {groups.map((group) => (
@@ -163,7 +173,7 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
                     {actionLabel(action)}
                   </span>
                   <span style={styles.summaryCount}>
-                    {counts[action]} {t('advisory.farmerUnit')}
+                    {showSkeleton ? <Skeleton width={72} /> : `${counts[action]} ${t('advisory.farmerUnit')}`}
                   </span>
                 </li>
               ))}
@@ -295,6 +305,19 @@ function GroupRow({
             {detailLabel}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function GroupRowSkeleton() {
+  return (
+    <div style={styles.alertCard}>
+      <Skeleton width={40} height={40} radius="var(--animo-radius-md)" />
+      <div style={styles.alertBody}>
+        <Skeleton width={160} height={16} />
+        <Skeleton width={220} />
+        <Skeleton width={120} height={12} />
       </div>
     </div>
   );
