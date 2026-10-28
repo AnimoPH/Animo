@@ -5,6 +5,7 @@ import {
   X,
 } from 'lucide-react';
 
+import { LoadingBar } from '@/components/loading-bar';
 import { ConsoleLayout } from '@/components/console-layout';
 import { barangayLabel } from '@/lib/barangay-label';
 import type { Farmer } from '@/constants/dashboard';
@@ -154,7 +155,7 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
         />
       </section>
 
-      {loading ? <p style={styles.loadNotice}>{t('common.loading')}</p> : null}
+      {loading ? <LoadingBar /> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
 
       {/* Main Table Card */}
@@ -359,11 +360,6 @@ const styles: Record<string, React.CSSProperties> = {
   summaryLabel: { fontSize: 14, fontWeight: 600, color: 'var(--animo-black-secondary)' },
   summaryValue: { fontSize: 32, fontWeight: 800, lineHeight: '38px' },
   summaryUnit: { fontSize: 13, color: 'var(--animo-muted)' },
-  loadNotice: {
-    margin: '0 0 12px',
-    color: 'var(--animo-black-secondary)',
-    fontSize: 14,
-  },
   errorNotice: {
     margin: '0 0 12px',
     color: 'var(--animo-danger)',

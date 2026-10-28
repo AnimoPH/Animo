@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 
+import { LoadingBar } from '@/components/loading-bar';
 import { ConsoleLayout } from '@/components/console-layout';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
@@ -190,7 +191,7 @@ export function DashboardPage({ onSignOut }: DashboardPageProps) {
       title={t('dash.title')}
       subtitle={`${t('dash.subtitle')} · Rizal · ${priceFeed?.effectiveDate ?? '—'}`}
       onSignOut={onSignOut}>
-      {loading ? <p style={styles.loadNotice}>{t('common.loading')}</p> : null}
+      {loading ? <LoadingBar /> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
       {/* Top cards + full-width Sync card, stacked with a tighter 16px gap than the page's 24px */}
       <div style={styles.topCardsStack}>

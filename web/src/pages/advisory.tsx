@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CalendarDays, Clock, Users } from 'lucide-react';
 
+import { LoadingBar } from '@/components/loading-bar';
 import { ConsoleLayout } from '@/components/console-layout';
 import { barangayLabel } from '@/lib/barangay-label';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
@@ -98,7 +99,7 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
         </span>
       </div>
 
-      {loading ? <p style={styles.notice}>{t('common.loading')}</p> : null}
+      {loading ? <LoadingBar /> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
 
       <section style={styles.summaryRow}>

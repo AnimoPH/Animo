@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CloudDrizzle, CloudSun, MapPin, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+import { LoadingBar } from '@/components/loading-bar';
 import { ConsoleLayout } from '@/components/console-layout';
 import { barangayLabel } from '@/lib/barangay-label';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
@@ -119,7 +120,7 @@ export function MessagesPage({ onSignOut }: MessagesPageProps) {
             </Link>
           </div>
 
-          {loading ? <p style={styles.notice}>{t('common.loading')}</p> : null}
+          {loading ? <LoadingBar /> : null}
           {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
           {!loading && !loadError && groups.length === 0 ? (
             <p style={styles.notice}>{t('advisory.empty')}</p>

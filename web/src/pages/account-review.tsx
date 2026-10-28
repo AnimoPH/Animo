@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 
+import { LoadingBar } from '@/components/loading-bar';
 import { ConsoleLayout } from '@/components/console-layout';
 import { barangayLabel } from '@/lib/barangay-label';
 import { useLanguage } from '@/hooks/use-language';
@@ -232,7 +233,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
       title={`${t('review.title')}: ${name}`}
       subtitle={`${t('review.subtitle')} · ${isFarmer ? t('review.farmerRole') : t('review.buyerRole')} (${userId})`}
       onSignOut={onSignOut}>
-      {loading ? <p style={styles.loadNotice}>{t('common.loading')}</p> : null}
+      {loading ? <LoadingBar /> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
 
       {/* Back Button */}
@@ -766,11 +767,6 @@ function MetaItem({
 const styles: Record<string, React.CSSProperties> = {
   topBackRow: {
     marginBottom: -8,
-  },
-  loadNotice: {
-    margin: '0 0 12px',
-    color: 'var(--animo-black-secondary)',
-    fontSize: 14,
   },
   errorNotice: {
     margin: '0 0 12px',
