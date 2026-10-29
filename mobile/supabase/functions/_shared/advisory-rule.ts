@@ -6,12 +6,11 @@ export const RAIN_THRESHOLD_MM_H = 7.5;
 export const WINDOW_START_HOURS = 24;
 export const WINDOW_END_HOURS = 48;
 
-// Maturity days per rice_type_category. Organic is an unconfirmed assumption
-// pending agriculture-specialist review.
+// Maturity days per rice_type_category. Organic is not a category: it names how
+// a crop is grown, not the seed type (removed in migration 0047).
 export const MATURITY_DAYS: Record<string, number> = {
   Hybrid: 110,
   Inbred: 120,
-  Organic: 120,
   Specialty: 122,
 };
 
