@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { CalendarDays, Clock, Users } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { LoadingBar } from '@/components/loading-bar';
+import { Skeleton } from '@/components/skeleton';
 import { barangayLabel } from '@/lib/barangay-label';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
@@ -60,6 +62,7 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
 
   useAutoRefresh(() => void loadOverview());
 
+  const showSkeleton = loading && overview === null;
   const groups = overview?.groups ?? [];
   const counts = Object.fromEntries(
     ACTION_ORDER.map((action) => [
@@ -83,7 +86,9 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
       <div style={styles.toolbar}>
         <span style={styles.rangePill}>
           <CalendarDays size={16} color="var(--animo-black-secondary)" />
-          {forecastLabel ? (
+          {showSkeleton ? (
+            <Skeleton width={220} />
+          ) : forecastLabel ? (
             <>
               {rainAmount ? `${rainAmount} · ` : null}
               {forecastLabel}
@@ -98,7 +103,7 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
         </span>
       </div>
 
-      {loading ? <p style={styles.notice}>{t('common.loading')}</p> : null}
+      {loading ? <LoadingBar /> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
 
       <section style={styles.summaryRow}>
@@ -108,7 +113,9 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
               <span style={{ ...styles.severityDot, background: ACTION_COLOR[action] }} />
               {t(ACTION_LABEL[action])}
             </span>
-            <span style={styles.summaryCount}>{counts[action]}</span>
+            <span style={styles.summaryCount}>
+              {showSkeleton ? <Skeleton width={48} height={32} /> : counts[action]}
+            </span>
             <span style={styles.summaryUnit}>{t('advisory.farmerUnit')}</span>
           </article>
         ))}
@@ -122,7 +129,13 @@ export function AdvisoryPage({ onSignOut }: AdvisoryPageProps) {
           </div>
         </div>
 
-        {groups.length === 0 ? (
+        {showSkeleton ? (
+          <div style={styles.advisoryList}>
+            {[0, 1, 2].map((index) => (
+              <AdvisoryRowSkeleton key={index} />
+            ))}
+          </div>
+        ) : groups.length === 0 ? (
           <p style={styles.notice}>{t('advisory.empty')}</p>
         ) : (
           <div style={styles.advisoryList}>
@@ -160,6 +173,16 @@ function AdvisoryRow({ group }: { group: LguAdvisoryGroup }) {
           {t('advisory.farmersHolding', { count: group.farmerCount })}
         </span>
       </div>
+    </div>
+  );
+}
+
+function AdvisoryRowSkeleton() {
+  return (
+    <div style={styles.advisoryCard}>
+      <Skeleton width={160} height={16} />
+      <Skeleton width={120} height={20} />
+      <Skeleton width={260} />
     </div>
   );
 }
