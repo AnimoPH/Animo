@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     fontSize: 16,
-    fontFamily: 'PlusJakartaSans_400Regular',
+    fontFamily: 'Nunito_400Regular',
     color: AnimoColors.textHighEmphasis,
     paddingVertical: 0,
   },
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   },
   filterBadgeText: {
     fontSize: 11,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
     lineHeight: 12,
   },
 });

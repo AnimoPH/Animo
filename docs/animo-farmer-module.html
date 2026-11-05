@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="fil">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Animo Farmer module</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+:root{
+  --app:#faf8f4;--card:#ffffff;--muted:#f2efe8;
+  --brand:#1a6e1e;--brand-d:#0f4a13;--brand-900:#112914;--brand-500:#558b2f;--brand-200:#c8e6c9;--brand-50:#e8f5e9;
+  --ink:#1c1b18;--ink2:#4a4740;--ink3:#67635a;--line:#e6e2d8;--line2:#d3cec1;--strong:#857f72;
+  --danger:#d32f2f;--danger-d:#a52121;--danger-bg:#fdecea;
+  --warn:#f9a825;--warn-fg:#7a4b00;--warn-bg:#fff4d6;
+  --caut:#f57c00;--caut-fg:#a34200;--caut-bg:#ffe9d6;
+  --r-sm:12px;--r-md:16px;--r-lg:20px;--r-xl:28px;
+  --font:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:var(--font);background:#e9e5da;color:var(--ink);font-size:16px;line-height:24px}
+button{font-family:inherit;cursor:pointer;color:inherit}
+input,textarea{font-family:inherit}
+.stage{min-height:100%;display:flex;gap:32px;align-items:flex-start;justify-content:center;padding:24px}
+.index{width:250px;position:sticky;top:24px;background:#fff;border:2px solid var(--line);border-radius:var(--r-xl);padding:16px;max-height:calc(100vh - 48px);overflow:auto}
+.index h1{font-size:18px;line-height:24px;font-weight:800;margin-bottom:4px}
+.index p{font-size:14px;line-height:20px;color:var(--ink3);margin-bottom:12px}
+.index h2{font-size:14px;line-height:16px;font-weight:700;color:var(--ink3);margin:14px 0 6px}
+.index button{display:block;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:8px 10px;font-size:14px;line-height:20px;font-weight:600;color:var(--ink2)}
+.index button:hover{background:var(--muted)}
+.index button.on{background:var(--brand-50);color:var(--brand)}
+.phone{width:393px;height:852px;flex:none;background:var(--app);border-radius:48px;border:10px solid #1c1b18;box-shadow:0 30px 60px rgba(28,27,24,.25);position:relative;overflow:hidden;display:flex;flex-direction:column}
+.screen{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;position:relative}
+.screen::-webkit-scrollbar{display:none}
+.status{height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:15px;font-weight:700;position:absolute;top:0;left:0;right:0;z-index:5;pointer-events:none}
+.status.light{color:#fff}
+.dyn{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:110px;height:30px;background:#1c1b18;border-radius:20px;z-index:6}
+.pad{padding:16px}
+.col{display:flex;flex-direction:column}
+.row{display:flex;align-items:center}
+.gap4{gap:4px}.gap8{gap:8px}.gap12{gap:12px}.gap16{gap:16px}.gap24{gap:24px}
+.grow{flex:1;min-width:0}
+.sp{justify-content:space-between}
+.center{text-align:center;align-items:center}
+.i{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.i.fill{fill:currentColor;stroke-width:1}
+
+/* type */
+.display{font-size:32px;line-height:40px;font-weight:800}
+.title{font-size:26px;line-height:32px;font-weight:800}
+.heading{font-size:20px;line-height:28px;font-weight:800}
+.sub{font-size:18px;line-height:24px;font-weight:700}
+.strong{font-weight:700}
+.cap{font-size:14px;line-height:20px}
+.tag{font-size:14px;line-height:16px;font-weight:700}
+.price{font-size:20px;line-height:24px;font-weight:800;color:var(--brand)}
+.hero-price{font-size:40px;line-height:44px;font-weight:800;color:var(--brand)}
+.c2{color:var(--ink2)}.c3{color:var(--ink3)}.cb{color:var(--brand)}.cw{color:#fff}
+
+/* controls */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:56px;padding:0 24px;border:0;border-radius:var(--r-md);background:var(--brand);color:#fff;font-size:18px;line-height:24px;font-weight:800;box-shadow:0 4px 0 var(--brand-d);transition:transform .08s,box-shadow .08s}
+.btn:active:not([disabled]){transform:translateY(4px);box-shadow:0 0 0 var(--brand-d)}
+.btn.sec{background:#fff;color:var(--brand);border:2px solid var(--strong);box-shadow:0 4px 0 var(--line2)}
+.btn.sec:active:not([disabled]){box-shadow:0 0 0 var(--line2)}
+.btn.danger{background:var(--danger);box-shadow:0 4px 0 var(--danger-d)}
+.btn.ghost{background:none;color:var(--brand);box-shadow:none;min-height:48px}
+.btn[disabled]{background:var(--line);color:var(--ink3);box-shadow:none;cursor:not-allowed}
+.btn.half{width:auto;flex:1;padding:0 12px}
+.btn:focus-visible,.tab:focus-visible,.chip:focus-visible,.opt:focus-visible,.iconbtn:focus-visible,.index button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.iconbtn{width:48px;height:48px;border-radius:50%;border:0;background:none;display:flex;align-items:center;justify-content:center;flex:none}
+.card{background:#fff;border:2px solid var(--line);border-radius:var(--r-xl);box-shadow:0 4px 0 var(--line2)}
+.card.flat{box-shadow:none}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:14px;line-height:16px;font-weight:700;white-space:nowrap}
+.pill .i{width:16px;height:16px;stroke-width:3}
+.pill.ok{background:var(--brand-50);color:var(--brand)}
+.pill.warn{background:var(--warn-bg);color:var(--warn-fg)}
+.pill.danger{background:var(--danger-bg);color:var(--danger-d)}
+.pill.caut{background:var(--caut-bg);color:var(--caut-fg)}
+.pill.neutral{background:var(--muted);color:var(--ink2)}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:999px;background:#fff;border:2px solid var(--line);font-size:16px;line-height:24px;font-weight:700;white-space:nowrap}
+.chip .n{font-size:14px;font-weight:700;color:var(--ink3)}
+.chip.on{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 3px 0 var(--brand-d)}
+.chip.on .n{color:#fff}
+.field{display:flex;flex-direction:column;gap:8px}
+.field label{font-weight:700}
+.input{width:100%;min-height:56px;padding:0 16px;border:2px solid var(--strong);border-radius:var(--r-md);background:#fff;font-size:16px;color:var(--ink)}
+.input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 2px var(--ink)}
+.input::placeholder{color:var(--ink3)}
+.input.err{border-color:var(--danger)}
+.suffix{position:relative}
+.suffix span{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-weight:700;color:var(--ink3)}
+.opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:16px;border-radius:var(--r-lg);background:#fff;border:2px solid var(--line);box-shadow:0 3px 0 var(--line2);min-height:64px}
+.opt.on{background:var(--brand-50);border-color:var(--brand);box-shadow:0 3px 0 var(--brand)}
+.radio{width:24px;height:24px;border-radius:50%;border:2px solid var(--strong);flex:none;display:flex;align-items:center;justify-content:center}
+.opt.on .radio{border-color:var(--brand);background:var(--brand)}
+.opt.on .radio::after{content:"";width:8px;height:8px;border-radius:50%;background:#fff}
+.ibox{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}
+.ibox.ok{background:var(--brand-50);color:var(--brand)}
+.ibox.warn{background:var(--warn-bg);color:var(--warn-fg)}
+.ibox.caut{background:var(--caut-bg);color:var(--caut-fg)}
+.ibox.danger{background:var(--danger-bg);color:var(--danger-d)}
+.ibox.sm{width:36px;height:36px}.ibox.sm .i{width:20px;height:20px}
+.bar{height:14px;border-radius:99px;background:#fff;overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:99px}
+.hdr{display:flex;align-items:center;gap:4px;padding:52px 8px 8px}
+.hdr .heading{flex:1}
+.tabs{display:flex;background:var(--muted);border-radius:var(--r-md);padding:4px;gap:4px}
+.tabs button{flex:1;min-height:48px;border:0;border-radius:12px;background:none;font-weight:700;font-size:16px;color:var(--ink2)}
+.tabs button.on{background:#fff;color:var(--brand);box-shadow:0 2px 0 var(--line2)}
+.photo{border-radius:var(--r-lg);overflow:hidden;position:relative}
+.photo svg{display:block;width:100%;height:100%}
+.divider{height:2px;background:var(--line);border-radius:2px}
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px;padding:32px 24px}
+
+/* tab bar */
+.tabbar{flex:none;display:flex;gap:4px;padding:10px 8px 26px;background:#fff;border-radius:28px 28px 0 0;box-shadow:0 -4px 0 var(--line),0 -16px 28px rgba(28,27,24,.10);position:relative;z-index:10}
+.tab{flex:1;min-width:0;min-height:64px;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:20px;font-size:14px;line-height:16px;font-weight:600;color:var(--ink2);transition:background .15s,transform .08s,box-shadow .08s}
+.tab .tile{display:flex;align-items:center;justify-content:center}
+.tab .i{width:26px;height:26px}
+.tab:active{transform:translateY(2px)}
+.tab.on{background:var(--brand);color:#fff;font-weight:800;box-shadow:0 4px 0 var(--brand-d)}
+.tab.on:active{transform:translateY(4px);box-shadow:0 0 0 var(--brand-d)}
+.tab .badge{position:absolute;top:4px;right:calc(50% - 30px);background:var(--danger);color:#fff;border-radius:99px;font-size:12px;line-height:16px;min-width:20px;height:20px;padding:0 5px;font-weight:800;border:2px solid #fff;display:flex;align-items:center;justify-content:center}
+.tab.on .badge{border-color:var(--brand)}
+
+/* hero */
+.hero{background:var(--brand);color:#fff;padding:58px 16px 24px;border-radius:0 0 var(--r-xl) var(--r-xl);display:flex;flex-direction:column;gap:16px;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;left:-40px;right:-40px;bottom:-70px;height:110px;border-radius:50%;background:var(--brand-500);opacity:.35;pointer-events:none}
+.stat{flex:1;background:#fff;color:var(--ink);border-radius:var(--r-lg);padding:12px;display:flex;flex-direction:column;gap:4px;box-shadow:0 4px 0 var(--brand-900);position:relative;z-index:1}
+.stat .n{font-size:26px;line-height:32px;font-weight:800}
+.bell{position:relative;width:48px;height:48px;border-radius:50%;background:#fff;color:var(--brand);border:0;display:flex;align-items:center;justify-content:center;flex:none;z-index:1}
+.bell i{position:absolute;top:6px;right:8px;width:14px;height:14px;border-radius:50%;background:var(--danger);border:2px solid #fff}
+.adv{border-radius:var(--r-xl);padding:16px;display:flex;flex-direction:column;gap:12px;border:2px solid;width:100%;text-align:left}
+.adv.caut{background:var(--caut-bg);border-color:var(--caut)}
+.adv.warn{background:var(--warn-bg);border-color:var(--warn)}
+.adv.ok{background:var(--brand-50);border-color:var(--brand)}
+.adv .big{width:64px;height:64px;border-radius:var(--r-lg);display:flex;align-items:center;justify-content:center;flex:none;color:#fff}
+.adv.caut .big{background:var(--caut)}.adv.warn .big{background:var(--warn);color:var(--ink)}.adv.ok .big{background:var(--brand)}
+.adv .big .i{width:36px;height:36px;stroke-width:2.5}
+.adv.caut .lab{color:var(--caut-fg)}.adv.warn .lab{color:var(--warn-fg)}.adv.ok .lab{color:var(--brand)}
+.adv.caut .bar>i{background:var(--caut)}.adv.warn .bar>i{background:var(--warn)}.adv.ok .bar>i{background:var(--brand)}
+.cta{background:var(--brand-50);border:2px solid var(--brand);border-radius:var(--r-xl);padding:16px;display:flex;flex-direction:column;gap:12px}
+.illus{width:84px;height:84px;border-radius:var(--r-lg);background:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+
+/* listing card */
+.lcard{overflow:hidden;text-align:left;width:100%;display:block;padding:0;border:2px solid var(--line);border-radius:var(--r-xl);background:#fff;box-shadow:0 4px 0 var(--line2)}
+.lcard .photo{height:150px;border-radius:0}
+.lcard .ov{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between}
+.lcard .ov .pill{box-shadow:0 2px 0 rgba(0,0,0,.12)}
+.sticky{position:sticky;bottom:0;background:var(--app);padding:12px 16px;z-index:3}
+
+/* progress (wizard) */
+.prog{display:flex;align-items:center;gap:12px;padding:52px 8px 8px 8px}
+.prog .track{flex:1;height:16px;border-radius:99px;background:var(--line);overflow:hidden}
+.prog .track i{display:block;height:100%;background:var(--brand);border-radius:99px;transition:width .35s ease;position:relative}
+.prog .track i::after{content:"";position:absolute;left:8px;right:8px;top:4px;height:4px;border-radius:4px;background:rgba(255,255,255,.35)}
+.slot{aspect-ratio:1/1;border-radius:var(--r-lg);border:3px dashed var(--brand);background:var(--brand-50);color:var(--brand);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-weight:700;font-size:14px;line-height:16px;text-align:center;padding:6px;width:100%;overflow:hidden;position:relative}
+.slot.has{border-style:solid;padding:0}
+.slot.has .lbl{position:absolute;left:6px;right:6px;bottom:6px;background:rgba(17,41,20,.78);color:#fff;border-radius:99px;padding:4px 6px;font-size:12px;line-height:16px}
+.slot.has .ck{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center}
+.slot.has .ck .i{width:16px;height:16px;stroke-width:3.5}
+.reveal{background:var(--brand);color:#fff;border-radius:var(--r-xl);padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 6px 0 var(--brand-d);animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+.reveal .hero-price{color:#fff}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.factor{display:flex;gap:12px;align-items:flex-start}
+.factor .ibox{background:rgba(255,255,255,.18);color:#fff}
+
+/* timeline */
+.tl{display:flex;flex-direction:column}
+.tl .st{display:flex;gap:12px}
+.tl .rail{display:flex;flex-direction:column;align-items:center}
+.tl .dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;border:2px solid var(--line);background:var(--muted);color:var(--ink3);flex:none}
+.tl .dot .i{width:18px;height:18px;stroke-width:3.5}
+.tl .st.done .dot{background:var(--brand);border-color:var(--brand);color:#fff}
+.tl .st.cur .dot{background:#fff;border:3px solid var(--brand);color:var(--brand)}
+.tl .line{width:4px;flex:1;min-height:20px;background:var(--line);border-radius:4px;margin:2px 0}
+.tl .st.done .line{background:var(--brand)}
+.tl .txt{padding-bottom:20px}
+.tl .st.up .t{color:var(--ink3)}
+
+/* overlays */
+.scrim{position:absolute;inset:0;background:rgba(17,41,20,.55);z-index:20;display:flex;align-items:flex-end;justify-content:center;animation:fade .2s ease}
+.scrim.mid{align-items:center;padding:24px}
+.sheet{background:#fff;width:100%;border-radius:var(--r-xl) var(--r-xl) 0 0;padding:20px 16px 32px;display:flex;flex-direction:column;gap:16px;animation:up .25s ease;max-height:92%;overflow:auto}
+.dlg{background:#fff;width:100%;border-radius:var(--r-xl);padding:20px 16px 16px;display:flex;flex-direction:column;gap:16px;animation:pop .3s cubic-bezier(.2,1.3,.4,1)}
+.dlg .top{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.bigicon{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.bigicon .i{width:40px;height:40px;stroke-width:3}
+.bigicon.ok{background:var(--brand);color:#fff}.bigicon.warn{background:var(--warn);color:var(--ink)}.bigicon.danger{background:var(--danger);color:#fff}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes up{from{transform:translateY(40px)}to{transform:none}}
+.toast{position:absolute;left:16px;right:16px;bottom:110px;background:var(--ink);color:#fff;padding:14px 16px;border-radius:var(--r-md);font-weight:700;z-index:30;display:flex;gap:10px;align-items:center;animation:up .25s ease}
+.stepper{display:flex;align-items:center;gap:12px}
+.stepper button{width:56px;height:56px;border-radius:var(--r-md);border:2px solid var(--strong);background:#fff;box-shadow:0 3px 0 var(--line2);display:flex;align-items:center;justify-content:center;color:var(--brand)}
+.stepper button:disabled{opacity:.4}
+.stepper .val{flex:1;text-align:center;font-size:32px;line-height:40px;font-weight:800}
+.stars{display:flex;gap:6px}
+.stars button{border:0;background:none;color:var(--line2);padding:4px}
+.stars button.on{color:var(--warn)}
+.stars .i{width:40px;height:40px}
+.confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.confetti i{position:absolute;top:-20px;width:10px;height:16px;border-radius:3px;animation:fall 2.6s ease-in forwards}
+@keyframes fall{to{transform:translateY(900px) rotate(540deg);opacity:.9}}
+.sw{width:56px;height:32px;border-radius:99px;background:var(--line2);position:relative;flex:none}
+.hide-m{display:block}
+
+@media (max-width:640px){
+  .stage{padding:0;display:block}
+  .index{display:none}
+  .phone{width:100%;height:100dvh;border:0;border-radius:0;box-shadow:none}
+  .status,.dyn{display:none}
+  .hdr,.prog{padding-top:16px}
+  .hero{padding-top:24px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></symbol>
+<symbol id="i-sprout" viewBox="0 0 24 24"><path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/></symbol>
+<symbol id="i-receipt" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="i-chevL" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+<symbol id="i-chevR" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+<symbol id="i-chevD" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+<symbol id="i-rain" viewBox="0 0 24 24"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+<symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></symbol>
+<symbol id="i-package" viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+<symbol id="i-cash" viewBox="0 0 24 24"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></symbol>
+<symbol id="i-scale" viewBox="0 0 24 24"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></symbol>
+<symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+<symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></symbol>
+<symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></symbol>
+<symbol id="i-trend" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+</defs>
+</svg>
+
+<div class="stage">
+  <aside class="index" id="index" aria-label="Mga screen"></aside>
+  <main class="phone" id="phone" aria-label="Animo Farmer app">
+    <div class="dyn"></div>
+    <div class="status" id="status"><span>9:41</span><span>5G &nbsp;100%</span></div>
+    <div class="screen" id="screen"></div>
+    <div id="tabslot"></div>
+  </main>
+</div>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const ic = (n, c) => `<svg class="i ${c||''}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const peso = n => '₱' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const num = n => Number(n).toLocaleString('en-PH');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function mascot(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" role="img" aria-label="Animo"><rect width="100" height="100" rx="26" fill="#fff"/><path d="M12 56 L50 20 L88 56 Z" fill="#1a6e1e"/><path d="M8 58 Q50 44 92 58 Q50 68 8 58Z" fill="#1a6e1e"/><path d="M22 54 q4 -14 14 -18 M78 54 q-4 -14 -14 -18" stroke="#c8e6c9" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="50" cy="72" r="17" fill="#fff" stroke="#1a6e1e" stroke-width="5"/><circle cx="43" cy="69" r="3" fill="#1a6e1e"/><circle cx="57" cy="69" r="3" fill="#1a6e1e"/><path d="M42 77 q8 7 16 0" stroke="#1a6e1e" stroke-width="4" fill="none" stroke-linecap="round"/></svg>`;
+}
+function palay(v) {
+  const sets = [['#cfe8a9', '#8cc152', '#e6b422'], ['#f4dfa6', '#d9a441', '#c9821a'], ['#bfe0c4', '#4f9d57', '#e0a82e']];
+  const [sky, field, grain] = sets[v % 3];
+  let s = '';
+  for (let i = 0; i < 9; i++) {
+    const x = 20 + i * 44 + (i % 2) * 8, h = 70 + (i * 17) % 50, lean = (i % 3 - 1) * 14;
+    s += `<path d="M${x} 220 C${x} ${220 - h * .6} ${x + lean} ${220 - h * .9} ${x + lean * 1.6} ${220 - h * 1.25}" stroke="${field}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+    for (let g = 0; g < 7; g++) {
+      const t = g / 6, gx = x + lean * 1.6 * (0.5 + t * .5) + (g % 2 ? 7 : -7), gy = 220 - h * (0.95 + t * .3);
+      s += `<ellipse cx="${gx}" cy="${gy}" rx="4.2" ry="8" transform="rotate(${(g % 2 ? 28 : -28)} ${gx} ${gy})" fill="${grain}"/>`;
+    }
+  }
+  return `<svg viewBox="0 0 400 220" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Larawan ng palay"><defs><linearGradient id="g${v}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky}"/><stop offset="1" stop-color="#fff8e1"/></linearGradient></defs><rect width="400" height="220" fill="url(#g${v})"/><ellipse cx="200" cy="250" rx="300" ry="70" fill="${field}" opacity=".55"/>${s}</svg>`;
+}
+
+/* ---------- state ---------- */
+const S = {
+  screen: 'home', adv: 0, filter: 'all', modal: null, toast: null,
+  dTab: 'detail', gallery: 0, sel: 1, selTx: 0, lang: 'Tagalog', txView: 'all',
+  empty: false, notifEmpty: false,
+  wiz: { step: 1, photos: [false, false, false], name: '', variety: '', moisture: '', grade: '', gross: '', tare: '' },
+  acceptKg: 600, rejectReason: '', stars: 0, review: '',
+  listings: [
+    { id: 1, name: 'Palay RC218', sub: 'Inbred, NSIC Rc218, Grado A, Tuyo', price: 25, left: 500, total: 500, status: 'ok', img: 0, variety: 'NSIC Rc218', grade: 'A', moisture: 'Tuyo' },
+    { id: 2, name: 'Palay RIRI14', sub: 'Inbred, Grado B, Tuyo', price: 22, left: 600, total: 600, status: 'ok', img: 1, variety: 'NSIC Rc222', grade: 'B', moisture: 'Tuyo' },
+    { id: 3, name: 'Dinorado Blend', sub: 'Aromatic, Grado A, Tuyo', price: 28, left: 0, total: 400, status: 'neutral', img: 2, variety: 'Dinorado', grade: 'A', moisture: 'Tuyo' }
+  ],
+  orders: [
+    { id: 11, listing: 1, kg: 600, rec: { tx: 8, rv: 4, kg: '1.7k' }, status: 'pending' },
+    { id: 12, listing: 1, kg: 300, rec: { tx: 9, rv: 9, kg: '3.7k' }, status: 'pending' },
+    { id: 13, listing: 1, kg: 200, rec: { tx: 3, rv: 1, kg: '420' }, status: 'pending' },
+    { id: 14, listing: 2, kg: 150, rec: { tx: 5, rv: 3, kg: '900' }, status: 'pending' }
+  ],
+  txs: [
+    { id: 'T-1042', listing: 'Palay RC218', kg: 300, price: 25, step: 3, buyer: 'Mamimili R.', date: 'Nob 3, 2026' },
+    { id: 'T-1038', listing: 'Palay RIRI14', kg: 200, price: 22, step: 4, buyer: 'Mamimili C.', date: 'Okt 28, 2026' }
+  ],
+  notifs: [
+    { id: 1, ic: 'package', tone: 'warn', t: 'May bagong kahilingan', d: 'Mamimili, 600 kg para sa Palay RC218.', w: '10 min', read: false },
+    { id: 2, ic: 'cash', tone: 'ok', t: 'Natanggap ang bayad', d: 'Palay RIRI14, ₱4,400.00 mula kay Mamimili C.', w: 'Kahapon', read: false },
+    { id: 3, ic: 'star', tone: 'caut', t: 'May bagong review', d: 'Nag-iwan ng 5 bituin ang isang mamimili.', w: '2 araw', read: true },
+    { id: 4, ic: 'rain', tone: 'caut', t: 'Payo sa Bukid', d: 'Uulan sa loob ng 2 araw. Anihin na ang palay mo.', w: '3 araw', read: true }
+  ]
+};
+const ADV = [
+  { k: 'caut', ic: 'rain', t: 'Anihin na ngayon', d: 'Uulan sa loob ng 2 araw. Hinog na ang palay mo, kaya mas ligtas anihin bago bumuhos.', rain: 80, ripe: 92 },
+  { k: 'warn', ic: 'clock', t: 'Ipagpaliban muna ang ani', d: 'Hindi pa hinog ang palay. Hintayin ang ilang araw para mas mataas ang kalidad.', rain: 20, ripe: 61 },
+  { k: 'ok', ic: 'sun', t: 'Walang kailangang gawin', d: 'Maganda ang panahon at nasa tamang oras ang palay mo. Ituloy lang ang pag-aalaga.', rain: 10, ripe: 78 }
+];
+const VARIETIES = ['NSIC Rc218', 'NSIC Rc222', 'NSIC Rc160', 'Dinorado', 'Hybrid'];
+const PREM = { A: 5, B: 2, C: 0 };
+const BASE = { Tuyo: 20, Basa: 17 };
+const pendingFor = id => S.orders.filter(o => o.listing === id && o.status === 'pending');
+const L = id => S.listings.find(l => l.id === id);
+const net = () => Math.max((+S.wiz.gross || 0) - (+S.wiz.tare || 0), 0);
+const fair = () => (BASE[S.wiz.moisture] || 0) + (PREM[S.wiz.grade] || 0);
+const unread = () => S.notifs.filter(n => !n.read).length;
+
+/* ---------- shared pieces ---------- */
+function tabbar(a) {
+  const items = [['home', 'Tahanan', 'home'], ['mine', 'Aking Ani', 'sprout'], ['tx', 'Transaksyon', 'receipt'], ['profile', 'Profile', 'user']];
+  const pend = S.orders.filter(o => o.status === 'pending').length;
+  return `<nav class="tabbar" aria-label="Pangunahing nabigasyon">${items.map(([k, l, i], x) => `<button class="tab ${x === a ? 'on' : ''}" data-go="${k}" ${x === a ? 'aria-current="page"' : ''} style="position:relative"><span class="tile">${ic(i)}</span>${l}${k === 'mine' && pend ? `<span class="badge">${pend}</span>` : ''}</button>`).join('')}</nav>`;
+}
+function back(to, title, right) {
+  return `<div class="hdr"><button class="iconbtn" data-go="${to}" aria-label="Bumalik">${ic('chevL')}</button><div class="heading">${title}</div>${right || ''}</div>`;
+}
+const pill = (t, l, i) => `<span class="pill ${t}">${i ? ic(i) : ''}${l}</span>`;
+const PI = { ok: 'check', warn: 'clock', danger: 'x', caut: 'alert', neutral: 'info' };
+const spill = (t, l) => pill(t, l, PI[t]);
+
+/* ---------- screens ---------- */
+const screens = {};
+
+screens.home = () => {
+  const a = ADV[S.adv];
+  const pend = S.orders.filter(o => o.status === 'pending').length;
+  const active = S.listings.filter(l => l.left > 0).length;
+  const sold = 1200 + S.txs.filter(t => t.step === 4).length * 0;
+  return `
+  <div class="hero">
+    <div class="row gap12" style="position:relative;z-index:1">
+      ${mascot(52)}
+      <div class="grow"><div class="title">Kumusta, Mang Juan!</div><div class="cap" style="opacity:.9">Brgy. San Jose, Antipolo</div></div>
+      <button class="bell" data-go="notif" aria-label="Mensahe, ${unread()} bago">${ic('bell')}${unread() ? '<i></i>' : ''}</button>
+    </div>
+    <div class="row gap8" style="align-items:stretch">
+      <div class="stat"><span class="ibox ok sm">${ic('sprout')}</span><span class="n">${active}</span><span class="cap c2">Aktibong listing</span></div>
+      <div class="stat"><span class="ibox warn sm">${ic('clock')}</span><span class="n">${pend}</span><span class="cap c2">Hinihintay na kahilingan</span></div>
+      <div class="stat"><span class="ibox caut sm">${ic('scale')}</span><span class="n">${num(sold)}</span><span class="cap c2">kg na naibenta</span></div>
+    </div>
+  </div>
+  <div class="col gap16 pad" style="padding-top:20px">
+    <button class="adv ${a.k}" data-act="adv" aria-label="Payo sa Bukid. I-tap para makita ang ibang halimbawa.">
+      <div class="row gap12"><span class="big">${ic(a.ic)}</span><div class="grow"><div class="tag lab">Payo sa Bukid</div><div class="heading">${a.t}</div></div></div>
+      <div class="c2">${a.d}</div>
+      <div class="col gap4" style="width:100%"><div class="row sp strong"><span>Hinog ng palay: ${a.ripe}%</span><span class="lab">Ulan: ${a.rain}%</span></div><div class="bar"><i style="width:${a.ripe}%"></i></div></div>
+    </button>
+    <div class="cta">
+      <div class="row gap12"><div class="illus">${mascot(70)}</div><div class="col gap4 grow"><div class="heading">May aanihin ka na ba?</div><div class="c2">Ilista ang palay mo at makita agad ang patas na presyo.</div></div></div>
+      <button class="btn" data-act="startWiz">Ibenta ang aking Palay</button>
+    </div>
+    <div class="heading">Mga Aktibidad</div>
+    ${S.notifs.slice(0, 2).map(n => `<button class="card flat row gap12" style="padding:12px;text-align:left;border-radius:var(--r-lg);width:100%" data-go="notif"><span class="ibox ${n.tone}">${ic(n.ic)}</span><div class="grow"><div class="strong">${n.t}</div><div class="cap c2">${n.d}</div></div><span class="cap c3">${n.w}</span></button>`).join('')}
+  </div>`;
+};
+
+screens.mine = () => {
+  const f = S.filter;
+  const list = S.listings.filter(l => f === 'all' || (f === 'active' && l.left > 0) || (f === 'sold' && l.left === 0));
+  const cnt = { all: S.listings.length, active: S.listings.filter(l => l.left > 0).length, sold: S.listings.filter(l => l.left === 0).length };
+  if (!S.listings.length || S.empty) return screens.mineEmpty();
+  return `
+  <div class="col gap4" style="padding:58px 16px 8px"><div class="title">Aking Ani</div><div class="c2">Lahat ng listing mo sa Palengke</div></div>
+  <div class="row gap8" style="padding:12px 16px 4px;overflow-x:auto">${[['all', 'Lahat'], ['active', 'Aktibo'], ['sold', 'Naubos']].map(([k, l]) => `<button class="chip ${f === k ? 'on' : ''}" data-act="filter" data-v="${k}">${l}<span class="n">${cnt[k]}</span></button>`).join('')}</div>
+  <div class="col gap16 pad">
+    ${list.length ? list.map(l => { const p = pendingFor(l.id).length; return `
+    <button class="lcard" data-act="open" data-id="${l.id}">
+      <div class="photo">${palay(l.img)}<div class="ov">${spill(l.status, l.left > 0 ? 'Available' : 'Naubos na')}${p ? spill('warn', p + ' kahilingan') : ''}</div></div>
+      <div class="col gap8 pad" style="padding:16px">
+        <div class="sub">${esc(l.name)}</div><div class="cap c2">${esc(l.sub)}</div>
+        <div class="row sp"><span class="price">${peso(l.price)}/kg</span><span class="strong">${l.left > 0 ? num(l.left) + ' kg natitira' : 'Naubos na'}</span></div>
+        <div class="row sp cb strong"><span>${p ? 'Tingnan ang mga kahilingan' : 'Tingnan ang detalye'}</span>${ic('chevR')}</div>
+      </div>
+    </button>`; }).join('') : `<div class="empty"><div class="c2">Walang listing sa filter na ito.</div></div>`}
+  </div>
+  <div class="sticky"><button class="btn" data-act="startWiz">${ic('plus')} Bagong Listing</button></div>`;
+};
+screens.mineEmpty = () => `
+  <div class="col gap4" style="padding:58px 16px 0"><div class="title">Aking Ani</div></div>
+  <div class="empty" style="padding-top:56px">${mascot(120)}<div class="title">Wala ka pang listing</div><div class="c2">Simulan na ang pagbebenta. Ilagay ang palay mo at makikita agad ng mga mamimili ang patas na presyo.</div><button class="btn" data-act="startWiz">Gumawa ng Listing</button></div>`;
+
+/* ----- wizard ----- */
+function wizShell(step, title, sub, bodyHtml, cta, disabled) {
+  return `<div class="prog"><button class="iconbtn" data-act="wizBack" aria-label="${step === 1 ? 'Isara' : 'Bumalik'}">${ic(step === 1 ? 'x' : 'chevL')}</button><div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="5" aria-valuenow="${step}"><i style="width:${step * 20}%"></i></div><span class="tag c3" style="padding-right:8px">${step}/5</span></div>
+  <div class="col gap16 pad" style="padding-top:12px"><div class="col gap4"><div class="title">${title}</div><div class="c2">${sub}</div></div>${bodyHtml}</div>
+  <div class="sticky"><button class="btn" data-act="wizNext" ${disabled ? 'disabled' : ''}>${cta}</button></div>`;
+}
+screens.wiz1 = () => {
+  const lab = ['Buong palay', 'Bago anihin', 'Butil ng palay'];
+  const w = S.wiz;
+  return wizShell(1, 'Kunan ng litrato ang palay', 'Maliwanag na kuha ang mas pinagkakatiwalaan ng mamimili. Kailangan ng kahit isa.', `
+    <div class="row gap8" style="align-items:stretch">${lab.map((l, i) => `<div class="grow"><button class="slot ${w.photos[i] ? 'has' : ''}" data-act="photo" data-i="${i}" aria-label="${l}">${w.photos[i] ? `${palay(i)}<span class="ck">${ic('check')}</span><span class="lbl">${l}</span>` : `${ic('camera')}<span>${l}</span>`}</button></div>`).join('')}</div>
+    <div class="card flat row gap12" style="padding:12px;background:var(--brand-50);border-color:var(--brand-200)"><span class="ibox ok sm">${ic('sun')}</span><div class="cap c2">Kumuha sa liwanag ng araw. Isama ang buong tanim, ang bunga bago anihin, at malapitan ang butil.</div></div>`,
+    'Magpatuloy', !w.photos.some(Boolean));
+};
+screens.wiz2 = () => {
+  const w = S.wiz;
+  return wizShell(2, 'Anong palay ito?', 'Ito ang makikita ng mga mamimili sa Palengke.', `
+    <div class="field"><label for="wn">Pangalan ng Listing</label><input class="input" id="wn" data-in="name" value="${esc(w.name)}" placeholder="Hal. Palay ni Mang Juan" autocomplete="off"></div>
+    <div class="col gap8"><div class="strong">Uri ng Palay</div>${VARIETIES.map(v => `<button class="opt ${w.variety === v ? 'on' : ''}" data-act="variety" data-v="${v}"><span class="radio"></span><span class="strong grow">${v}</span></button>`).join('')}</div>`,
+    'Magpatuloy', !(w.name.trim() && w.variety));
+};
+screens.wiz3 = () => {
+  const w = S.wiz;
+  return wizShell(3, 'Gaano kaganda ang palay?', 'Piliin ang pinakatugma. Dito kukuha ng patas na presyo.', `
+    <div class="col gap8"><div class="strong">Moisture</div>
+      <div class="row gap8" style="align-items:stretch">${[['Tuyo', 'Tuyo (Dry)', 'sun'], ['Basa', 'Basa (Wet)', 'drop']].map(([v, l, i]) => `<button class="opt grow ${w.moisture === v ? 'on' : ''}" data-act="moist" data-v="${v}" style="flex-direction:column;text-align:center;padding:20px 8px"><span class="ibox ${w.moisture === v ? 'ok' : 'warn'}">${ic(i)}</span><span class="strong">${l}</span></button>`).join('')}</div></div>
+    <div class="col gap8"><div class="strong">Kalinisan (Purity grade)</div>
+      <div class="row gap8">${[['A', 'Pinakamalinis'], ['B', 'Katamtaman'], ['C', 'May halo']].map(([g, d]) => `<button class="opt grow ${w.grade === g ? 'on' : ''}" data-act="grade" data-v="${g}" style="flex-direction:column;text-align:center;padding:16px 4px;gap:4px"><span class="heading">${g}</span><span class="cap c2">${d}</span></button>`).join('')}</div></div>`,
+    'Magpatuloy', !(w.moisture && w.grade));
+};
+screens.wiz4 = () => {
+  const w = S.wiz, n = net();
+  return wizShell(4, 'Ilang kilo ang ibebenta?', 'Timbangin ang palay kasama ang sako, tapos ibawas ang bigat ng sako.', `
+    <div class="field"><label for="wg">Timbang ng palay (Gross)</label><div class="suffix"><input class="input" id="wg" inputmode="decimal" data-in="gross" value="${esc(w.gross)}" placeholder="0"><span>kg</span></div></div>
+    <div class="field"><label for="wt">Timbang ng sako at iba pa (Tare)</label><div class="suffix"><input class="input" id="wt" inputmode="decimal" data-in="tare" value="${esc(w.tare)}" placeholder="0"><span>kg</span></div></div>
+    <div class="card flat row sp" style="padding:16px;background:var(--brand-50);border-color:var(--brand)"><div class="col"><div class="strong">Kabuuan (Net)</div><div class="cap c2">Ito ang ilalagay sa listing</div></div><div class="heading cb" id="netv">${num(n)} kg</div></div>
+    ${(+w.tare) > (+w.gross) && w.gross !== '' ? `<div class="row gap8" style="color:var(--danger-d)">${ic('x')}<span class="strong">Hindi puwedeng mas mabigat ang sako kaysa sa palay.</span></div>` : ''}`,
+    'Magpatuloy', !(n > 0));
+};
+screens.wiz5 = () => {
+  const w = S.wiz, n = net(), p = fair();
+  return wizShell(5, 'Suriin ang listing mo', 'Kapag na-publish, naka-lock na ang presyo.', `
+    <div class="reveal"><div class="tag" style="opacity:.9">Patas na presyo</div><div class="row" style="align-items:baseline;gap:8px"><span class="hero-price">${peso(p)}</span><span class="sub">bawat kilo</span></div><div>Kabuuang halaga (${num(n)} kg): <b>${peso(p * n)}</b></div>
+      <div class="divider" style="background:rgba(255,255,255,.25)"></div>
+      <div class="factor"><span class="ibox sm">${ic('drop')}</span><div class="cap">Batay sa presyo ng ${w.moisture === 'Tuyo' ? 'tuyong' : 'basang'} palay: ${peso(BASE[w.moisture])}/kg</div></div>
+      <div class="factor"><span class="ibox sm">${ic('trend')}</span><div class="cap">May dagdag na ${peso(PREM[w.grade])}/kg para sa Grado ${w.grade}</div></div></div>
+    <div class="card flat col gap8" style="padding:16px"><div class="row sp"><span class="c2">Pangalan</span><span class="strong">${esc(w.name)}</span></div><div class="divider"></div><div class="row sp"><span class="c2">Uri</span><span class="strong">${esc(w.variety)}</span></div><div class="divider"></div><div class="row sp"><span class="c2">Moisture, grado</span><span class="strong">${w.moisture}, Grado ${w.grade}</span></div><div class="divider"></div><div class="row sp"><span class="c2">Dami</span><span class="strong">${num(n)} kg</span></div></div>
+    <div class="row gap8 c2">${ic('lock')}<span class="cap">Ang presyo ay hindi na mababago pagkatapos mag-publish.</span></div>`,
+    'I-publish ang Listing', false);
+};
+screens.wiz6 = () => {
+  const l = S.listings[0];
+  const conf = Array.from({ length: 26 }, (_, i) => `<i style="left:${(i * 37) % 100}%;background:${['#1a6e1e', '#f9a825', '#66bb6a', '#f57c00', '#c8e6c9'][i % 5]};animation-delay:${(i % 9) * .12}s;transform:rotate(${i * 23}deg)"></i>`).join('');
+  return `<div class="confetti" aria-hidden="true">${conf}</div>
+  <div class="empty" style="padding-top:120px;position:relative">${mascot(128)}<div class="title">Naka-list na ang palay mo!</div><div class="c2">Makikita na ito ng mga mamimili sa Palengke.</div>
+    <div class="reveal" style="width:100%;align-items:center;text-align:center"><div class="tag" style="opacity:.9">Patas na presyo</div><div class="hero-price">${peso(l.price)}/kg</div><div class="cap">${esc(l.name)}, ${num(l.total)} kg</div></div>
+    <div class="col gap12" style="width:100%"><button class="btn" data-act="open" data-id="${l.id}">Tingnan ang listing</button><button class="btn sec" data-go="mine">Bumalik sa Aking Ani</button></div></div>`;
+};
+
+/* ----- detail ----- */
+screens.detail = () => {
+  const l = L(S.sel); const ords = S.orders.filter(o => o.listing === l.id && o.status === 'pending');
+  const labs = ['Overview', 'Bago Anihin', 'Butil ng Palay'];
+  const head = `${back('mine', 'Palay Listing')}
+  <div class="col gap12 pad" style="padding-top:4px">
+    <div class="photo" style="height:200px">${palay(l.img + S.gallery)}</div>
+    <div class="row gap8">${labs.map((x, i) => `<button class="chip ${S.gallery === i ? 'on' : ''}" data-act="gal" data-i="${i}" style="padding:6px 12px;font-size:14px;line-height:20px">${x}</button>`).join('')}</div>
+    <div class="row sp"><div class="col"><div class="heading">${esc(l.name)}</div><div class="cap c2">Naibenta: ${num(l.total - l.left)} kg</div></div>${spill(l.status, l.left > 0 ? 'Available' : 'Naubos na')}</div>
+    <div class="tabs" role="tablist"><button class="${S.dTab === 'detail' ? 'on' : ''}" data-act="dtab" data-v="detail" role="tab">Detalye</button><button class="${S.dTab === 'orders' ? 'on' : ''}" data-act="dtab" data-v="orders" role="tab">Mga Order${ords.length ? ` (${ords.length})` : ''}</button></div>
+  </div>`;
+  if (S.dTab === 'detail') return head + `<div class="col gap16 pad" style="padding-top:4px">
+    <div class="reveal" style="animation:none"><div class="tag" style="opacity:.9">Patas na presyo</div><div class="row" style="align-items:baseline;gap:8px"><span class="hero-price">${peso(l.price)}</span><span class="sub">bawat kilo</span></div><div>Kabuuang halaga (${num(l.left)} kg): <b>${peso(l.price * l.left)}</b></div></div>
+    <div class="card flat col gap12" style="padding:16px">
+      <div class="factor" style="color:var(--ink)"><span class="ibox ok sm">${ic('lock')}</span><div><div class="strong">Naka-lock</div><div class="cap c2">Naka-lock ang presyong ito noong ginawa ang listing. Hindi ito puwedeng baguhin.</div></div></div>
+      <div class="divider"></div>
+      <div class="factor" style="color:var(--ink)"><span class="ibox warn sm">${ic('drop')}</span><div><div class="strong">${l.moisture === 'Tuyo' ? 'Tuyong Palay' : 'Basang Palay'}</div><div class="cap c2">Galing ito sa batayang presyo ng palay, mula sa buwanang forecast.</div></div></div>
+      <div class="divider"></div>
+      <div class="factor" style="color:var(--ink)"><span class="ibox caut sm">${ic('trend')}</span><div><div class="strong">May Premium</div><div class="cap c2">May dagdag na ${peso(PREM[l.grade])} bawat kilo para sa ${esc(l.variety)}, grado ${l.grade}.</div></div></div>
+    </div>
+    <div class="card flat col gap12" style="padding:16px"><div class="sub">Impormasyon ng Palay</div>
+      ${[['sprout', 'Uri ng palay', 'Inbred'], ['sprout', 'Tiyak na uri', l.variety], ['drop', 'Moisture', l.moisture === 'Tuyo' ? 'Tuyo (Dry)' : 'Basa (Wet)'], ['shield', 'Purity grade', 'Grade ' + l.grade], ['scale', 'Orihinal na timbang', num(l.total) + ' kg']].map(([i, a, b]) => `<div class="row gap12"><span class="cb">${ic(i)}</span><span class="grow c2">${a}</span><span class="strong">${esc(b)}</span></div>`).join('')}</div>
+    <div class="card flat col gap12" style="padding:16px"><div class="row sp"><div class="row gap8"><span class="heading">4.9</span><span style="color:var(--warn)">${ic('star', 'fill')}</span></div><span class="strong c2">Palay Reviews (100)</span></div>
+      ${[['E***L', 400, 'Ganda nito. Good palay yahoo! Good transaction and farmer.'], ['C***C', 500, 'Affordable siya. Mabait yung farmer.'], ['M***B', 400, 'Good and smooth palay. Great transaction.']].map(r => `<div class="divider"></div><div class="col gap4"><div class="row sp"><span class="strong">${r[0]}</span><span class="stars" style="gap:2px;color:var(--warn)">${[1, 2, 3, 4, 5].map(() => ic('star', 'fill')).join('').replace(/class="i /g, 'class="i ').replace(/<svg/g, '<svg style="width:16px;height:16px"')}</span></div><div class="cap c3">Dami: ${r[1]} kg</div><div>${r[2]}</div></div>`).join('')}</div>
+  </div>`;
+  return head + `<div class="col gap16 pad" style="padding-top:4px">${ords.length ? ords.map(o => `
+    <div class="card col gap12" style="padding:16px">
+      <div class="row gap12"><span class="ibox ok">${ic('user')}</span><div class="grow"><div class="row sp"><span class="strong">Kahilingan ng Mamimili</span><span class="strong">${num(o.kg)} kg</span></div><div class="price">${peso(o.kg * l.price)}</div></div></div>
+      <div class="card flat row sp center" style="padding:10px;background:var(--muted);border-color:var(--muted);border-radius:var(--r-md)">
+        <div class="col center" style="flex:1"><span class="row gap4 strong">${ic('receipt', '')}${o.rec.tx}</span><span class="cap c2">Transaksyon</span></div>
+        <div class="col center" style="flex:1"><span class="row gap4 strong">${ic('msg')}${o.rec.rv}</span><span class="cap c2">Reviews</span></div>
+        <div class="col center" style="flex:1"><span class="row gap4 strong">${ic('package')}${o.rec.kg}</span><span class="cap c2">kg nabili</span></div></div>
+      <div class="row gap8"><button class="btn sec half" data-act="reject" data-id="${o.id}">${ic('x')} Tanggihan</button><button class="btn half" data-act="accept" data-id="${o.id}">${ic('check')} Tanggapin</button></div>
+    </div>`).join('') : `<div class="empty">${mascot(96)}<div class="heading">Wala pang kahilingan</div><div class="c2">Kapag may mamimiling interesado, makikita mo dito.</div></div>`}</div>`;
+};
+
+/* ----- transactions ----- */
+screens.tx = () => {
+  const roll = S.listings.filter(l => l.total > 0).map(l => { const sold = l.total - l.left; return { l, sold, income: sold * l.price }; });
+  return `<div class="col gap4" style="padding:58px 16px 8px"><div class="title">Mga Transaksyon</div><div class="c2">Kita at mga order mo</div></div>
+  <div class="col gap12 pad">
+    ${roll.map(r => `<div class="card col gap12" style="padding:16px"><div class="row sp"><span class="sub">${esc(r.l.name)}</span>${spill(r.l.left > 0 ? 'ok' : 'neutral', r.l.left > 0 ? 'Aktibo' : 'Naubos')}</div>
+      <div class="row gap8"><div class="col grow"><span class="cap c3">Natitira</span><span class="strong">${num(r.l.left)} kg</span></div><div class="col grow"><span class="cap c3">Naibenta</span><span class="strong">${num(r.sold)} kg</span></div><div class="col grow"><span class="cap c3">Buong Kita</span><span class="strong cb">${peso(r.income)}</span></div></div></div>`).join('')}
+    <div class="heading" style="margin-top:8px">Mga Order</div>
+    ${S.txs.map((t, i) => `<button class="card row gap12" data-act="openTx" data-i="${i}" style="padding:14px;text-align:left;width:100%;border-radius:var(--r-lg)"><span class="ibox ${t.step === 4 ? 'ok' : 'warn'}">${ic(t.step === 4 ? 'check' : 'clock')}</span><div class="grow"><div class="strong">${esc(t.listing)}, ${num(t.kg)} kg</div><div class="cap c2">${esc(t.buyer)} ${t.date}</div></div><div class="col" style="align-items:flex-end;gap:6px"><span class="strong">${peso(t.kg * t.price)}</span>${t.step === 4 ? spill('ok', 'Kumpleto') : spill('warn', 'Naghihintay')}</div></button>`).join('')}
+  </div>`;
+};
+const STEPS = [['Request naipadala', 'Nagpadala ang mamimili ng kahilingan.'], ['Tinanggap mo ang kahilingan', 'Naghahanda na ang mamimili.'], ['Bayad mula sa mamimili', 'Hintayin ang bayad sa GCash o cash, tapos kumpirmahin dito.'], ['Kumpleto', 'Tapos na ang transaksyon at may resibo na.']];
+screens.txd = () => {
+  const t = S.txs[S.selTx];
+  return `${back('tx', 'Transaksyon')}
+  <div class="col gap16 pad" style="padding-top:4px">
+    <div class="card col gap8" style="padding:16px"><div class="row sp"><span class="sub">${esc(t.listing)}</span><span class="cap c3">${t.id}</span></div><div class="row sp"><span class="c2">${num(t.kg)} kg, ${peso(t.price)}/kg</span><span class="price">${peso(t.kg * t.price)}</span></div><div class="cap c2">${esc(t.buyer)}, ${t.date}</div></div>
+    <div class="tl">${STEPS.map((s, i) => { const st = i < t.step - 1 ? 'done' : i === t.step - 1 ? (t.step === 4 ? 'done' : 'cur') : 'up'; const last = i === 3;
+      return `<div class="st ${st}"><div class="rail"><div class="dot">${st === 'done' ? ic('check') : i + 1}</div>${last ? '' : '<div class="line"></div>'}</div><div class="txt"><div class="strong t">${s[0]}</div><div class="cap c2">${s[1]}</div></div></div>`; }).join('')}</div>
+    ${t.step === 3 ? `<div class="card flat row gap12" style="padding:12px;background:var(--warn-bg);border-color:var(--warn)"><span class="ibox warn sm">${ic('info')}</span><div class="cap">Peer to peer ang bayad. Kumpirmahin lang kapag natanggap mo na ang pera.</div></div><button class="btn" data-act="confirmPay">Natanggap ko na ang bayad</button>` : `<button class="btn" data-go="receipt">Tingnan ang Resibo</button>`}
+  </div>`;
+};
+screens.receipt = () => {
+  const t = S.txs[S.selTx];
+  return `${back('txd', 'Resibo')}
+  <div class="col gap16 pad" style="padding-top:4px">
+    <div class="empty" style="padding:8px 0 0">${mascot(96)}<div class="title">Tapos na ang transaksyon!</div></div>
+    <div class="card col gap12" style="padding:16px">${[['Palay', t.listing], ['Dami', num(t.kg) + ' kg'], ['Presyo', peso(t.price) + '/kg'], ['Kabuuan', peso(t.kg * t.price)], ['Mamimili', t.buyer], ['Petsa', t.date]].map(r => `<div class="row sp"><span class="c2">${r[0]}</span><span class="strong">${esc(r[1])}</span></div>`).join('<div class="divider"></div>')}</div>
+    <div class="card flat row gap12" style="padding:12px;background:var(--brand-50);border-color:var(--brand-200)"><span class="ibox ok sm">${ic('shield')}</span><div><div class="strong">Digital na resibo</div><div class="cap c2">Naka-save sa Polygon blockchain, kaya hindi na mababago. Resibo 0x9f3a...c41e</div></div></div>
+    <div class="col gap8 center"><div class="sub">I-rate ang mamimili</div><div class="stars" role="radiogroup" aria-label="Bituin">${[1, 2, 3, 4, 5].map(n => `<button class="${S.stars >= n ? 'on' : ''}" data-act="star" data-v="${n}" aria-label="${n} bituin">${ic('star', S.stars >= n ? 'fill' : '')}</button>`).join('')}</div></div>
+    <div class="field"><label for="rv">Review (opsyonal)</label><textarea class="input" id="rv" data-in="review" rows="3" style="padding:14px 16px;min-height:96px" placeholder="Kumusta ang transaksyon?">${esc(S.review)}</textarea></div>
+    <button class="btn" data-act="sendReview" ${S.stars ? '' : 'disabled'}>Ipadala ang Review</button>
+  </div>`;
+};
+
+/* ----- notifications ----- */
+screens.notif = () => `${back('home', 'Mensahe', unread() ? `<button class="btn ghost" style="width:auto;padding:0 12px;font-size:16px" data-act="readAll">Basahin lahat</button>` : '')}
+  <div class="col gap12 pad" style="padding-top:4px">${S.notifEmpty ? `<div class="empty" style="padding-top:64px">${mascot(112)}<div class="title">Wala pang mensahe</div><div class="c2">Dito lalabas ang mga kahilingan, bayad, at payo sa bukid.</div></div>` :
+  S.notifs.map(n => `<button class="card flat row gap12" data-act="readN" data-id="${n.id}" style="padding:14px;text-align:left;width:100%;border-radius:var(--r-lg);${n.read ? '' : 'border-color:var(--brand);background:var(--brand-50)'}"><span class="ibox ${n.tone}">${ic(n.ic)}</span><div class="grow"><div class="strong">${n.t}</div><div class="cap c2">${n.d}</div></div><div class="col" style="align-items:flex-end;gap:6px"><span class="cap c3">${n.w}</span>${n.read ? '' : '<span style="width:12px;height:12px;border-radius:50%;background:var(--brand)" aria-label="Hindi pa nababasa"></span>'}</div></button>`).join('')}</div>`;
+
+/* ----- profile ----- */
+screens.profile = () => `<div class="hero" style="padding-bottom:28px;align-items:center;text-align:center;gap:10px">${mascot(84)}<div class="title" style="position:relative;z-index:1">Juan Dela Cruz</div><div class="row gap8" style="position:relative;z-index:1;opacity:.95">${ic('pin')}<span>Magsasaka, Brgy. San Jose, Antipolo</span></div></div>
+  <div class="col gap16 pad" style="padding-top:20px">
+    <div class="row gap8" style="align-items:stretch">${[['star', '4.9', 'Rating'], ['receipt', '12', 'Transaksyon'], ['sprout', S.listings.filter(l => l.left > 0).length, 'Aktibo']].map(([i, n, l]) => `<div class="card col center gap4 grow" style="padding:12px;border-radius:var(--r-lg)"><span class="cb">${ic(i, i === 'star' ? 'fill' : '')}</span><span class="heading">${n}</span><span class="cap c2">${l}</span></div>`).join('')}</div>
+    <div class="col gap8"><div class="sub">Setting</div>
+      <button class="card flat row gap12" data-act="lang" style="padding:14px;width:100%;text-align:left;border-radius:var(--r-lg)"><span class="ibox ok sm">${ic('globe')}</span><span class="grow strong">Wika</span><span class="c2">${S.lang}</span>${ic('chevR')}</button>
+      <div class="card flat row gap12" style="padding:14px;border-radius:var(--r-lg)"><span class="ibox ok sm">${ic('phone')}</span><span class="grow strong">Numero ng telepono</span><span class="c2">+63 912 345 6789</span></div>
+      <div class="card flat row gap12" style="padding:14px;border-radius:var(--r-lg)"><span class="ibox ok sm">${ic('cash')}</span><span class="grow strong">GCash number</span><span class="c2">0912 345 6789</span></div></div>
+    <div class="col gap8"><div class="sub">Legal</div>
+      <div class="card flat row gap12" style="padding:14px;border-radius:var(--r-lg)"><span class="ibox ok sm">${ic('receipt')}</span><span class="grow strong">Terms of Service</span>${ic('chevR')}</div>
+      <div class="card flat row gap12" style="padding:14px;border-radius:var(--r-lg)"><span class="ibox ok sm">${ic('shield')}</span><span class="grow strong">Privacy Policy</span>${ic('chevR')}</div></div>
+    <button class="btn sec" data-act="signout" style="color:var(--danger-d);border-color:var(--danger)">${ic('logout')} Mag-sign out</button>
+  </div>`;
+
+/* ---------- modals ---------- */
+function modalHtml() {
+  const m = S.modal; if (!m) return '';
+  const o = S.orders.find(x => x.id === S.modalOrder);
+  if (m === 'accept') { const max = o.kg;
+    return `<div class="scrim mid" data-act="closeModal"><div class="dlg" role="dialog" aria-modal="true" aria-label="Tanggapin ang Kahilingan">
+      <div class="top"><span class="bigicon ok">${ic('check')}</span><div class="heading">Tanggapin ang Kahilingan</div><div class="c2">Hiniling: ${num(max)} kg. Puwede mong bawasan kung bahagya lang ang kaya mong ibigay.</div></div>
+      <div class="stepper"><button data-act="kg" data-d="-50" ${S.acceptKg <= 50 ? 'disabled' : ''} aria-label="Bawasan">${ic('minus')}</button><div class="val">${num(S.acceptKg)}<span class="cap c3"> kg</span></div><button data-act="kg" data-d="50" ${S.acceptKg >= max ? 'disabled' : ''} aria-label="Dagdagan">${ic('plus')}</button></div>
+      <div class="center c2">Kabuuan: <b>${peso(S.acceptKg * L(o.listing).price)}</b></div>
+      <button class="btn" data-act="confirmAccept">Tanggapin</button><button class="btn sec" data-act="closeModal">Huwag Muna</button></div></div>`; }
+  if (m === 'accepted') return `<div class="scrim mid"><div class="dlg" role="dialog" aria-modal="true"><div class="top"><span class="bigicon ok">${ic('check')}</span><div class="heading">Tinanggap ang Kahilingan</div><div class="c2">Matagumpay mong tinanggap ang kahilingan para sa ${num(S.acceptKg)} kg. Makikita na ito sa iyong mga transaksyon.</div></div><button class="btn" data-act="toTx">Tingnan sa Transaksyon</button><button class="btn sec" data-act="closeModal">Sige, Salamat</button></div></div>`;
+  if (m === 'reject') return `<div class="scrim mid" data-act="closeModal"><div class="dlg" role="dialog" aria-modal="true"><div class="top"><span class="bigicon warn">${ic('alert')}</span><div class="heading">Tanggihan ang Kahilingan</div><div class="c2">Pumili ng dahilan. Para sa sarili mong talaan lamang ito.</div></div>
+    ${['Kulang ang natitirang stock', 'Hindi tugma ang iskedyul ng pickup', 'Masyadong mababa ang hiniling na dami', 'Iba pang dahilan'].map(r => `<button class="opt ${S.rejectReason === r ? 'on' : ''}" data-act="reason" data-v="${r}" style="min-height:56px;padding:12px 16px"><span class="radio"></span><span class="strong grow">${r}</span></button>`).join('')}
+    <button class="btn danger" data-act="confirmReject" ${S.rejectReason ? '' : 'disabled'}>Tanggihan ang Order</button><button class="btn sec" data-act="closeModal">Bumalik</button></div></div>`;
+  if (m === 'signout') return `<div class="scrim mid" data-act="closeModal"><div class="dlg" role="dialog" aria-modal="true"><div class="top"><span class="bigicon danger">${ic('logout')}</span><div class="heading">Mag-sign out?</div><div class="c2">Kailangan mong mag-login ulit gamit ang OTP.</div></div><button class="btn danger" data-act="closeModal">Mag-sign out</button><button class="btn sec" data-act="closeModal">Manatili</button></div></div>`;
+  if (m === 'lang') return `<div class="scrim" data-act="closeModal"><div class="sheet" role="dialog" aria-modal="true" aria-label="Wika"><div class="heading">Piliin ang wika</div>${['Tagalog', 'English'].map(x => `<button class="opt ${S.lang === x ? 'on' : ''}" data-act="setLang" data-v="${x}"><span class="radio"></span><span class="strong grow">${x}</span></button>`).join('')}<button class="btn" data-act="closeModal">Tapos na</button></div></div>`;
+  return '';
+}
+
+/* ---------- render ---------- */
+const TABS = { home: 0, mine: 1, detail: 1, tx: 2, txd: 2, receipt: 2, profile: 3, notif: 0, mineEmpty: 1 };
+const NOTAB = ['wiz1', 'wiz2', 'wiz3', 'wiz4', 'wiz5', 'wiz6'];
+const LIGHT = ['home', 'profile'];
+let lastScreen = null;
+function render(keepScroll) {
+  const sc = $('#screen'); const st = sc.scrollTop;
+  const name = S.screen === 'mine' && S.empty ? 'mineEmpty' : S.screen;
+  sc.innerHTML = screens[name]() + modalHtml() + (S.toast ? `<div class="toast">${ic('check')}${S.toast}</div>` : '');
+  $('#status').className = 'status' + (LIGHT.includes(S.screen) ? ' light' : '');
+  const tb = NOTAB.includes(name) ? '' : (TABS[name] !== undefined ? tabbar(TABS[name]) : '');
+  $('#tabslot').innerHTML = tb;
+  sc.scrollTop = keepScroll && lastScreen === name ? st : 0; lastScreen = name;
+  renderIndex();
+}
+function go(s) { S.screen = s; S.modal = null; render(); }
+function toast(t) { S.toast = t; render(true); clearTimeout(toast.h); toast.h = setTimeout(() => { S.toast = null; render(true); }, 2200); }
+
+/* ---------- index panel ---------- */
+const INDEX = [
+  ['Tahanan', [['Tahanan', () => { S.empty = false; go('home'); }], ['Payo sa Bukid (i-tap ang card)', () => { go('home'); }]]],
+  ['Aking Ani', [['Mga listing', () => { S.empty = false; S.filter = 'all'; go('mine'); }], ['Walang listing', () => { S.empty = true; go('mine'); }]]],
+  ['Gumawa ng Listing', [['1 Litrato', () => { resetWiz(); go('wiz1'); }], ['2 Pangalan at uri', () => { demoWiz(2); go('wiz2'); }], ['3 Kalidad', () => { demoWiz(3); go('wiz3'); }], ['4 Timbang', () => { demoWiz(4); go('wiz4'); }], ['5 Suriin at presyo', () => { demoWiz(5); go('wiz5'); }], ['6 Tagumpay', () => { demoWiz(5); publish(); }]]],
+  ['Listing at orders', [['Detalye ng listing', () => { S.empty = false; S.sel = 1; S.dTab = 'detail'; go('detail'); }], ['Mga Order', () => { S.empty = false; S.sel = 1; S.dTab = 'orders'; go('detail'); }], ['Tanggapin (modal)', () => { S.sel = 1; S.dTab = 'orders'; go('detail'); openAccept(11); }], ['Tanggihan (modal)', () => { S.sel = 1; S.dTab = 'orders'; go('detail'); openReject(12); }]]],
+  ['Transaksyon', [['Listahan', () => go('tx')], ['Timeline, hinihintay ang bayad', () => { S.selTx = 0; go('txd'); }], ['Resibo at review', () => { S.selTx = 1; S.stars = 0; go('receipt'); }]]],
+  ['Mensahe at Profile', [['Mensahe', () => { S.notifEmpty = false; go('notif'); }], ['Walang mensahe', () => { S.notifEmpty = true; go('notif'); }], ['Profile', () => go('profile')], ['Piliin ang wika', () => { go('profile'); S.modal = 'lang'; render(); }], ['Mag-sign out', () => { go('profile'); S.modal = 'signout'; render(); }]]]
+];
+let idxMap = [];
+function renderIndex() {
+  idxMap = []; let h = `<h1>Animo, Magsasaka</h1><p>Buong module ng Magsasaka. Subukan ang mga button sa loob ng telepono.</p>`;
+  INDEX.forEach(([g, items]) => { h += `<h2>${g}</h2>`; items.forEach(([l, fn]) => { idxMap.push(fn); h += `<button data-idx="${idxMap.length - 1}">${l}</button>`; }); });
+  $('#index').innerHTML = h;
+}
+function resetWiz() { S.wiz = { step: 1, photos: [false, false, false], name: '', variety: '', moisture: '', grade: '', gross: '', tare: '' }; }
+function demoWiz(step) { S.wiz = { step, photos: [true, true, true], name: 'Palay ni Mang Juan', variety: 'NSIC Rc218', moisture: step >= 4 ? 'Tuyo' : '', grade: step >= 4 ? 'A' : '', gross: step >= 5 ? '520' : '', tare: step >= 5 ? '20' : '' }; if (step === 4) { S.wiz.gross = ''; S.wiz.tare = ''; } }
+
+/* ---------- actions ---------- */
+function openAccept(id) { S.modalOrder = id; S.acceptKg = S.orders.find(o => o.id === id).kg; S.modal = 'accept'; render(true); }
+function openReject(id) { S.modalOrder = id; S.rejectReason = ''; S.modal = 'reject'; render(true); }
+function publish() {
+  const w = S.wiz, n = net(), p = fair();
+  const id = Math.max(...S.listings.map(l => l.id)) + 1;
+  S.listings.unshift({ id, name: w.name.trim() || 'Bagong Palay', sub: `${w.variety}, Grado ${w.grade}, ${w.moisture}`, price: p, left: n, total: n, status: 'ok', img: id % 3, variety: w.variety, grade: w.grade, moisture: w.moisture });
+  S.sel = id; S.empty = false; go('wiz6');
+}
+const acts = {
+  adv() { S.adv = (S.adv + 1) % 3; render(true); },
+  filter(e) { S.filter = e.dataset.v; render(true); },
+  open(e) { S.sel = +e.dataset.id; S.dTab = 'detail'; S.gallery = 0; go('detail'); },
+  startWiz() { resetWiz(); go('wiz1'); },
+  wizBack() { const s = S.screen; if (s === 'wiz1') return go('mine'); go('wiz' + (+s.slice(3) - 1)); },
+  wizNext() { const s = +S.screen.slice(3); if (s === 5) return publish(); go('wiz' + (s + 1)); },
+  photo(e) { const i = +e.dataset.i; S.wiz.photos[i] = !S.wiz.photos[i]; render(true); },
+  variety(e) { S.wiz.variety = e.dataset.v; render(true); },
+  moist(e) { S.wiz.moisture = e.dataset.v; render(true); },
+  grade(e) { S.wiz.grade = e.dataset.v; render(true); },
+  gal(e) { S.gallery = +e.dataset.i; render(true); },
+  dtab(e) { S.dTab = e.dataset.v; render(); },
+  accept(e) { openAccept(+e.dataset.id); },
+  reject(e) { openReject(+e.dataset.id); },
+  kg(e) { const o = S.orders.find(x => x.id === S.modalOrder); S.acceptKg = Math.min(o.kg, Math.max(50, S.acceptKg + (+e.dataset.d))); render(true); },
+  confirmAccept() {
+    const o = S.orders.find(x => x.id === S.modalOrder), l = L(o.listing);
+    o.status = 'accepted'; l.left = Math.max(0, l.left - S.acceptKg);
+    S.txs.unshift({ id: 'T-' + (1043 + S.txs.length), listing: l.name, kg: S.acceptKg, price: l.price, step: 3, buyer: 'Mamimili ' + 'AB'[o.id % 2] + '.', date: 'Ngayon' });
+    S.modal = 'accepted'; render(true);
+  },
+  toTx() { S.selTx = 0; go('txd'); },
+  reason(e) { S.rejectReason = e.dataset.v; render(true); },
+  confirmReject() { const o = S.orders.find(x => x.id === S.modalOrder); o.status = 'rejected'; S.modal = null; render(true); toast('Natanggihan ang kahilingan'); },
+  closeModal(el, ev) { if (el.classList.contains('scrim') && ev && ev.target !== el) return; S.modal = null; render(true); },
+  openTx(e) { S.selTx = +e.dataset.i; go('txd'); },
+  confirmPay() { const t = S.txs[S.selTx]; t.step = 4; render(); toast('Kumpleto na ang transaksyon'); },
+  star(e) { S.stars = +e.dataset.v; render(true); },
+  sendReview() { toast('Naipadala ang review'); S.stars = 0; S.review = ''; setTimeout(() => go('tx'), 500); },
+  readN(e) { const n = S.notifs.find(x => x.id === +e.dataset.id); n.read = true; render(true); },
+  readAll() { S.notifs.forEach(n => n.read = true); render(true); },
+  lang() { S.modal = 'lang'; render(true); },
+  setLang(e) { S.lang = e.dataset.v; render(true); },
+  signout() { S.modal = 'signout'; render(true); }
+};
+document.addEventListener('click', e => {
+  const idx = e.target.closest('[data-idx]'); if (idx) { idxMap[+idx.dataset.idx](); return; }
+  const a = e.target.closest('[data-act]'); if (a && acts[a.dataset.act]) { e.stopPropagation(); acts[a.dataset.act](a, e); return; }
+  const g = e.target.closest('[data-go]'); if (g) { const t = g.dataset.go; if (t === 'mine') S.empty = false; go(t); }
+});
+document.addEventListener('input', e => {
+  const k = e.target.dataset && e.target.dataset.in; if (!k) return;
+  if (k === 'review') { S.review = e.target.value; return; }
+  S.wiz[k] = e.target.value;
+  if (k === 'gross' || k === 'tare') { const el = $('#netv'); if (el) el.textContent = num(net()) + ' kg'; const btn = document.querySelector('[data-act="wizNext"]'); if (btn) btn.disabled = !(net() > 0); }
+  else { const btn = document.querySelector('[data-act="wizNext"]'); if (btn) btn.disabled = !(S.wiz.name.trim() && S.wiz.variety); }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.modal) { S.modal = null; render(true); } });
+render();
+</script>
+</body>
+</html>

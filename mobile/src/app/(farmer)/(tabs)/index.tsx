@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -8,46 +7,54 @@ import {
   Clock,
   CloudRain,
   LayoutGrid,
-  ListChecks,
-  ShoppingCart,
+  Receipt,
   Sprout,
+  Sun,
   User,
-  Wheat,
+  type LucideIcon,
 } from 'lucide-react-native';
-import { useCallback, useRef, useState, type ComponentProps } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { SuspensionNotice } from '@/components/animo/suspension-notice';
-import { AppHeader } from '@/components/animo/app-header';
 import {
   SpotlightTour,
   type SpotlightStep,
   FARMER_TUTORIAL_STORAGE_KEY,
 } from '@/components/animo/spotlight-tour';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { SuspensionNotice } from '@/components/animo/suspension-notice';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { Mascot } from '@/components/animo/ui/mascot';
+import { ProgressBar } from '@/components/animo/ui/progress-bar';
+import {
+  AnimoV2Colors,
+  AnimoV2Radius,
+  AnimoV2Size,
+  AnimoV2Spacing,
+  AnimoV2Status,
+  type StatusTone,
+} from '@/constants/animo';
+import { barangayLabel } from '@/constants/profile-options';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useLanguage } from '@/hooks/use-language';
+import { useSession } from '@/hooks/use-session';
+import {
+  fetchCurrentAdvisory,
+  ripenessPct,
+  type AdvisoryState,
+  type CurrentAdvisory,
+  type RecommendedAction,
+} from '@/services/advisory-service';
 import {
   fetchFarmerHomeData,
   type FarmerHomeActivity,
   type FarmerHomeStats,
 } from '@/services/farmer-home-service';
-import {
-  fetchCurrentAdvisory,
-  type AdvisoryState,
-  type RecommendedAction,
-} from '@/services/advisory-service';
-
-const AdvisoryOrange = '#F57C00';
+import { fetchUnreadNotificationCount } from '@/services/notification-service';
+import type { TranslationKey } from '@/i18n/translations';
 
 const EMPTY_STATS: FarmerHomeStats = {
   activeListings: 0,
@@ -55,46 +62,47 @@ const EMPTY_STATS: FarmerHomeStats = {
   pendingTransactions: 0,
 };
 
-const ADVISORY_DESCRIPTIONS: Record<RecommendedAction, string> = {
-  Advance_Cut: 'May inaasahang malakas na ulan sa darating na 48 oras, at hinog na ang iyong palay.',
-  Delayed_Harvest: 'May inaasahang malakas na ulan sa darating na 48 oras, pero hindi pa hinog ang iyong palay.',
-  No_Action_Needed: 'Walang inaasahang malakas na ulan sa darating na 48 oras.',
-};
+/** How many recent activities Tahanan shows (DESIGN_SPEC: the last two). */
+const ACTIVITY_LIMIT = 2;
 
-const ADVISORY_DESCRIPTIONS_EN: Record<RecommendedAction, string> = {
-  Advance_Cut: 'Heavy rain expected in the next 48 hours, and your palay is mature.',
-  Delayed_Harvest: 'Heavy rain expected in the next 48 hours, but your palay is not yet mature.',
-  No_Action_Needed: 'No heavy rain expected in the next 48 hours.',
-};
+/** Decorative hero blob (prototype `.hero::after`). */
+const HERO_BLOB = { inset: -40, bottom: -70, height: 110, opacity: 0.35 } as const;
 
-const ADVISORY_HEADLINES: Record<RecommendedAction, string> = {
-  Advance_Cut: 'Maagang Anihin',
-  Delayed_Harvest: 'Antalahin ang Anihan',
-  No_Action_Needed: 'Maaraw ngayon',
-};
-
-const ADVISORY_HEADLINES_EN: Record<RecommendedAction, string> = {
-  Advance_Cut: 'Early Harvest',
-  Delayed_Harvest: 'Delay Harvest',
-  No_Action_Needed: 'Sunny today',
-};
-
-const ADVISORY_ICONS: Record<
+/** The three rule-engine states mapped to v2 status tones and icons. */
+const ADVISORY_STYLE: Record<
   RecommendedAction,
-  { name: ComponentProps<typeof Ionicons>['name']; color: string }
+  { tone: StatusTone; icon: LucideIcon; titleKey: TranslationKey; descKey: TranslationKey }
 > = {
-  Advance_Cut: { name: 'thunderstorm', color: AnimoColors.danger },
-  Delayed_Harvest: { name: 'rainy', color: AnimoColors.muted },
-  No_Action_Needed: { name: 'sunny', color: AdvisoryOrange },
+  Advance_Cut: {
+    tone: 'caution',
+    icon: CloudRain,
+    titleKey: 'home.advisory.advanceCut.title',
+    descKey: 'home.advisory.advanceCut.desc',
+  },
+  Delayed_Harvest: {
+    tone: 'warning',
+    icon: Clock,
+    titleKey: 'home.advisory.delayedHarvest.title',
+    descKey: 'home.advisory.delayedHarvest.desc',
+  },
+  No_Action_Needed: {
+    tone: 'success',
+    icon: Sun,
+    titleKey: 'home.advisory.noAction.title',
+    descKey: 'home.advisory.noAction.desc',
+  },
 };
 
-/** Tahanan — farmer home: weather advisory, quick stats, sell CTA, activity feed. */
+/** Tahanan: farmer home with the greeting hero, Payo sa Bukid, sell CTA and recent activity. */
 export default function FarmerHomeScreen() {
-  const { t, isTagalog } = useLanguage();
+  const { t } = useLanguage();
+  const { account } = useSession();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ startTour?: string }>();
   const [currentAdvisory, setCurrentAdvisory] = useState<AdvisoryState | null>(null);
   const [stats, setStats] = useState<FarmerHomeStats>(EMPTY_STATS);
   const [activities, setActivities] = useState<FarmerHomeActivity[]>([]);
+  const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,30 +115,45 @@ export default function FarmerHomeScreen() {
   const bellRef = useRef<View>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const load = useCallback(async (isRefresh: boolean) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
-    try {
-      const [data, advisory] = await Promise.all([fetchFarmerHomeData(), fetchCurrentAdvisory()]);
-      setStats(data.stats);
-      setActivities(data.activities);
-      setCurrentAdvisory(advisory);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Hindi ma-load ang dashboard.');
-    } finally {
-      if (isRefresh) setRefreshing(false);
-      else setLoading(false);
-    }
+  const load = useCallback(
+    async (isRefresh: boolean) => {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
+      try {
+        const [data, advisory] = await Promise.all([fetchFarmerHomeData(), fetchCurrentAdvisory()]);
+        setStats(data.stats);
+        setActivities(data.activities);
+        setCurrentAdvisory(advisory);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t('home.loadError'));
+      } finally {
+        if (isRefresh) setRefreshing(false);
+        else setLoading(false);
+      }
+    },
+    [t],
+  );
+
+  const loadUnread = useCallback(() => {
+    fetchUnreadNotificationCount()
+      .then(setUnread)
+      .catch(() => {});
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       load(false);
-    }, [load]),
+      loadUnread();
+    }, [load, loadUnread]),
   );
 
-  useAutoRefresh(useCallback(() => load(true), [load]));
+  useAutoRefresh(
+    useCallback(() => {
+      load(true);
+      loadUnread();
+    }, [load, loadUnread]),
+  );
 
   // Shown once, until the tour is finished or skipped. Profile can clear the
   // flag so the next visit to this home plays it again.
@@ -150,24 +173,27 @@ export default function FarmerHomeScreen() {
     }, [params.startTour]),
   );
 
-  const statCards = [
+  const statCards: StatCardData[] = [
     {
       key: 'listings',
-      icon: ListChecks,
+      icon: Sprout,
+      tone: 'success',
       value: stats.activeListings,
       label: t('farmer.activeListings'),
       onPress: () => router.push('/(farmer)/(tabs)/palengke'),
     },
     {
       key: 'requests',
-      icon: ShoppingCart,
+      icon: Clock,
+      tone: 'warning',
       value: stats.pendingRequests,
       label: t('farmer.newRequests'),
       onPress: () => router.push('/(farmer)/(tabs)/transaksyon'),
     },
     {
       key: 'transactions',
-      icon: Clock,
+      icon: Receipt,
+      tone: 'caution',
       value: stats.pendingTransactions,
       label: t('farmer.pendingTxns'),
       onPress: () => router.push('/(farmer)/(tabs)/transaksyon'),
@@ -182,7 +208,7 @@ export default function FarmerHomeScreen() {
       icon: CloudRain,
       targetRef: advisoryRef,
       shape: 'rectangle',
-      borderRadius: 20,
+      borderRadius: AnimoV2Radius.xl,
       padding: 6,
     },
     {
@@ -192,7 +218,7 @@ export default function FarmerHomeScreen() {
       icon: LayoutGrid,
       targetRef: statsRef,
       shape: 'rectangle',
-      borderRadius: 16,
+      borderRadius: AnimoV2Radius.lg,
       padding: 6,
     },
     {
@@ -202,7 +228,7 @@ export default function FarmerHomeScreen() {
       icon: Sprout,
       targetRef: ctaRef,
       shape: 'rectangle',
-      borderRadius: 20,
+      borderRadius: AnimoV2Radius.xl,
       padding: 6,
     },
     {
@@ -216,94 +242,141 @@ export default function FarmerHomeScreen() {
     },
   ];
 
+  const fullName = account?.fullName?.trim() || t('role.farmer');
+  const namedBarangay = barangayLabel(account?.barangay);
+  const location = namedBarangay
+    ? `${namedBarangay.startsWith('Brgy.') ? namedBarangay : `Brgy. ${namedBarangay}`}, Antipolo`
+    : 'Antipolo, Rizal';
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar style="dark" />
-      <AppHeader
-        bellRef={bellRef}
-        onPressBell={() => router.push('/(farmer)/notipikasyon')}
-      />
+    <View style={styles.screen}>
+      <StatusBar style="light" />
 
       <ScrollView
         ref={scrollViewRef}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
-        }>
-        <SuspensionNotice />
-
-        <View ref={advisoryRef} collapsable={false}>
-          {currentAdvisory?.kind === 'active' ? (
-            <AdvisoryCard
-              title={isTagalog ? 'Payo sa Bukid' : 'Farm Advisory'}
-              headline={(isTagalog ? ADVISORY_HEADLINES : ADVISORY_HEADLINES_EN)[currentAdvisory.advisory.recommendedAction]}
-              desc={(isTagalog ? ADVISORY_DESCRIPTIONS : ADVISORY_DESCRIPTIONS_EN)[currentAdvisory.advisory.recommendedAction]}
-              icon={ADVISORY_ICONS[currentAdvisory.advisory.recommendedAction].name}
-              iconColor={ADVISORY_ICONS[currentAdvisory.advisory.recommendedAction].color}
-              onPress={() => router.push('/(farmer)/advisory')}
-            />
-          ) : currentAdvisory?.kind === 'awaiting_advisory' ? (
-            <AdvisoryPendingCard onPress={() => router.push('/(farmer)/advisory')} isTagalog={isTagalog} />
-          ) : (
-            <AdvisoryEmptyCard onPress={() => router.push('/(farmer)/itala-taniman' as Href)} isTagalog={isTagalog} />
-          )}
-        </View>
-
-        <View ref={statsRef} collapsable={false} style={styles.statsRow}>
-          {statCards.map((stat) => (
-            <StatCard
-              key={stat.key}
-              icon={stat.icon}
-              value={stat.value}
-              label={stat.label}
-              loading={loading}
-              onPress={stat.onPress}
-            />
-          ))}
-        </View>
-
-        <View ref={ctaRef} collapsable={false}>
-          <CtaBanner
-            title={t('farmer.sellCtaTitle')}
-            subtitle={t('farmer.sellCtaSubtitle')}
-            onPress={() => router.push('/(farmer)/(tabs)/palengke')}
-          />
-        </View>
-
-        <View style={styles.activitySection}>
-          <View style={styles.activityHeader}>
-            <AnimoText variant="h3" color={AnimoColors.black}>
-              {t('farmer.activities')}
-            </AnimoText>
-            <Pressable
-              onPress={() => router.push('/(farmer)/(tabs)/transaksyon')}
-              hitSlop={8}>
-              <AnimoText variant="caption" color={AnimoColors.green}>
-                {t('common.seeAll')}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}>
+        {/* Hero: extends under the status bar */}
+        <View style={[styles.hero, { paddingTop: insets.top + AnimoV2Spacing.lg }]}>
+          <View style={styles.heroBlob} pointerEvents="none" />
+          <View style={styles.greetingRow}>
+            <Mascot size={52} tile={false} />
+            <View style={styles.flex}>
+              <AnimoText variant="title" color={AnimoV2Colors.textOnBrand} numberOfLines={1} accessibilityRole="header">
+                {t('home.greeting', { name: fullName })}
               </AnimoText>
-            </Pressable>
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textOnBrand} numberOfLines={1}>
+                {location}
+              </AnimoText>
+            </View>
+            <View ref={bellRef} collapsable={false}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  unread > 0 ? t('home.bellLabel', { count: unread }) : t('home.bellLabelNone')
+                }
+                onPress={() => router.push('/(farmer)/notipikasyon')}
+                style={styles.bell}>
+                <Bell size={26} color={AnimoV2Colors.textBrand} strokeWidth={2.5} />
+                {unread > 0 ? <View style={styles.bellDot} /> : null}
+              </Pressable>
+            </View>
           </View>
 
-          {loading ? (
-            <View style={styles.activityLoading}>
-              <ActivityIndicator color={AnimoColors.green} />
+          <View ref={statsRef} collapsable={false} style={styles.statsRow}>
+            {statCards.map((stat) => (
+              <StatTile key={stat.key} stat={stat} loading={loading} />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.body}>
+          <SuspensionNotice />
+
+          <View ref={advisoryRef} collapsable={false}>
+            {currentAdvisory?.kind === 'active' ? (
+              <AdvisoryCard
+                advisory={currentAdvisory.advisory}
+                onPress={() => router.push('/(farmer)/advisory')}
+              />
+            ) : currentAdvisory?.kind === 'awaiting_advisory' ? (
+              <InfoAdvisoryCard
+                icon={Clock}
+                title={t('home.advisory.pendingTitle')}
+                body={t('home.advisory.pendingDesc')}
+                onPress={() => router.push('/(farmer)/advisory')}
+              />
+            ) : (
+              <InfoAdvisoryCard
+                icon={CloudRain}
+                title={t('home.advisory.emptyTitle')}
+                body={t('home.advisory.emptyDesc')}
+                actionLabel={t('home.advisory.emptyCta')}
+                onPress={() => router.push('/(farmer)/itala-taniman' as Href)}
+              />
+            )}
+          </View>
+
+          <View ref={ctaRef} collapsable={false}>
+            <DepthCard
+              depth="flat"
+              backgroundColor={AnimoV2Colors.surfaceBrandSubtle}
+              borderColor={AnimoV2Colors.actionPrimary}
+              style={styles.ctaCard}>
+              <View style={styles.ctaTop}>
+                <Mascot size={72} />
+                <View style={styles.flex}>
+                  <AnimoText variant="heading">{t('home.ctaHeading')}</AnimoText>
+                  <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+                    {t('home.ctaBody')}
+                  </AnimoText>
+                </View>
+              </View>
+              <ChunkyButton
+                label={t('farmer.sellCtaTitle')}
+                onPress={() => router.push('/(farmer)/(tabs)/palengke')}
+              />
+            </DepthCard>
+          </View>
+
+          <View style={styles.activitySection}>
+            <View style={styles.activityHeader}>
+              <AnimoText variant="heading" accessibilityRole="header">
+                {t('farmer.activities')}
+              </AnimoText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('common.seeAll')}
+                onPress={() => router.push('/(farmer)/(tabs)/transaksyon')}
+                hitSlop={8}
+                style={styles.seeAll}>
+                <AnimoText variant="bodyStrong" color={AnimoV2Colors.textBrand}>
+                  {t('common.seeAll')}
+                </AnimoText>
+              </Pressable>
             </View>
-          ) : error ? (
-            <AnimoText variant="caption" color={AnimoColors.danger}>
-              {error}
-            </AnimoText>
-          ) : activities.length === 0 ? (
-            <AnimoText variant="caption" color={AnimoColors.muted}>
-              {t('farmer.noActivities')}
-            </AnimoText>
-          ) : (
-            <View style={styles.activityList}>
-              {activities.map((activity, index) => (
-                <ActivityRow key={`${activity.id}-${index}`} activity={activity} />
-              ))}
-            </View>
-          )}
+
+            {loading ? (
+              <View style={styles.activityLoading}>
+                <ActivityIndicator color={AnimoV2Colors.actionPrimary} accessibilityLabel={t('common.loading')} />
+              </View>
+            ) : error ? (
+              <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg}>
+                {error}
+              </AnimoText>
+            ) : activities.length === 0 ? (
+              <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+                {t('farmer.noActivities')}
+              </AnimoText>
+            ) : (
+              <View style={styles.activityList}>
+                {activities.slice(0, ACTIVITY_LIMIT).map((activity, index) => (
+                  <ActivityRow key={`${activity.id}-${index}`} activity={activity} />
+                ))}
+              </View>
+            )}
+          </View>
         </View>
       </ScrollView>
 
@@ -322,7 +395,7 @@ export default function FarmerHomeScreen() {
           if (params.startTour === 'true') {
             router.setParams({ startTour: undefined });
           }
-          // Guided next step, not a thing to stumble on later — matches
+          // Guided next step, not a thing to stumble on later: matches
           // the tour's own "here's what this is" intent for a farmer who
           // has never logged a planting yet. Not shown once they've already
           // planted, even if the advisory itself is still pending.
@@ -331,181 +404,108 @@ export default function FarmerHomeScreen() {
           }
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
-function AdvisoryCard({
-  title,
-  headline,
-  desc,
-  icon,
-  iconColor,
-  onPress,
-}: {
-  title: string;
-  headline: string;
-  desc: string;
-  icon: ComponentProps<typeof Ionicons>['name'];
-  iconColor: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.advisoryCard, pressed && styles.pressed]}>
-      <View style={styles.advisoryTopRow}>
-        <View style={styles.advisoryTopLeft}>
-          <CloudRain size={18} color={AnimoColors.white} />
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
-            {title}
-          </AnimoText>
-        </View>
-        <View style={styles.advisoryBadge}>
-          <AnimoText
-            variant="tag"
-            color={AdvisoryOrange}
-            style={styles.advisoryBadgeText}>
-            ADVISORY
-          </AnimoText>
-        </View>
-      </View>
-
-      <View style={styles.advisoryInner}>
-        <Ionicons name={icon} size={36} color={iconColor} />
-        <View style={styles.advisoryTextWrap}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-            {headline}
-          </AnimoText>
-          <AnimoText variant="tag" color={AnimoColors.muted}>
-            {desc}
-          </AnimoText>
-        </View>
-        <ChevronRight size={18} color={AnimoColors.muted} />
-      </View>
-    </Pressable>
-  );
-}
-
-function AdvisoryEmptyCard({ onPress, isTagalog = true }: { onPress: () => void; isTagalog?: boolean }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.advisoryEmptyCard, pressed && styles.pressed]}>
-      <View style={styles.advisoryEmptyIconWrap}>
-        <CloudRain size={22} color={AnimoColors.green} />
-      </View>
-      <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.centerText}>
-        {isTagalog ? 'Walang aktibong babala para sa iyong palay' : 'No active advisory for your palay'}
-      </AnimoText>
-      <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.centerText}>
-        {isTagalog
-          ? 'Itala ang petsa ng pagtatanim para makatanggap ng babala kapag may inaasahang malakas na ulan.'
-          : 'Log your planting date to receive weather advisories when heavy rain is expected.'}
-      </AnimoText>
-      <View style={styles.advisoryEmptyCta}>
-        <AnimoText variant="button" color={AnimoColors.white}>
-          {isTagalog ? 'Itala ang Taniman' : 'Log Planting'}
-        </AnimoText>
-      </View>
-    </Pressable>
-  );
-}
-
-function AdvisoryPendingCard({ onPress, isTagalog = true }: { onPress: () => void; isTagalog?: boolean }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.advisoryEmptyCard, pressed && styles.pressed]}>
-      <View style={styles.advisoryEmptyIconWrap}>
-        <Clock size={22} color={AnimoColors.green} />
-      </View>
-      <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.centerText}>
-        {isTagalog ? 'Naitala na ang iyong taniman' : 'Your planting has been recorded'}
-      </AnimoText>
-      <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.centerText}>
-        {isTagalog
-          ? 'Hinihintay ang susunod na pagsusuri ng panahon — makakatanggap ka ng babala sa loob ng ilang oras.'
-          : 'Awaiting the next weather analysis — you will receive an advisory within a few hours.'}
-      </AnimoText>
-    </Pressable>
-  );
-}
-
-function StatCard({
-  icon: Icon,
-  value,
-  label,
-  loading,
-  onPress,
-}: {
-  icon: React.ComponentType<{ size?: number; color?: string }>;
+type StatCardData = {
+  key: string;
+  icon: LucideIcon;
+  tone: StatusTone;
   value: number;
   label: string;
-  loading: boolean;
   onPress: () => void;
-}) {
+};
+
+/** White stat tile on the green hero with a 4px dark-green edge. */
+function StatTile({ stat, loading }: { stat: StatCardData; loading: boolean }) {
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
-      <Icon size={20} color={AnimoColors.green} />
-      {loading ? (
-        <ActivityIndicator
-          color={AnimoColors.green}
-          size="small"
-          style={styles.statSpinner}
-        />
-      ) : (
-        <AnimoText
-          variant="h2"
-          color={AnimoColors.black}
-          style={styles.statValue}>
-          {value}
+      accessibilityLabel={`${loading ? '' : `${stat.value} `}${stat.label}`}
+      onPress={stat.onPress}
+      style={styles.statEdge}>
+      <View style={styles.statFace}>
+        <IconTile icon={stat.icon} tone={stat.tone} size={36} />
+        {loading ? (
+          <ActivityIndicator color={AnimoV2Colors.actionPrimary} style={styles.statSpinner} />
+        ) : (
+          <AnimoText variant="title">{stat.value}</AnimoText>
+        )}
+        <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={2}>
+          {stat.label}
         </AnimoText>
-      )}
-      <AnimoText
-        variant="caption"
-        color={AnimoColors.textMediumEmphasis}
-        style={styles.statLabel}
-        numberOfLines={2}>
-        {label}
-      </AnimoText>
+      </View>
     </Pressable>
   );
 }
 
-function CtaBanner({
-  title,
-  subtitle,
-  onPress,
-}: {
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-}) {
+/** Active Payo sa Bukid card: tinted bg, 2px colored border, 64px solid icon tile, ripeness bar. */
+function AdvisoryCard({ advisory, onPress }: { advisory: CurrentAdvisory; onPress: () => void }) {
+  const { t } = useLanguage();
+  const style = ADVISORY_STYLE[advisory.recommendedAction];
+  const tone = AnimoV2Status[style.tone];
+  const ripeness = ripenessPct(advisory.plantingDate, advisory.riceTypeCategory);
+
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={`${t('home.advisory.open')} ${t(style.titleKey)}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.ctaBanner, pressed && styles.pressed]}>
-      <View style={styles.ctaIconWrap}>
-        <Wheat size={22} color={AnimoColors.green} />
+      style={[styles.advisoryCard, { backgroundColor: tone.bg, borderColor: tone.solid }]}>
+      <View style={styles.advisoryTop}>
+        <IconTile icon={style.icon} tone={style.tone} size={64} solid shape="rounded" />
+        <View style={styles.flex}>
+          <AnimoText variant="tagV2" color={tone.fg}>
+            {t('farmer.advisoryTitle')}
+          </AnimoText>
+          <AnimoText variant="heading">{t(style.titleKey)}</AnimoText>
+        </View>
+        <ChevronRight size={24} color={tone.fg} strokeWidth={2.75} />
       </View>
-      <View style={styles.ctaTextWrap}>
-        <AnimoText variant="h3" color={AnimoColors.white}>
-          {title}
-        </AnimoText>
-        <AnimoText variant="caption" color={AnimoColors.white} numberOfLines={1}>
-          {subtitle}
-        </AnimoText>
+      <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+        {t(style.descKey)}
+      </AnimoText>
+      <View style={styles.advisoryMeter}>
+        <View style={styles.advisoryMeterLabels}>
+          <AnimoText variant="bodyStrong">
+            {t('home.advisory.ripeness', { pct: Math.round(ripeness * 100) })}
+          </AnimoText>
+          <AnimoText variant="bodyStrong" color={tone.fg}>
+            {t('home.advisory.rain', { mm: advisory.precipitationMmH.toFixed(1) })}
+          </AnimoText>
+        </View>
+        <ProgressBar value={ripeness} height={14} fill={tone.solid} track={AnimoV2Colors.surfaceCard} />
       </View>
-      <ChevronRight size={20} color={AnimoColors.white} />
     </Pressable>
+  );
+}
+
+/** Advisory placeholder for "no planting logged" and "awaiting the next weather analysis". */
+function InfoAdvisoryCard({
+  icon,
+  title,
+  body,
+  actionLabel,
+  onPress,
+}: {
+  icon: LucideIcon;
+  title: string;
+  body: string;
+  actionLabel?: string;
+  onPress: () => void;
+}) {
+  return (
+    <DepthCard onPress={onPress} accessibilityLabel={title} style={styles.infoCard}>
+      <IconTile icon={icon} tone="success" size={64} shape="rounded" />
+      <AnimoText variant="subheading" style={styles.centerText}>
+        {title}
+      </AnimoText>
+      <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+        {body}
+      </AnimoText>
+      {actionLabel ? <ChunkyButton label={actionLabel} onPress={onPress} style={styles.fullWidth} /> : null}
+    </DepthCard>
   );
 }
 
@@ -522,203 +522,118 @@ function ActivityRow({ activity }: { activity: FarmerHomeActivity }) {
   };
 
   return (
-    <Pressable
-      accessibilityRole="button"
+    <DepthCard
+      depth="flat"
+      radius="lg"
       onPress={handlePress}
-      style={({ pressed }) => [styles.activityRow, pressed && styles.pressed]}>
-      <View style={styles.avatar}>
-        <User size={20} color={AnimoColors.green} />
-      </View>
-      <View style={styles.activityTextWrap}>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.black} numberOfLines={1}>
+      accessibilityLabel={`${activity.buyer}, ${activity.variety}, ${activity.weight}, ${activity.amount}`}
+      style={styles.activityRow}>
+      <IconTile icon={User} tone="success" />
+      <View style={styles.flex}>
+        <AnimoText variant="bodyStrong" numberOfLines={1}>
           {activity.buyer}
         </AnimoText>
-        <AnimoText variant="caption" color={AnimoColors.muted}>
+        <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={1}>
           {activity.variety} · {activity.weight}
         </AnimoText>
       </View>
-      <AnimoText variant="h3" color={AnimoColors.accentPrimary}>
+      <AnimoText variant="priceV2" color={AnimoV2Colors.textBrand}>
         {activity.amount}
       </AnimoText>
-    </Pressable>
+    </DepthCard>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.white,
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  scrollContent: { paddingBottom: AnimoV2Spacing.xxl },
+  flex: { flex: 1 },
+  fullWidth: { alignSelf: 'stretch' },
+  centerText: { textAlign: 'center' },
+  hero: {
+    backgroundColor: AnimoV2Colors.surfaceBrand,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingBottom: AnimoV2Spacing.xl,
+    borderBottomLeftRadius: AnimoV2Radius.xl,
+    borderBottomRightRadius: AnimoV2Radius.xl,
+    gap: AnimoV2Spacing.lg,
+    overflow: 'hidden',
   },
-  content: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.sm,
-    paddingBottom: AnimoSpacing.xxl,
-    gap: AnimoSpacing.lg,
+  heroBlob: {
+    position: 'absolute',
+    left: HERO_BLOB.inset,
+    right: HERO_BLOB.inset,
+    bottom: HERO_BLOB.bottom,
+    height: HERO_BLOB.height,
+    borderRadius: AnimoV2Radius.full,
+    backgroundColor: AnimoV2Colors.brandMid,
+    opacity: HERO_BLOB.opacity,
   },
-  pressed: {
-    opacity: 0.9,
-  },
-  centerText: {
-    textAlign: 'center',
-  },
-  advisoryEmptyCard: {
-    backgroundColor: AnimoColors.surface,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.lg,
-    paddingVertical: AnimoSpacing.xl,
-    paddingHorizontal: AnimoSpacing.lg,
-    alignItems: 'center',
-    gap: AnimoSpacing.sm,
-  },
-  advisoryEmptyIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: AnimoColors.greenTint,
+  greetingRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  bell: {
+    width: AnimoV2Size.iconButton,
+    height: AnimoV2Size.iconButton,
+    borderRadius: AnimoV2Radius.full,
+    backgroundColor: AnimoV2Colors.surfaceCard,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  advisoryEmptyCta: {
-    marginTop: AnimoSpacing.xs,
-    backgroundColor: AnimoColors.green,
-    borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingVertical: AnimoSpacing.sm,
+  bellDot: {
+    position: 'absolute',
+    top: 8,
+    right: 10,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: AnimoV2Colors.dangerSolid,
+    borderWidth: 2,
+    borderColor: AnimoV2Colors.surfaceCard,
+  },
+  statsRow: { flexDirection: 'row', gap: AnimoV2Spacing.sm, alignItems: 'stretch' },
+  statEdge: {
+    flex: 1,
+    borderRadius: AnimoV2Radius.lg,
+    backgroundColor: AnimoV2Colors.brandDark,
+    paddingBottom: AnimoV2Size.depth,
+  },
+  statFace: {
+    flex: 1,
+    backgroundColor: AnimoV2Colors.surfaceCard,
+    borderRadius: AnimoV2Radius.lg,
+    padding: AnimoV2Spacing.md,
+    gap: AnimoV2Spacing.xs,
+  },
+  statSpinner: { alignSelf: 'flex-start', height: 32 },
+  body: {
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.xl,
+    gap: AnimoV2Spacing.lg,
   },
   advisoryCard: {
-    backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.lg,
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: AnimoV2Radius.xl,
+    borderWidth: 2,
+    padding: AnimoV2Spacing.lg,
+    gap: AnimoV2Spacing.md,
   },
-  advisoryTopRow: {
-    flexDirection: 'row',
+  advisoryTop: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  advisoryMeter: { gap: AnimoV2Spacing.xs },
+  advisoryMeterLabels: { flexDirection: 'row', justifyContent: 'space-between', gap: AnimoV2Spacing.sm },
+  infoCard: {
+    padding: AnimoV2Spacing.xl,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: AnimoColors.green,
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: AnimoSpacing.md,
+    gap: AnimoV2Spacing.md,
   },
-  advisoryTopLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.sm,
-  },
-  advisoryBadge: {
-    backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: AnimoSpacing.xs,
-  },
-  advisoryBadgeText: {
-    letterSpacing: 0.5,
-  },
-  advisoryInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: AnimoColors.white,
-    padding: AnimoSpacing.md,
-    gap: AnimoSpacing.md,
-  },
-  advisoryTextWrap: {
-    flex: 1,
-    gap: 2,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: AnimoSpacing.sm,
-  },
-  statCard: {
-    flex: 1,
-    minHeight: 110,
-    backgroundColor: AnimoColors.greenTint,
-    borderRadius: AnimoRadius.lg,
-    paddingVertical: AnimoSpacing.md,
-    paddingHorizontal: AnimoSpacing.sm,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: 'rgba(46, 125, 50, 0.14)',
-  },
-  statValue: {
-    marginTop: 2,
-    fontSize: 22,
-    lineHeight: 26,
-  },
-  statSpinner: {
-    marginTop: 2,
-    height: 26,
-  },
-  statLabel: {
-    textAlign: 'center',
-    fontSize: 11.5,
-    lineHeight: 15,
-  },
-  ctaBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: AnimoColors.green,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.md,
-  },
-  ctaIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ctaTextWrap: {
-    flex: 1,
-    gap: 2,
-  },
-  activitySection: {
-    gap: AnimoSpacing.md,
-  },
-  activityHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  activityLoading: {
-    alignItems: 'center',
-    paddingVertical: AnimoSpacing.lg,
-  },
-  // `gap` spaces the cards without adding trailing space after the last one.
-  activityList: {
-    gap: AnimoSpacing.md,
-  },
-  // Each activity is its own card; same radius as the stat cards and sell CTA above.
+  ctaCard: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
+  ctaTop: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  activitySection: { gap: AnimoV2Spacing.md },
+  activityHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  seeAll: { minHeight: AnimoV2Size.iconButton, justifyContent: 'center' },
+  activityLoading: { alignItems: 'center', paddingVertical: AnimoV2Spacing.lg },
+  activityList: { gap: AnimoV2Spacing.md },
   activityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: AnimoSpacing.md,
-    padding: AnimoSpacing.md,
-    backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.md,
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-  },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.greenTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activityTextWrap: {
-    flex: 1,
-    gap: 4,
+    gap: AnimoV2Spacing.md,
+    padding: AnimoV2Spacing.md,
   },
 });

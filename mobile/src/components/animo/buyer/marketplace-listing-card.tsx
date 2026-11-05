@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 15,
     lineHeight: TITLE_LINE_HEIGHT,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
     minHeight: TITLE_LINE_HEIGHT * TITLE_MAX_LINES,
   },
   priceRow: {

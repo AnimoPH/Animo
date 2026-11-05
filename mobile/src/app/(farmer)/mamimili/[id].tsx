@@ -3,17 +3,21 @@ import { StatusBar } from 'expo-status-bar';
 import { Clock, MessageSquareQuote, ShieldCheck, ShoppingBag, Star, UserRound } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { BackHeader } from '@/components/animo/back-header';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { V2BackHeader, StickyFooter } from '@/components/animo/ui/screen-bits';
+import { StatusPill } from '@/components/animo/ui/status-pill';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
 import { fetchBuyerRatingComments, fetchBuyerTrustStats, type BuyerTrustStats } from '@/services/farmer-public-profile';
 
 /**
- * Buyer profile — pre-match, so the buyer's real identity is not readable
+ * Buyer profile: pre-match, so the buyer's real identity is not readable
  * (RLS reveals "user" contact/name only once a transaction match exists, per
  * the "Counterpart contact revealed after a transaction match" policy in
  * migration 0001). What's shown here is purely aggregate trust: completed
@@ -21,6 +25,8 @@ import { fetchBuyerRatingComments, fetchBuyerTrustStats, type BuyerTrustStats } 
  * (migration 0022).
  */
 export default function BuyerProfileScreen() {
+  const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id: string; quantityKg?: string; total?: string }>();
   const buyerId = Array.isArray(params.id) ? params.id[0] : params.id;
   const quantityKg = params.quantityKg ? Number(params.quantityKg) : null;
@@ -43,288 +49,239 @@ export default function BuyerProfileScreen() {
       setStats(statsResult);
       setComments(commentsResult);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Hindi ma-load ang profile ng mamimili.');
+      setError(e instanceof Error ? e.message : t('buyerV2.loadError'));
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buyerId]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  const header = (
+    <V2BackHeader title={t('buyerV2.title')} backLabel={t('common.back')} onBack={() => router.back()} />
+  );
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <View style={styles.screen}>
         <StatusBar style="dark" />
-        <BackHeader title="Profile ng Mamimili" />
+        {header}
         <View style={styles.centerState}>
-          <ActivityIndicator color={AnimoColors.accentPrimary} />
+          <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!stats || error) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <View style={styles.screen}>
         <StatusBar style="dark" />
-        <BackHeader title="Profile ng Mamimili" />
+        {header}
         <View style={styles.centerState}>
-          <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.centerText}>
-            {error ?? 'Hindi ma-load ang profile ng mamimili.'}
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+            {error ?? t('buyerV2.loadError')}
           </AnimoText>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   const volumeLabel =
-    stats.totalBoughtKg >= 1000
-      ? `${(stats.totalBoughtKg / 1000).toFixed(1)}k`
-      : `${stats.totalBoughtKg}`;
+    stats.totalBoughtKg >= 1000 ? `${(stats.totalBoughtKg / 1000).toFixed(1)}k` : `${stats.totalBoughtKg}`;
+  const hasRating = stats.totalReviews > 0;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <View style={styles.screen}>
       <StatusBar style="dark" />
-      <BackHeader title="Profile ng Mamimili" />
+      {header}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.greenBanner}>
-          <View style={styles.avatarCircle}>
-            <UserRound size={44} color={AnimoColors.accentPrimary} />
+        <View style={styles.hero}>
+          <View style={styles.avatar}>
+            <UserRound size={44} color={AnimoV2Colors.textBrand} strokeWidth={2.25} />
           </View>
-          <AnimoText variant="h2" color={AnimoColors.white} style={styles.bannerBuyerName}>
-            Hindi pa Nakikilalang Mamimili
+          <AnimoText variant="heading" color={AnimoV2Colors.textOnBrand} style={styles.centerText}>
+            {t('buyerV2.unknownName')}
           </AnimoText>
-          <AnimoText variant="body" color="rgba(255, 255, 255, 0.9)" style={styles.memberSubtitle}>
-            Makikita ang buong pangalan kapag tinanggap mo ang kahilingan.
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textOnBrand} style={styles.centerText}>
+            {t('buyerV2.unknownSub')}
           </AnimoText>
         </View>
 
-        <View style={styles.floatingStatsRow}>
-          <View style={styles.statCard}>
-            <AnimoText variant="h1" color={AnimoColors.textHighEmphasis} style={styles.statNumber}>
-              {stats.completedTransactionsCount}
-            </AnimoText>
-            <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.statLabel}>
-              Transaksyon
-            </AnimoText>
-          </View>
-
-          <View style={styles.statCard}>
-            <View style={styles.ratingNumberRow}>
-              <AnimoText variant="h1" color={AnimoColors.textHighEmphasis} style={styles.statNumber}>
-                {stats.averageRating || '—'}
-              </AnimoText>
-              {stats.averageRating > 0 ? <Star size={18} color="#F59E0B" fill="#F59E0B" /> : null}
-            </View>
-            <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.statLabel}>
-              {stats.totalReviews} reviews
-            </AnimoText>
-          </View>
-
-          <View style={styles.statCard}>
-            <AnimoText variant="h1" color={AnimoColors.textHighEmphasis} style={styles.statNumber}>
-              {volumeLabel}
-            </AnimoText>
-            <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.statLabel}>
-              Kilo na Nabili
-            </AnimoText>
-          </View>
-        </View>
-
-        <View style={styles.infoCard}>
-          <View style={styles.cardHeaderRow}>
-            <ShieldCheck size={22} color={AnimoColors.accentPrimary} />
-            <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.cardHeaderTitle}>
-              Kredibilidad
-            </AnimoText>
-          </View>
-          <View style={styles.cardBody}>
-            <View style={styles.tableRow}>
-              <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.rowLabel}>
-                Natapos na Transaksyon
-              </AnimoText>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                {stats.completedTransactionsCount}
+        <View style={styles.statsRow}>
+          <View style={styles.statEdge}>
+            <View style={styles.stat}>
+              <AnimoText variant="title">{stats.completedTransactionsCount}</AnimoText>
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+                {t('buyerV2.transactions')}
               </AnimoText>
             </View>
-
-            <View style={styles.tableRow}>
-              <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.rowLabel}>
-                Rating
-              </AnimoText>
-              <View style={styles.greenBadge}>
-                <AnimoText variant="bodyEmphasis" color="#166534" style={styles.greenBadgeText}>
-                  {stats.totalReviews > 0 ? `${stats.averageRating} / 5.0` : '—'}
-                </AnimoText>
+          </View>
+          <View style={styles.statEdge}>
+            <View style={styles.stat}>
+              <View style={styles.ratingRow}>
+                <AnimoText variant="title">{stats.averageRating || '—'}</AnimoText>
+                {hasRating ? (
+                  <Star size={20} strokeWidth={2.5} color={AnimoV2Colors.warningSolid} fill={AnimoV2Colors.warningSolid} />
+                ) : null}
               </View>
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+                {t('buyerV2.reviewsCount', { count: stats.totalReviews })}
+              </AnimoText>
+            </View>
+          </View>
+          <View style={styles.statEdge}>
+            <View style={styles.stat}>
+              <AnimoText variant="title">{volumeLabel}</AnimoText>
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+                {t('buyerV2.kgBought')}
+              </AnimoText>
             </View>
           </View>
         </View>
+
+        <DepthCard depth="flat" style={styles.card}>
+          <View style={styles.cardHeader}>
+            <IconTile icon={ShieldCheck} tone="success" size={36} />
+            <AnimoText variant="subheading" accessibilityRole="header">
+              {t('buyerV2.credibility')}
+            </AnimoText>
+          </View>
+          <View style={styles.tableRow}>
+            <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.flex}>
+              {t('buyerV2.completed')}
+            </AnimoText>
+            <AnimoText variant="bodyStrong">{stats.completedTransactionsCount}</AnimoText>
+          </View>
+          <View style={styles.tableRow}>
+            <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.flex}>
+              {t('buyerV2.rating')}
+            </AnimoText>
+            {hasRating ? (
+              <StatusPill tone="success" label={`${stats.averageRating} / 5.0`} />
+            ) : (
+              <AnimoText variant="bodyStrong">—</AnimoText>
+            )}
+          </View>
+        </DepthCard>
 
         {comments.length > 0 ? (
-          <View style={styles.infoCard}>
-            <View style={styles.cardHeaderRow}>
-              <ShoppingBag size={22} color={AnimoColors.accentPrimary} />
-              <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.cardHeaderTitle}>
-                Mga Komento mula sa Ibang Magsasaka
+          <DepthCard depth="flat" style={styles.card}>
+            <View style={styles.cardHeader}>
+              <IconTile icon={ShoppingBag} tone="success" size={36} />
+              <AnimoText variant="subheading" style={styles.flex} accessibilityRole="header">
+                {t('buyerV2.comments')}
               </AnimoText>
             </View>
-            <View style={styles.cardBody}>
-              {comments.map((comment) => (
-                <View key={comment} style={styles.reviewCommentCard}>
-                  <View style={styles.reviewCommentHeader}>
-                    <MessageSquareQuote size={15} color={AnimoColors.accentPrimary} />
-                  </View>
-                  <AnimoText variant="body" color={AnimoColors.textHighEmphasis} style={styles.reviewQuoteText}>
-                    &quot;{comment}&quot;
-                  </AnimoText>
-                </View>
-              ))}
-            </View>
-          </View>
+            {comments.map((comment) => (
+              <View key={comment} style={styles.comment}>
+                <MessageSquareQuote size={18} color={AnimoV2Colors.textBrand} strokeWidth={2.25} />
+                <AnimoText variant="bodyV2" style={styles.flex}>
+                  &quot;{comment}&quot;
+                </AnimoText>
+              </View>
+            ))}
+          </DepthCard>
         ) : null}
 
         {quantityKg !== null && total !== null ? (
-          <View style={styles.listingCardOutline}>
-            <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-              Kasalukuyang Kahilingan
-            </AnimoText>
-            <View style={styles.listingMetricsRow}>
-              <View style={styles.listingMetricCol}>
-                <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-                  Dami
+          <DepthCard depth="flat" style={styles.card}>
+            <AnimoText variant="subheading">{t('buyerV2.currentRequest')}</AnimoText>
+            <View style={styles.metricsRow}>
+              <View style={styles.flex}>
+                <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                  {t('buyerV2.qty')}
                 </AnimoText>
-                <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-                  {quantityKg} kg
-                </AnimoText>
+                <AnimoText variant="heading">{quantityKg} kg</AnimoText>
               </View>
-              <View style={styles.listingMetricColRight}>
-                <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-                  Halaga
+              <View style={styles.metricRight}>
+                <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                  {t('buyerV2.value')}
                 </AnimoText>
-                <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
+                <AnimoText variant="heading" color={AnimoV2Colors.textBrand}>
                   {formatPeso(total)}
                 </AnimoText>
               </View>
             </View>
-            <View style={styles.listingTimeRight}>
-              <Clock size={14} color={AnimoColors.textMediumEmphasis} />
-              <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                Nakabinbing kahilingan sa listing na ito.
+            <View style={styles.pendingRow}>
+              <Clock size={18} color={AnimoV2Colors.textSecondary} strokeWidth={2.25} />
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={styles.flex}>
+                {t('buyerV2.pendingNote')}
               </AnimoText>
             </View>
-          </View>
+          </DepthCard>
         ) : null}
 
-        <View style={styles.privacyNoteBox}>
-          <ShieldCheck size={18} color={AnimoColors.accentPrimary} />
-          <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.privacyNoteText}>
-            Ligtas na Transaksyon: Ibibigay ang numero ng mamimili kapag tinanggap mo ang kahilingan.
+        <DepthCard
+          depth="flat"
+          backgroundColor={AnimoV2Colors.surfaceBrandSubtle}
+          borderColor={AnimoV2Colors.brandLight}
+          style={styles.note}>
+          <IconTile icon={ShieldCheck} tone="success" size={36} />
+          <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={styles.flex}>
+            {t('buyerV2.privacy')}
           </AnimoText>
-        </View>
+        </DepthCard>
       </ScrollView>
 
-      <View style={styles.bottomFooter}>
-        <AnimoButton label="Bumalik sa Listing" variant="primary" onPress={() => router.back()} />
+      <View style={{ paddingBottom: insets.bottom }}>
+        <StickyFooter>
+          <ChunkyButton label={t('buyerV2.backToListing')} onPress={() => router.back()} />
+        </StickyFooter>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FBF9F4' },
-  centerState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: AnimoSpacing.xl },
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  centerState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: AnimoV2Spacing.xl },
   centerText: { textAlign: 'center' },
-  scrollContent: { paddingBottom: AnimoSpacing.xl, gap: AnimoSpacing.md },
-  greenBanner: {
-    backgroundColor: AnimoColors.accentPrimary,
-    paddingTop: AnimoSpacing.lg,
-    paddingBottom: 48,
-    paddingHorizontal: AnimoSpacing.xl,
+  flex: { flex: 1 },
+  scrollContent: { paddingHorizontal: AnimoV2Spacing.lg, paddingBottom: AnimoV2Spacing.xl, gap: AnimoV2Spacing.lg },
+  hero: {
+    backgroundColor: AnimoV2Colors.surfaceBrand,
+    borderRadius: AnimoV2Radius.xl,
+    paddingVertical: AnimoV2Spacing.xl,
+    paddingHorizontal: AnimoV2Spacing.lg,
     alignItems: 'center',
-    gap: 8,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    gap: AnimoV2Spacing.sm,
   },
-  avatarCircle: {
+  avatar: {
     width: 84,
     height: 84,
     borderRadius: 42,
-    backgroundColor: AnimoColors.white,
+    backgroundColor: AnimoV2Colors.surfaceCard,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bannerBuyerName: { textAlign: 'center', marginTop: 4 },
-  memberSubtitle: { textAlign: 'center', fontSize: 14.5, marginTop: 2 },
-  floatingStatsRow: { flexDirection: 'row', gap: 12, marginTop: -30, paddingHorizontal: AnimoSpacing.lg },
-  statCard: {
+  statsRow: { flexDirection: 'row', gap: AnimoV2Spacing.sm },
+  statEdge: { flex: 1, borderRadius: AnimoV2Radius.lg, backgroundColor: AnimoV2Colors.brandDark, paddingBottom: 4 },
+  stat: {
     flex: 1,
-    backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.lg,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
+    backgroundColor: AnimoV2Colors.surfaceCard,
+    borderRadius: AnimoV2Radius.lg,
+    padding: AnimoV2Spacing.md,
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    gap: 3,
+    gap: AnimoV2Spacing.xs,
   },
-  statNumber: { fontSize: 26, fontFamily: 'PlusJakartaSans_700Bold', lineHeight: 30 },
-  ratingNumberRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statLabel: { fontSize: 14, textAlign: 'center', color: AnimoColors.textMediumEmphasis },
-  infoCard: {
-    backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.lg,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    marginHorizontal: AnimoSpacing.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.md,
-  },
-  cardHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cardHeaderTitle: { fontSize: 18.5, fontFamily: 'PlusJakartaSans_700Bold' },
-  cardBody: { gap: AnimoSpacing.sm, paddingTop: 4 },
-  tableRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
-  rowLabel: { fontSize: 16, color: AnimoColors.blackSecondary, flex: 1 },
-  greenBadge: { backgroundColor: '#DCFCE7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: AnimoRadius.pill },
-  greenBadgeText: { fontSize: 14, fontFamily: 'PlusJakartaSans_700Bold' },
-  reviewCommentCard: {
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: AnimoRadius.sm,
-    padding: AnimoSpacing.md,
-    gap: 4,
-    backgroundColor: '#F9FAFB',
-  },
-  reviewCommentHeader: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  reviewQuoteText: { fontStyle: 'italic', fontSize: 15.5, lineHeight: 22 },
-  listingCardOutline: {
-    backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.lg,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    marginHorizontal: AnimoSpacing.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.md,
-  },
-  listingMetricsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  listingMetricCol: { gap: 3, flex: 1 },
-  listingMetricColRight: { gap: 3, alignItems: 'flex-end' },
-  listingTimeRight: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  privacyNoteBox: {
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.xs },
+  card: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  tableRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoV2Spacing.md, minHeight: 32 },
+  comment: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.white,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    marginHorizontal: AnimoSpacing.lg,
-    padding: AnimoSpacing.md,
-    borderRadius: AnimoRadius.md,
+    gap: AnimoV2Spacing.sm,
+    padding: AnimoV2Spacing.md,
+    borderRadius: AnimoV2Radius.md,
+    backgroundColor: AnimoV2Colors.surfaceMuted,
   },
-  privacyNoteText: { flex: 1, fontSize: 14.5, lineHeight: 20 },
-  bottomFooter: { paddingHorizontal: AnimoSpacing.xl, paddingTop: AnimoSpacing.md, paddingBottom: AnimoSpacing.md, backgroundColor: '#FBF9F4' },
+  metricsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  metricRight: { alignItems: 'flex-end' },
+  pendingRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.sm },
+  note: { padding: AnimoV2Spacing.md, flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
 });

@@ -1,25 +1,29 @@
 import { router } from "expo-router";
-import { Image } from "expo-image";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
-import { Camera, X } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ChevronLeft, Lock, WifiOff, X } from "lucide-react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AnimoButton } from "@/components/animo/animo-button";
 import { AnimoText } from "@/components/animo/animo-text";
-import { FeedbackModal } from "@/components/animo/feedback-modal";
-import { ScreenHeader } from "@/components/animo/screen-header";
-import { PhotoSourceSheet } from "@/components/animo/photo-source-sheet";
-import { ProgressSteps } from "@/components/animo/farmer/progress-steps";
+import {
+  InlineError,
+  MoistureGradeFields,
+  PhotoSlotGrid,
+  PhotoSourceSheetV2,
+  VarietyFields,
+  WeightFields,
+} from "@/components/animo/farmer/listing-form-v2";
+import { ChunkyButton } from "@/components/animo/ui/chunky-button";
+import { DepthCard } from "@/components/animo/ui/depth-card";
+import { V2Dialog } from "@/components/animo/ui/dialog";
+import { IconTile } from "@/components/animo/ui/icon-tile";
+import { ProgressBar } from "@/components/animo/ui/progress-bar";
+import { IconButton, StickyFooter } from "@/components/animo/ui/screen-bits";
+import { TextField } from "@/components/animo/ui/text-field";
 
-import { LabeledInput } from "@/components/animo/labeled-input";
-import { SelectField } from "@/components/animo/select-field";
-import { SpecificVarietyField } from "@/components/animo/specific-variety-field";
-import { SegmentedChoice } from "@/components/animo/segmented-choice";
-
-import { AnimoColors, AnimoSpacing, AnimoRadius } from "@/constants/animo";
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from "@/constants/animo";
 import { useLanguage } from "@/hooks/use-language";
 import { useSession } from "@/hooks/use-session";
 import { formatPeso } from "@/constants/marketplace";
@@ -36,7 +40,6 @@ import {
   getHybridSpecificVarieties,
   getInbredSpecificVarieties,
   getMoistureOptions,
-  getPhotoSlots,
   getPurityOptions,
   getVarietyOptions,
   type DeclaredVariety,
@@ -46,7 +49,8 @@ import {
   type SpecificVarietyOption,
   type VarietyCode,
 } from "@/types/crop-listing";
-import { BackHeader } from "@/components/animo/back-header";
+
+const TOTAL_STEPS = 5;
 
 /** Re-encodes a picked photo to a size-capped JPEG before it's held in state / uploaded. */
 async function toUploadableJpeg(uri: string): Promise<string> {
@@ -63,17 +67,19 @@ async function toUploadableJpeg(uri: string): Promise<string> {
   }
 }
 
-/** Gumawa ng Listing — farmer creates a new palay listing: photo, quality, weight. */
+/** Gumawa ng Listing — five one-question steps: photos, name + variety, quality, weight, review + publish. */
 export default function PalayListingScreen() {
-  const { language, isTagalog } = useLanguage();
+  const { t, language, isTagalog } = useLanguage();
   const { account } = useSession();
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  const [step, setStep] = useState(1);
   const [variety, setVariety] = useState<DeclaredVariety | "">("");
   const [listingName, setListingName] = useState("");
   const [customVariety, setCustomVariety] = useState("");
-  // Second modal, shown only for Inbred/Hybrid — persisted as
+  // Shown only for Inbred/Hybrid — persisted as
   // specific_variety_name (+ custom) and variety_code (218 vs OTHER).
   const [specificVariety, setSpecificVariety] = useState<SpecificVarietyOption | null>(null);
-  const [specificVarietyOpen, setSpecificVarietyOpen] = useState(false);
   const [specificVarietyCustom, setSpecificVarietyCustom] = useState("");
   const [moistureType, setMoistureType] = useState<MoistureType>("Dry");
   const [purityGrade, setPurityGrade] = useState<PurityGrade | "">("");
@@ -154,6 +160,46 @@ export default function PalayListingScreen() {
     purityGrade !== "" &&
     netWeight > 0 &&
     hasAnyPhoto;
+
+  // Per-step validity: Next stays disabled until the step is valid.
+  const nameAndVarietyValid =
+    listingName.trim().length > 0 &&
+    variety !== "" &&
+    (variety !== "Others" || customVariety.trim().length > 0) &&
+    (!needsSpecificVariety || specificVariety !== null) &&
+    (specificVariety?.value !== SPECIFIC_VARIETY_OTHER || specificVarietyCustom.trim().length > 0);
+  const stepValid =
+    step === 1
+      ? hasAnyPhoto
+      : step === 2
+        ? nameAndVarietyValid
+        : step === 3
+          ? purityGrade !== ""
+          : step === 4
+            ? netWeight > 0
+            : canSubmit;
+
+  const goBack = useCallback(() => {
+    if (step === 1) {
+      router.back();
+    } else {
+      setStep((s) => s - 1);
+    }
+  }, [step]);
+
+  // Hardware back walks back one step instead of leaving the wizard.
+  useEffect(() => {
+    if (step === 1) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setStep((s) => Math.max(1, s - 1));
+      return true;
+    });
+    return () => sub.remove();
+  }, [step]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [step]);
 
   const handleClearPhoto = (slot: PhotoType) => {
     setPhotos((prev) => {
@@ -300,412 +346,319 @@ export default function PalayListingScreen() {
     navigateToUploading(createdListingId, createdPrice);
   };
 
-  const photoSlots = getPhotoSlots(language);
+  const onNext = () => {
+    if (!stepValid) return;
+    if (step < TOTAL_STEPS) setStep(step + 1);
+  };
+
+  const titles: Record<number, { title: string; sub: string }> = {
+    1: { title: t("wizV2.s1Title"), sub: t("wizV2.s1Sub") },
+    2: { title: t("wizV2.s2Title"), sub: t("wizV2.s2Sub") },
+    3: { title: t("wizV2.s3Title"), sub: t("wizV2.s3Sub") },
+    4: { title: t("wizV2.s4Title"), sub: t("wizV2.s4Sub") },
+    5: { title: t("wizV2.s5Title"), sub: t("wizV2.s5Sub") },
+  };
+
+  // Review summary text.
+  const varietyOption = getVarietyOptions(language).find((o) => o.value === variety);
+  const varietySummary =
+    variety === "Others"
+      ? customVariety.trim()
+      : needsSpecificVariety && specificVariety
+        ? specificVariety.value === SPECIFIC_VARIETY_OTHER
+          ? specificVarietyCustom.trim() || specificVariety.label
+          : specificVariety.label
+        : varietyOption?.label ?? "";
+  const moistureSummary = getMoistureOptions(language).find((o) => o.value === moistureType)?.label ?? moistureType;
+  const gradeSummary = getPurityOptions(language).find((o) => o.value === purityGrade)?.label ?? purityGrade;
+
+  const summaryRows: { label: string; value: string }[] = [
+    { label: t("wizV2.sumName"), value: listingName.trim() },
+    { label: t("wizV2.sumVariety"), value: varietySummary },
+    { label: t("wizV2.sumQuality"), value: `${moistureSummary}, ${gradeSummary}` },
+    { label: t("wizV2.sumQty"), value: `${netWeight.toLocaleString("en-PH")} kg` },
+  ];
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-      <BackHeader title={isTagalog ? "Gumawa ng Listing" : "Create Listing"} />
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.select({ ios: "padding", default: "height" })}>
+      {/* Top row: close / back, progress bar, step counter */}
+      <View style={[styles.progressRow, { paddingTop: insets.top + AnimoV2Spacing.sm }]}>
+        <IconButton
+          label={step === 1 ? t("wizV2.close") : t("wizV2.back")}
+          onPress={goBack}
+          icon={
+            step === 1 ? (
+              <X size={28} color={AnimoV2Colors.textPrimary} strokeWidth={2.75} />
+            ) : (
+              <ChevronLeft size={28} color={AnimoV2Colors.textPrimary} strokeWidth={2.75} />
+            )
+          }
+        />
+        <View style={styles.track}>
+          <ProgressBar value={step / TOTAL_STEPS} />
+        </View>
+        <AnimoText variant="tagV2" color={AnimoV2Colors.textTertiary} style={styles.counter}>
+          {step}/{TOTAL_STEPS}
+        </AnimoText>
+      </View>
 
-      {/* Progress Bar */}
-      <ProgressSteps />
-
-      {/* Body */}
       <ScrollView
+        ref={scrollRef}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.card, styles.shadow]}>
-          <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            {isTagalog ? "Maglista ng Palay" : "List Palay Harvest"}
+        showsVerticalScrollIndicator={false}>
+        <View style={{ gap: AnimoV2Spacing.xs }}>
+          <AnimoText variant="title" accessibilityRole="header">
+            {titles[step].title}
           </AnimoText>
-          <AnimoText
-            variant="body"
-            color={AnimoColors.textMediumEmphasis}
-            style={styles.introBody}
-          >
-            {isTagalog
-              ? "Ilagay ang detalye ng iyong palay para sa merkado. Tandaan na dapat ang mga ilalagay niyong impormasyon ay tama at eksakto."
-              : "Enter your palay harvest details for the marketplace. Please ensure all information entered is accurate."}
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+            {titles[step].sub}
           </AnimoText>
         </View>
 
-        {/* Photo Slots */}
-        <View style={[styles.card, styles.shadow]}>
-          <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            {isTagalog ? "Mga Larawan ng Palay" : "Harvest Photos"}
-          </AnimoText>
-          <AnimoText
-            variant="caption"
-            color={AnimoColors.textLowEmphasis}
-            style={styles.introBody}
-          >
-            {isTagalog
-              ? "Kailangan ng hindi bababa sa isang larawan. Kumuha gamit ang camera o pumili mula sa gallery."
-              : "At least one photo is required. Take photos using the camera or select from your gallery."}
-          </AnimoText>
+        {step === 1 ? (
+          <>
+            <PhotoSlotGrid
+              photos={photos}
+              failedSlots={failedSlots}
+              onPressSlot={setActiveSlot}
+              onClear={handleClearPhoto}
+            />
+            <DepthCard
+              depth="flat"
+              radius="lg"
+              backgroundColor={AnimoV2Colors.surfaceBrandSubtle}
+              borderColor={AnimoV2Colors.brandLight}
+              style={styles.tipCard}>
+              <IconTile icon={Lock} tone="success" size={36} />
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={{ flex: 1 }}>
+                {t("wizV2.s1Tip")}
+              </AnimoText>
+            </DepthCard>
+          </>
+        ) : null}
 
-          <View style={styles.photoRow}>
-            {photoSlots.map((slot) => {
-              const localUri = photos[slot.value];
-              const failed = failedSlots.includes(slot.value);
-              return (
-                <Pressable
-                  key={slot.value}
-                  accessibilityRole="button"
-                  onPress={() => setActiveSlot(slot.value)}
-                  style={[styles.photoTile, failed && styles.photoTileFailed]}
-                >
-                  {localUri ? (
-                    <View style={styles.photoTileImageWrap}>
-                      <Image
-                        source={{ uri: localUri }}
-                        style={styles.photoTileImage}
-                        contentFit="cover"
-                      />
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() => handleClearPhoto(slot.value)}
-                        style={styles.photoTileClear}
-                        hitSlop={8}
-                      >
-                        <X size={12} color={AnimoColors.textHighEmphasisInverse} />
-                      </Pressable>
-                    </View>
-                  ) : (
-                    <View style={styles.photoTileEmptyWrap}>
-                      <View style={styles.photoTileIconWrap}>
-                        <Camera size={25} color={AnimoColors.accentPrimary} />
-                      </View>
-                    </View>
-                  )}
-                  <AnimoText
-                    variant="tag"
-                    color={AnimoColors.textMediumEmphasis}
-                    style={styles.photoTileLabel}
-                  >
-                    {slot.label}
-                  </AnimoText>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={[styles.card, styles.shadow]}>
-          {/* Palay Details */}
-          <View>
-            <LabeledInput
-              label={isTagalog ? "Pangalan ng Listing" : "Listing Name"}
+        {step === 2 ? (
+          <>
+            <TextField
+              label={t("wizV2.nameLabel")}
               value={listingName}
               onChangeText={setListingName}
-              placeholder={isTagalog ? "Hal. Palay Listing" : "e.g. Palay Listing"}
+              placeholder={t("wizV2.namePh")}
+              autoCorrect={false}
             />
-            <View style={styles.inlineFieldSpacing}>
-              <SelectField
-                label={isTagalog ? "Uri ng Palay" : "Rice Variety"}
-                placeholder={isTagalog ? "Pumili ng uri ng palay" : "Select rice variety"}
-                options={getVarietyOptions(language)}
-                value={variety || null}
-                onChange={(value) => {
-                  const next = value as DeclaredVariety;
-                  setVariety(next);
-                  setCustomVariety("");
-                  setSpecificVariety(null);
+            <VarietyFields
+              variety={variety}
+              onVarietyChange={(next) => {
+                setVariety(next);
+                setCustomVariety("");
+                setSpecificVariety(null);
+                setSpecificVarietyCustom("");
+              }}
+              customVariety={customVariety}
+              onCustomVarietyChange={setCustomVariety}
+              specificOptions={specificVarietyOptions}
+              specificVariety={specificVariety}
+              onSpecificSelect={(option) => {
+                setSpecificVariety(option);
+                if (option.value !== SPECIFIC_VARIETY_OTHER) {
                   setSpecificVarietyCustom("");
-                  // Opens right after this modal closes — only for Inbred/Hybrid;
-                  // every other pick sets variety_code = OTHER directly (above).
-                  setSpecificVarietyOpen(next === "Inbred" || next === "Hybrid");
-                }}
-              />
-            </View>
-            {variety === "Others" ? (
-              <View style={styles.inlineFieldSpacing}>
-                <LabeledInput
-                  value={customVariety}
-                  onChangeText={setCustomVariety}
-                  placeholder={isTagalog ? "Ilagay ang pangalan ng uri" : "Enter variety name"}
-                />
+                }
+              }}
+              specificCustom={specificVarietyCustom}
+              onSpecificCustomChange={setSpecificVarietyCustom}
+            />
+          </>
+        ) : null}
+
+        {step === 3 ? (
+          <MoistureGradeFields
+            moisture={moistureType}
+            onMoistureChange={setMoistureType}
+            grade={purityGrade}
+            onGradeChange={setPurityGrade}
+          />
+        ) : null}
+
+        {step === 4 ? (
+          <WeightFields
+            gross={grossWeight}
+            tare={tareWeight}
+            onGrossChange={setGrossWeight}
+            onTareChange={setTareWeight}
+            net={netWeight}
+          />
+        ) : null}
+
+        {step === 5 ? (
+          <>
+            {shownPrice !== null ? (
+              <View style={styles.reveal}>
+                <AnimoText variant="tagV2" color={AnimoV2Colors.textOnBrand}>
+                  {t("wizV2.fairPrice")}
+                </AnimoText>
+                <View style={styles.revealPriceRow}>
+                  <AnimoText variant="priceHero" color={AnimoV2Colors.textOnBrand}>
+                    {formatPeso(shownPrice)}
+                  </AnimoText>
+                  <AnimoText variant="subheading" color={AnimoV2Colors.textOnBrand}>
+                    {t("wizV2.perKgLong")}
+                  </AnimoText>
+                </View>
+                <AnimoText variant="bodyV2" color={AnimoV2Colors.textOnBrand}>
+                  {t("wizV2.totalValue", { n: netWeight.toLocaleString("en-PH") })}:{" "}
+                  <AnimoText variant="bodyStrong" color={AnimoV2Colors.textOnBrand}>
+                    {formatPeso(shownPrice * netWeight)}
+                  </AnimoText>
+                </AnimoText>
+                <AnimoText variant="captionV2" color={AnimoV2Colors.textOnBrand}>
+                  {t("wizV2.priceSource", { date: feed?.effectiveDate ?? "" })}
+                </AnimoText>
               </View>
-            ) : null}
-            {needsSpecificVariety ? (
-              <View style={styles.inlineFieldSpacing}>
-                <SpecificVarietyField
-                  label={isTagalog ? "Tiyak na Uri ng Palay" : "Specific Rice Variety"}
-                  placeholder={isTagalog ? "Pumili ng tiyak na uri" : "Select specific variety"}
-                  options={specificVarietyOptions}
-                  value={specificVariety?.value ?? null}
-                  open={specificVarietyOpen}
-                  onOpenChange={setSpecificVarietyOpen}
-                  onSelect={(option) => {
-                    setSpecificVariety(option);
-                    if (option.value !== SPECIFIC_VARIETY_OTHER) {
-                      setSpecificVarietyCustom("");
-                    }
-                  }}
-                />
-                {specificVariety?.value === SPECIFIC_VARIETY_OTHER ? (
-                  <View style={styles.inlineFieldSpacing}>
-                    <LabeledInput
-                      value={specificVarietyCustom}
-                      onChangeText={setSpecificVarietyCustom}
-                      placeholder={isTagalog ? "Ilagay ang tiyak na uri" : "Enter specific variety"}
-                    />
+            ) : (
+              <DepthCard depth="flat" radius="lg" style={{ padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.sm }}>
+                <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                  {t("wizV2.noPrice")}
+                </AnimoText>
+                <Pressable
+                  onPress={loadFeed}
+                  disabled={loadingFeed}
+                  accessibilityRole="button"
+                  accessibilityLabel={loadingFeed ? t("wizV2.loadingPrice") : t("wizV2.retryUpload")}
+                  style={styles.retryPrice}>
+                  <AnimoText variant="bodyStrong" color={AnimoV2Colors.textBrand}>
+                    {loadingFeed ? t("wizV2.loadingPrice") : t("wizV2.retryUpload")}
+                  </AnimoText>
+                </Pressable>
+              </DepthCard>
+            )}
+
+            <DepthCard depth="flat" radius="lg" style={{ padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md }}>
+              {summaryRows.map((row, i) => (
+                <View key={row.label} style={{ gap: AnimoV2Spacing.md }}>
+                  {i > 0 ? <View style={styles.divider} /> : null}
+                  <View style={styles.summaryRow}>
+                    <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+                      {row.label}
+                    </AnimoText>
+                    <AnimoText variant="bodyStrong" style={styles.summaryValue}>
+                      {row.value}
+                    </AnimoText>
                   </View>
-                ) : null}
-              </View>
-            ) : null}
-          </View>
+                </View>
+              ))}
+            </DepthCard>
 
-          <SegmentedChoice
-            label={isTagalog ? 'Halumigmig' : 'Moisture'}
-            options={getMoistureOptions(language)}
-            value={moistureType}
-            onChange={setMoistureType}
-          />
-
-          <SelectField
-            label={isTagalog ? "Kalinisan (Purity Grade)" : "Purity Grade"}
-            placeholder={isTagalog ? "Pumili ng kalinisan ng palay" : "Select purity grade"}
-            options={getPurityOptions(language)}
-            value={purityGrade || null}
-            onChange={(value) => setPurityGrade(value as PurityGrade)}
-          />
-        </View>
-
-        {/* Weight Card */}
-        <View style={[styles.card, styles.shadow]}>
-          <LabeledInput
-            label={isTagalog ? "Timbang ng Palay (Gross Weight)" : "Gross Weight"}
-            value={grossWeight}
-            onChangeText={setGrossWeight}
-            keyboardType="numeric"
-            placeholder="0"
-            suffixText={isTagalog ? "kilo/kg" : "kg"}
-          />
-          <LabeledInput
-            label={isTagalog ? "Timbang ng Sako at iba pa (Tare Weight)" : "Tare Weight (Sacks & deductibles)"}
-            value={tareWeight}
-            onChangeText={setTareWeight}
-            keyboardType="numeric"
-            placeholder="0"
-            suffixText={isTagalog ? "kilo/kg" : "kg"}
-          />
-          <NetWeightField value={netWeight} isTagalog={isTagalog} />
-        </View>
-
-        {feed === null ? (
-          <View style={[styles.card, styles.shadow]}>
-            <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-              {isTagalog
-                ? "Wala pang naka-save na presyo sa phone. Kailangan ng signal sa unang listing para makuha ito."
-                : "No price is saved on this phone yet. The first listing needs a signal to get it."}
-            </AnimoText>
-            <Pressable onPress={loadFeed} disabled={loadingFeed} accessibilityRole="button">
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
-                {loadingFeed
-                  ? isTagalog ? "Kinukuha..." : "Loading..."
-                  : isTagalog ? "Subukan muli" : "Try again"}
+            <View style={styles.lockRow}>
+              <Lock size={20} color={AnimoV2Colors.textSecondary} strokeWidth={2.5} />
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={{ flex: 1 }}>
+                {t("wizV2.lockNote")}
               </AnimoText>
-            </Pressable>
-          </View>
-        ) : null}
-
-        {shownPrice !== null ? (
-          <View style={[styles.card, styles.shadow]}>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-              {isTagalog ? "Presyo" : "Price"}: {formatPeso(shownPrice)}/kg
-            </AnimoText>
-            <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-              {isTagalog
-                ? `Mula sa huling datos ng presyo (${feed?.effectiveDate}). Hindi ito mababago ng magsasaka. Kung nagbago ang presyo bago maipadala, tatanungin ka muna.`
-                : `From the last saved price data (${feed?.effectiveDate}). The farmer cannot change it. If the price changes before it is sent, you will be asked first.`}
-            </AnimoText>
-          </View>
-        ) : null}
-
-        {errorMessage ? (
-          <AnimoText variant="body" color={AnimoColors.danger}>
-            {errorMessage}
-          </AnimoText>
-        ) : null}
-
-        {/* Submit Bar */}
-        <View style={styles.submitBar}>
-          {failedSlots.length > 0 ? (
-            <View style={styles.retryBar}>
-              <AnimoButton
-                label={isTagalog ? "Subukan Muli" : "Try Again"}
-                variant="secondary"
-                loading={submitting}
-                onPress={handleSubmit}
-              />
-              <AnimoButton
-                label={isTagalog ? "Magpatuloy nang Wala Munang Larawan" : "Proceed Without Photos"}
-                variant="primary"
-                disabled={submitting}
-                onPress={handleProceedWithoutPhotos}
-              />
             </View>
-          ) : (
-            <AnimoButton
-              label={isTagalog ? "Ipasa na" : "Submit Listing"}
-              variant="primary"
-              disabled={!canSubmit}
+          </>
+        ) : null}
+
+        {errorMessage ? <InlineError message={errorMessage} /> : null}
+      </ScrollView>
+
+      {/* Sticky action bar */}
+      <StickyFooter>
+        {step === 5 && failedSlots.length > 0 ? (
+          <>
+            <ChunkyButton
+              label={t("wizV2.retryUpload")}
+              variant="secondary"
               loading={submitting}
               onPress={handleSubmit}
             />
-          )}
-        </View>
-      </ScrollView>
+            <ChunkyButton
+              label={t("wizV2.proceedNoPhotos")}
+              disabled={submitting}
+              onPress={handleProceedWithoutPhotos}
+            />
+          </>
+        ) : step === 5 ? (
+          <ChunkyButton
+            label={t("wizV2.publish")}
+            disabled={!stepValid}
+            loading={submitting}
+            onPress={handleSubmit}
+          />
+        ) : (
+          <ChunkyButton label={t("wizV2.next")} disabled={!stepValid} onPress={onNext} />
+        )}
+        <View style={{ height: insets.bottom }} />
+      </StickyFooter>
 
-      <FeedbackModal
+      <V2Dialog
         visible={savedOffline}
-        tone="info"
-        title={isTagalog ? "Na-save sa phone" : "Saved on this phone"}
-        message={
-          isTagalog
-            ? "Walang signal kaya naka-save ang listing sa phone. Ipapadala ito isang beses pagbalik ng signal."
-            : "There is no signal, so the listing is saved on this phone. It is sent once when the signal returns."
-        }
-        confirmLabel={isTagalog ? "Sige" : "OK"}
-        onConfirm={() => {
+        onClose={() => {
           setSavedOffline(false);
           router.replace("/(farmer)/(tabs)/palengke");
         }}
+        dismissable={false}
+        icon={WifiOff}
+        iconTone="warning"
+        title={t("wizV2.savedTitle")}
+        message={t("wizV2.savedMsg")}
+        actions={
+          <ChunkyButton
+            label={t("wizV2.ok")}
+            onPress={() => {
+              setSavedOffline(false);
+              router.replace("/(farmer)/(tabs)/palengke");
+            }}
+          />
+        }
       />
 
-      <PhotoSourceSheet
+      <PhotoSourceSheetV2
         visible={activeSlot !== null}
         onPickCamera={() => handlePickSource("camera")}
         onPickGallery={() => handlePickSource("gallery")}
         onClose={() => setActiveSlot(null)}
       />
-    </SafeAreaView>
-  );
-}
-
-function NetWeightField({ value, isTagalog = true }: { value: number; isTagalog?: boolean }) {
-  return (
-    <View>
-      <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
-        {isTagalog ? "Kabuuan (Net Weight)" : "Net Weight"}
-      </AnimoText>
-      <View style={styles.netWeightField}>
-        <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
-          {value}
-        </AnimoText>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.textLowEmphasis}>
-          {isTagalog ? "kilo/kg" : "kg"}
-        </AnimoText>
-      </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.appBackground,
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  progressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: AnimoV2Spacing.md,
+    paddingHorizontal: AnimoV2Spacing.sm,
+    paddingBottom: AnimoV2Spacing.sm,
   },
+  track: { flex: 1 },
+  counter: { paddingRight: AnimoV2Spacing.sm },
   scrollContent: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.lg,
-    paddingBottom: AnimoSpacing.xl,
-    gap: AnimoSpacing.xl,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.md,
+    paddingBottom: AnimoV2Spacing.xl,
+    gap: AnimoV2Spacing.lg,
   },
-  shadow: {
-    shadowColor: AnimoColors.darkBackground,
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  card: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.xl,
-  },
-  introBody: {
-    marginTop: AnimoSpacing.xs,
-  },
-  photoRow: {
-    flexDirection: "row",
-    gap: AnimoSpacing.sm,
-  },
-  photoTile: {
-    flex: 1,
-    borderRadius: AnimoRadius.lg,
-    borderWidth: 1.5,
-    borderColor: AnimoColors.accentPrimary,
-    borderStyle: "dashed",
-    backgroundColor: "rgba(200, 230, 201, 0.3)",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    padding: AnimoSpacing.sm,
-  },
-  photoTileFailed: {
-    borderColor: AnimoColors.danger,
-    borderStyle: "solid",
-  },
-  photoTileIconWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: AnimoRadius.lg,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  photoTileEmptyWrap: {
-    width: "100%",
-    height: 70,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  photoTileImageWrap: {
-    width: "100%",
-    height: 70,
-    position: "relative",
-    overflow: "hidden",
-    borderRadius: AnimoRadius.md,
-  },
-  photoTileImage: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  photoTileClear: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    width: 20,
-    height: 20,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  photoTileLabel: {
-    marginTop: AnimoSpacing.xs,
-    textAlign: "center",
-  },
-  inlineFieldSpacing: {
-    marginTop: AnimoSpacing.sm,
-  },
-  netWeightField: {
+  tipCard: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: AnimoSpacing.sm,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderAccentPrimary,
-    borderRadius: AnimoRadius.md,
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: AnimoSpacing.md,
-    backgroundColor: "rgba(200, 230, 201, 0.15)",
+    gap: AnimoV2Spacing.md,
+    padding: AnimoV2Spacing.md,
   },
-  submitBar: {
-    borderTopColor: AnimoColors.borderLowEmphasis,
+  reveal: {
+    backgroundColor: AnimoV2Colors.surfaceBrand,
+    borderRadius: AnimoV2Radius.xl,
+    borderBottomWidth: 6,
+    borderBottomColor: AnimoV2Colors.actionPrimaryDepth,
+    padding: 20,
+    gap: AnimoV2Spacing.sm,
   },
-  retryBar: {
-    gap: AnimoSpacing.md,
-  },
+  revealPriceRow: { flexDirection: "row", alignItems: "baseline", gap: AnimoV2Spacing.sm, flexWrap: "wrap" },
+  divider: { height: 2, borderRadius: 2, backgroundColor: AnimoV2Colors.borderDefault },
+  summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: AnimoV2Spacing.md },
+  summaryValue: { flexShrink: 1, textAlign: "right" },
+  lockRow: { flexDirection: "row", alignItems: "center", gap: AnimoV2Spacing.sm },
+  retryPrice: { minHeight: 48, justifyContent: "center" },
 });

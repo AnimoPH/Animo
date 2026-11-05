@@ -742,7 +742,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     fontSize: 16,
-    fontFamily: 'PlusJakartaSans_400Regular',
+    fontFamily: 'Nunito_400Regular',
     color: AnimoColors.textHighEmphasis,
     paddingVertical: 0,
   },
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
   },
   filterBadgeText: {
     fontSize: 11,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
     lineHeight: 12,
   },
   tabBarContainer: {
@@ -884,7 +884,7 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.accentPrimaryLight,
   },
   chipTextActive: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
     color: AnimoColors.accentPrimary,
   },
   modalPriceRow: {
@@ -979,7 +979,7 @@ const styles = StyleSheet.create({
   },
   farmerNameText: {
     fontSize: 17.5,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
   },
   farmerRatingRow: {
     flexDirection: 'row',
@@ -988,7 +988,7 @@ const styles = StyleSheet.create({
   },
   ratingNumberBold: {
     fontSize: 16,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
   },
   farmerCardFooter: {
     flexDirection: 'row',

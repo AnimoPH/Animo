@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
   },
   photoTagText: {
     fontSize: 13.5,
-    fontFamily: "PlusJakartaSans_600SemiBold",
+    fontFamily: "Nunito_600SemiBold",
   },
   expandButton: {
     position: "absolute",
@@ -853,7 +853,7 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.accentPrimaryLight,
   },
   thumbnailTextActive: {
-    fontFamily: "PlusJakartaSans_600SemiBold",
+    fontFamily: "Nunito_600SemiBold",
   },
   galleryHint: {
     textAlign: "center",
@@ -1060,7 +1060,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   farmerRatingText: {
-    fontFamily: "PlusJakartaSans_700Bold",
+    fontFamily: "Nunito_700Bold",
   },
   viewProfilePill: {
     flexDirection: "row",
@@ -1072,6 +1072,6 @@ const styles = StyleSheet.create({
     // borderRadius: AnimoRadius.pill,
   },
   viewProfilePillText: {
-    fontFamily: "PlusJakartaSans_600SemiBold",
+    fontFamily: "Nunito_600SemiBold",
   },
 });

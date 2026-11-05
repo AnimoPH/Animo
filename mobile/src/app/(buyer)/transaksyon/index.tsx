@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.accentPrimaryLight,
   },
   chipTextActive: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
     color: AnimoColors.accentPrimary,
   },
   centerFill: {

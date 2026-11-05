@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   },
   trendingBadgeText: {
     letterSpacing: 0.5,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
   },
   marketInsightInner: {
     flexDirection: 'column',
@@ -509,12 +509,12 @@ const styles = StyleSheet.create({
   },
   insightPriceValue: {
     fontSize: 24,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
     lineHeight: 28,
   },
   insightVarietyValueLarge: {
     fontSize: 18,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
     lineHeight: 24,
     marginTop: 2,
   },
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   varietyName: {
     fontSize: 15,
     lineHeight: 20,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
   },
   varietyTagBadge: {
     backgroundColor: '#F0FDF4',
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
   },
   varietyTagText: {
     fontSize: 11,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
   },
   hybridPill: {
     backgroundColor: '#EFF6FF',
@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
   },
   hybridPillText: {
     fontSize: 10,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
   },
   varietyPriceBlock: {
     marginTop: 4,
@@ -663,7 +663,7 @@ const styles = StyleSheet.create({
   },
   varietyPriceLarge: {
     fontSize: 19,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
     lineHeight: 22,
   },
   varietyPerKgText: {

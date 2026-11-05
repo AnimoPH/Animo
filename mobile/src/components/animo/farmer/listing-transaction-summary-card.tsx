@@ -1,8 +1,10 @@
-import { AlertCircle } from 'lucide-react-native';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { AlertTriangle, ChevronRight } from 'lucide-react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { StatusPill } from '@/components/animo/ui/status-pill';
+import { AnimoV2Colors, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
 
@@ -13,10 +15,12 @@ export type ListingTransactionSummaryCardProps = {
   soldKg: number;
   earnings: number;
   needsAction: boolean;
+  /** Listing is sold out (shows the neutral "Naubos" pill instead of "Aktibo"). */
+  soldOut?: boolean;
   onPress: () => void;
 };
 
-/** Per-listing Transaksyon rollup: remaining / sold / Buong Kita + pending-PR cue. */
+/** Per-listing Transaksyon rollup: name + status pill, then Natitira / Naibenta / Buong Kita columns. */
 export function ListingTransactionSummaryCard({
   title,
   varietyLine,
@@ -24,124 +28,86 @@ export function ListingTransactionSummaryCard({
   soldKg,
   earnings,
   needsAction,
+  soldOut = false,
   onPress,
 }: ListingTransactionSummaryCardProps) {
-  const { isTagalog } = useLanguage();
+  const { t } = useLanguage();
 
   return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      activeOpacity={0.85}
-      onPress={onPress}
-      style={styles.card}>
-      <View style={styles.cardBody}>
-        <View style={styles.titleRow}>
-          <AnimoText
-            variant="bodyEmphasis"
-            color={AnimoColors.textHighEmphasis}
-            style={styles.title}
-            numberOfLines={2}>
-            {title}
-          </AnimoText>
-          <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.leftKg}>
-            {isTagalog ? 'Natitira:' : 'Remaining:'} {remainingKg} kg
-          </AnimoText>
+    <View style={styles.wrap}>
+      <DepthCard
+        onPress={onPress}
+        accessibilityLabel={`${title}, ${t('ftx.left')} ${remainingKg} kg, ${t('ftx.sold')} ${soldKg} kg, ${t('ftx.earnings')} ${formatPeso(earnings)}`}>
+        <View style={styles.body}>
+          <View style={styles.titleRow}>
+            <View style={styles.flex}>
+              <AnimoText variant="subheading" numberOfLines={2}>
+                {title}
+              </AnimoText>
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={1}>
+                {varietyLine}
+              </AnimoText>
+            </View>
+            <StatusPill
+              tone={soldOut ? 'neutral' : 'success'}
+              label={soldOut ? t('ftx.soldOut') : t('ftx.active')}
+            />
+          </View>
+
+          <View style={styles.cols}>
+            <Column label={t('ftx.left')} value={`${remainingKg} kg`} />
+            <Column label={t('ftx.sold')} value={`${soldKg} kg`} />
+            <Column label={t('ftx.earnings')} value={formatPeso(earnings)} brand />
+          </View>
+
+          <View style={styles.link}>
+            <AnimoText variant="bodyStrong" color={AnimoV2Colors.textBrand}>
+              {t('ftx.viewOrders')}
+            </AnimoText>
+            <ChevronRight size={22} color={AnimoV2Colors.textBrand} strokeWidth={2.75} />
+          </View>
         </View>
 
-        <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.variety}>
-          {varietyLine}
-        </AnimoText>
+        {needsAction ? (
+          <View style={styles.action}>
+            <AlertTriangle size={18} color={AnimoV2Colors.cautionFg} strokeWidth={2.75} />
+            <AnimoText variant="tagV2" color={AnimoV2Colors.cautionFg}>
+              {t('action.needsAction')}
+            </AnimoText>
+          </View>
+        ) : null}
+      </DepthCard>
+    </View>
+  );
+}
 
-        <View style={styles.divider} />
-
-        <View style={styles.soldRow}>
-          <AnimoText variant="body" color={AnimoColors.textHighEmphasis}>
-            {isTagalog ? 'Dami ng Nabenta' : 'Amount Sold'}
-          </AnimoText>
-          <AnimoText variant="body" color={AnimoColors.textHighEmphasis}>
-            {soldKg}kg
-          </AnimoText>
-        </View>
-
-        <View style={styles.earningsRow}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
-            {isTagalog ? 'Buong Kita:' : 'Total Earnings:'}
-          </AnimoText>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.green}>
-            {formatPeso(earnings)}
-          </AnimoText>
-        </View>
-      </View>
-
-      {needsAction ? (
-        <View style={styles.actionBanner}>
-          <AlertCircle size={14} color={AnimoColors.moderate} />
-          <AnimoText variant="caption" color={AnimoColors.moderate} style={styles.actionText}>
-            {isTagalog ? 'Kailangan ng aksyon' : 'Action required'}
-          </AnimoText>
-        </View>
-      ) : null}
-    </TouchableOpacity>
+function Column({ label, value, brand = false }: { label: string; value: string; brand?: boolean }) {
+  return (
+    <View style={styles.col}>
+      <AnimoText variant="captionV2" color={AnimoV2Colors.textTertiary}>
+        {label}
+      </AnimoText>
+      <AnimoText variant="bodyStrong" color={brand ? AnimoV2Colors.textBrand : AnimoV2Colors.textPrimary}>
+        {value}
+      </AnimoText>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    marginBottom: AnimoSpacing.md,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    overflow: 'hidden',
-  },
-  cardBody: {
-    padding: AnimoSpacing.lg,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: AnimoSpacing.sm,
-  },
-  title: {
-    flex: 1,
-    fontFamily: 'PlusJakartaSans_700Bold',
-  },
-  leftKg: {
-    marginTop: 2,
-    flexShrink: 0,
-  },
-  variety: {
-    marginTop: AnimoSpacing.xs,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: AnimoColors.borderLowEmphasis,
-    marginVertical: AnimoSpacing.md,
-  },
-  soldRow: {
+  wrap: { marginBottom: AnimoV2Spacing.md },
+  flex: { flex: 1, minWidth: 0 },
+  body: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: AnimoV2Spacing.sm },
+  cols: { flexDirection: 'row', gap: AnimoV2Spacing.sm },
+  col: { flex: 1, minWidth: 0 },
+  link: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  action: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: AnimoSpacing.sm,
-  },
-  earningsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  actionBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: AnimoColors.surfaceTertiary,
-    backgroundColor: 'rgba(255, 224, 178, 0.4)',
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.sm,
-  },
-  actionText: {
-    ...AnimoType.caption,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    gap: AnimoV2Spacing.sm,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingVertical: AnimoV2Spacing.sm,
+    backgroundColor: AnimoV2Colors.cautionBg,
   },
 });

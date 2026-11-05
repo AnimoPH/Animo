@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   totalAmount: {
     fontSize: 36,
     lineHeight: 44,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
     color: AnimoColors.accentPrimary,
     textAlign: 'center',
   },

@@ -1,19 +1,10 @@
 import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
-import { Bell, ImageIcon, Plus, Search } from 'lucide-react-native';
+import { ChevronRight, ImageIcon, Plus, Search } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { AppHeader } from '@/components/animo/app-header';
 import { FilterModal } from '@/components/animo/filter-modal';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { SearchFilterBar } from '@/components/animo/search-filter-bar';
@@ -23,8 +14,13 @@ import {
   SpotlightTour,
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
-import { StatusBadge, type BadgeTone } from '@/components/animo/status-badge';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { FilterChip } from '@/components/animo/ui/filter-chip';
+import { Mascot } from '@/components/animo/ui/mascot';
+import { StickyFooter, V2ScreenTitle } from '@/components/animo/ui/screen-bits';
+import { StatusPill } from '@/components/animo/ui/status-pill';
+import { AnimoColors, AnimoSpacing, AnimoV2Colors, AnimoV2Spacing, type StatusTone } from '@/constants/animo';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
@@ -35,7 +31,6 @@ import { fetchCoverPhotos, fetchMyCropListings } from '@/services/crop-listing-s
 import { fetchPendingPurchaseRequestCountsByListing } from '@/services/purchase-request-service';
 import {
   MOISTURE_OPTIONS,
-  STATUS_LABELS,
   VARIETY_OPTIONS,
   getStatusLabel,
   listingTitle,
@@ -88,16 +83,13 @@ const MOISTURE_CHOICES: { value: MoistureChoice; label: string }[] = [
   ...MOISTURE_OPTIONS,
 ];
 
-const STATUS_TONES: Record<ListingStatus, BadgeTone> = {
+const STATUS_TONES: Record<ListingStatus, StatusTone> = {
   Draft: 'neutral',
   Available: 'success',
   Sold_Out: 'neutral',
   Cancelled: 'danger',
   Archived: 'neutral',
 };
-
-const TITLE_LINE_HEIGHT = 20;
-const TITLE_MAX_LINES = 2;
 
 /** Parses a filter text field, treating blank/garbage as "not set" rather than 0. */
 function parseNumber(text: string): number | undefined {
@@ -208,7 +200,6 @@ export default function FarmerPalengkeScreen() {
 
   const searchBarRef = useRef<View>(null);
   const fabRef = useRef<View>(null);
-  const bellRef = useRef<View>(null);
 
   const latestRequestId = useRef(0);
 
@@ -280,10 +271,21 @@ export default function FarmerPalengkeScreen() {
 
   const emptyMessage =
     searchQuery.trim().length > 0
-      ? (isTagalog ? `Walang nakitang listing para sa "${searchQuery}".` : `No listings found for "${searchQuery}".`)
-      : activeFilterCount > 0
-        ? (isTagalog ? 'Walang listing sa filter na ito.' : 'No listings match this filter.')
-        : (isTagalog ? 'Wala ka pang listing. Gumawa ng una mong listing ng palay.' : 'You have no listings yet. Create your first palay listing.');
+      ? t('aniV2.noSearchMatch', { q: searchQuery })
+      : t('aniV2.noFilterMatch');
+
+  // Status chips (Lahat / Aktibo / Naubos) drive the same applied `status` filter as the modal.
+  const chipDefs: { value: StatusFilterKey; label: string; count: number }[] = [
+    { value: 'Lahat', label: t('aniV2.filterAll'), count: listings.length },
+    { value: 'Available', label: t('aniV2.filterActive'), count: listings.filter((l) => l.status === 'Available').length },
+    { value: 'Sold_Out', label: t('aniV2.filterSold'), count: listings.filter((l) => l.status === 'Sold_Out').length },
+  ];
+  // The chips already show the status choice, so the filter-button badge leaves it out.
+  const badgeFilterCount = countActiveFilters({
+    ...appliedFilters,
+    status:
+      appliedFilters.status === 'Available' || appliedFilters.status === 'Sold_Out' ? 'Lahat' : appliedFilters.status,
+  });
 
   const openModal = () => {
     setDraftFilters(appliedFilters);
@@ -318,44 +320,14 @@ export default function FarmerPalengkeScreen() {
       description: t('spotlight.farmerPalengke.step2Desc'),
       icon: Plus,
       targetRef: fabRef,
-      shape: 'circle',
-      padding: 6,
-    },
-    {
-      id: 'farmer-palengke-bell',
-      title: t('spotlight.farmerPalengke.step3Title'),
-      description: t('spotlight.farmerPalengke.step3Desc'),
-      icon: Bell,
-      targetRef: bellRef,
-      shape: 'circle',
+      shape: 'rectangle',
+      borderRadius: 16,
       padding: 6,
     },
   ];
 
-  return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <AppHeader
-        bellRef={bellRef}
-        onPressBell={() => router.push('/(farmer)/notipikasyon')}
-      />
-
-      <View ref={searchBarRef} collapsable={false}>
-        <SearchFilterBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder={isTagalog ? "Maghanap ng ani, uri, at..." : "Search crops, variety, etc..."}
-          activeFilterCount={activeFilterCount}
-          onFilterPress={openModal}
-        />
-      </View>
-
-      <FilterModal
-        visible={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onReset={resetFilters}
-        onApply={applyFilters}
-        activeCount={activeFilterCount}
-      >
+  const filterModalChildren = (
+    <>
         <View style={styles.filterSection}>
           <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
             {isTagalog ? "Katayuan" : "Status"}
@@ -489,6 +461,56 @@ export default function FarmerPalengkeScreen() {
             })}
           </View>
         </View>
+    </>
+  );
+
+  const hasNoListingsAtAll =
+    listings.length === 0 &&
+    searchQuery.trim().length === 0 &&
+    activeFilterCount === 0 &&
+    waitingCards.length === 0;
+  const showFooter = !loading && !errorMessage && !hasNoListingsAtAll;
+
+  const goCreate = () => router.push('/(farmer)/creation-listing');
+
+  return (
+    <View style={styles.screen}>
+      <V2ScreenTitle title={t('tab.myHarvest')} subtitle={t('aniV2.subtitle')} />
+
+      <View ref={searchBarRef} collapsable={false}>
+        <SearchFilterBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={t('aniV2.searchPlaceholder')}
+          activeFilterCount={badgeFilterCount}
+          onFilterPress={openModal}
+        />
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipScroll}
+        contentContainerStyle={styles.chipRow}>
+        {chipDefs.map((chip) => (
+          <FilterChip
+            key={chip.value}
+            label={chip.label}
+            count={chip.count}
+            selected={appliedFilters.status === chip.value}
+            onPress={() => setAppliedFilters((prev) => ({ ...prev, status: chip.value }))}
+          />
+        ))}
+      </ScrollView>
+
+      <FilterModal
+        visible={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onReset={resetFilters}
+        onApply={applyFilters}
+        activeCount={activeFilterCount}
+      >
+        {filterModalChildren}
       </FilterModal>
 
       <View style={styles.listContainer}>
@@ -498,48 +520,53 @@ export default function FarmerPalengkeScreen() {
               <WaitingListingRow key={card.id} card={card} />
             ))}
             {waitingCards.length > 3 ? (
-              <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                {isTagalog
-                  ? `+${waitingCards.length - 3} pang naghihintay`
-                  : `+${waitingCards.length - 3} more waiting`}
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                {t('aniV2.waitingMore', { n: waitingCards.length - 3 })}
               </AnimoText>
             ) : null}
           </View>
         ) : null}
         {loading ? (
           <View style={styles.centerState}>
-            <ActivityIndicator color={AnimoColors.accentPrimary} />
+            <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
           </View>
         ) : errorMessage ? (
           <View style={styles.centerState}>
-            <AnimoText variant="body" color={AnimoColors.danger} style={styles.centerText}>
+            <AnimoText variant="bodyV2" color={AnimoV2Colors.dangerFg} style={styles.centerText}>
               {errorMessage}
             </AnimoText>
-            <Pressable onPress={load}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.accentPrimary}>
-                Subukan ulit
-              </AnimoText>
-            </Pressable>
+            <ChunkyButton label={t('aniV2.retry')} variant="secondary" onPress={load} style={styles.retryBtn} />
           </View>
         ) : displayedListings.length === 0 ? (
-          <View style={styles.centerState}>
-            <AnimoText
-              variant="body"
-              color={AnimoColors.textMediumEmphasis}
-              style={styles.centerText}>
-              {emptyMessage}
-            </AnimoText>
-          </View>
+          hasNoListingsAtAll ? (
+            <View style={styles.centerState}>
+              <Mascot size={120} />
+              <AnimoText variant="title" style={styles.centerText}>
+                {t('aniV2.emptyTitle')}
+              </AnimoText>
+              <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+                {t('aniV2.emptyBody')}
+              </AnimoText>
+              <View ref={fabRef} collapsable={false} style={styles.emptyButtonWrap}>
+                <ChunkyButton label={t('aniV2.emptyButton')} onPress={goCreate} />
+              </View>
+            </View>
+          ) : (
+            <View style={styles.centerState}>
+              <Mascot size={96} />
+              <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+                {emptyMessage}
+              </AnimoText>
+            </View>
+          )
         ) : (
           <FlatList
             data={displayedListings}
             keyExtractor={(item) => item.id}
-            numColumns={2}
-            columnWrapperStyle={styles.columnWrapper}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => (
-              <FarmerMarketplaceCard
+              <FarmerListingCard
                 listing={item}
                 coverPhotoUrl={coverPhotos.get(item.id)}
                 pendingCount={pendingCounts.get(item.id) ?? 0}
@@ -559,16 +586,15 @@ export default function FarmerPalengkeScreen() {
             )}
           />
         )}
-
-        <View ref={fabRef} collapsable={false} style={styles.fabWrapper}>
-          <Pressable
-            onPress={() => router.push('/(farmer)/creation-listing')}
-            style={[styles.fab, styles.fabShadow]}
-            accessibilityLabel="Gumawa ng bagong listing">
-            <Plus size={28} color={AnimoColors.white} />
-          </Pressable>
-        </View>
       </View>
+
+      {showFooter ? (
+        <StickyFooter>
+          <View ref={fabRef} collapsable={false}>
+            <ChunkyButton label={t('aniV2.newListing')} icon={Plus} onPress={goCreate} />
+          </View>
+        </StickyFooter>
+      ) : null}
 
       <SpotlightTour
         visible={showTutorial}
@@ -580,7 +606,7 @@ export default function FarmerPalengkeScreen() {
           AsyncStorage.setItem(FARMER_PALENGKE_TUTORIAL_KEY, 'true').catch(() => {});
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -611,43 +637,40 @@ function FilterChoiceChip({
 
 /** A listing saved on the phone that the server does not have yet. */
 function WaitingListingRow({ card }: { card: PendingListingCard }) {
-  const { isTagalog } = useLanguage();
+  const { t } = useLanguage();
   const label =
     card.state === 'review'
-      ? isTagalog ? 'Nagbago ang presyo. Tingnan sa ibaba.' : 'Price changed. See below.'
+      ? t('aniV2.waitingReview')
       : card.state === 'failed'
-        ? isTagalog ? 'Hindi naipadala. Tingnan sa ibaba.' : 'Not sent. See below.'
-        : isTagalog ? 'Naghihintay ng signal' : 'Waiting for signal';
-  const tone: BadgeTone = card.state === 'waiting' ? 'info' : card.state === 'review' ? 'warning' : 'danger';
+        ? t('aniV2.waitingFailed')
+        : t('aniV2.waitingSignal');
+  const tone: StatusTone = card.state === 'waiting' ? 'warning' : card.state === 'review' ? 'caution' : 'danger';
 
   return (
-    <View style={[styles.waitingRow, styles.shadow]}>
+    <DepthCard depth="flat" radius="lg" style={styles.waitingRow}>
       <View style={styles.waitingPhoto}>
         {card.coverUri ? (
           <Image source={{ uri: card.coverUri }} style={styles.photoImage} contentFit="cover" />
         ) : (
-          <ImageIcon size={20} color={AnimoColors.objectLowEmphasis} />
+          <ImageIcon size={24} color={AnimoV2Colors.textTertiary} />
         )}
       </View>
       <View style={styles.waitingBody}>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} numberOfLines={1}>
+        <AnimoText variant="bodyStrong" numberOfLines={1}>
           {card.name}
         </AnimoText>
-        <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
+        <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
           {card.netWeightKg} kg
-          {card.seenPricePerKg !== null ? ` · ${formatPeso(card.seenPricePerKg)}/kg` : ''}
+          {card.seenPricePerKg !== null ? ` · ${formatPeso(card.seenPricePerKg)}${t('aniV2.perKg')}` : ''}
         </AnimoText>
-        <StatusBadge label={label} tone={tone} />
+        <StatusPill tone={tone} label={label} />
       </View>
-    </View>
+    </DepthCard>
   );
 }
 
-/**
- * Simplified Aking Ani card: photo, status, title, price, pending count, Tingnan.
- * Specs (moisture, purity, remaining kg, harvest) live on the detail Detalye tab.
- */
-function FarmerMarketplaceCard({
+/** Aking Ani listing card: photo with status + request pills, name, specs, price, kg left, action row. */
+function FarmerListingCard({
   listing,
   coverPhotoUrl,
   pendingCount,
@@ -660,130 +683,106 @@ function FarmerMarketplaceCard({
   onPress: () => void;
   onPressOrders: () => void;
 }) {
-  const { language, isTagalog } = useLanguage();
+  const { t, language } = useLanguage();
+  const soldOut = listing.status === 'Sold_Out' || listing.remainingQuantityKg <= 0;
+  const specs = [
+    varietyLabel(listing, language),
+    purityLabel(listing.declaredPurityGrade, language),
+    moistureLabel(listing.declaredMoisture, language),
+  ].join(', ');
+  const name = listingTitle(listing);
 
   return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      activeOpacity={0.85}
+    <DepthCard
       onPress={onPress}
-      style={[styles.card, styles.shadow]}>
+      accessibilityLabel={t('aniV2.openListing', { name })}
+      style={styles.card}>
       <View style={styles.photoArea}>
         {coverPhotoUrl ? (
           <Image source={{ uri: coverPhotoUrl }} style={styles.photoImage} contentFit="cover" />
         ) : (
-          <ImageIcon size={24} color={AnimoColors.objectLowEmphasis} />
+          <ImageIcon size={32} color={AnimoV2Colors.textTertiary} />
         )}
-        <View style={styles.statusBadgeWrap}>
-          <StatusBadge
-            label={getStatusLabel(listing.status, language)}
-            tone={STATUS_TONES[listing.status]}
-          />
+        <View style={styles.photoOverlay} pointerEvents="none">
+          <StatusPill tone={STATUS_TONES[listing.status]} label={getStatusLabel(listing.status, language)} />
+          {pendingCount > 0 ? (
+            <StatusPill tone="warning" label={t('aniV2.pendingPill', { n: pendingCount })} />
+          ) : null}
         </View>
       </View>
 
-      <View style={styles.body}>
-        <AnimoText
-          variant="h3"
-          color={AnimoColors.textHighEmphasis}
-          numberOfLines={TITLE_MAX_LINES}
-          ellipsizeMode="tail"
-          style={styles.cardTitle}>
-          {listingTitle(listing)}
+      <View style={styles.cardBody}>
+        <AnimoText variant="subheading" numberOfLines={2}>
+          {name}
         </AnimoText>
-
+        <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={2}>
+          {specs}
+        </AnimoText>
         <View style={styles.priceRow}>
-          <AnimoText variant="h2" color={AnimoColors.accentPrimary} style={styles.priceText}>
-            {listing.pricePerKg !== null ? formatPeso(listing.pricePerKg) : '—'}
+          <AnimoText variant="priceV2" color={AnimoV2Colors.textBrand}>
+            {listing.pricePerKg !== null ? `${formatPeso(listing.pricePerKg)}${t('aniV2.perKg')}` : '—'}
           </AnimoText>
-          <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            {' '}
-            {isTagalog ? 'bawat kilo' : '/ kg'}
+          <AnimoText variant="bodyStrong">
+            {soldOut
+              ? t('aniV2.soldOutShort')
+              : t('aniV2.kgLeft', { n: listing.remainingQuantityKg.toLocaleString('en-PH') })}
           </AnimoText>
         </View>
-
-        <View style={styles.footerCol}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${pendingCount} ${isTagalog ? 'nakabinbing kahilingan' : 'pending requests'}`}
-            hitSlop={8}
-            onPress={onPressOrders}>
-            <AnimoText
-              variant="caption"
-              color={AnimoColors.textMediumEmphasis}
-              numberOfLines={2}
-              style={styles.pendingText}>
-              {pendingCount} {isTagalog ? 'nakabinbing kahilingan' : 'pending requests'}
-            </AnimoText>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={isTagalog ? "Tingnan ang listing" : "View listing"}
-            hitSlop={8}
-            onPress={onPress}
-            style={styles.tingnanPressable}>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.accentPrimary} style={styles.tingnanText}>
-              {isTagalog ? 'Tingnan' : 'View'}
-            </AnimoText>
-          </Pressable>
-        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={pendingCount > 0 ? t('aniV2.viewRequests') : t('aniV2.viewDetails')}
+          hitSlop={8}
+          onPress={pendingCount > 0 ? onPressOrders : onPress}
+          style={styles.actionRow}>
+          <AnimoText variant="bodyStrong" color={AnimoV2Colors.textBrand}>
+            {pendingCount > 0 ? t('aniV2.viewRequests') : t('aniV2.viewDetails')}
+          </AnimoText>
+          <ChevronRight size={22} color={AnimoV2Colors.textBrand} strokeWidth={2.75} />
+        </Pressable>
       </View>
-    </TouchableOpacity>
+    </DepthCard>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  chipScroll: { flexGrow: 0 },
+  chipRow: {
+    flexDirection: 'row',
+    gap: AnimoV2Spacing.sm,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.sm,
+    paddingBottom: AnimoV2Spacing.xs,
+  },
   waitingList: {
-    gap: AnimoSpacing.sm,
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingBottom: AnimoSpacing.sm,
+    gap: AnimoV2Spacing.sm,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingBottom: AnimoV2Spacing.sm,
   },
   waitingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: AnimoSpacing.md,
-    padding: AnimoSpacing.sm,
-    borderRadius: AnimoRadius.md,
-    backgroundColor: AnimoColors.surfacePrimary,
+    gap: AnimoV2Spacing.md,
+    padding: AnimoV2Spacing.sm,
   },
   waitingPhoto: {
-    width: 56,
-    height: 56,
-    borderRadius: AnimoRadius.sm,
+    width: 64,
+    height: 64,
+    borderRadius: AnimoV2Spacing.md,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: AnimoColors.surface,
+    backgroundColor: AnimoV2Colors.surfaceMuted,
   },
-  waitingBody: {
-    flex: 1,
-    gap: 4,
-    alignItems: 'flex-start',
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.appBackground,
-  },
-  filterSection: {
-    gap: AnimoSpacing.sm,
-  },
-  filterPriceRow: {
-    flexDirection: 'row',
-    gap: AnimoSpacing.md,
-  },
-  filterPriceField: {
-    flex: 1,
-  },
-  chipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: AnimoSpacing.sm,
-    marginTop: 2,
-  },
+  waitingBody: { flex: 1, gap: AnimoV2Spacing.xs, alignItems: 'flex-start' },
+  filterSection: { gap: AnimoSpacing.sm },
+  filterPriceRow: { flexDirection: 'row', gap: AnimoSpacing.md },
+  filterPriceField: { flex: 1 },
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: AnimoSpacing.sm, marginTop: 2 },
   chipItem: {
     paddingHorizontal: AnimoSpacing.md,
     paddingVertical: 10,
-    borderRadius: AnimoRadius.pill,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: AnimoColors.borderLowEmphasis,
     backgroundColor: AnimoColors.surfacePrimary,
@@ -793,112 +792,50 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoColors.accentPrimaryLight,
   },
   chipTextActive: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
     color: AnimoColors.accentPrimary,
   },
-  listContainer: {
-    flex: 1,
-    backgroundColor: AnimoColors.appBackground,
-  },
+  listContainer: { flex: 1 },
   listContent: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.sm,
-    paddingBottom: AnimoSpacing.xxl,
-  },
-  columnWrapper: {
-    gap: AnimoSpacing.md,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.sm,
+    paddingBottom: AnimoV2Spacing.lg,
+    gap: AnimoV2Spacing.lg,
   },
   centerState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: AnimoSpacing.xl,
-    gap: AnimoSpacing.sm,
+    paddingHorizontal: AnimoV2Spacing.xl,
+    gap: AnimoV2Spacing.lg,
   },
-  centerText: {
-    textAlign: 'center',
-  },
-  card: {
-    flex: 1,
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    marginBottom: AnimoSpacing.md,
-    overflow: 'hidden',
-  },
-  shadow: {
-    shadowColor: AnimoColors.darkBackground,
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
-  },
+  centerText: { textAlign: 'center' },
+  retryBtn: { alignSelf: 'stretch' },
+  emptyButtonWrap: { alignSelf: 'stretch' },
+  card: { padding: 0 },
   photoArea: {
     width: '100%',
-    aspectRatio: 1.35,
-    backgroundColor: AnimoColors.surfaceTertiary,
+    height: 150,
+    backgroundColor: AnimoV2Colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
   },
-  photoImage: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  statusBadgeWrap: {
+  photoImage: { ...StyleSheet.absoluteFillObject },
+  photoOverlay: {
     position: 'absolute',
-    top: AnimoSpacing.xs,
-    right: AnimoSpacing.xs,
-  },
-  body: {
-    padding: AnimoSpacing.sm,
-    gap: 4,
-  },
-  cardTitle: {
-    fontSize: 15,
-    lineHeight: TITLE_LINE_HEIGHT,
-    minHeight: TITLE_LINE_HEIGHT * TITLE_MAX_LINES,
-  },
-  priceRow: {
+    top: AnimoV2Spacing.md,
+    left: AnimoV2Spacing.md,
+    right: AnimoV2Spacing.md,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
-  priceText: {
-    fontSize: 18,
-    lineHeight: 22,
-  },
-  footerCol: {
-    marginTop: 2,
-    gap: 4,
-  },
-  pendingText: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  tingnanPressable: {
-    alignSelf: 'flex-start',
-  },
-  tingnanText: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  fabWrapper: {
-    position: 'absolute',
-    bottom: AnimoSpacing.xl,
-    right: AnimoSpacing.xl,
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.accentPrimary,
+  cardBody: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.sm },
+  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: AnimoV2Spacing.sm },
+  actionRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabShadow: {
-    shadowColor: AnimoColors.darkBackground,
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
-    elevation: 6,
+    justifyContent: 'space-between',
+    minHeight: 48,
   },
 });

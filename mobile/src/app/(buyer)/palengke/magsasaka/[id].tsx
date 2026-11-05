@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
   },
   topNavTitle: {
     fontSize: 20,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
     textAlign: 'center',
   },
   backBtnPlaceholder: {
@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
   },
   bannerFarmerName: {
     fontSize: 24,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
     color: AnimoColors.white,
     textAlign: 'center',
     marginTop: 4,
@@ -728,7 +728,7 @@ const styles = StyleSheet.create({
   },
   locationPillText: {
     fontSize: 15,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
   },
   memberSubtitle: {
     fontSize: 14.5,
@@ -759,7 +759,7 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: 26,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
     lineHeight: 30,
   },
   ratingNumberRow: {
@@ -796,7 +796,7 @@ const styles = StyleSheet.create({
   },
   cardHeaderTitle: {
     fontSize: 18.5,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
   },
   cardBody: {
     gap: AnimoSpacing.sm,
@@ -825,7 +825,7 @@ const styles = StyleSheet.create({
   },
   rowValue: {
     fontSize: 16,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
     textAlign: 'right',
   },
   rowValueRightGroup: {
@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
   },
   greenBadgeText: {
     fontSize: 14,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
   },
   varietyChipsWrap: {
     flexDirection: 'row',
@@ -865,7 +865,7 @@ const styles = StyleSheet.create({
   },
   varietyPillText: {
     fontSize: 14.5,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
   },
   ratingStarsRight: {
     alignItems: 'flex-end',
@@ -909,7 +909,7 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.pill,
   },
   viewListingText: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
     fontSize: 14.5,
   },
   innerListingBoxOutline: {
@@ -935,11 +935,11 @@ const styles = StyleSheet.create({
   },
   listingVarietyName: {
     fontSize: 19.5,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
   },
   listingQuantity: {
     fontSize: 19.5,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
   },
   innerListingDivider: {
     height: 1,
@@ -955,7 +955,7 @@ const styles = StyleSheet.create({
   },
   listingPriceText: {
     fontSize: 24,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
   },
   listingTimeRight: {
     flexDirection: 'row',
@@ -1037,7 +1037,7 @@ const styles = StyleSheet.create({
   },
   modalSubheading: {
     fontSize: 17.5,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
     marginTop: 4,
   },
   modalScrollList: {
@@ -1078,7 +1078,7 @@ const styles = StyleSheet.create({
   },
   feedbackScoreText: {
     fontSize: 32,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
   },
   feedbackRatingCol: {
     flex: 1,
@@ -1090,7 +1090,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   thumbsText: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
   },
   reviewCommentCard: {
     borderWidth: 1,

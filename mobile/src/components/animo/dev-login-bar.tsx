@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   chipLabel: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
   },
   error: {
     textAlign: 'center',

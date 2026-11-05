@@ -1,15 +1,19 @@
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { CheckCircle, Download, ExternalLink, Star } from 'lucide-react-native';
+import { Check, Download, ExternalLink, ShieldCheck, Star } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { AnimoButton } from '@/components/animo/animo-button';
-import { FeedbackModal } from '@/components/animo/feedback-modal';
-import { BackHeader } from '@/components/animo/back-header';
-import { AnimoColors, AnimoType, AnimoSpacing, AnimoRadius } from '@/constants/animo';
+import { AnimoText } from '@/components/animo/animo-text';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { V2Dialog } from '@/components/animo/ui/dialog';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { Mascot } from '@/components/animo/ui/mascot';
+import { V2BackHeader } from '@/components/animo/ui/screen-bits';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
 import { fetchCropListing } from '@/services/crop-listing-service';
 import {
   fetchReceipt,
@@ -18,11 +22,16 @@ import {
   recordBlockchainReceipt,
   type Receipt,
 } from '@/services/transaction-service';
-import { useLanguage } from '@/hooks/use-language';
 import { varietyLabel, type CropListing } from '@/types/crop-listing';
-import { formatReferenceId, formatDate, shortenTxHash, type TransactionCounterpart, type TransactionWithPayment } from '@/types/transaction';
+import {
+  formatDate,
+  formatReferenceId,
+  shortenTxHash,
+  type TransactionCounterpart,
+  type TransactionWithPayment,
+} from '@/types/transaction';
 
-const SCREEN_PADDING = AnimoSpacing.lg;
+const SCREEN_PADDING = AnimoV2Spacing.lg;
 const POLYGONSCAN_TX_URL = 'https://amoy.polygonscan.com/tx/';
 
 /**
@@ -35,7 +44,7 @@ const POLYGONSCAN_TX_URL = 'https://amoy.polygonscan.com/tx/';
  */
 export default function FarmerReceiptScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { isTagalog } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [transaction, setTransaction] = useState<TransactionWithPayment | null>(null);
   const [listing, setListing] = useState<CropListing | null>(null);
@@ -87,11 +96,11 @@ export default function FarmerReceiptScreen() {
         if (tx.status === 'Completed') ensureReceipt(tx.id);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : (isTagalog ? 'Hindi ma-load ang resibo.' : 'Failed to load receipt.'));
+      setError(e instanceof Error ? e.message : t('frb.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [id, ensureReceipt, isTagalog]);
+  }, [id, ensureReceipt, t]);
 
   useEffect(() => {
     load();
@@ -99,200 +108,210 @@ export default function FarmerReceiptScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title={isTagalog ? 'Digital na Resibo' : 'Digital Receipt'} />
+      <View style={styles.screen}>
+        <V2BackHeader title={t('frb.title')} backLabel={t('ftx.back')} onBack={() => router.back()} />
         <View style={styles.missing}>
-          <ActivityIndicator color={AnimoColors.accentPrimary} />
+          <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!transaction || error) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <View style={styles.screen}>
         <StatusBar style="dark" />
-        <BackHeader title={isTagalog ? 'Digital na Resibo' : 'Digital Receipt'} />
+        <V2BackHeader title={t('frb.title')} backLabel={t('ftx.back')} onBack={() => router.back()} />
         <View style={styles.missing}>
-          <Text style={styles.missingText}>{error ?? (isTagalog ? 'Hindi nahanap ang transaksyon na ito.' : 'Transaction not found.')}</Text>
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+            {error ?? t('ftx.txNotFound')}
+          </AnimoText>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   const payment = transaction.payment;
   const detailRows: { label: string; value: string }[] = [
-    { label: 'Transaction ID', value: formatReferenceId(transaction.id, 'TXN') },
-    { label: isTagalog ? 'Uri ng Palay' : 'Rice Variety', value: listing ? varietyLabel(listing) : 'Palay' },
-    { label: isTagalog ? 'Dami' : 'Quantity', value: `${transaction.quantityKg} kg` },
-    { label: isTagalog ? 'Presyo bawat kilo' : 'Price per kg', value: `${formatPeso(transaction.agreedPricePerKg)}/kg` },
-    { label: isTagalog ? 'Paraan ng Bayad' : 'Payment Method', value: payment?.paymentMode ?? '—' },
-    ...(payment?.gcashReferenceNumber ? [{ label: 'Reference No.', value: payment.gcashReferenceNumber }] : []),
-    { label: isTagalog ? 'Mamimili' : 'Buyer', value: buyer?.name ?? (isTagalog ? 'Mamimili' : 'Buyer') },
-    { label: isTagalog ? 'Petsa' : 'Date', value: transaction.dateCompleted ? formatDate(transaction.dateCompleted) : '—' },
+    { label: t('frb.txId'), value: formatReferenceId(transaction.id, 'TXN') },
+    { label: t('frb.variety'), value: listing ? varietyLabel(listing) : 'Palay' },
+    { label: t('frb.quantity'), value: `${transaction.quantityKg} kg` },
+    { label: t('frb.pricePerKg'), value: `${formatPeso(transaction.agreedPricePerKg)}/kg` },
+    { label: t('frb.payMode'), value: payment?.paymentMode ?? '—' },
+    ...(payment?.gcashReferenceNumber ? [{ label: t('frb.refNo'), value: payment.gcashReferenceNumber }] : []),
+    { label: t('frb.buyer'), value: buyer?.name ?? t('ftx.buyerFallback') },
+    {
+      label: t('frb.date'),
+      value: transaction.dateCompleted ? formatDate(transaction.dateCompleted, language) : '—',
+    },
   ];
 
+  const openProof = () => {
+    if (!receipt) return;
+    Linking.openURL(`${POLYGONSCAN_TX_URL}${receipt.txHash}`).catch(() => {});
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <View style={styles.screen}>
       <StatusBar style="dark" />
-      <BackHeader title={isTagalog ? 'Digital na Resibo' : 'Digital Receipt'} />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <V2BackHeader title={t('frb.title')} backLabel={t('ftx.back')} onBack={() => router.back()} />
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <View style={styles.checkCircle}>
-            <CheckCircle size={40} color={AnimoColors.white} />
-          </View>
-          <Text style={styles.heroTitle}>{isTagalog ? 'Kumpleto ang Transaksyon!' : 'Transaction Completed!'}</Text>
-          <Text style={styles.heroSubtitle}>{isTagalog ? 'Nakumpirma ang buong bayad.' : 'Full payment has been confirmed.'}</Text>
+          <Mascot size={96} />
+          <AnimoText variant="title" style={styles.centerText} accessibilityRole="header">
+            {t('frb.doneTitle')}
+          </AnimoText>
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+            {t('frb.doneSub')}
+          </AnimoText>
         </View>
 
-        <View style={styles.receiptCard}>
-          <View style={styles.statusRow}>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>{isTagalog ? 'Kumpleto' : 'Completed'}</Text>
+        <DepthCard>
+          <View style={styles.cardBody}>
+            <View style={styles.totalBlock}>
+              <AnimoText variant="tagV2" color={AnimoV2Colors.textTertiary}>
+                {t('frb.total')}
+              </AnimoText>
+              <AnimoText variant="priceHero" color={AnimoV2Colors.textBrand}>
+                {formatPeso(payment?.amount ?? transaction.totalAmount)}
+              </AnimoText>
             </View>
+
+            {detailRows.map((row) => (
+              <View key={row.label} style={styles.gap}>
+                <View style={styles.divider} />
+                <View style={styles.rowBetween}>
+                  <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.rowLabel}>
+                    {row.label}
+                  </AnimoText>
+                  <AnimoText variant="bodyStrong" style={styles.rowValue}>
+                    {row.value}
+                  </AnimoText>
+                </View>
+              </View>
+            ))}
           </View>
-          <Text style={styles.totalAmount}>{formatPeso(payment?.amount ?? transaction.totalAmount)}</Text>
+        </DepthCard>
 
-          <View style={styles.dashedDivider} />
-
-          {detailRows.map((row, index) => (
-            <View key={row.label}>
-              {index > 0 ? <View style={styles.rowDivider} /> : null}
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>{row.label}</Text>
-                <Text style={styles.detailValue}>{row.value}</Text>
+        <DepthCard depth="flat" backgroundColor={AnimoV2Colors.surfaceBrandSubtle} borderColor={AnimoV2Colors.brandLight}>
+          <View style={styles.cardBody}>
+            <View style={styles.noteRow}>
+              <IconTile icon={ShieldCheck} tone="success" size={36} />
+              <View style={styles.flex}>
+                <AnimoText variant="bodyStrong">{t('frb.noteTitle')}</AnimoText>
+                <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                  {t('frb.noteBody')}
+                </AnimoText>
               </View>
             </View>
-          ))}
 
-          <View style={styles.rowDivider} />
-          {receipt ? (
-            <Pressable
-              accessibilityRole="link"
-              onPress={() => Linking.openURL(`${POLYGONSCAN_TX_URL}${receipt.txHash}`).catch(() => {})}
-              style={styles.blockchainRow}
-            >
-              <Text style={styles.detailLabel}>{isTagalog ? 'Katibayan' : 'On-Chain Proof'}</Text>
-              <View style={styles.blockchainValueGroup}>
-                <Text style={styles.detailValue}>{shortenTxHash(receipt.txHash)}</Text>
-                <ExternalLink size={14} color={AnimoColors.accentPrimary} />
+            <View style={styles.divider} />
+            {receipt ? (
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel={t('frb.proofOpen')}
+                onPress={openProof}
+                style={styles.proofRow}>
+                <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.rowLabel}>
+                  {t('frb.proof')}
+                </AnimoText>
+                <View style={styles.proofValue}>
+                  <AnimoText variant="bodyStrong" color={AnimoV2Colors.textBrand}>
+                    {shortenTxHash(receipt.txHash)}
+                  </AnimoText>
+                  <ExternalLink size={18} color={AnimoV2Colors.textBrand} strokeWidth={2.75} />
+                </View>
+              </Pressable>
+            ) : receiptPending ? (
+              <View style={styles.proofRow}>
+                <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+                  {t('frb.proof')}
+                </AnimoText>
+                <ActivityIndicator size="small" color={AnimoV2Colors.actionPrimary} />
               </View>
-            </Pressable>
-          ) : receiptPending ? (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>{isTagalog ? 'Katibayan' : 'On-Chain Proof'}</Text>
-              <ActivityIndicator size="small" color={AnimoColors.accentPrimary} />
-            </View>
-          ) : (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>{isTagalog ? 'Katibayan' : 'On-Chain Proof'}</Text>
-              <Text style={{ ...styles.detailValue, color: AnimoColors.textLowEmphasis, fontStyle: 'italic' }}>
-                {receiptFailed
-                  ? (isTagalog ? 'Hindi ma-load ang katibayan' : 'Could not load proof')
-                  : (isTagalog ? 'Katibayan hindi pa available' : 'Proof not yet available')}
-              </Text>
-            </View>
-          )}
-        </View>
+            ) : (
+              <View style={styles.proofRow}>
+                <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+                  {t('frb.proof')}
+                </AnimoText>
+                <AnimoText variant="bodyStrong" color={AnimoV2Colors.textTertiary} style={styles.rowValue}>
+                  {receiptFailed ? t('frb.proofFailed') : t('frb.proofNone')}
+                </AnimoText>
+              </View>
+            )}
+          </View>
+        </DepthCard>
 
         <View style={styles.actions}>
           {transaction.status === 'Completed' && !receipt ? (
             <>
               {receiptFailed ? (
-                <Text style={styles.detailLabel} accessibilityRole="alert">
-                  {isTagalog
-                    ? 'Kumpleto pa rin ang bentahan. Subukang muli upang makuha ang katibayan sa blockchain.'
-                    : 'Your sale is still completed. Retry to retrieve its blockchain proof.'}
-                </Text>
+                <AnimoText variant="captionV2" color={AnimoV2Colors.dangerFg} accessibilityRole="alert">
+                  {t('frb.retryMsg')}
+                </AnimoText>
               ) : null}
-              <AnimoButton
-                label={receiptPending
-                  ? (isTagalog ? 'Kinukuha ang Katibayan…' : 'Retrieving Proof…')
-                  : (isTagalog ? 'Subukang Muli ang Katibayan' : 'Retry Blockchain Proof')}
+              <ChunkyButton
+                label={receiptPending ? t('frb.retrieving') : t('frb.retry')}
                 variant="secondary"
                 disabled={receiptPending}
                 onPress={() => ensureReceipt(transaction.id)}
               />
             </>
           ) : null}
-          <AnimoButton
-            label={isTagalog ? 'Suriin ang Mamimili' : 'Review Buyer'}
+          <ChunkyButton
+            label={t('frb.rateBuyer')}
             icon={Star}
             onPress={() => router.push({ pathname: '/(farmer)/review', params: { id: transaction.id } } as Href)}
           />
-          <AnimoButton
-            label={isTagalog ? 'I-download ang Resibo' : 'Download Receipt'}
+          <ChunkyButton
+            label={t('frb.download')}
             variant="secondary"
             icon={Download}
             onPress={() => setShowDownloadModal(true)}
           />
-          <AnimoButton
-            label={isTagalog ? 'Bumalik sa Transaksyon' : 'Back to Transactions'}
-            variant="neutralOutline"
+          <ChunkyButton
+            label={t('ftx.backToTx')}
+            variant="ghost"
             onPress={() => router.replace('/(farmer)/(tabs)/transaksyon' as Href)}
           />
         </View>
       </ScrollView>
 
-      <FeedbackModal
+      <V2Dialog
         visible={showDownloadModal}
-        tone="success"
-        title={isTagalog ? 'Na-save ang Resibo!' : 'Receipt Saved!'}
-        message={isTagalog ? 'Matagumpay na nai-save ang digital na resibo sa iyong device.' : 'The digital receipt was successfully saved to your device.'}
-        confirmLabel="OK"
-        onConfirm={() => setShowDownloadModal(false)}
+        onClose={() => setShowDownloadModal(false)}
+        icon={Check}
+        iconTone="success"
+        title={t('frb.savedTitle')}
+        message={t('frb.savedMsg')}
+        actions={<ChunkyButton label={t('ftx.ok')} onPress={() => setShowDownloadModal(false)} />}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: AnimoColors.appBackground },
-  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: AnimoSpacing.xl },
-  missingText: { ...AnimoType.body, color: AnimoColors.textMediumEmphasis },
-  scroll: { flex: 1, backgroundColor: AnimoColors.appBackground },
-  scrollContent: { paddingBottom: AnimoSpacing.xl },
-  hero: {
-    backgroundColor: AnimoColors.accentPrimary,
-    paddingHorizontal: SCREEN_PADDING,
-    paddingTop: AnimoSpacing.xxl,
-    paddingBottom: 56,
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: AnimoV2Spacing.xl },
+  centerText: { textAlign: 'center' },
+  flex: { flex: 1, minWidth: 0 },
+  scroll: { paddingHorizontal: SCREEN_PADDING, paddingBottom: AnimoV2Spacing.xxl, gap: AnimoV2Spacing.lg },
+  hero: { alignItems: 'center', gap: AnimoV2Spacing.sm, paddingTop: AnimoV2Spacing.sm },
+  cardBody: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
+  totalBlock: { alignItems: 'center' },
+  gap: { gap: AnimoV2Spacing.md },
+  divider: { height: 2, borderRadius: AnimoV2Radius.full, backgroundColor: AnimoV2Colors.borderDefault },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoV2Spacing.md },
+  rowLabel: { flexShrink: 0 },
+  rowValue: { flexShrink: 1, textAlign: 'right' },
+  noteRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  proofRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: AnimoV2Spacing.md,
+    minHeight: 48,
   },
-  checkCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: AnimoRadius.pill,
-    borderWidth: 2.5,
-    borderColor: AnimoColors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: AnimoSpacing.lg,
-  },
-  heroTitle: { ...AnimoType.h1, color: AnimoColors.white, textAlign: 'center', fontWeight: 'bold' },
-  heroSubtitle: { ...AnimoType.body, color: 'rgba(255,255,255,0.85)', textAlign: 'center', marginTop: AnimoSpacing.xs },
-  receiptCard: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    marginHorizontal: SCREEN_PADDING,
-    marginTop: -32,
-    padding: AnimoSpacing.lg,
-    shadowColor: AnimoColors.darkBackground,
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-  },
-  statusRow: { alignItems: 'center', marginBottom: AnimoSpacing.md },
-  statusBadge: { backgroundColor: AnimoColors.accentPrimaryLight, borderRadius: AnimoRadius.pill, paddingHorizontal: AnimoSpacing.md, paddingVertical: AnimoSpacing.xs },
-  statusBadgeText: { ...AnimoType.tag, color: AnimoColors.accentPrimary },
-  totalAmount: { fontSize: 36, lineHeight: 44, fontFamily: 'PlusJakartaSans_700Bold', color: AnimoColors.accentPrimary, textAlign: 'center' },
-  dashedDivider: { borderBottomWidth: 1, borderStyle: 'dashed', borderColor: AnimoColors.borderLowEmphasis, marginVertical: AnimoSpacing.lg },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: AnimoSpacing.sm },
-  detailLabel: { ...AnimoType.body, color: AnimoColors.textLowEmphasis },
-  detailValue: { ...AnimoType.bodyEmphasis, color: AnimoColors.textHighEmphasis },
-  rowDivider: { height: 1, backgroundColor: AnimoColors.surfaceTertiary },
-  blockchainRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: AnimoSpacing.sm },
-  blockchainValueGroup: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  actions: { marginHorizontal: SCREEN_PADDING, marginTop: AnimoSpacing.xxl, gap: AnimoSpacing.sm },
+  proofValue: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.xs },
+  actions: { gap: AnimoV2Spacing.md, marginTop: AnimoV2Spacing.sm },
 });

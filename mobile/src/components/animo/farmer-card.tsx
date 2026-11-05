@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     borderRadius: AnimoRadius.pill,
   },
   callBtnText: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
   },
   phoneValue: {
     flexShrink: 1,

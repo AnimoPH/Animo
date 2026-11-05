@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   listingTitle: {
     fontSize: 18,
     lineHeight: 24,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
     marginBottom: AnimoSpacing.xs,
   },
   metaRow: {
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 24,
     lineHeight: 36,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
     flexShrink: 0,
   },
   datetime: {
@@ -297,6 +297,6 @@ const styles = StyleSheet.create({
   },
   actionText: {
     ...AnimoType.caption,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
   },
 });

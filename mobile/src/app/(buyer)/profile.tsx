@@ -1135,7 +1135,7 @@ const styles = StyleSheet.create({
   },
   langBadgeText: {
     fontSize: 12,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
     color: AnimoColors.accentPrimary,
   },
   signOutLabel: {
@@ -1251,7 +1251,7 @@ const styles = StyleSheet.create({
   ratingBigText: {
     fontSize: 32,
     lineHeight: 38,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Nunito_700Bold',
     color: AnimoColors.textHighEmphasis,
   },
   starsRow: {
