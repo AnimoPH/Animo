@@ -5,11 +5,11 @@ import { AnimoV2Colors } from '@/constants/animo';
 
 export type MascotProps = {
   size?: number;
-  /** The mascot art is white line-work, so it sits on a green tile by default. */
+  /** The icon art is white, so it sits on a green tile by default. */
   tile?: boolean;
 };
 
-/** The salakot mascot (greets on Tahanan, appears on empty states and success screens). */
+/** The Animo app icon (white salakot face). Greets on Tahanan, appears on empty states and success screens. */
 export function Mascot({ size = 64, tile = true }: MascotProps) {
   return (
     <View
@@ -25,8 +25,8 @@ export function Mascot({ size = 64, tile = true }: MascotProps) {
         overflow: 'hidden',
       }}>
       <Image
-        source={require('@/assets/images/animo/animo-mascot.png')}
-        style={{ width: size * 0.92, height: size * 0.92 }}
+        source={require('@/assets/images/animo/icon-white.png')}
+        style={{ width: size * 0.86, height: size * 0.86 }}
         contentFit="contain"
       />
     </View>

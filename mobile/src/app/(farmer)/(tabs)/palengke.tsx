@@ -1,8 +1,9 @@
 import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
-import { ChevronRight, ImageIcon, Plus, Search } from 'lucide-react-native';
+import { ImageIcon, Plus, Search } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { FilterModal } from '@/components/animo/filter-modal';
@@ -18,7 +19,7 @@ import { ChunkyButton } from '@/components/animo/ui/chunky-button';
 import { DepthCard } from '@/components/animo/ui/depth-card';
 import { FilterChip } from '@/components/animo/ui/filter-chip';
 import { Mascot } from '@/components/animo/ui/mascot';
-import { StickyFooter, V2ScreenTitle } from '@/components/animo/ui/screen-bits';
+import { StickyFooter } from '@/components/animo/ui/screen-bits';
 import { StatusPill } from '@/components/animo/ui/status-pill';
 import { AnimoColors, AnimoSpacing, AnimoV2Colors, AnimoV2Spacing, type StatusTone } from '@/constants/animo';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
@@ -186,6 +187,7 @@ function listingMatchesSearch(listing: CropListing, searchQuery: string): boolea
  */
 export default function FarmerPalengkeScreen() {
   const { t, language, isTagalog } = useLanguage();
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [appliedFilters, setAppliedFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
   const [draftFilters, setDraftFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
@@ -475,7 +477,7 @@ export default function FarmerPalengkeScreen() {
 
   return (
     <View style={styles.screen}>
-      <V2ScreenTitle title={t('tab.myHarvest')} subtitle={t('aniV2.subtitle')} />
+      <View style={{ height: insets.top + AnimoV2Spacing.sm }} />
 
       <View ref={searchBarRef} collapsable={false}>
         <SearchFilterBar
@@ -728,17 +730,13 @@ function FarmerListingCard({
               : t('aniV2.kgLeft', { n: listing.remainingQuantityKg.toLocaleString('en-PH') })}
           </AnimoText>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={pendingCount > 0 ? t('aniV2.viewRequests') : t('aniV2.viewDetails')}
-          hitSlop={8}
+        <ChunkyButton
+          size="sm"
+          variant={pendingCount > 0 ? 'primary' : 'secondary'}
+          label={pendingCount > 0 ? t('aniV2.viewRequests') : t('aniV2.viewDetails')}
           onPress={pendingCount > 0 ? onPressOrders : onPress}
-          style={styles.actionRow}>
-          <AnimoText variant="bodyStrong" color={AnimoV2Colors.textBrand}>
-            {pendingCount > 0 ? t('aniV2.viewRequests') : t('aniV2.viewDetails')}
-          </AnimoText>
-          <ChevronRight size={22} color={AnimoV2Colors.textBrand} strokeWidth={2.75} />
-        </Pressable>
+          style={styles.cardAction}
+        />
       </View>
     </DepthCard>
   );
@@ -830,12 +828,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  cardBody: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.sm },
-  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: AnimoV2Spacing.sm },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 48,
+  cardBody: {
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.md,
+    paddingBottom: AnimoV2Spacing.md,
+    gap: AnimoV2Spacing.xs,
   },
+  cardAction: { alignSelf: 'stretch', marginTop: AnimoV2Spacing.sm },
+  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: AnimoV2Spacing.sm },
+
 });

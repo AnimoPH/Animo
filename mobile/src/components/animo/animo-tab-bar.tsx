@@ -68,6 +68,7 @@ export function AnimoTabBar({
   }
 
   return (
+    <View style={styles.rim}>
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, AnimoV2Spacing.md) + AnimoV2Spacing.sm }]}>
       {state.routes.map((route, index) => {
         const item = items.find((i) => i.name === route.name);
@@ -119,7 +120,8 @@ export function AnimoTabBar({
             accessibilityLabel={count > 0 ? `${displayLabel}, ${count}` : displayLabel}
             onPress={onPress}
             style={styles.tabSlot}>
-            <View style={[styles.tabEdge, focused && styles.tabEdgeOn]}>
+            {focused ? <View style={styles.tabEdge} /> : null}
+            <View style={styles.tabWrap}>
               <View style={[styles.tab, focused && styles.tabOn]}>
                 <View>
                   {LucideGlyph ? (
@@ -150,32 +152,51 @@ export function AnimoTabBar({
         );
       })}
     </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  /** White bar, rounded top corners, 4px top edge and a soft upward shadow. */
-  bar: {
-    flexDirection: 'row',
-    gap: AnimoV2Spacing.xs,
-    paddingHorizontal: AnimoV2Spacing.sm,
-    paddingTop: 10,
-    backgroundColor: AnimoV2Colors.surfaceCard,
+  /** Soft beige rim (4px) around the rounded top, drawn as its own view so the corners are never cropped. */
+  rim: {
+    paddingTop: 4,
+    paddingHorizontal: 0,
+    backgroundColor: AnimoV2Colors.borderDefault,
     borderTopLeftRadius: AnimoV2Radius.xl,
     borderTopRightRadius: AnimoV2Radius.xl,
-    borderTopWidth: 4,
-    borderTopColor: AnimoV2Colors.borderDefault,
     elevation: 16,
     shadowColor: AnimoV2Colors.textPrimary,
     shadowOpacity: 0.1,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: -6 },
   },
+  bar: {
+    flexDirection: 'row',
+    gap: AnimoV2Spacing.xs,
+    paddingHorizontal: AnimoV2Spacing.sm,
+    paddingTop: AnimoV2Spacing.md,
+    backgroundColor: AnimoV2Colors.surfaceCard,
+    borderTopLeftRadius: AnimoV2Radius.xl,
+    borderTopRightRadius: AnimoV2Radius.xl,
+  },
   tabSlot: { flex: 1, minWidth: 0 },
-  tabEdge: { borderRadius: AnimoV2Radius.lg, paddingBottom: 0 },
-  tabEdgeOn: { backgroundColor: AnimoV2Colors.actionPrimaryDepth, paddingBottom: AnimoV2Size.depth },
+  /** Dark edge peeking out below the active pill (absolutely positioned: Android can't do hard shadows). */
+  tabEdge: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: AnimoV2Size.depth,
+    height: AnimoV2Size.tabItemMinHeight,
+    borderRadius: AnimoV2Radius.lg,
+    backgroundColor: AnimoV2Colors.actionPrimaryDepth,
+  },
+  tabWrap: { height: AnimoV2Size.tabItemMinHeight + AnimoV2Size.depth },
   tab: {
-    minHeight: AnimoV2Size.tabItemMinHeight,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: AnimoV2Size.tabItemMinHeight,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
@@ -183,8 +204,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   tabOn: { backgroundColor: AnimoV2Colors.actionPrimary },
-  label: { fontFamily: 'Nunito_600SemiBold' },
-  labelOn: { fontFamily: 'Nunito_800ExtraBold' },
+  label: { fontFamily: 'Nunito_600SemiBold', fontSize: 12, lineHeight: 16 },
+  labelOn: { fontFamily: 'Nunito_800ExtraBold', fontSize: 12, lineHeight: 16 },
   badge: {
     position: 'absolute',
     top: -6,

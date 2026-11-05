@@ -20,7 +20,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Children, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -64,7 +64,6 @@ type FarmerTxnDisplay = {
   status: string;
 };
 
-const HERO_BLOB = { inset: -40, bottom: -70, height: 110, opacity: 0.35 } as const;
 
 /**
  * Farmer Profile and Setting: identity hero, live stats, account, payment methods, and settings.
@@ -217,8 +216,7 @@ export default function FarmerProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
         {/* Hero */}
-        <View style={[styles.hero, { paddingTop: insets.top + AnimoV2Spacing.xl }]}>
-          <View style={styles.heroBlob} pointerEvents="none" />
+        <View style={[styles.hero, { paddingTop: insets.top + AnimoV2Spacing.lg }]}>
           <Mascot size={84} tile={false} />
           <AnimoText variant="title" color={AnimoV2Colors.textOnBrand} style={styles.centerText} accessibilityRole="header">
             {fullName}
@@ -530,10 +528,10 @@ function StatTile({
 }) {
   return (
     <DepthCard
-      depth="flat"
       radius="lg"
       onPress={onPress}
       accessibilityLabel={`${a11y}: ${value} ${label}`}
+      wrapperStyle={styles.flex}
       style={styles.statTile}>
       <Icon
         size={22}
@@ -555,7 +553,14 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <AnimoText variant="subheading" accessibilityRole="header">
         {title}
       </AnimoText>
-      {children}
+      <DepthCard radius="xl">
+        {Children.toArray(children).map((child, i) => (
+          <View key={i}>
+            {i > 0 ? <View style={styles.rowDivider} /> : null}
+            {child}
+          </View>
+        ))}
+      </DepthCard>
     </View>
   );
 }
@@ -577,14 +582,9 @@ function SettingRow({
   chevron?: boolean;
   onPress?: () => void;
 }) {
-  return (
-    <DepthCard
-      depth="flat"
-      radius="lg"
-      onPress={onPress}
-      accessibilityLabel={value ? `${label}, ${value}` : label}
-      style={styles.settingRow}>
-      <IconTile icon={icon} tone="success" size={36} />
+  const content = (
+    <>
+      <IconTile icon={icon} tone="success" size={40} />
       <View style={styles.flex}>
         <AnimoText variant="bodyStrong">{label}</AnimoText>
         {caption ? (
@@ -600,7 +600,17 @@ function SettingRow({
       ) : null}
       {right}
       {chevron ? <ChevronRight size={22} color={AnimoV2Colors.textSecondary} strokeWidth={2.5} /> : null}
-    </DepthCard>
+    </>
+  );
+  if (!onPress) return <View style={styles.settingRow}>{content}</View>;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={value ? `${label}, ${value}` : label}
+      onPress={onPress}
+      style={({ pressed }) => [styles.settingRow, pressed && styles.settingRowPressed]}>
+      {content}
+    </Pressable>
   );
 }
 
@@ -648,16 +658,6 @@ const styles = StyleSheet.create({
     gap: AnimoV2Spacing.sm,
     overflow: 'hidden',
   },
-  heroBlob: {
-    position: 'absolute',
-    left: HERO_BLOB.inset,
-    right: HERO_BLOB.inset,
-    bottom: HERO_BLOB.bottom,
-    height: HERO_BLOB.height,
-    borderRadius: AnimoV2Radius.full,
-    backgroundColor: AnimoV2Colors.brandMid,
-    opacity: HERO_BLOB.opacity,
-  },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.sm },
   body: {
     paddingHorizontal: AnimoV2Spacing.lg,
@@ -668,12 +668,15 @@ const styles = StyleSheet.create({
   statTile: { padding: AnimoV2Spacing.md, alignItems: 'center', gap: AnimoV2Spacing.xs },
   section: { gap: AnimoV2Spacing.sm },
   settingRow: {
-    minHeight: AnimoV2Size.controlHeight,
+    minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
     gap: AnimoV2Spacing.md,
-    padding: AnimoV2Spacing.md,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingVertical: AnimoV2Spacing.md,
   },
+  settingRowPressed: { backgroundColor: AnimoV2Colors.surfaceMuted },
+  rowDivider: { height: 2, backgroundColor: AnimoV2Colors.borderDefault, marginHorizontal: AnimoV2Spacing.lg },
   rowValue: { maxWidth: '40%' },
   modalSafeArea: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
   modalHeader: {

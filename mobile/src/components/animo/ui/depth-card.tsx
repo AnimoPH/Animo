@@ -14,6 +14,8 @@ export type DepthCardProps = {
   onPress?: () => void;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
+  /** Layout styles for the outer wrapper (e.g. `{ flex: 1 }` inside a row). */
+  wrapperStyle?: StyleProp<ViewStyle>;
 };
 
 /** v2 card: 2px border, optional chunky bottom edge. Pressable when `onPress` is given. */
@@ -26,6 +28,7 @@ export function DepthCard({
   onPress,
   accessibilityLabel,
   style,
+  wrapperStyle,
 }: DepthCardProps) {
   const r = radius === 'xl' ? AnimoV2Radius.xl : AnimoV2Radius.lg;
   const edge = depth === 'raised' ? 4 : 0;
@@ -37,13 +40,13 @@ export function DepthCard({
     backgroundColor: edge ? AnimoV2Colors.edgeSoft : 'transparent',
     paddingBottom: edge,
   };
-  if (!onPress) return <View style={wrapStyle}>{body}</View>;
+  if (!onPress) return <View style={[wrapStyle, wrapperStyle]}>{body}</View>;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      style={({ pressed }) => [wrapStyle, pressed && { opacity: 0.92 }]}>
+      style={({ pressed }) => [wrapStyle, wrapperStyle, pressed && { opacity: 0.92 }]}>
       {body}
     </Pressable>
   );

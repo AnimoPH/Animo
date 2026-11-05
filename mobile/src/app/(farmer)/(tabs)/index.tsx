@@ -6,8 +6,6 @@ import {
   ChevronRight,
   Clock,
   CloudRain,
-  LayoutGrid,
-  Receipt,
   Sprout,
   Sun,
   User,
@@ -110,7 +108,6 @@ export default function FarmerHomeScreen() {
 
   // Spotlight target refs
   const advisoryRef = useRef<View>(null);
-  const statsRef = useRef<View>(null);
   const ctaRef = useRef<View>(null);
   const bellRef = useRef<View>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -173,33 +170,6 @@ export default function FarmerHomeScreen() {
     }, [params.startTour]),
   );
 
-  const statCards: StatCardData[] = [
-    {
-      key: 'listings',
-      icon: Sprout,
-      tone: 'success',
-      value: stats.activeListings,
-      label: t('farmer.activeListings'),
-      onPress: () => router.push('/(farmer)/(tabs)/palengke'),
-    },
-    {
-      key: 'requests',
-      icon: Clock,
-      tone: 'warning',
-      value: stats.pendingRequests,
-      label: t('farmer.newRequests'),
-      onPress: () => router.push('/(farmer)/(tabs)/transaksyon'),
-    },
-    {
-      key: 'transactions',
-      icon: Receipt,
-      tone: 'caution',
-      value: stats.pendingTransactions,
-      label: t('farmer.pendingTxns'),
-      onPress: () => router.push('/(farmer)/(tabs)/transaksyon'),
-    },
-  ];
-
   const farmerTourSteps: SpotlightStep[] = [
     {
       id: 'farmer-advisory',
@@ -209,16 +179,6 @@ export default function FarmerHomeScreen() {
       targetRef: advisoryRef,
       shape: 'rectangle',
       borderRadius: AnimoV2Radius.xl,
-      padding: 6,
-    },
-    {
-      id: 'farmer-stats',
-      title: t('spotlight.farmer.step2Title'),
-      description: t('spotlight.farmer.step2Desc'),
-      icon: LayoutGrid,
-      targetRef: statsRef,
-      shape: 'rectangle',
-      borderRadius: AnimoV2Radius.lg,
       padding: 6,
     },
     {
@@ -283,12 +243,6 @@ export default function FarmerHomeScreen() {
               </Pressable>
             </View>
           </View>
-
-          <View ref={statsRef} collapsable={false} style={styles.statsRow}>
-            {statCards.map((stat) => (
-              <StatTile key={stat.key} stat={stat} loading={loading} />
-            ))}
-          </View>
         </View>
 
         <View style={styles.body}>
@@ -345,16 +299,12 @@ export default function FarmerHomeScreen() {
               <AnimoText variant="heading" accessibilityRole="header">
                 {t('farmer.activities')}
               </AnimoText>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('common.seeAll')}
+              <ChunkyButton
+                size="sm"
+                label={t('common.seeAll')}
                 onPress={() => router.push('/(farmer)/(tabs)/transaksyon')}
-                hitSlop={8}
-                style={styles.seeAll}>
-                <AnimoText variant="bodyStrong" color={AnimoV2Colors.textBrand}>
-                  {t('common.seeAll')}
-                </AnimoText>
-              </Pressable>
+                style={styles.seeAll}
+              />
             </View>
 
             {loading ? (
@@ -405,38 +355,6 @@ export default function FarmerHomeScreen() {
         }}
       />
     </View>
-  );
-}
-
-type StatCardData = {
-  key: string;
-  icon: LucideIcon;
-  tone: StatusTone;
-  value: number;
-  label: string;
-  onPress: () => void;
-};
-
-/** White stat tile on the green hero with a 4px dark-green edge. */
-function StatTile({ stat, loading }: { stat: StatCardData; loading: boolean }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${loading ? '' : `${stat.value} `}${stat.label}`}
-      onPress={stat.onPress}
-      style={styles.statEdge}>
-      <View style={styles.statFace}>
-        <IconTile icon={stat.icon} tone={stat.tone} size={36} />
-        {loading ? (
-          <ActivityIndicator color={AnimoV2Colors.actionPrimary} style={styles.statSpinner} />
-        ) : (
-          <AnimoText variant="title">{stat.value}</AnimoText>
-        )}
-        <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={2}>
-          {stat.label}
-        </AnimoText>
-      </View>
-    </Pressable>
   );
 }
 
@@ -589,21 +507,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: AnimoV2Colors.surfaceCard,
   },
-  statsRow: { flexDirection: 'row', gap: AnimoV2Spacing.sm, alignItems: 'stretch' },
-  statEdge: {
-    flex: 1,
-    borderRadius: AnimoV2Radius.lg,
-    backgroundColor: AnimoV2Colors.brandDark,
-    paddingBottom: AnimoV2Size.depth,
-  },
-  statFace: {
-    flex: 1,
-    backgroundColor: AnimoV2Colors.surfaceCard,
-    borderRadius: AnimoV2Radius.lg,
-    padding: AnimoV2Spacing.md,
-    gap: AnimoV2Spacing.xs,
-  },
-  statSpinner: { alignSelf: 'flex-start', height: 32 },
   body: {
     paddingHorizontal: AnimoV2Spacing.lg,
     paddingTop: AnimoV2Spacing.xl,
@@ -627,7 +530,7 @@ const styles = StyleSheet.create({
   ctaTop: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
   activitySection: { gap: AnimoV2Spacing.md },
   activityHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  seeAll: { minHeight: AnimoV2Size.iconButton, justifyContent: 'center' },
+  seeAll: { width: 112 },
   activityLoading: { alignItems: 'center', paddingVertical: AnimoV2Spacing.lg },
   activityList: { gap: AnimoV2Spacing.md },
   activityRow: {

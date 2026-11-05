@@ -11,6 +11,8 @@ export type ChunkyButtonProps = {
   label: string;
   onPress?: () => void;
   variant?: ChunkyButtonVariant;
+  /** `sm` is a compact 44px button for inline actions. Give it an explicit width via `style`. */
+  size?: 'md' | 'sm';
   icon?: LucideIcon;
   disabled?: boolean;
   loading?: boolean;
@@ -35,6 +37,7 @@ export function ChunkyButton({
   label,
   onPress,
   variant = 'primary',
+  size = 'md',
   icon: Icon,
   disabled = false,
   loading = false,
@@ -46,7 +49,8 @@ export function ChunkyButton({
   const [pressed, setPressed] = useState(false);
   const inactive = disabled || loading;
   const isGhost = variant === 'ghost';
-  const faceHeight = isGhost ? AnimoV2Size.iconButton : FACE_HEIGHT;
+  const small = size === 'sm';
+  const faceHeight = isGhost ? AnimoV2Size.iconButton : small ? 44 : FACE_HEIGHT;
 
   let face: string = AnimoV2Colors.actionPrimary;
   let edge: string = AnimoV2Colors.actionPrimaryDepth;
@@ -100,8 +104,8 @@ export function ChunkyButton({
           <ActivityIndicator color={text} />
         ) : (
           <View style={styles.content}>
-            {Icon ? <Icon size={22} color={text} strokeWidth={2.75} /> : null}
-            <AnimoText variant="buttonV2" color={text} numberOfLines={1}>
+            {Icon ? <Icon size={small ? 18 : 22} color={text} strokeWidth={2.75} /> : null}
+            <AnimoText variant={small ? 'bodyStrong' : 'buttonV2'} color={text} numberOfLines={1}>
               {label}
             </AnimoText>
           </View>

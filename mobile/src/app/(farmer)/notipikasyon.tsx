@@ -108,7 +108,7 @@ export default function FarmerNotificationsScreen() {
         }
       />
 
-      <View>
+      <View style={styles.chipWrap}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -171,15 +171,13 @@ export default function FarmerNotificationsScreen() {
                 <View style={styles.textWrap}>
                   <AnimoText variant="bodyStrong">{text.title}</AnimoText>
                   <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
-                    {text.body}
+                    {text.body.replace(/\s*\n\s*/g, ' ')}
                   </AnimoText>
-                </View>
-                <View style={styles.meta}>
-                  <AnimoText variant="captionV2" color={AnimoV2Colors.textTertiary}>
+                  <AnimoText variant="tagV2" color={AnimoV2Colors.textTertiary} style={styles.time}>
                     {formatNotificationTime(item.createdAt, isTagalog)}
                   </AnimoText>
-                  {!item.read ? <View style={styles.unreadDot} /> : null}
                 </View>
+                {!item.read ? <View style={styles.unreadDot} accessibilityLabel={t('inbox.unread')} /> : null}
               </DepthCard>
             );
           })
@@ -192,6 +190,7 @@ export default function FarmerNotificationsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
   readAll: { minHeight: AnimoV2Size.iconButton, justifyContent: 'center', paddingHorizontal: AnimoV2Spacing.md },
+  chipWrap: { flexGrow: 0 },
   chipRow: {
     paddingHorizontal: AnimoV2Spacing.lg,
     paddingVertical: AnimoV2Spacing.sm,
@@ -209,13 +208,14 @@ const styles = StyleSheet.create({
     gap: AnimoV2Spacing.md,
     padding: AnimoV2Spacing.md,
   },
-  textWrap: { flex: 1, gap: AnimoV2Spacing.xs },
-  meta: { alignItems: 'flex-end', gap: AnimoV2Spacing.sm },
+  textWrap: { flex: 1, minWidth: 0, gap: 2 },
+  time: { marginTop: AnimoV2Spacing.xs },
   unreadDot: {
     width: UNREAD_DOT,
     height: UNREAD_DOT,
     borderRadius: UNREAD_DOT / 2,
     backgroundColor: AnimoV2Colors.actionPrimary,
+    marginTop: AnimoV2Spacing.xs,
   },
   centered: { paddingVertical: AnimoV2Spacing.xxl, alignItems: 'center', justifyContent: 'center' },
   empty: {
