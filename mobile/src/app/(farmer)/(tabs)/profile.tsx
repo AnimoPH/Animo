@@ -40,6 +40,7 @@ import { LegalTabKey } from '@/constants/legal-content';
 import { formatPeso } from '@/constants/marketplace';
 import { barangayLabel } from '@/constants/profile-options';
 import { useLanguage } from '@/hooks/use-language';
+import { formatPhilippinePhone } from '@/lib/format-phone';
 import { useSession } from '@/hooks/use-session';
 import { fetchTrustProfile, type TrustProfile } from '@/services/farmer-public-profile';
 import { fetchReceivedFeedbacks } from '@/services/received-feedback';
@@ -265,7 +266,7 @@ export default function FarmerProfileScreen() {
               onPress={() => router.push('/(farmer)/profile-edit' as Href)}
               chevron
             />
-            <SettingRow icon={Smartphone} label={t('profileV2.phone')} value={account?.phone ?? '—'} />
+            <SettingRow icon={Smartphone} label={t('profileV2.phone')} value={formatPhilippinePhone(account?.phone)} />
           </Section>
 
           {/* Payment */}

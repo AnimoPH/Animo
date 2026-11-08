@@ -56,6 +56,7 @@ import { LegalTabKey } from '@/constants/legal-content';
 import { getRole } from '@/constants/roles';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
+import { formatPhilippinePhone } from '@/lib/format-phone';
 import { useSession } from '@/hooks/use-session';
 import { updateMyBuyerProfile } from '@/services/auth-service';
 import {
@@ -405,7 +406,7 @@ export default function BuyerProfileScreen() {
               onPress={() => setShowPersonalInfoModal(true)}
               chevron
             />
-            <ProfileRow icon={Smartphone} label={t('profileV2.phone')} value={account?.phone ?? '—'} />
+            <ProfileRow icon={Smartphone} label={t('profileV2.phone')} value={formatPhilippinePhone(account?.phone)} />
           </ProfileSection>
 
           {/* Kagustuhan sa Pagbili */}
@@ -594,7 +595,7 @@ export default function BuyerProfileScreen() {
               showsVerticalScrollIndicator={false}>
               <AnimoText variant="subheading">{t('profileV2.editAccount')}</AnimoText>
               <DepthCard depth="flat" radius="lg" style={styles.readOnlyCard}>
-                <ReadOnlyRow label={t('buyProfileV2.editNumber')} value={account?.phone || '—'} />
+                <ReadOnlyRow label={t('buyProfileV2.editNumber')} value={formatPhilippinePhone(account?.phone)} />
                 <View style={styles.divider} />
                 <ReadOnlyRow
                   label={t('profileV2.editRole')}
