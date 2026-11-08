@@ -11,7 +11,6 @@ import {
   Search,
   ShoppingBag,
   Sparkles,
-  Wheat,
 } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -59,7 +58,6 @@ const NEWEST_COUNT = 6;
 const MATCH_THRESHOLD = 0.99;
 const MAX_REASONS = 3;
 const RECO_CARD_WIDTH = 232;
-const VARIETY_CARD_WIDTH = 200;
 
 /** Tahanan: buyer home. Greeting hero, recommendations, newest listings and the fair-price promise. */
 export default function BuyerHomeScreen() {
@@ -79,7 +77,6 @@ export default function BuyerHomeScreen() {
   // Spotlight target refs
   const marketTrendsRef = useRef<View>(null);
   const searchRef = useRef<View>(null);
-  const varietiesRef = useRef<View>(null);
   const bellRef = useRef<View>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -179,16 +176,6 @@ export default function BuyerHomeScreen() {
       padding: 6,
     },
     {
-      id: 'buyer-varieties',
-      title: t('spotlight.buyer.step3Title'),
-      description: t('spotlight.buyer.step3Desc'),
-      icon: Wheat,
-      targetRef: varietiesRef,
-      shape: 'rectangle',
-      borderRadius: AnimoV2Radius.xl,
-      padding: 6,
-    },
-    {
       id: 'buyer-bell',
       title: t('spotlight.buyer.step4Title'),
       description: t('spotlight.buyer.step4Desc'),
@@ -284,20 +271,20 @@ export default function BuyerHomeScreen() {
 
                 <View style={styles.insightRow}>
                   <View style={styles.insightCol}>
-                    <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                    <AnimoText variant="bodyStrong" color={AnimoV2Colors.successFg}>
                       {t('buyer.mostSold')}
                     </AnimoText>
-                    <AnimoText variant="subheading" color={AnimoV2Colors.textBrand} numberOfLines={2}>
+                    <AnimoText variant="heading" color={AnimoV2Colors.textBrand} numberOfLines={2}>
                       {translateVarietyName(insights.topVariety, isTagalog)}
                     </AnimoText>
                   </View>
                   <View style={styles.insightCol}>
-                    <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                    <AnimoText variant="bodyStrong" color={AnimoV2Colors.successFg}>
                       {t('buyer.averagePrice')}
                     </AnimoText>
-                    <AnimoText variant="priceV2" color={AnimoV2Colors.textBrand}>
+                    <AnimoText variant="heading" color={AnimoV2Colors.textBrand} numberOfLines={1}>
                       {`₱${insights.averagePricePerKg.toFixed(2)}`}
-                      <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>{` ${t('common.perKg')}`}</AnimoText>
+                      <AnimoText variant="bodyStrong" color={AnimoV2Colors.successFg}>{` ${t('common.perKg')}`}</AnimoText>
                     </AnimoText>
                   </View>
                 </View>
@@ -335,56 +322,6 @@ export default function BuyerHomeScreen() {
               </ScrollView>
             </View>
           ) : null}
-
-          {/* Popular varieties: live average per variety */}
-          <View ref={varietiesRef} collapsable={false}>
-            {insights && insights.popularVarieties.length > 0 ? (
-              <View style={styles.section}>
-                <AnimoText variant="heading" accessibilityRole="header">
-                  {t('buyer.popularVarieties')}
-                </AnimoText>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.horizontalList}
-                  style={styles.bleed}>
-                  {insights.popularVarieties.map((item) => {
-                    const displayName = translateVarietyName(item.name, isTagalog);
-                    const isHybrid =
-                      item.name.toLowerCase().includes('hybrid') ||
-                      displayName.toLowerCase().includes('hybrid');
-                    return (
-                      <DepthCard
-                        key={item.name}
-                        radius="lg"
-                        onPress={goPalengke}
-                        accessibilityLabel={t('buyHomeV2.varietyView', { name: displayName })}
-                        wrapperStyle={{ width: VARIETY_CARD_WIDTH }}
-                        style={styles.varietyCard}>
-                        <IconTile icon={Wheat} tone="success" size={44} />
-                        <AnimoText variant="bodyStrong" numberOfLines={2} style={styles.varietyName}>
-                          {displayName}
-                        </AnimoText>
-                        <View style={styles.pillRow}>
-                          <StatusPill tone="neutral" label={t('buyHomeV2.listingsCount', { n: item.listingCount })} />
-                          {isHybrid ? <StatusPill tone="success" label={t('buyHomeV2.highYield')} /> : null}
-                        </View>
-                        <View style={styles.priceBlock}>
-                          <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
-                            {t('buyer.averagePrice')}
-                          </AnimoText>
-                          <AnimoText variant="priceV2" color={AnimoV2Colors.textBrand}>
-                            {`₱${item.avgPricePerKg.toFixed(2)}`}
-                            <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>{` ${t('common.perKg')}`}</AnimoText>
-                          </AnimoText>
-                        </View>
-                      </DepthCard>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            ) : null}
-          </View>
 
           {/* Mga Bagong Listing */}
           {newest.length > 0 ? (
@@ -609,7 +546,16 @@ const styles = StyleSheet.create({
   insightCard: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
   insightHeader: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
   insightRow: { flexDirection: 'row', gap: AnimoV2Spacing.md },
-  insightCol: { flex: 1, minWidth: 0, gap: 2 },
+  insightCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: AnimoV2Spacing.xs,
+    padding: AnimoV2Spacing.md,
+    borderRadius: AnimoV2Radius.lg,
+    borderWidth: 2,
+    borderColor: AnimoV2Colors.actionPrimary,
+    backgroundColor: AnimoV2Colors.surfaceBrandSubtle,
+  },
   insightFoot: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.sm },
   section: { gap: AnimoV2Spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoV2Spacing.md },
@@ -622,10 +568,7 @@ const styles = StyleSheet.create({
     gap: AnimoV2Spacing.md,
     alignItems: 'flex-start',
   },
-  varietyCard: { padding: AnimoV2Spacing.md, gap: AnimoV2Spacing.sm },
-  varietyName: { minHeight: 48 },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: AnimoV2Spacing.xs },
-  priceBlock: { gap: 2 },
   masonryRow: { flexDirection: 'row', gap: AnimoV2Spacing.sm, alignItems: 'flex-start' },
   masonryColumn: { flex: 1, gap: AnimoV2Spacing.sm },
   cardWrapper: { width: '100%' },

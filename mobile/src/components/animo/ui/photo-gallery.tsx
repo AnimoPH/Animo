@@ -69,6 +69,7 @@ export function PhotoGallery({ items }: { items: PhotoGalleryItem[] }) {
           {items.map((item, index) => (
             <FilterChip
               key={item.key}
+              fill
               label={item.shortLabel}
               selected={selected === index}
               onPress={() => setSelected(index)}
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: AnimoV2Spacing.sm },
+  chipRow: { flexDirection: 'row', gap: AnimoV2Spacing.sm },
   modalBackdrop: { flex: 1, backgroundColor: AnimoV2Colors.textPrimary, justifyContent: 'space-between' },
   modalTopBar: {
     flexDirection: 'row',

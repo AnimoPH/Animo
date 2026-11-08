@@ -85,6 +85,8 @@ export const TRANSLATIONS = {
     // Navigation Tabs
     'tab.home': 'Tahanan',
     'tab.market': 'Palengke',
+    'buyPalV2.subtitle': 'Hanapin ang palay at magsasaka sa patas na presyo',
+    'buyPalV2.headerCount': '{n} Listing',
     'tab.myHarvest': 'Aking Ani',
     'tab.transactions': 'Transaksyon',
     // ── Farmer Transaksyon v2 (ftx = list/detail, frb = resibo, frv = review) ──
@@ -1110,6 +1112,8 @@ export const TRANSLATIONS = {
     // Navigation Tabs
     'tab.home': 'Home',
     'tab.market': 'Market',
+    'buyPalV2.subtitle': 'Find palay and farmers at fair prices',
+    'buyPalV2.headerCount': '{n} Listings',
     'tab.myHarvest': 'My Harvest',
     'tab.transactions': 'Transactions',
     // ── Farmer Transaksyon v2 (ftx = list/detail, frb = receipt, frv = review) ──

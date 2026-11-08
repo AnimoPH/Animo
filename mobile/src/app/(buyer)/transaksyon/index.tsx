@@ -288,10 +288,10 @@ export default function BuyerTransactionsScreen() {
 
       <View style={[styles.titleRow, { paddingTop: insets.top + AnimoV2Spacing.md }]}>
         <View style={styles.flex}>
-          <AnimoText variant="title" accessibilityRole="header">
+          <AnimoText variant="title" accessibilityRole="header" style={styles.headerTitle}>
             {t('buyTxV2.title')}
           </AnimoText>
-          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+          <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
             {t('buyTxV2.subtitle')}
           </AnimoText>
         </View>
@@ -441,10 +441,7 @@ function PaginationControls({
           disabled={atStart}
           onPress={() => onPageChange(currentPage - 1)}
           style={[styles.pageNav, atStart && styles.pageNavDisabled]}>
-          <ChevronLeft size={20} color={navColor(atStart)} strokeWidth={2.75} />
-          <AnimoText variant="bodyStrong" color={navColor(atStart)}>
-            {t('buyTxV2.prev')}
-          </AnimoText>
+          <ChevronLeft size={24} color={navColor(atStart)} strokeWidth={2.75} />
         </Pressable>
 
         <View style={styles.pageNumbers}>
@@ -475,10 +472,7 @@ function PaginationControls({
           disabled={atEnd}
           onPress={() => onPageChange(currentPage + 1)}
           style={[styles.pageNav, atEnd && styles.pageNavDisabled]}>
-          <AnimoText variant="bodyStrong" color={navColor(atEnd)}>
-            {t('buyTxV2.next')}
-          </AnimoText>
-          <ChevronRight size={20} color={navColor(atEnd)} strokeWidth={2.75} />
+          <ChevronRight size={24} color={navColor(atEnd)} strokeWidth={2.75} />
         </Pressable>
       </View>
     </View>
@@ -531,6 +525,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SCREEN_PADDING,
     paddingBottom: AnimoV2Spacing.sm,
   },
+  headerTitle: { fontSize: 24, lineHeight: 30 },
   block: { paddingHorizontal: SCREEN_PADDING, paddingBottom: AnimoV2Spacing.md },
   bellDot: {
     position: 'absolute',
@@ -557,26 +552,26 @@ const styles = StyleSheet.create({
   paginationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: AnimoV2Spacing.sm,
     width: '100%',
   },
   pageNav: {
-    flexDirection: 'row',
+    width: AnimoV2Size.iconButton,
+    height: AnimoV2Size.iconButton,
     alignItems: 'center',
-    gap: AnimoV2Spacing.xs,
-    minHeight: AnimoV2Size.iconButton,
-    paddingHorizontal: AnimoV2Spacing.md,
-    borderRadius: AnimoV2Radius.md,
+    justifyContent: 'center',
+    borderRadius: AnimoV2Radius.full,
     borderWidth: 2,
-    borderColor: AnimoV2Colors.borderDefault,
+    borderColor: AnimoV2Colors.borderStrong,
     backgroundColor: AnimoV2Colors.surfaceCard,
   },
-  pageNavDisabled: { backgroundColor: AnimoV2Colors.surfaceMuted },
-  pageNumbers: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.xs },
+  pageNavDisabled: { borderColor: AnimoV2Colors.borderDefault, backgroundColor: AnimoV2Colors.surfaceMuted },
+  pageNumbers: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.sm },
   pageNumber: {
-    width: AnimoV2Size.iconButton - 8,
-    height: AnimoV2Size.iconButton - 8,
-    borderRadius: AnimoV2Radius.sm,
+    width: AnimoV2Size.iconButton,
+    height: AnimoV2Size.iconButton,
+    borderRadius: AnimoV2Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,

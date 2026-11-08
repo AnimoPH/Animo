@@ -280,7 +280,17 @@ export default function MarketplaceScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="dark" />
-      <View style={{ height: insets.top + AnimoV2Spacing.md }} />
+      {/* Screen header (same pattern as Aking Ani) */}
+      <View style={[styles.headerRow, { paddingTop: insets.top + AnimoV2Spacing.sm }]}>
+        <View style={styles.headerTitleCol}>
+          <AnimoText variant="title" accessibilityRole="header" style={styles.headerTitle}>
+            {t('tab.market')}
+          </AnimoText>
+          <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+            {t('buyPalV2.subtitle')}
+          </AnimoText>
+        </View>
+      </View>
 
       <SpotlightTour
         steps={buyerPalengkeTourSteps}
@@ -518,6 +528,15 @@ function FarmerDirectoryCard({ farmer, onPress }: { farmer: RankedFarmer; onPres
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
   padded: { paddingHorizontal: AnimoV2Spacing.lg },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingBottom: AnimoV2Spacing.md,
+  },
+  headerTitleCol: { flex: 1, gap: 2 },
+  headerTitle: { fontSize: 24, lineHeight: 30 },
   tabsWrap: { marginTop: AnimoV2Spacing.md },
   chipScroll: { flexGrow: 0 },
   chipRow: {

@@ -10,10 +10,12 @@ export type FilterChipProps = {
   count?: number;
   onPress?: () => void;
   compact?: boolean;
+  /** Share the row equally with sibling chips and keep the label on one line (shrinks the text if needed). */
+  fill?: boolean;
 };
 
 /** v2 filter chip. Selected: solid green, white text, 3px depth. */
-export function FilterChip({ label, selected = false, count, onPress, compact = false }: FilterChipProps) {
+export function FilterChip({ label, selected = false, count, onPress, compact = false, fill = false }: FilterChipProps) {
   const fg = selected ? AnimoV2Colors.textOnBrand : AnimoV2Colors.textPrimary;
   return (
     <Pressable
@@ -21,14 +23,20 @@ export function FilterChip({ label, selected = false, count, onPress, compact = 
       accessibilityState={{ selected }}
       accessibilityLabel={count !== undefined ? `${label}, ${count}` : label}
       onPress={onPress}
-      style={[styles.outer, selected && styles.outerOn, { paddingBottom: selected ? 3 : 0 }]}>
+      style={[styles.outer, fill && styles.outerFill, selected && styles.outerOn, { paddingBottom: selected ? 3 : 0 }]}>
       <View
         style={[
           styles.face,
           compact && { paddingVertical: 4, paddingHorizontal: AnimoV2Spacing.md },
+          fill && styles.faceFill,
           selected && styles.faceOn,
         ]}>
-        <AnimoText variant={compact ? 'tagV2' : 'bodyStrong'} color={fg}>
+        <AnimoText
+          variant={compact ? 'tagV2' : 'bodyStrong'}
+          color={fg}
+          numberOfLines={fill ? 1 : undefined}
+          adjustsFontSizeToFit={fill}
+          minimumFontScale={0.8}>
           {label}
         </AnimoText>
         {count !== undefined ? (
@@ -43,6 +51,8 @@ export function FilterChip({ label, selected = false, count, onPress, compact = 
 
 const styles = StyleSheet.create({
   outer: { borderRadius: AnimoV2Radius.full },
+  outerFill: { flex: 1, minWidth: 0 },
+  faceFill: { justifyContent: 'center', paddingHorizontal: AnimoV2Spacing.sm },
   outerOn: { backgroundColor: AnimoV2Colors.actionPrimaryDepth },
   face: {
     flexDirection: 'row',

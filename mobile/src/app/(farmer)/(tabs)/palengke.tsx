@@ -532,16 +532,6 @@ export default function FarmerPalengkeScreen() {
               {t('aniV2.subtitle')}
             </AnimoText>
           </View>
-          {listings.length > 0 ? (
-            <View style={styles.headerStatBadge}>
-              <View style={styles.statusDot} />
-              <AnimoText variant="tagV2" color={AnimoV2Colors.textBrand} style={styles.headerStatText}>
-                {isTagalog
-                  ? `${listings.filter((l) => l.status === 'Available').length} Aktibo`
-                  : `${listings.filter((l) => l.status === 'Available').length} Active`}
-              </AnimoText>
-            </View>
-          ) : null}
         </View>
       </View>
 
@@ -953,28 +943,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 30,
     fontFamily: 'Nunito_800ExtraBold',
-  },
-  headerStatBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: AnimoV2Colors.surfaceBrandSubtle,
-    paddingHorizontal: AnimoV2Spacing.md,
-    paddingVertical: 6,
-    borderRadius: AnimoV2Radius.full,
-    borderWidth: 1,
-    borderColor: AnimoV2Colors.brandLight,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: AnimoV2Colors.actionPrimary,
-  },
-  headerStatText: {
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 12,
-    lineHeight: 16,
   },
   searchWrap: {
     paddingHorizontal: AnimoV2Spacing.lg,

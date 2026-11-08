@@ -161,6 +161,7 @@ export function ListingDetailHeader({ listing, photos }: ListingDetailContentPro
           {galleryItems.map((item, index) => (
             <FilterChip
               key={item.type}
+              fill
               label={item.shortLabel}
               selected={selectedPhotoIndex === index}
               onPress={() => setSelectedPhotoIndex(index)}
@@ -384,7 +385,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: AnimoV2Spacing.sm },
+  chipRow: { flexDirection: "row", gap: AnimoV2Spacing.sm },
   titleRow: {
     flexDirection: "row",
     alignItems: "flex-start",

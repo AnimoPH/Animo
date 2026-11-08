@@ -80,7 +80,7 @@ export function BuyerTransactionCard({ item, onPress }: BuyerTransactionCardProp
             </View>
 
             <View style={styles.info}>
-              <AnimoText variant="bodyStrong" numberOfLines={2}>
+              <AnimoText variant="subheading" numberOfLines={1}>
                 {item.listingName}
               </AnimoText>
               <View style={styles.farmerRow}>
@@ -93,22 +93,26 @@ export function BuyerTransactionCard({ item, onPress }: BuyerTransactionCardProp
                   {item.farmer}
                 </AnimoText>
               </View>
-              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={1}>
-                {item.weight} · {item.pricePerKg}
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textTertiary} numberOfLines={1}>
+                {item.date}
+                {item.time ? `  ·  ${item.time}` : ''}
               </AnimoText>
             </View>
           </View>
 
-          <AnimoText variant="priceV2" color={AnimoV2Colors.textBrand}>
-            {item.price}
-          </AnimoText>
+          <View style={styles.divider} />
 
-          <BuyerStagePill stage={item.stage} label={item.statusLabel} />
-
-          <AnimoText variant="captionV2" color={AnimoV2Colors.textTertiary}>
-            {item.date}
-            {item.time ? `  ·  ${item.time}` : ''}
-          </AnimoText>
+          <View style={styles.bottom}>
+            <View style={styles.totalCol}>
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={1}>
+                {item.weight} · {item.pricePerKg}
+              </AnimoText>
+              <AnimoText variant="priceV2" color={AnimoV2Colors.textBrand} numberOfLines={1}>
+                {item.price}
+              </AnimoText>
+            </View>
+            <BuyerStagePill stage={item.stage} label={item.statusLabel} />
+          </View>
         </View>
 
         {needsAction ? (
@@ -126,7 +130,7 @@ export function BuyerTransactionCard({ item, onPress }: BuyerTransactionCardProp
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: AnimoV2Spacing.md },
-  body: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.sm },
+  body: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
   top: { flexDirection: 'row', gap: AnimoV2Spacing.md },
   photo: {
     width: PHOTO,
@@ -138,7 +142,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   photoImage: { width: PHOTO, height: PHOTO },
-  info: { flex: 1, minWidth: 0, gap: 2 },
+  info: { flex: 1, minWidth: 0, gap: 2, justifyContent: 'center' },
+  divider: { height: 2, borderRadius: 2, backgroundColor: AnimoV2Colors.borderDefault },
+  bottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoV2Spacing.md },
+  totalCol: { flexShrink: 1, minWidth: 0, gap: 2 },
   farmerRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.xs },
   farmerName: { flexShrink: 1 },
   action: {
