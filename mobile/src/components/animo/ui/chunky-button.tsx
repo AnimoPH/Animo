@@ -13,6 +13,8 @@ export type ChunkyButtonProps = {
   variant?: ChunkyButtonVariant;
   /** `sm` is a compact 44px button for inline actions. Give it an explicit width via `style`. */
   size?: 'md' | 'sm';
+  /** No bottom edge and no press-down (for buttons inside cards, where the depth reads as heavy). */
+  flat?: boolean;
   icon?: LucideIcon;
   disabled?: boolean;
   loading?: boolean;
@@ -38,6 +40,7 @@ export function ChunkyButton({
   onPress,
   variant = 'primary',
   size = 'md',
+  flat = false,
   icon: Icon,
   disabled = false,
   loading = false,
@@ -78,7 +81,7 @@ export function ChunkyButton({
     border = undefined;
   }
 
-  const depth = isGhost || inactive ? 0 : DEPTH;
+  const depth = isGhost || inactive || flat ? 0 : DEPTH;
   const down = pressed && !inactive ? depth : 0;
 
   return (

@@ -8,6 +8,7 @@ import {
   CloudRain,
   Sprout,
   Sun,
+  Wheat,
   User,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -23,6 +24,7 @@ import {
 } from '@/components/animo/spotlight-tour';
 import { SuspensionNotice } from '@/components/animo/suspension-notice';
 import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { EmphasisText } from '@/components/animo/ui/emphasis-text';
 import { DepthCard } from '@/components/animo/ui/depth-card';
 import { IconTile } from '@/components/animo/ui/icon-tile';
 import { Mascot } from '@/components/animo/ui/mascot';
@@ -62,9 +64,6 @@ const EMPTY_STATS: FarmerHomeStats = {
 
 /** How many recent activities Tahanan shows (DESIGN_SPEC: the last two). */
 const ACTIVITY_LIMIT = 2;
-
-/** Decorative hero blob (prototype `.hero::after`). */
-const HERO_BLOB = { inset: -40, bottom: -70, height: 110, opacity: 0.35 } as const;
 
 /** The three rule-engine states mapped to v2 status tones and icons. */
 const ADVISORY_STYLE: Record<
@@ -219,7 +218,6 @@ export default function FarmerHomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}>
         {/* Hero: extends under the status bar */}
         <View style={[styles.hero, { paddingTop: insets.top + AnimoV2Spacing.lg }]}>
-          <View style={styles.heroBlob} pointerEvents="none" />
           <View style={styles.greetingRow}>
             <Mascot size={52} tile={false} />
             <View style={styles.flex}>
@@ -279,7 +277,7 @@ export default function FarmerHomeScreen() {
               borderColor={AnimoV2Colors.actionPrimary}
               style={styles.ctaCard}>
               <View style={styles.ctaTop}>
-                <Mascot size={72} />
+                <IconTile icon={Wheat} tone="success" size={72} solid shape="rounded" />
                 <View style={styles.flex}>
                   <AnimoText variant="heading">{t('home.ctaHeading')}</AnimoText>
                   <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
@@ -301,7 +299,7 @@ export default function FarmerHomeScreen() {
               </AnimoText>
               <ChunkyButton
                 size="sm"
-                label={t('common.seeAll')}
+                label={t('farmer.activitiesView')}
                 onPress={() => router.push('/(farmer)/(tabs)/transaksyon')}
                 style={styles.seeAll}
               />
@@ -381,9 +379,9 @@ function AdvisoryCard({ advisory, onPress }: { advisory: CurrentAdvisory; onPres
         </View>
         <ChevronRight size={24} color={tone.fg} strokeWidth={2.75} />
       </View>
-      <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+      <EmphasisText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
         {t(style.descKey)}
-      </AnimoText>
+      </EmphasisText>
       <View style={styles.advisoryMeter}>
         <View style={styles.advisoryMeterLabels}>
           <AnimoText variant="bodyStrong">
@@ -476,16 +474,6 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: AnimoV2Radius.xl,
     gap: AnimoV2Spacing.lg,
     overflow: 'hidden',
-  },
-  heroBlob: {
-    position: 'absolute',
-    left: HERO_BLOB.inset,
-    right: HERO_BLOB.inset,
-    bottom: HERO_BLOB.bottom,
-    height: HERO_BLOB.height,
-    borderRadius: AnimoV2Radius.full,
-    backgroundColor: AnimoV2Colors.brandMid,
-    opacity: HERO_BLOB.opacity,
   },
   greetingRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
   bell: {

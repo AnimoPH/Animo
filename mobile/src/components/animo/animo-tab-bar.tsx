@@ -55,8 +55,14 @@ export function AnimoTabBar({
   navigation,
   descriptors,
   items,
-}: BottomTabBarProps & { items: TabItem[] }) {
+  flatRoutes = [],
+}: BottomTabBarProps & {
+  items: TabItem[];
+  /** Route names on which the active tab drops its green fill and edge and shows green icon + label instead (e.g. the home tab). */
+  flatRoutes?: string[];
+}) {
   const insets = useSafeAreaInsets();
+  const flat = flatRoutes.includes(state.routes[state.index].name);
   const { t } = useLanguage();
 
   // Respect `tabBarStyle: { display: 'none' }` set per screen (e.g. focused
@@ -75,7 +81,12 @@ export function AnimoTabBar({
         if (!item) return null;
 
         const focused = state.index === index;
-        const color = focused ? AnimoV2Colors.textOnBrand : AnimoV2Colors.textSecondary;
+        const solidActive = focused && !flat;
+        const color = solidActive
+          ? AnimoV2Colors.textOnBrand
+          : focused
+            ? AnimoV2Colors.textBrand
+            : AnimoV2Colors.textSecondary;
         const displayLabel = item.labelKey ? t(item.labelKey) : item.label;
         const LucideGlyph = item.lucide;
         const count = item.badgeCount ?? 0;
@@ -120,9 +131,10 @@ export function AnimoTabBar({
             accessibilityLabel={count > 0 ? `${displayLabel}, ${count}` : displayLabel}
             onPress={onPress}
             style={styles.tabSlot}>
-            {focused ? <View style={styles.tabEdge} /> : null}
+            {solidActive ? <View style={styles.tabEdge} /> : null}
             <View style={styles.tabWrap}>
-              <View style={[styles.tab, focused && styles.tabOn]}>
+              {solidActive ? <View style={styles.tabFace} /> : null}
+              <View style={styles.tab}>
                 <View>
                   {LucideGlyph ? (
                     <LucideGlyph size={26} color={color} strokeWidth={focused ? 2.75 : 2.25} />
@@ -203,7 +215,16 @@ const styles = StyleSheet.create({
     borderRadius: AnimoV2Radius.lg,
     paddingHorizontal: 2,
   },
-  tabOn: { backgroundColor: AnimoV2Colors.actionPrimary },
+  /** Mounted fresh when a tab becomes active: toggling a background on a rounded view loses its corners on Android. */
+  tabFace: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: AnimoV2Size.tabItemMinHeight,
+    borderRadius: AnimoV2Radius.lg,
+    backgroundColor: AnimoV2Colors.actionPrimary,
+  },
   label: { fontFamily: 'Nunito_600SemiBold', fontSize: 12, lineHeight: 16 },
   labelOn: { fontFamily: 'Nunito_800ExtraBold', fontSize: 12, lineHeight: 16 },
   badge: {

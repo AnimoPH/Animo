@@ -2,13 +2,20 @@ import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { ImageIcon, Plus, Search } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { FilterModal } from '@/components/animo/filter-modal';
 import { LabeledInput } from '@/components/animo/labeled-input';
-import { SearchFilterBar } from '@/components/animo/search-filter-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   FARMER_PALENGKE_TUTORIAL_KEY,
@@ -19,9 +26,17 @@ import { ChunkyButton } from '@/components/animo/ui/chunky-button';
 import { DepthCard } from '@/components/animo/ui/depth-card';
 import { FilterChip } from '@/components/animo/ui/filter-chip';
 import { Mascot } from '@/components/animo/ui/mascot';
-import { StickyFooter } from '@/components/animo/ui/screen-bits';
+import { ProgressBar } from '@/components/animo/ui/progress-bar';
+import { V2SearchBar } from '@/components/animo/ui/search-bar';
 import { StatusPill } from '@/components/animo/ui/status-pill';
-import { AnimoColors, AnimoSpacing, AnimoV2Colors, AnimoV2Spacing, type StatusTone } from '@/constants/animo';
+import {
+  AnimoColors,
+  AnimoSpacing,
+  AnimoV2Colors,
+  AnimoV2Radius,
+  AnimoV2Spacing,
+  type StatusTone,
+} from '@/constants/animo';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
@@ -37,6 +52,7 @@ import {
   listingTitle,
   moistureLabel,
   purityLabel,
+  specificVarietyDisplay,
   varietyLabel,
   type CropListing,
   type DeclaredVariety,
@@ -188,6 +204,10 @@ function listingMatchesSearch(listing: CropListing, searchQuery: string): boolea
 export default function FarmerPalengkeScreen() {
   const { t, language, isTagalog } = useLanguage();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const sidePadding = AnimoV2Spacing.md;
+  const cardGap = AnimoV2Spacing.sm;
+  const cardWidth = (windowWidth - sidePadding * 2 - cardGap) / 2;
   const [searchQuery, setSearchQuery] = useState('');
   const [appliedFilters, setAppliedFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
   const [draftFilters, setDraftFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
@@ -270,6 +290,30 @@ export default function FarmerPalengkeScreen() {
         listingMatchesSearch(listing, searchQuery),
     );
   }, [listings, appliedFilters, searchQuery]);
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load]);
+
+  // Stacked (masonry) columns keep each card at its natural height. With an odd count the last
+  // listing is pulled out and rendered full width below, instead of leaving a gap beside it.
+  const soloListing = displayedListings.length % 2 === 1 ? displayedListings[displayedListings.length - 1] : null;
+  const stackedListings = soloListing ? displayedListings.slice(0, -1) : displayedListings;
+  const leftListings = useMemo(
+    () => stackedListings.filter((_, idx) => idx % 2 === 0),
+    [stackedListings],
+  );
+  const rightListings = useMemo(
+    () => stackedListings.filter((_, idx) => idx % 2 === 1),
+    [stackedListings],
+  );
 
   const emptyMessage =
     searchQuery.trim().length > 0
@@ -477,13 +521,37 @@ export default function FarmerPalengkeScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={{ height: insets.top + AnimoV2Spacing.sm }} />
+      {/* Screen Header */}
+      <View style={[styles.header, { paddingTop: insets.top + AnimoV2Spacing.sm }]}>
+        <View style={styles.headerRow}>
+          <View style={styles.headerTitleCol}>
+            <AnimoText variant="title" color={AnimoV2Colors.textPrimary} style={styles.headerTitle}>
+              {t('tab.myHarvest')}
+            </AnimoText>
+            <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+              {t('aniV2.subtitle')}
+            </AnimoText>
+          </View>
+          {listings.length > 0 ? (
+            <View style={styles.headerStatBadge}>
+              <View style={styles.statusDot} />
+              <AnimoText variant="tagV2" color={AnimoV2Colors.textBrand} style={styles.headerStatText}>
+                {isTagalog
+                  ? `${listings.filter((l) => l.status === 'Available').length} Aktibo`
+                  : `${listings.filter((l) => l.status === 'Available').length} Active`}
+              </AnimoText>
+            </View>
+          ) : null}
+        </View>
+      </View>
 
-      <View ref={searchBarRef} collapsable={false}>
-        <SearchFilterBar
+      <View ref={searchBarRef} collapsable={false} style={styles.searchWrap}>
+        <V2SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder={t('aniV2.searchPlaceholder')}
+          clearLabel={t('aniV2.clearSearch')}
+          filterLabel={t('aniV2.filters')}
           activeFilterCount={badgeFilterCount}
           onFilterPress={openModal}
         />
@@ -499,6 +567,7 @@ export default function FarmerPalengkeScreen() {
             key={chip.value}
             label={chip.label}
             count={chip.count}
+            compact
             selected={appliedFilters.status === chip.value}
             onPress={() => setAppliedFilters((prev) => ({ ...prev, status: chip.value }))}
           />
@@ -562,40 +631,102 @@ export default function FarmerPalengkeScreen() {
             </View>
           )
         ) : (
-          <FlatList
-            data={displayedListings}
-            keyExtractor={(item) => item.id}
+          <ScrollView
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <FarmerListingCard
-                listing={item}
-                coverPhotoUrl={coverPhotos.get(item.id)}
-                pendingCount={pendingCounts.get(item.id) ?? 0}
-                onPress={() =>
-                  router.push({
-                    pathname: '/(farmer)/listing-detail',
-                    params: { id: item.id },
-                  })
-                }
-                onPressOrders={() =>
-                  router.push({
-                    pathname: '/(farmer)/listing-detail',
-                    params: { id: item.id, tab: 'orders' },
-                  })
-                }
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[AnimoV2Colors.actionPrimary]}
               />
-            )}
-          />
+            }>
+            <View style={styles.masonryRow}>
+              <View style={styles.masonryColumn}>
+                {leftListings.map((item) => (
+                    <FarmerListingCard
+                      key={item.id}
+                      listing={item}
+                      coverPhotoUrl={coverPhotos.get(item.id)}
+                      pendingCount={pendingCounts.get(item.id) ?? 0}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/(farmer)/listing-detail',
+                          params: { id: item.id },
+                        })
+                      }
+                      onPressOrders={() =>
+                        router.push({
+                          pathname: '/(farmer)/listing-detail',
+                          params: { id: item.id, tab: 'orders' },
+                        })
+                      }
+                    />
+                ))}
+              </View>
+              <View style={styles.masonryColumn}>
+                {rightListings.map((item) => (
+                    <FarmerListingCard
+                      key={item.id}
+                      listing={item}
+                      coverPhotoUrl={coverPhotos.get(item.id)}
+                      pendingCount={pendingCounts.get(item.id) ?? 0}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/(farmer)/listing-detail',
+                          params: { id: item.id },
+                        })
+                      }
+                      onPressOrders={() =>
+                        router.push({
+                          pathname: '/(farmer)/listing-detail',
+                          params: { id: item.id, tab: 'orders' },
+                        })
+                      }
+                    />
+                ))}
+              </View>
+            </View>
+            {soloListing ? (
+              <View style={styles.soloRow}>
+                {[soloListing].map((item) => (
+                  <FarmerListingCard
+                    key={item.id}
+                    wide
+                    listing={item}
+                    coverPhotoUrl={coverPhotos.get(item.id)}
+                    pendingCount={pendingCounts.get(item.id) ?? 0}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/(farmer)/listing-detail',
+                        params: { id: item.id },
+                      })
+                    }
+                    onPressOrders={() =>
+                      router.push({
+                        pathname: '/(farmer)/listing-detail',
+                        params: { id: item.id, tab: 'orders' },
+                      })
+                    }
+                  />
+                ))}
+              </View>
+            ) : null}
+          </ScrollView>
         )}
       </View>
 
       {showFooter ? (
-        <StickyFooter>
+        <View style={styles.fabWrap} pointerEvents="box-none">
           <View ref={fabRef} collapsable={false}>
-            <ChunkyButton label={t('aniV2.newListing')} icon={Plus} onPress={goCreate} />
+            <ChunkyButton
+              label={t('aniV2.newListing')}
+              icon={Plus}
+              onPress={goCreate}
+              style={styles.fab}
+            />
           </View>
-        </StickyFooter>
+        </View>
       ) : null}
 
       <SpotlightTour
@@ -671,72 +802,132 @@ function WaitingListingRow({ card }: { card: PendingListingCard }) {
   );
 }
 
-/** Aking Ani listing card: photo with status + request pills, name, specs, price, kg left, action row. */
+/** Aking Ani grid card: Senior farmer-friendly (50+ yo) with large legible typography, 1:1 square photo, stock progress bar and no tiny text. */
 function FarmerListingCard({
+  wide = false,
   listing,
   coverPhotoUrl,
   pendingCount,
   onPress,
   onPressOrders,
 }: {
+  /** Alone on its row: full width with a wider photo instead of a huge square. */
+  wide?: boolean;
   listing: CropListing;
   coverPhotoUrl: string | undefined;
   pendingCount: number;
   onPress: () => void;
   onPressOrders: () => void;
 }) {
-  const { t, language } = useLanguage();
+  const { t, language, isTagalog } = useLanguage();
   const soldOut = listing.status === 'Sold_Out' || listing.remainingQuantityKg <= 0;
-  const specs = [
-    varietyLabel(listing, language),
-    purityLabel(listing.declaredPurityGrade, language),
-    moistureLabel(listing.declaredMoisture, language),
-  ].join(', ');
   const name = listingTitle(listing);
+  const specificVariety = specificVarietyDisplay(listing, language);
+  const displayVariety = specificVariety || varietyLabel(listing, language);
+
+  const totalKg = listing.netWeightKg > 0 ? listing.netWeightKg : listing.remainingQuantityKg;
+  const remainingKg = Math.max(0, listing.remainingQuantityKg);
+  const stockRatio = totalKg > 0 ? Math.min(1, remainingKg / totalKg) : 0;
 
   return (
     <DepthCard
       onPress={onPress}
       accessibilityLabel={t('aniV2.openListing', { name })}
+      wrapperStyle={styles.cardWrapper}
+      depth="raised"
+      radius="lg"
       style={styles.card}>
-      <View style={styles.photoArea}>
+      {/* 1:1 Square Photo area */}
+      <View style={[styles.photoArea, wide && styles.photoAreaWide]}>
         {coverPhotoUrl ? (
           <Image source={{ uri: coverPhotoUrl }} style={styles.photoImage} contentFit="cover" />
         ) : (
-          <ImageIcon size={32} color={AnimoV2Colors.textTertiary} />
+          <ImageIcon size={36} color={AnimoV2Colors.textTertiary} />
         )}
+
+        {/* Sold out scrim */}
+        {soldOut ? <View style={styles.soldOutScrim} /> : null}
+
+        {/* Top-left Status Pill */}
         <View style={styles.photoOverlay} pointerEvents="none">
           <StatusPill tone={STATUS_TONES[listing.status]} label={getStatusLabel(listing.status, language)} />
-          {pendingCount > 0 ? (
-            <StatusPill tone="warning" label={t('aniV2.pendingPill', { n: pendingCount })} />
-          ) : null}
+        </View>
+
+        {/* Bottom-left Moisture Tag */}
+        <View style={styles.moistureOverlay}>
+          <AnimoText variant="bodyStrong" color="#FFFFFF" style={styles.moistureText}>
+            {listing.declaredMoisture === 'Dry'
+              ? (isTagalog ? 'Tuyo' : 'Dry')
+              : (isTagalog ? 'Basa' : 'Wet')}
+          </AnimoText>
         </View>
       </View>
 
+      {/* Card Content Body */}
       <View style={styles.cardBody}>
-        <AnimoText variant="subheading" numberOfLines={2}>
+        {/* Listing Title (Emphasized for 50+ age audience) */}
+        <AnimoText variant="heading" numberOfLines={2} style={styles.cardName}>
           {name}
         </AnimoText>
-        <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={2}>
-          {specs}
+
+        {/* Variety / Quality Tag */}
+        <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={1} style={styles.cardVariety}>
+          {displayVariety}
         </AnimoText>
+
+        {/* Price Row */}
         <View style={styles.priceRow}>
-          <AnimoText variant="priceV2" color={AnimoV2Colors.textBrand}>
-            {listing.pricePerKg !== null ? `${formatPeso(listing.pricePerKg)}${t('aniV2.perKg')}` : '—'}
+          <AnimoText
+            variant="heading"
+            color={soldOut ? AnimoV2Colors.textDisabled : AnimoV2Colors.actionPrimary}
+            style={styles.currencySymbol}>
+            ₱
           </AnimoText>
-          <AnimoText variant="bodyStrong">
-            {soldOut
-              ? t('aniV2.soldOutShort')
-              : t('aniV2.kgLeft', { n: listing.remainingQuantityKg.toLocaleString('en-PH') })}
+          <AnimoText
+            variant="h2"
+            color={soldOut ? AnimoV2Colors.textDisabled : AnimoV2Colors.actionPrimary}
+            style={styles.priceAmount}>
+            {listing.pricePerKg !== null ? listing.pricePerKg.toFixed(2) : '—'}
+          </AnimoText>
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.perKg}>
+            {t('aniV2.perKg')}
           </AnimoText>
         </View>
-        <ChunkyButton
-          size="sm"
-          variant={pendingCount > 0 ? 'primary' : 'secondary'}
-          label={pendingCount > 0 ? t('aniV2.viewRequests') : t('aniV2.viewDetails')}
-          onPress={pendingCount > 0 ? onPressOrders : onPress}
-          style={styles.cardAction}
-        />
+
+        {/* Remaining stock text */}
+        <AnimoText
+          variant="bodyStrong"
+          color={soldOut ? AnimoV2Colors.textDisabled : AnimoV2Colors.textPrimary}
+          numberOfLines={1}
+          style={styles.stockText}>
+          {soldOut
+            ? t('aniV2.soldOutShort')
+            : t('aniV2.kgLeft', { n: listing.remainingQuantityKg.toLocaleString('en-PH') })}
+        </AnimoText>
+
+        {/* Remaining stock progress bar */}
+        <View style={styles.progressWrap}>
+          <ProgressBar
+            value={stockRatio}
+            height={8}
+            fill={soldOut ? AnimoV2Colors.textDisabled : stockRatio <= 0.2 ? AnimoV2Colors.warningSolid : AnimoV2Colors.actionPrimary}
+            track={AnimoV2Colors.surfaceMuted}
+          />
+        </View>
+
+        {/* Pending Orders Action Prompt */}
+        {pendingCount > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('aniV2.viewRequests')}
+            onPress={onPressOrders}
+            hitSlop={8}
+            style={styles.pendingOrderBanner}>
+            <AnimoText variant="bodyStrong" color={AnimoV2Colors.warningFg} style={styles.pendingOrderBannerText}>
+              {t('aniV2.pendingPill', { n: pendingCount })} →
+            </AnimoText>
+          </Pressable>
+        ) : null}
       </View>
     </DepthCard>
   );
@@ -744,13 +935,61 @@ function FarmerListingCard({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
-  chipScroll: { flexGrow: 0 },
+  header: {
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingBottom: AnimoV2Spacing.xs,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: AnimoV2Spacing.xs,
+  },
+  headerTitleCol: {
+    flex: 1,
+    gap: 2,
+  },
+  headerTitle: {
+    fontSize: 24,
+    lineHeight: 30,
+    fontFamily: 'Nunito_800ExtraBold',
+  },
+  headerStatBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: AnimoV2Colors.surfaceBrandSubtle,
+    paddingHorizontal: AnimoV2Spacing.md,
+    paddingVertical: 6,
+    borderRadius: AnimoV2Radius.full,
+    borderWidth: 1,
+    borderColor: AnimoV2Colors.brandLight,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: AnimoV2Colors.actionPrimary,
+  },
+  headerStatText: {
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  searchWrap: {
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.xs,
+    paddingBottom: AnimoV2Spacing.xs,
+  },
+  chipScroll: {
+    flexGrow: 0,
+    marginBottom: AnimoV2Spacing.xs,
+  },
   chipRow: {
     flexDirection: 'row',
     gap: AnimoV2Spacing.sm,
     paddingHorizontal: AnimoV2Spacing.lg,
-    paddingTop: AnimoV2Spacing.sm,
-    paddingBottom: AnimoV2Spacing.xs,
+    paddingVertical: AnimoV2Spacing.xs,
   },
   waitingList: {
     gap: AnimoV2Spacing.sm,
@@ -795,11 +1034,20 @@ const styles = StyleSheet.create({
   },
   listContainer: { flex: 1 },
   listContent: {
-    paddingHorizontal: AnimoV2Spacing.lg,
-    paddingTop: AnimoV2Spacing.sm,
-    paddingBottom: AnimoV2Spacing.lg,
-    gap: AnimoV2Spacing.lg,
+    paddingHorizontal: AnimoV2Spacing.md,
+    paddingTop: AnimoV2Spacing.xs,
+    paddingBottom: 112,
   },
+  masonryRow: {
+    flexDirection: 'row',
+    gap: AnimoV2Spacing.sm,
+    alignItems: 'flex-start',
+  },
+  masonryColumn: {
+    flex: 1,
+    gap: AnimoV2Spacing.sm,
+  },
+  soloRow: { marginTop: AnimoV2Spacing.sm },
   centerState: {
     flex: 1,
     alignItems: 'center',
@@ -810,31 +1058,123 @@ const styles = StyleSheet.create({
   centerText: { textAlign: 'center' },
   retryBtn: { alignSelf: 'stretch' },
   emptyButtonWrap: { alignSelf: 'stretch' },
+  cardWrapper: { width: '100%' },
   card: { padding: 0 },
   photoArea: {
     width: '100%',
-    height: 150,
+    aspectRatio: 1,
     backgroundColor: AnimoV2Colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
   },
+  photoAreaWide: { aspectRatio: 2 },
   photoImage: { ...StyleSheet.absoluteFillObject },
+  soldOutScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+  },
   photoOverlay: {
     position: 'absolute',
-    top: AnimoV2Spacing.md,
-    left: AnimoV2Spacing.md,
-    right: AnimoV2Spacing.md,
+    top: AnimoV2Spacing.sm,
+    left: AnimoV2Spacing.sm,
+    right: AnimoV2Spacing.sm,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'flex-start',
   },
-  cardBody: {
-    paddingHorizontal: AnimoV2Spacing.lg,
-    paddingTop: AnimoV2Spacing.md,
-    paddingBottom: AnimoV2Spacing.md,
-    gap: AnimoV2Spacing.xs,
+  moistureOverlay: {
+    position: 'absolute',
+    bottom: AnimoV2Spacing.sm,
+    left: AnimoV2Spacing.sm,
+    backgroundColor: 'rgba(17, 41, 20, 0.85)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: AnimoV2Radius.sm,
   },
-  cardAction: { alignSelf: 'stretch', marginTop: AnimoV2Spacing.sm },
-  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: AnimoV2Spacing.sm },
-
+  moistureText: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontFamily: 'Nunito_700Bold',
+  },
+  cardBody: {
+    padding: AnimoV2Spacing.md,
+    gap: 4,
+  },
+  cardName: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontFamily: 'Nunito_800ExtraBold',
+    color: AnimoV2Colors.textPrimary,
+  },
+  cardVariety: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontFamily: 'Nunito_600SemiBold',
+    color: AnimoV2Colors.textSecondary,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 2,
+    marginTop: 4,
+  },
+  currencySymbol: {
+    fontFamily: 'Nunito_800ExtraBold',
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  priceAmount: {
+    fontFamily: 'Nunito_800ExtraBold',
+    fontSize: 22,
+    lineHeight: 28,
+  },
+  perKg: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginLeft: 2,
+  },
+  stockText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'Nunito_700Bold',
+    marginTop: 2,
+  },
+  progressWrap: {
+    marginTop: 3,
+    marginBottom: 4,
+  },
+  pendingOrderBanner: {
+    marginTop: 6,
+    backgroundColor: AnimoV2Colors.warningBg,
+    borderRadius: AnimoV2Radius.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1.5,
+    borderColor: AnimoV2Colors.warningSolid,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 38,
+  },
+  pendingOrderBannerText: {
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  fabWrap: {
+    position: 'absolute',
+    right: AnimoV2Spacing.lg,
+    bottom: AnimoV2Spacing.lg,
+    alignItems: 'flex-end',
+    zIndex: 99,
+  },
+  fab: {
+    minWidth: 170,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    elevation: 6,
+  },
 });

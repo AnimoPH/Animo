@@ -1,15 +1,21 @@
-import { CheckCircle2, Timer, X } from 'lucide-react-native';
+import { AlertTriangle, CheckCircle2, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { V2Dialog } from '@/components/animo/ui/dialog';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useCountdownTo } from '@/hooks/use-countdown-to';
 import { useLanguage } from '@/hooks/use-language';
 import { cancelPurchaseRequestFailureMessage } from '@/services/purchase-request-service';
 
 const SUCCESS_HOLD_MS = 1600; // how long the success message shows before redirect
+
+const RING_SIZE = 148;
+const RING_STROKE = 12;
 
 type Phase = 'counting' | 'cancelling' | 'success';
 
@@ -24,6 +30,44 @@ export type BidConfirmationModalProps = {
   /** Window elapsed — the request stands, proceed to Transaksyon. */
   onComplete: () => void;
 };
+
+/** Countdown ring that drains from 30 seconds, with the seconds in the middle. */
+function CountdownRing({ progress, seconds, unit }: { progress: number; seconds: number; unit: string }) {
+  const radius = (RING_SIZE - RING_STROKE) / 2;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <View style={styles.ringWrap} accessible accessibilityLabel={`${seconds} ${unit}`}>
+      <Svg width={RING_SIZE} height={RING_SIZE}>
+        <Circle
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          r={radius}
+          stroke={AnimoV2Colors.borderDefault}
+          strokeWidth={RING_STROKE}
+          fill="none"
+        />
+        <Circle
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          r={radius}
+          stroke={AnimoV2Colors.actionPrimary}
+          strokeWidth={RING_STROKE}
+          strokeLinecap="round"
+          fill="none"
+          strokeDasharray={`${circumference} ${circumference}`}
+          strokeDashoffset={circumference * (1 - progress)}
+          transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
+        />
+      </Svg>
+      <View style={styles.ringCenter} pointerEvents="none">
+        <AnimoText variant="priceHero">{seconds}</AnimoText>
+        <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+          {unit}
+        </AnimoText>
+      </View>
+    </View>
+  );
+}
 
 /**
  * Post-submit confirmation. The purchase request already exists in the DB the
@@ -40,16 +84,19 @@ export function BidConfirmationModal({
   onCancel,
   onComplete,
 }: BidConfirmationModalProps) {
-  const { isTagalog } = useLanguage();
+  const { t } = useLanguage();
   const secondsLeft = useCountdownTo(visible ? cancelDeadline : null);
   const [phase, setPhase] = useState<Phase>('counting');
   const [cancelError, setCancelError] = useState<string | null>(null);
+  /** Presentation only: shows "are you sure?" in place of the countdown. The countdown keeps running. */
+  const [confirming, setConfirming] = useState(false);
 
   // Reset state whenever the modal opens.
   useEffect(() => {
     if (visible) {
       setPhase('counting');
       setCancelError(null);
+      setConfirming(false);
     }
   }, [visible]);
 
@@ -67,6 +114,7 @@ export function BidConfirmationModal({
   }, [visible, phase, onComplete]);
 
   const handleCancel = async () => {
+    setConfirming(false);
     setPhase('cancelling');
     setCancelError(null);
     try {
@@ -77,162 +125,101 @@ export function BidConfirmationModal({
     }
   };
 
-  const windowSeconds = 30; // display-only reference for the progress bar; the real gate is cancelDeadline itself
+  const windowSeconds = 30; // display-only reference for the ring; the real gate is cancelDeadline itself
   const progress = Math.min(1, secondsLeft / windowSeconds);
+  const unit = secondsLeft === 1 ? t('buyReqV2.secondOne') : t('buyReqV2.secondMany');
+
+  const summaryBox = (
+    <View style={styles.summaryBox}>
+      <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.center}>
+        {summary}
+      </AnimoText>
+      <AnimoText variant="priceV2" color={AnimoV2Colors.textBrand} style={styles.center}>
+        {formatPeso(total)}
+      </AnimoText>
+    </View>
+  );
+
+  if (phase === 'success') {
+    return (
+      <V2Dialog
+        visible={visible}
+        onClose={() => {}}
+        dismissable={false}
+        icon={CheckCircle2}
+        iconTone="success"
+        title={t('buyReqV2.sentSuccess')}
+        message={t('buyReqV2.redirecting')}>
+        {summaryBox}
+      </V2Dialog>
+    );
+  }
+
+  // Asking "are you sure?" while the window is still open.
+  if (confirming && phase === 'counting') {
+    return (
+      <V2Dialog
+        visible={visible}
+        onClose={() => {}}
+        dismissable={false}
+        icon={AlertTriangle}
+        iconTone="danger"
+        title={t('buyReqV2.cancelConfirmTitle')}
+        message={t('buyReqV2.cancelConfirmBody', { s: secondsLeft })}
+        actions={
+          <>
+            <ChunkyButton variant="danger" icon={X} label={t('buyReqV2.cancelConfirmYes')} onPress={handleCancel} />
+            <ChunkyButton variant="secondary" label={t('buyReqV2.cancelConfirmNo')} onPress={() => setConfirming(false)} />
+          </>
+        }
+      />
+    );
+  }
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => {}}>
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
-          {phase === 'success' ? (
-            <>
-              <View style={styles.iconCircle}>
-                <CheckCircle2 size={32} color={AnimoColors.green} />
-              </View>
-              <AnimoText variant="h2" color={AnimoColors.black} style={styles.center}>
-                {isTagalog ? 'Naipadala ang iyong request!' : 'Your request was sent!'}
-              </AnimoText>
-
-              <View style={styles.summaryBox}>
-                <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.center}>
-                  {summary}
-                </AnimoText>
-                <AnimoText variant="price" color={AnimoColors.green} style={styles.center}>
-                  {formatPeso(total)}
-                </AnimoText>
-              </View>
-
-              <AnimoText variant="caption" color={AnimoColors.muted} style={styles.center}>
-                {isTagalog ? 'Inililipat kayo sa mga transaksyon…' : 'Redirecting you to transactions…'}
-              </AnimoText>
-            </>
-          ) : (
-            <>
-              <View style={styles.iconCircle}>
-                <Timer size={28} color={AnimoColors.green} />
-              </View>
-
-              <AnimoText variant="h2" color={AnimoColors.black} style={styles.center}>
-                {isTagalog ? 'Naipadala ang iyong request' : 'Request Submitted'}
-              </AnimoText>
-
-              <View style={styles.countdown}>
-                <AnimoText variant="display" color={AnimoColors.green}>
-                  {secondsLeft}
-                </AnimoText>
-                <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                  {' '}
-                  {isTagalog ? 'segundo' : secondsLeft === 1 ? 'second' : 'seconds'}
-                </AnimoText>
-              </View>
-
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-              </View>
-
-              <View style={styles.summaryBox}>
-                <AnimoText variant="body" color={AnimoColors.blackSecondary} style={styles.center}>
-                  {summary}
-                </AnimoText>
-                <AnimoText variant="price" color={AnimoColors.black} style={styles.center}>
-                  {formatPeso(total)}
-                </AnimoText>
-              </View>
-
-              {cancelError ? (
-                <AnimoText variant="caption" color={AnimoColors.danger} style={styles.center}>
-                  {cancelError}
-                </AnimoText>
-              ) : null}
-
-              <Pressable
-                accessibilityRole="button"
-                disabled={phase === 'cancelling'}
-                onPress={handleCancel}
-                style={({ pressed }) => [
-                  styles.cancelButton,
-                  (pressed || phase === 'cancelling') && styles.pressed,
-                ]}>
-                <X size={20} color={AnimoColors.danger} />
-                <AnimoText variant="button" color={AnimoColors.danger}>
-                  {phase === 'cancelling'
-                    ? isTagalog
-                      ? 'Kinakansela…'
-                      : 'Cancelling…'
-                    : isTagalog
-                      ? 'Kanselahin'
-                      : 'Cancel Request'}
-                </AnimoText>
-              </Pressable>
-            </>
-          )}
-        </View>
+    <V2Dialog
+      visible={visible}
+      onClose={() => {}}
+      dismissable={false}
+      title={t('buyReqV2.sentTitle')}
+      message={t('buyReqV2.sentBody')}
+      actions={
+        <ChunkyButton
+          variant="secondary"
+          icon={X}
+          label={phase === 'cancelling' ? t('buyReqV2.cancelling') : t('buyReqV2.cancelButton')}
+          textColor={AnimoV2Colors.dangerFg}
+          borderColor={AnimoV2Colors.dangerSolid}
+          disabled={phase === 'cancelling'}
+          onPress={() => setConfirming(true)}
+        />
+      }>
+      <View style={styles.ringRow}>
+        <CountdownRing progress={progress} seconds={secondsLeft} unit={unit} />
       </View>
-    </Modal>
+      {summaryBox}
+      {cancelError ? (
+        <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg} style={styles.center}>
+          {cancelError}
+        </AnimoText>
+      ) : null}
+    </V2Dialog>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
-    paddingHorizontal: AnimoSpacing.xl,
-  },
-  sheet: {
-    backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.xl,
-    gap: AnimoSpacing.md,
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: AnimoColors.greenTint,
+  center: { textAlign: 'center' },
+  ringRow: { alignItems: 'center' },
+  ringWrap: { width: RING_SIZE, height: RING_SIZE },
+  ringCenter: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  center: {
-    textAlign: 'center',
-  },
-  countdown: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: AnimoSpacing.xs,
-  },
-  progressTrack: {
-    width: '100%',
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: AnimoColors.surface,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-    backgroundColor: AnimoColors.green,
   },
   summaryBox: {
-    width: '100%',
-    backgroundColor: AnimoColors.surface,
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.md,
+    backgroundColor: AnimoV2Colors.surfaceMuted,
+    borderRadius: AnimoV2Radius.lg,
+    padding: AnimoV2Spacing.md,
     gap: 2,
-  },
-  cancelButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: AnimoSpacing.sm,
-    width: '100%',
-    height: 56,
-    borderRadius: AnimoRadius.pill,
-    borderWidth: 1.5,
-    borderColor: AnimoColors.danger,
-  },
-  pressed: {
-    opacity: 0.85,
   },
 });

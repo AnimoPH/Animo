@@ -5,27 +5,24 @@ import {
   Banknote,
   Bell,
   BookOpen,
-  Check,
-  ChevronRight,
+  CheckCircle2,
   FileText,
   Globe,
   HelpCircle,
-  Lock,
   LogOut,
+  MessageSquare,
+  Receipt,
   ShieldCheck,
+  Smartphone,
   Sprout,
   Star,
   UserRound,
-  X,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { BackHeader } from '@/components/animo/back-header';
-import { FormCard } from '@/components/animo/form-card';
 import {
   BuyerPreferencesForm,
   buyerPreferencesFormToInput,
@@ -33,21 +30,28 @@ import {
   EMPTY_BUYER_PREFERENCES_FORM,
   type BuyerPreferencesFormValues,
 } from '@/components/animo/buyer-preferences-form';
-import { FeedbackModal } from '@/components/animo/feedback-modal';
-import { LabeledInput } from '@/components/animo/labeled-input';
 import { LegalModal } from '@/components/animo/legal-modal';
 import { OnboardingWalkthroughModal } from '@/components/animo/onboarding-walkthrough-modal';
 import {
   BUYER_TUTORIAL_KEYS,
   TUTORIAL_STORAGE_KEY,
 } from '@/components/animo/spotlight-tour';
-import SignOutModal from '@/components/signout-modal';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { V2Dialog, V2Sheet } from '@/components/animo/ui/dialog';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { Mascot } from '@/components/animo/ui/mascot';
+import { OptionCard } from '@/components/animo/ui/option-card';
 import {
-  AnimoColors,
-  AnimoRadius,
-  AnimoSpacing,
-  AnimoType,
-} from '@/constants/animo';
+  ModalHeader,
+  ProfileRow,
+  ProfileSection,
+  ProfileStatTile,
+  StarRow,
+} from '@/components/animo/ui/profile-bits';
+import { StatusPill } from '@/components/animo/ui/status-pill';
+import { TextField } from '@/components/animo/ui/text-field';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { LegalTabKey } from '@/constants/legal-content';
 import { getRole } from '@/constants/roles';
 import { formatPeso } from '@/constants/marketplace';
@@ -61,9 +65,9 @@ import {
 import { fetchTrustProfile, type TrustProfile } from '@/services/farmer-public-profile';
 import { fetchReceivedFeedbacks } from '@/services/received-feedback';
 import { fetchBuyerTransactions, fetchCounterpartNames } from '@/services/transaction-service';
+import { getMoistureOptions, getVarietyOptions } from '@/types/crop-listing';
 import { displayStageForMatch, getDisplayStageLabel } from '@/types/transaction';
 
-const SCREEN_PADDING = AnimoSpacing.lg;
 const GCASH_NUMBER_PATTERN = /^09\d{9}$/;
 
 type BuyerFeedback = {
@@ -93,6 +97,7 @@ type BuyerTxnDisplay = {
 export default function BuyerProfileScreen() {
   const { account, refresh, signOut } = useSession();
   const { t, language, setLanguage, isTagalog } = useLanguage();
+  const insets = useSafeAreaInsets();
 
   const [trustProfile, setTrustProfile] = useState<TrustProfile | null>(null);
   const [feedbacks, setFeedbacks] = useState<BuyerFeedback[]>([]);
@@ -193,6 +198,21 @@ export default function BuyerProfileScreen() {
     };
   }, [account?.id, isTagalog]);
 
+  // Saved preferences feed the "Kagustuhan sa Pagbili" summary card.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      fetchMyBuyerPreferences()
+        .then((prefs) => {
+          if (active) setSavedBuyerPreferences(buyerPreferencesToForm(prefs));
+        })
+        .catch(() => {});
+      return () => {
+        active = false;
+      };
+    }, [showBuyerPreferencesModal]),
+  );
+
   useEffect(() => {
     if (!showBuyerPreferencesModal) return;
     setBuyerPreferencesLoading(true);
@@ -203,8 +223,10 @@ export default function BuyerProfileScreen() {
         setBuyerPreferences(form);
         setSavedBuyerPreferences(form);
       })
-      .catch(() => setBuyerPreferencesError('Hindi na-load ang kagustuhan sa pagbili.'))
+      .catch(() => setBuyerPreferencesError(t('buyProfileV2.prefLoadError')))
       .finally(() => setBuyerPreferencesLoading(false));
+    // `t` is intentionally not a dependency: only (re)load when the sheet opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showBuyerPreferencesModal]);
 
   const quantityText = buyerPreferences.typicalQuantityKg.trim();
@@ -225,7 +247,7 @@ export default function BuyerProfileScreen() {
       setShowBuyerPreferencesModal(false);
     } catch (err) {
       setBuyerPreferencesError(
-        err instanceof Error ? err.message : 'Hindi na-save ang kagustuhan sa pagbili.',
+        err instanceof Error ? err.message : t('buyProfileV2.prefSaveError'),
       );
     } finally {
       setBuyerPreferencesSaving(false);
@@ -254,7 +276,7 @@ export default function BuyerProfileScreen() {
       setShowPersonalInfoModal(false);
       setShowProfileSavedModal(true);
     } catch (err) {
-      setProfileError(err instanceof Error ? err.message : (isTagalog ? 'Hindi na-save ang profile.' : 'Failed to save profile.'));
+      setProfileError(err instanceof Error ? err.message : t('profileV2.editFailed'));
     } finally {
       setProfileSaving(false);
     }
@@ -307,288 +329,241 @@ export default function BuyerProfileScreen() {
     }
   };
 
-  const fullName = account?.fullName || 'Mamimili';
+  const fullName = account?.fullName || t('role.buyer');
   const gcashDisplay = account?.gcashNumber
     ? `${account.gcashNumber.slice(0, 4)} **** ${account.gcashNumber.slice(-3)}`
-    : isTagalog
-      ? 'Wala pang nakatalang GCash'
-      : 'No GCash registered';
+    : t('profileV2.noGcash');
 
-  const averageRating =
-    trustProfile && trustProfile.ratingCount > 0
-      ? `${trustProfile.averageRating.toFixed(1)} ★`
-      : '— ★';
+  const hasRating = !!trustProfile && trustProfile.ratingCount > 0;
+  const averageRating = hasRating ? trustProfile.averageRating.toFixed(1) : '—';
   const reviewCount = trustProfile ? String(trustProfile.ratingCount) : '0';
   const transactionCount = trustProfile ? String(trustProfile.completedTransactions) : '0';
+
+  // Summary chips for the saved buying preferences.
+  const varietyChoice = getVarietyOptions(language).find((o) => o.value === savedBuyerPreferences.preferredVariety);
+  const moistureChoice = getMoistureOptions(language).find((o) => o.value === savedBuyerPreferences.preferredMoisture);
+  const preferenceChips = [
+    varietyChoice?.label,
+    savedBuyerPreferences.preferredVarietyCode?.trim() || undefined,
+    moistureChoice?.label,
+    savedBuyerPreferences.typicalQuantityKg.trim()
+      ? `${savedBuyerPreferences.typicalQuantityKg.trim()} ${t('buyProfileV2.prefQtyUnit')}`
+      : undefined,
+  ].filter((chip): chip is string => Boolean(chip));
 
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
       <ScrollView
-        style={styles.scroll}
+        style={styles.flex}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        {/* SECTION 1 — Hero */}
-        <View style={styles.hero}>
-          <SafeAreaView edges={['top']} style={styles.heroContent}>
-            <View style={styles.avatar}>
-              <UserRound size={40} color={AnimoColors.accentPrimary} />
-            </View>
-            <Text style={styles.fullName}>{fullName}</Text>
-            <Text style={styles.location}>{t('role.buyer')}</Text>
-            <View style={styles.badgeRow}>
-              <View style={styles.roleBadge}>
-                <Lock size={12} color={AnimoColors.white} />
-                <Text style={styles.roleBadgeText}>{t('role.buyer')}</Text>
-              </View>
-            </View>
-          </SafeAreaView>
+        {/* Hero */}
+        <View style={[styles.hero, { paddingTop: insets.top + AnimoV2Spacing.lg }]}>
+          <Mascot size={84} tile={false} />
+          <AnimoText variant="title" color={AnimoV2Colors.textOnBrand} style={styles.centerText} accessibilityRole="header">
+            {fullName}
+          </AnimoText>
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textOnBrand} style={styles.centerText}>
+            {t('role.buyer')}
+          </AnimoText>
         </View>
 
-        {/* SECTION 2 — Stats Row (Interactive) */}
-        <View style={styles.statsRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Tingnan ang rating at feedback"
-            onPress={() => setShowFeedbacksModal(true)}
-            style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
-            <Text style={styles.statValue}>{averageRating}</Text>
-            <Text style={styles.statLabel}>{t('profile.rating')}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Tingnan ang mga review"
-            onPress={() => setShowFeedbacksModal(true)}
-            style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
-            <Text style={styles.statValue}>{reviewCount}</Text>
-            <Text style={styles.statLabel}>{t('profile.reviews')}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Tingnan ang kamakailang transaksyon"
-            onPress={() => setShowRecentTxnsModal(true)}
-            style={({ pressed }) => [styles.statCard, pressed && styles.pressed]}>
-            <Text style={styles.statValue}>{transactionCount}</Text>
-            <Text style={styles.statLabel}>{t('profile.transactions')}</Text>
-          </Pressable>
-        </View>
-
-        {/* SECTION 3 — Impormasyon ng Account */}
-        <Text style={styles.sectionLabel}>{t('profile.accountInfo')}</Text>
-        <View style={styles.card}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setShowPersonalInfoModal(true)}
-            style={({ pressed }) => [styles.accountRow, pressed && styles.pressed]}>
-            <View style={styles.accountIcon}>
-              <UserRound size={20} color={AnimoColors.objectMediumEmphasis} />
-            </View>
-            <View style={styles.accountCopy}>
-              <Text style={styles.accountTitle}>{t('profile.personalInfo')}</Text>
-              <Text style={styles.accountCaption}>{t('profile.personalInfoDesc')}</Text>
-            </View>
-            <ChevronRight size={18} color={AnimoColors.objectLowEmphasis} />
-          </Pressable>
-          <View style={styles.divider} />
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setShowBuyerPreferencesModal(true)}
-            style={({ pressed }) => [styles.accountRow, pressed && styles.pressed]}>
-            <View style={styles.accountIcon}>
-              <Sprout size={20} color={AnimoColors.objectMediumEmphasis} />
-            </View>
-            <View style={styles.accountCopy}>
-              <Text style={styles.accountTitle}>
-                {isTagalog ? 'Kagustuhan sa Pagbili' : 'Buying Preferences'}
-              </Text>
-              <Text style={styles.accountCaption}>
-                {isTagalog
-                  ? 'Uri ng palay, moisture, at karaniwang dami na binibili'
-                  : 'Rice variety, moisture, and target purchase volumes'}
-              </Text>
-            </View>
-            <ChevronRight size={18} color={AnimoColors.objectLowEmphasis} />
-          </Pressable>
-        </View>
-
-        {/* SECTION 4 — Paraan ng Pagbabayad */}
-        <Text style={styles.sectionLabel}>{t('profile.paymentMethods')}</Text>
-        <View style={styles.card}>
-          <View style={styles.paymentRow}>
-            <View style={styles.gcashIcon}>
-              <Text style={styles.gcashIconText}>GC</Text>
-            </View>
-            <View style={styles.paymentCopy}>
-              <Text style={styles.paymentTitle}>GCash</Text>
-              <Text style={styles.paymentCaption}>{gcashDisplay}</Text>
-            </View>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.paymentRow}>
-            <View style={styles.cashIcon}>
-              <Banknote size={20} color={AnimoColors.objectMediumEmphasis} />
-            </View>
-            <View style={styles.paymentCopy}>
-              <Text style={styles.paymentTitle}>Cash</Text>
-              <Text style={styles.paymentCaption}>
-                {isTagalog ? 'Personal na bayaran sa pickup' : 'In-person payment upon pickup'}
-              </Text>
-            </View>
-            <View style={styles.defaultBadge}>
-              <Text style={styles.defaultBadgeText}>{t('profile.default')}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* SECTION 5 — Mga Setting */}
-        <Text style={styles.sectionLabel}>{t('profile.settings')}</Text>
-        <View style={[styles.card, styles.settingsCard]}>
-          {/* Notifications */}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleSettingPress('notif')}
-            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
-            <Bell size={20} color={AnimoColors.objectHighEmphasis} />
-            <Text style={styles.settingLabel}>{t('profile.notifications')}</Text>
-            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
-          </Pressable>
-          <View style={styles.divider} />
-
-          {/* Language Selection */}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleSettingPress('language')}
-            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
-            <Globe size={20} color={AnimoColors.accentPrimary} />
-            <View style={styles.flexSettingLabel}>
-              <Text style={styles.settingLabel}>{t('profile.language')}</Text>
-              <View style={styles.langBadge}>
-                <Text style={styles.langBadgeText}>{isTagalog ? 'Tagalog' : 'English'}</Text>
-              </View>
-            </View>
-            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
-          </Pressable>
-          <View style={styles.divider} />
-
-          {/* User Guide & Tutorial */}
-          <View style={styles.settingRow}>
-            <BookOpen size={20} color={AnimoColors.objectHighEmphasis} />
-            <Text style={styles.settingLabel}>{t('profile.userGuide')}</Text>
-            <Switch
-              value={tutorialEnabled}
-              onValueChange={handleTutorialToggle}
-              trackColor={{ false: '#D1D5DB', true: AnimoColors.accentPrimaryLight }}
-              thumbColor={tutorialEnabled ? AnimoColors.accentPrimary : '#FFFFFF'}
-              accessibilityLabel={t('profile.userGuide')}
+        <View style={styles.body}>
+          {/* Stats (interactive) */}
+          <View style={styles.statsRow}>
+            <ProfileStatTile
+              icon={Star}
+              filled
+              value={averageRating}
+              label={t('profileV2.rating')}
+              a11y={t('profileV2.a11yRating')}
+              onPress={() => setShowFeedbacksModal(true)}
+            />
+            <ProfileStatTile
+              icon={MessageSquare}
+              value={reviewCount}
+              label={t('profile.reviews')}
+              a11y={t('profileV2.a11yReviews')}
+              onPress={() => setShowFeedbacksModal(true)}
+            />
+            <ProfileStatTile
+              icon={Receipt}
+              value={transactionCount}
+              label={t('profile.transactions')}
+              a11y={t('profileV2.a11yTxns')}
+              onPress={() => setShowRecentTxnsModal(true)}
             />
           </View>
-          <View style={styles.divider} />
 
-          {/* Help & FAQ */}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleSettingPress('help')}
-            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
-            <HelpCircle size={20} color={AnimoColors.objectHighEmphasis} />
-            <Text style={styles.settingLabel}>{t('profile.helpFaq')}</Text>
-            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
-          </Pressable>
-          <View style={styles.divider} />
+          {/* Account */}
+          <ProfileSection title={t('profile.accountInfo')}>
+            <ProfileRow
+              icon={UserRound}
+              label={t('profile.personalInfo')}
+              caption={t('profile.personalInfoDesc')}
+              onPress={() => setShowPersonalInfoModal(true)}
+              chevron
+            />
+            <ProfileRow icon={Smartphone} label={t('profileV2.phone')} value={account?.phone ?? '—'} />
+          </ProfileSection>
 
-          {/* Terms */}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleSettingPress('terms')}
-            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
-            <FileText size={20} color={AnimoColors.objectHighEmphasis} />
-            <Text style={styles.settingLabel}>{t('profile.terms')}</Text>
-            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
-          </Pressable>
-          <View style={styles.divider} />
+          {/* Kagustuhan sa Pagbili */}
+          <DepthCard radius="xl" style={styles.prefCard}>
+            <View style={styles.prefHeader}>
+              <IconTile icon={Sprout} tone="success" size={48} />
+              <View style={styles.flex}>
+                <AnimoText variant="subheading">{t('buyProfileV2.prefTitle')}</AnimoText>
+                <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                  {t('buyProfileV2.prefDesc')}
+                </AnimoText>
+              </View>
+            </View>
+            {preferenceChips.length > 0 ? (
+              <View style={styles.chipWrap}>
+                {preferenceChips.map((chip) => (
+                  <View key={chip} style={styles.prefChip}>
+                    <AnimoText variant="tagV2" color={AnimoV2Colors.textSecondary}>
+                      {chip}
+                    </AnimoText>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+                {t('buyProfileV2.prefEmpty')}
+              </AnimoText>
+            )}
+            <ChunkyButton
+              size="sm"
+              flat
+              variant="secondary"
+              borderColor={AnimoV2Colors.actionPrimary}
+              label={t('buyProfileV2.prefEdit')}
+              onPress={() => setShowBuyerPreferencesModal(true)}
+              style={styles.stretch}
+            />
+          </DepthCard>
 
-          {/* Privacy */}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleSettingPress('privacy')}
-            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
-            <ShieldCheck size={20} color={AnimoColors.objectHighEmphasis} />
-            <Text style={styles.settingLabel}>{t('profile.privacy')}</Text>
-            <ChevronRight size={16} color={AnimoColors.objectLowEmphasis} />
-          </Pressable>
-          <View style={styles.divider} />
+          {/* Payment */}
+          <ProfileSection title={t('profile.paymentMethods')}>
+            <ProfileRow icon={Banknote} label={t('profileV2.gcash')} value={gcashDisplay} />
+            <ProfileRow
+              icon={Banknote}
+              label={t('profileV2.cash')}
+              caption={t('buyProfileV2.cashDesc')}
+              right={<StatusPill tone="success" label={t('profile.default')} />}
+            />
+          </ProfileSection>
 
-          {/* Sign Out */}
-          <Pressable
-            accessibilityRole="button"
+          {/* Settings */}
+          <ProfileSection title={t('profile.settings')}>
+            <ProfileRow
+              icon={Bell}
+              label={t('profile.notifications')}
+              onPress={() => handleSettingPress('notif')}
+              chevron
+            />
+            <ProfileRow
+              icon={Globe}
+              label={t('profile.language')}
+              value={isTagalog ? 'Tagalog' : 'English'}
+              onPress={() => handleSettingPress('language')}
+              chevron
+            />
+            <ProfileRow
+              icon={BookOpen}
+              label={t('profile.userGuide')}
+              right={
+                <Switch
+                  value={tutorialEnabled}
+                  onValueChange={handleTutorialToggle}
+                  trackColor={{ false: AnimoV2Colors.edgeSoft, true: AnimoV2Colors.brandLight }}
+                  thumbColor={tutorialEnabled ? AnimoV2Colors.actionPrimary : AnimoV2Colors.surfaceCard}
+                  accessibilityLabel={t('profile.userGuide')}
+                />
+              }
+            />
+            <ProfileRow
+              icon={HelpCircle}
+              label={t('profile.helpFaq')}
+              onPress={() => handleSettingPress('help')}
+              chevron
+            />
+          </ProfileSection>
+
+          {/* Legal */}
+          <ProfileSection title={t('profileV2.legal')}>
+            <ProfileRow
+              icon={FileText}
+              label={t('profile.terms')}
+              onPress={() => handleSettingPress('terms')}
+              chevron
+            />
+            <ProfileRow
+              icon={ShieldCheck}
+              label={t('profile.privacy')}
+              onPress={() => handleSettingPress('privacy')}
+              chevron
+            />
+          </ProfileSection>
+
+          <ChunkyButton
+            label={t('profile.signOut')}
+            variant="secondary"
+            icon={LogOut}
+            textColor={AnimoV2Colors.dangerFg}
+            borderColor={AnimoV2Colors.dangerSolid}
             onPress={() => setShowSignOutModal(true)}
-            style={({ pressed }) => [styles.settingRow, pressed && styles.pressed]}>
-            <LogOut size={20} color={AnimoColors.caution} />
-            <Text style={styles.signOutLabel}>{t('profile.signOut')}</Text>
-          </Pressable>
+          />
         </View>
-
-        {/* Sign Out Modal */}
-        <SignOutModal
-          visible={showSignOutModal}
-          onCancel={() => setShowSignOutModal(false)}
-          onConfirm={handleLogout}
-        />
       </ScrollView>
 
-      {/* Language Selection Modal */}
-      <Modal
+      {/* Sign out dialog */}
+      <V2Dialog
+        visible={showSignOutModal}
+        onClose={() => setShowSignOutModal(false)}
+        icon={LogOut}
+        iconTone="danger"
+        title={t('profileV2.signOutTitle')}
+        message={t('buyProfileV2.signOutBody')}
+        actions={
+          <>
+            <ChunkyButton label={t('profile.signOut')} variant="danger" onPress={handleLogout} />
+            <ChunkyButton
+              label={t('profileV2.stay')}
+              variant="secondary"
+              onPress={() => setShowSignOutModal(false)}
+            />
+          </>
+        }
+      />
+
+      {/* Language sheet */}
+      <V2Sheet
         visible={showLanguageModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowLanguageModal(false)}>
-        <View style={styles.modalBackdrop}>
-          <SafeAreaView style={styles.langModalCard} edges={['bottom']}>
-            <View style={styles.langModalHeader}>
-              <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-                {t('profile.selectLanguage')}
-              </AnimoText>
-              <Pressable
-                onPress={() => setShowLanguageModal(false)}
-                hitSlop={10}
-                style={styles.closeBtn}>
-                <X size={22} color={AnimoColors.textMediumEmphasis} />
-              </Pressable>
-            </View>
-
-            <View style={styles.langList}>
-              <Pressable
-                onPress={() => {
-                  setLanguage('tl');
-                  setShowLanguageModal(false);
-                }}
-                style={[styles.langOption, language === 'tl' && styles.langOptionActive]}>
-                <View style={styles.langOptionLeft}>
-                  <View>
-                    <Text style={styles.langOptionTitle}>Tagalog (Filipino)</Text>
-                    <Text style={styles.langOptionSubtitle}>Pangunahing wika sa app</Text>
-                  </View>
-                </View>
-                {language === 'tl' ? <Check size={20} color={AnimoColors.accentPrimary} /> : null}
-              </Pressable>
-
-              <Pressable
-                onPress={() => {
-                  setLanguage('en');
-                  setShowLanguageModal(false);
-                }}
-                style={[styles.langOption, language === 'en' && styles.langOptionActive]}>
-                <View style={styles.langOptionLeft}>
-                  <View>
-                    <Text style={styles.langOptionTitle}>English</Text>
-                    <Text style={styles.langOptionSubtitle}>Switch interface to English</Text>
-                  </View>
-                </View>
-                {language === 'en' ? <Check size={20} color={AnimoColors.accentPrimary} /> : null}
-              </Pressable>
-            </View>
-          </SafeAreaView>
-        </View>
-      </Modal>
+        onClose={() => setShowLanguageModal(false)}
+        title={t('profile.selectLanguage')}>
+        <OptionCard
+          label={t('profile.langTagalog')}
+          description={t('profileV2.langTlSub')}
+          selected={language === 'tl'}
+          onPress={() => {
+            setLanguage('tl');
+            setShowLanguageModal(false);
+          }}
+        />
+        <OptionCard
+          label={t('profile.langEnglish')}
+          description={t('profileV2.langEnSub')}
+          selected={language === 'en'}
+          onPress={() => {
+            setLanguage('en');
+            setShowLanguageModal(false);
+          }}
+        />
+        <ChunkyButton label={t('profileV2.langDone')} onPress={() => setShowLanguageModal(false)} />
+      </V2Sheet>
 
       {/* Onboarding / Tutorial Walkthrough Modal for Buyers */}
       <OnboardingWalkthroughModal
@@ -603,71 +578,63 @@ export default function BuyerProfileScreen() {
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setShowPersonalInfoModal(false)}>
-        <SafeAreaView style={styles.personalInfoSafeArea} edges={['top', 'bottom']}>
-          <BackHeader
-            title={isTagalog ? 'Personal na Impormasyon' : 'Personal Information'}
-            onBack={() => setShowPersonalInfoModal(false)}
+        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
+          <ModalHeader
+            title={t('profileV2.editTitle')}
+            closeLabel={t('common.close')}
+            onClose={() => setShowPersonalInfoModal(false)}
           />
 
           <KeyboardAvoidingView
             style={styles.flex}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <ScrollView
-              contentContainerStyle={styles.personalInfoContent}
+              contentContainerStyle={styles.modalContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}>
-              <FormCard title="Account">
-                <ProfileReadOnlyRow
-                  label={isTagalog ? 'Numero ng Telepono' : 'Phone Number'}
-                  value={account?.phone || '—'}
+              <AnimoText variant="subheading">{t('profileV2.editAccount')}</AnimoText>
+              <DepthCard depth="flat" radius="lg" style={styles.readOnlyCard}>
+                <ReadOnlyRow label={t('buyProfileV2.editNumber')} value={account?.phone || '—'} />
+                <View style={styles.divider} />
+                <ReadOnlyRow
+                  label={t('profileV2.editRole')}
+                  value={getRole(account?.role ?? 'mamimili')?.title ?? t('role.buyer')}
                 />
-                <ProfileReadOnlyRow
-                  label={isTagalog ? 'Tungkulin' : 'Role'}
-                  value={getRole(account?.role ?? 'mamimili')?.title ?? (isTagalog ? 'Mamimili' : 'Buyer')}
+                <View style={styles.divider} />
+                <ReadOnlyRow
+                  label={t('profileV2.editWallet')}
+                  value={account?.walletAddress ?? t('profileV2.editNoWallet')}
                 />
-                <ProfileReadOnlyRow
-                  label="Wallet Address"
-                  value={account?.walletAddress ?? (isTagalog ? 'Wala pang wallet' : 'No wallet yet')}
-                />
-              </FormCard>
+              </DepthCard>
 
-              <FormCard title={isTagalog ? 'Personal na Impormasyon' : 'Personal Information'}>
-                <LabeledInput
-                  label={isTagalog ? 'Buong Pangalan' : 'Full Name'}
-                  placeholder="Juan Dela Cruz"
-                  autoCapitalize="words"
-                  value={editFullName}
-                  onChangeText={setEditFullName}
-                />
-                <LabeledInput
-                  label="GCash Number"
-                  placeholder="09171234567"
-                  keyboardType="number-pad"
-                  maxLength={11}
-                  value={editGcashNumber}
-                  onChangeText={(text) => setEditGcashNumber(text.replace(/\D/g, ''))}
-                  error={!gcashValid}
-                  hint={
-                    gcashValid
-                      ? undefined
-                      : isTagalog
-                        ? '11 digits, nagsisimula sa 09.'
-                        : '11 digits starting with 09.'
-                  }
-                  hintTone={gcashValid ? 'muted' : 'danger'}
-                />
-              </FormCard>
+              <AnimoText variant="subheading">{t('profileV2.editTitle')}</AnimoText>
+              <TextField
+                label={t('profileV2.editFullName')}
+                placeholder="Juan Dela Cruz"
+                autoCapitalize="words"
+                value={editFullName}
+                onChangeText={setEditFullName}
+              />
+              <TextField
+                label={t('buyProfileV2.editGcash')}
+                placeholder="09171234567"
+                keyboardType="number-pad"
+                maxLength={11}
+                value={editGcashNumber}
+                onChangeText={(text) => setEditGcashNumber(text.replace(/\D/g, ''))}
+                error={gcashValid ? undefined : t('profileV2.editGcashHint')}
+              />
 
               {profileError ? (
-                <AnimoText variant="body" color={AnimoColors.danger}>
+                <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg}>
                   {profileError}
                 </AnimoText>
               ) : null}
             </ScrollView>
 
-            <View style={styles.personalInfoFooter}>
-              <AnimoButton
-                label={isTagalog ? 'I-save' : 'Save'}
+            <View style={styles.modalFooter}>
+              <ChunkyButton
+                label={t('buyProfileV2.save')}
                 onPress={handleSaveBuyerProfile}
                 disabled={!canSaveProfile}
                 loading={profileSaving}
@@ -677,42 +644,43 @@ export default function BuyerProfileScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* Kagustuhan sa Pagbili (Buying Preferences) Modal */}
+      {/* Kagustuhan sa Pagbili (Buying Preferences) edit sheet */}
       <Modal
         visible={showBuyerPreferencesModal}
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setShowBuyerPreferencesModal(false)}>
-        <SafeAreaView style={styles.personalInfoSafeArea} edges={['top', 'bottom']}>
-          <BackHeader
-            title={isTagalog ? 'Kagustuhan sa Pagbili' : 'Buying Preferences'}
-            onBack={() => setShowBuyerPreferencesModal(false)}
+        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
+          <ModalHeader
+            title={t('buyProfileV2.prefTitle')}
+            closeLabel={t('common.close')}
+            onClose={() => setShowBuyerPreferencesModal(false)}
           />
 
           <KeyboardAvoidingView
             style={styles.flex}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <ScrollView
-              contentContainerStyle={styles.personalInfoContent}
+              contentContainerStyle={styles.modalContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}>
               {buyerPreferencesLoading ? (
-                <AnimoText variant="body" color={AnimoColors.textLowEmphasis}>
-                  {isTagalog ? 'Ikinakarga...' : 'Loading...'}
+                <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+                  {t('buyProfileV2.prefLoading')}
                 </AnimoText>
               ) : (
                 <BuyerPreferencesForm values={buyerPreferences} onChange={setBuyerPreferences} />
               )}
               {buyerPreferencesError ? (
-                <AnimoText variant="body" color={AnimoColors.danger}>
+                <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg}>
                   {buyerPreferencesError}
                 </AnimoText>
               ) : null}
             </ScrollView>
 
-            <View style={styles.personalInfoFooter}>
-              <AnimoButton
-                label={isTagalog ? 'I-save' : 'Save Preferences'}
+            <View style={styles.modalFooter}>
+              <ChunkyButton
+                label={t('buyProfileV2.prefSave')}
                 onPress={handleSaveBuyerPreferences}
                 loading={buyerPreferencesSaving}
                 disabled={!canSavePreferences}
@@ -729,90 +697,61 @@ export default function BuyerProfileScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowFeedbacksModal(false)}>
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
-          <View style={styles.modalHeader}>
-            <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-              {isTagalog ? 'Rating at Feedback' : 'Ratings & Feedback'}
-            </AnimoText>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Isara ang modal"
-              onPress={() => setShowFeedbacksModal(false)}
-              hitSlop={8}
-              style={styles.closeBtn}>
-              <X size={22} color={AnimoColors.textHighEmphasis} />
-            </Pressable>
-          </View>
+          <ModalHeader
+            title={t('profileV2.ratingsTitle')}
+            closeLabel={t('common.close')}
+            onClose={() => setShowFeedbacksModal(false)}
+          />
 
           <ScrollView
-            contentContainerStyle={styles.modalScroll}
+            style={styles.flex}
+            contentContainerStyle={styles.modalContent}
             showsVerticalScrollIndicator={false}>
-            <View style={styles.ratingSummaryBanner}>
-              <View style={styles.ratingBigWrap}>
-                <Text style={styles.ratingBigText}>
-                  {trustProfile && trustProfile.ratingCount > 0
-                    ? trustProfile.averageRating.toFixed(1)
-                    : '—'}
-                </Text>
-                <View style={styles.starsRow}>
-                  {[1, 2, 3, 4, 5].map((s) => {
-                    const rounded = trustProfile ? Math.round(trustProfile.averageRating) : 0;
-                    return (
-                      <Star
-                        key={s}
-                        size={16}
-                        color={s <= rounded ? '#F9A825' : '#D1D5DB'}
-                        fill={s <= rounded ? '#F9A825' : 'transparent'}
-                      />
-                    );
-                  })}
-                </View>
+            <DepthCard
+              depth="flat"
+              radius="lg"
+              backgroundColor={AnimoV2Colors.surfaceBrandSubtle}
+              borderColor={AnimoV2Colors.actionPrimary}
+              style={styles.ratingBanner}>
+              <View style={styles.ratingBigRow}>
+                <AnimoText variant="display">{averageRating}</AnimoText>
+                <StarRow rating={trustProfile ? Math.round(trustProfile.averageRating) : 0} size={20} />
               </View>
-              <Text style={styles.ratingSubCaption}>
-                {isTagalog
-                  ? `${reviewCount} kabuuang review mula sa mga magsasaka`
-                  : `${reviewCount} total reviews from farmers`}
-              </Text>
-            </View>
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+                {t('buyProfileV2.reviewsSummary', { count: reviewCount })}
+              </AnimoText>
+            </DepthCard>
 
             {reviewsUnavailable ? (
-              <View style={styles.emptyWrap}>
-                <Text style={styles.emptyText}>
-                  {isTagalog ? 'Hindi maipakita ang mga puna ngayon.' : 'Reviews cannot be shown right now.'}
-                </Text>
-              </View>
+              <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.emptyText}>
+                {t('profileV2.reviewsUnavailable')}
+              </AnimoText>
             ) : feedbacks.length === 0 ? (
-              <View style={styles.emptyWrap}>
-                <Text style={styles.emptyText}>
-                  {isTagalog ? 'Wala pang natatanggap na review.' : 'No reviews received yet.'}
-                </Text>
-              </View>
+              <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.emptyText}>
+                {t('profileV2.noReviews')}
+              </AnimoText>
             ) : (
               feedbacks.map((fb) => (
-                <View key={fb.id} style={styles.feedbackCard}>
+                <DepthCard key={fb.id} depth="flat" radius="lg" style={styles.feedbackCard}>
                   <View style={styles.feedbackHeader}>
                     <View style={styles.flex}>
-                      <Text style={styles.feedbackAuthor}>{fb.author}</Text>
-                      <Text style={styles.feedbackDate}>{fb.date}</Text>
+                      <AnimoText variant="bodyStrong">{fb.author}</AnimoText>
+                      <AnimoText variant="captionV2" color={AnimoV2Colors.textTertiary}>
+                        {fb.date}
+                      </AnimoText>
                     </View>
-                    <View style={styles.starsRowSmall}>
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <Star
-                          key={s}
-                          size={13}
-                          color={s <= fb.rating ? '#F9A825' : '#D1D5DB'}
-                          fill={s <= fb.rating ? '#F9A825' : 'transparent'}
-                        />
-                      ))}
-                    </View>
+                    <StarRow rating={fb.rating} size={16} />
                   </View>
-                  <Text style={styles.feedbackComment}>"{fb.comment}"</Text>
-                </View>
+                  <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+                    {fb.comment}
+                  </AnimoText>
+                </DepthCard>
               ))
             )}
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <AnimoButton label={t('common.close')} onPress={() => setShowFeedbacksModal(false)} />
+            <ChunkyButton label={t('common.close')} onPress={() => setShowFeedbacksModal(false)} />
           </View>
         </SafeAreaView>
       </Modal>
@@ -824,81 +763,61 @@ export default function BuyerProfileScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowRecentTxnsModal(false)}>
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
-          <View style={styles.modalHeader}>
-            <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-              {isTagalog ? 'Kamakailang Transaksyon' : 'Recent Transactions'}
-            </AnimoText>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Isara ang modal"
-              onPress={() => setShowRecentTxnsModal(false)}
-              hitSlop={8}
-              style={styles.closeBtn}>
-              <X size={22} color={AnimoColors.textHighEmphasis} />
-            </Pressable>
-          </View>
+          <ModalHeader
+            title={t('profileV2.recentTxns')}
+            closeLabel={t('common.close')}
+            onClose={() => setShowRecentTxnsModal(false)}
+          />
 
           <ScrollView
-            contentContainerStyle={styles.modalScroll}
+            style={styles.flex}
+            contentContainerStyle={styles.modalContent}
             showsVerticalScrollIndicator={false}>
             {transactions.length === 0 ? (
-              <View style={styles.emptyWrap}>
-                <Text style={styles.emptyText}>
-                  {isTagalog
-                    ? 'Wala pang natapos na transaksyon.'
-                    : 'No completed transactions yet.'}
-                </Text>
-              </View>
+              <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.emptyText}>
+                {t('profileV2.noTxns')}
+              </AnimoText>
             ) : (
               transactions.map((tx) => (
-                <View key={tx.id} style={styles.txCard}>
-                  <View style={styles.txHeader}>
+                <DepthCard key={tx.id} depth="flat" radius="lg" style={styles.feedbackCard}>
+                  <View style={styles.feedbackHeader}>
                     <View style={styles.flex}>
-                      <Text style={styles.txVariety}>{tx.variety}</Text>
-                      <Text style={styles.txSubtitle}>
-                        {isTagalog ? 'Magsasaka' : 'Farmer'}: {tx.farmer} · {tx.date}
-                      </Text>
-                    </View>
-                    <View style={styles.txStatusBadge}>
-                      <Text style={styles.txStatusText}>{tx.status}</Text>
+                      <AnimoText variant="bodyStrong">{tx.variety}</AnimoText>
+                      <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                        {t('buyProfileV2.farmer')}: {tx.farmer} · {tx.date}
+                      </AnimoText>
                     </View>
                   </View>
-
+                  <StatusPill tone="neutral" label={tx.status} />
                   <View style={styles.divider} />
-
-                  <View style={styles.txFooterRow}>
-                    <View style={styles.txMetaLeft}>
-                      <Text style={styles.txRef}>{tx.id}</Text>
-                      <Text style={styles.txQuantity}>{tx.quantity}</Text>
-                    </View>
-                    <Text style={styles.txPrice}>{tx.price}</Text>
+                  <View style={styles.txFooter}>
+                    <AnimoText variant="captionV2" color={AnimoV2Colors.textTertiary}>
+                      {tx.id} · {tx.quantity}
+                    </AnimoText>
+                    <AnimoText variant="priceV2" color={AnimoV2Colors.textBrand}>
+                      {tx.price}
+                    </AnimoText>
                   </View>
-                </View>
+                </DepthCard>
               ))
             )}
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <AnimoButton
-              label={t('common.close')}
-              onPress={() => setShowRecentTxnsModal(false)}
-            />
+            <ChunkyButton label={t('common.close')} onPress={() => setShowRecentTxnsModal(false)} />
           </View>
         </SafeAreaView>
       </Modal>
 
-      {/* Profile Saved Success Modal */}
-      <FeedbackModal
+      {/* Profile saved dialog */}
+      <V2Dialog
         visible={showProfileSavedModal}
-        tone="success"
-        title={isTagalog ? 'Na-save ang Profile' : 'Profile Saved'}
-        message={
-          isTagalog
-            ? 'Matagumpay na na-update ang iyong impormasyon.'
-            : 'Your profile information has been successfully updated.'
-        }
-        confirmLabel="OK"
-        onConfirm={() => setShowProfileSavedModal(false)}
+        onClose={() => setShowProfileSavedModal(false)}
+        icon={CheckCircle2}
+        iconTone="success"
+        title={t('profileV2.editSavedTitle')}
+        message={t('profileV2.editSavedBody')}
+        actions={<ChunkyButton label="OK" onPress={() => setShowProfileSavedModal(false)} />}
       />
 
       {/* Legal Terms, Privacy Policy, and FAQ Modal */}
@@ -911,470 +830,75 @@ export default function BuyerProfileScreen() {
   );
 }
 
-function ProfileReadOnlyRow({ label, value }: { label: string; value: string }) {
+function ReadOnlyRow({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.profileReadOnlyRow}>
-      <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
+    <View style={styles.readOnlyRow}>
+      <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
         {label}
       </AnimoText>
-      <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-        {value}
-      </AnimoText>
+      <AnimoText variant="bodyStrong">{value}</AnimoText>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: AnimoColors.appBackground,
-  },
-  scroll: {
-    flex: 1,
-    backgroundColor: AnimoColors.appBackground,
-  },
-  scrollContent: {
-    backgroundColor: AnimoColors.appBackground,
-  },
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  flex: { flex: 1 },
+  centerText: { textAlign: 'center' },
+  stretch: { alignSelf: 'stretch' },
+  scrollContent: { paddingBottom: AnimoV2Spacing.xxl },
   hero: {
-    backgroundColor: AnimoColors.accentPrimary,
-    paddingHorizontal: SCREEN_PADDING,
-    paddingBottom: AnimoSpacing.xxl,
-  },
-  heroContent: {
+    backgroundColor: AnimoV2Colors.surfaceBrand,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingBottom: AnimoV2Spacing.xl,
+    borderBottomLeftRadius: AnimoV2Radius.xl,
+    borderBottomRightRadius: AnimoV2Radius.xl,
     alignItems: 'center',
+    gap: AnimoV2Spacing.sm,
+    overflow: 'hidden',
   },
-  avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: AnimoSpacing.xl,
+  body: {
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.xl,
+    gap: AnimoV2Spacing.lg,
   },
-  fullName: {
-    ...AnimoType.h1,
-    color: AnimoColors.white,
-    marginTop: AnimoSpacing.md,
-    textAlign: 'center',
+  statsRow: { flexDirection: 'row', gap: AnimoV2Spacing.sm, alignItems: 'stretch' },
+  prefCard: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
+  prefHeader: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: AnimoV2Spacing.sm },
+  prefChip: {
+    paddingHorizontal: AnimoV2Spacing.md,
+    paddingVertical: 6,
+    borderRadius: AnimoV2Radius.full,
+    backgroundColor: AnimoV2Colors.surfaceMuted,
   },
-  location: {
-    ...AnimoType.body,
-    color: 'rgba(255,255,255,0.85)',
-    marginTop: AnimoSpacing.xs,
-    textAlign: 'center',
+  modalSafeArea: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  modalContent: {
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingVertical: AnimoV2Spacing.sm,
+    gap: AnimoV2Spacing.md,
   },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.sm,
-    marginTop: AnimoSpacing.md,
+  modalFooter: {
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingVertical: AnimoV2Spacing.md,
   },
-  roleBadge: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
-    borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: AnimoSpacing.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.xs,
-  },
-  roleBadgeText: {
-    ...AnimoType.tag,
-    color: AnimoColors.white,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    marginHorizontal: SCREEN_PADDING,
-    marginTop: -AnimoSpacing.xl,
-    gap: AnimoSpacing.sm,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.md,
-    paddingVertical: AnimoSpacing.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-  },
-  statValue: {
-    ...AnimoType.h2,
-    color: AnimoColors.accentPrimary,
-  },
-  statLabel: {
-    ...AnimoType.caption,
-    color: AnimoColors.textLowEmphasis,
-    marginTop: AnimoSpacing.xs,
-  },
-  sectionLabel: {
-    ...AnimoType.h3,
-    color: AnimoColors.textHighEmphasis,
-    marginHorizontal: SCREEN_PADDING,
-    marginTop: AnimoSpacing.xl,
-  },
-  card: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    marginHorizontal: SCREEN_PADDING,
-    marginTop: AnimoSpacing.sm,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-  },
-  settingsCard: {
-    marginBottom: AnimoSpacing.xxl,
-  },
-  accountRow: {
-    padding: AnimoSpacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  accountIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.surfaceTertiary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  accountCopy: {
-    flex: 1,
-    marginLeft: AnimoSpacing.md,
-  },
-  accountTitle: {
-    ...AnimoType.bodyEmphasis,
-    color: AnimoColors.textHighEmphasis,
-  },
-  accountCaption: {
-    ...AnimoType.caption,
-    color: AnimoColors.textLowEmphasis,
-    marginTop: 2,
-  },
-  paymentRow: {
-    padding: AnimoSpacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  gcashIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: '#E3F2FD',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gcashIconText: {
-    ...AnimoType.tag,
-    color: '#1565C0',
-  },
-  cashIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.surfaceTertiary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  paymentCopy: {
-    flex: 1,
-    marginLeft: AnimoSpacing.md,
-  },
-  paymentTitle: {
-    ...AnimoType.bodyEmphasis,
-    color: AnimoColors.textHighEmphasis,
-  },
-  paymentCaption: {
-    ...AnimoType.caption,
-    color: AnimoColors.textLowEmphasis,
-    marginTop: 2,
-  },
-  defaultBadge: {
-    backgroundColor: AnimoColors.accentPrimaryLight,
-    borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.sm,
-    paddingVertical: 2,
-  },
-  defaultBadgeText: {
-    ...AnimoType.tag,
-    color: AnimoColors.accentPrimary,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: AnimoColors.surfaceTertiary,
-    marginHorizontal: AnimoSpacing.lg,
-  },
-  settingRow: {
-    padding: AnimoSpacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  settingLabel: {
-    ...AnimoType.body,
-    color: AnimoColors.textHighEmphasis,
-    flex: 1,
-    marginLeft: AnimoSpacing.md,
-  },
-  flexSettingLabel: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingRight: AnimoSpacing.sm,
-  },
-  langBadge: {
-    backgroundColor: AnimoColors.greenTint,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: AnimoRadius.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(46, 125, 50, 0.2)',
-  },
-  langBadgeText: {
-    fontSize: 12,
-    fontFamily: 'Nunito_600SemiBold',
-    color: AnimoColors.accentPrimary,
-  },
-  signOutLabel: {
-    ...AnimoType.body,
-    color: AnimoColors.caution,
-    flex: 1,
-    marginLeft: AnimoSpacing.md,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  langModalCard: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderTopLeftRadius: AnimoRadius.lg,
-    borderTopRightRadius: AnimoRadius.lg,
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.lg,
-    paddingBottom: AnimoSpacing.xl,
-    gap: AnimoSpacing.md,
-  },
-  langModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: AnimoSpacing.xs,
-  },
-  closeBtn: {
-    padding: 4,
-  },
-  langList: {
-    gap: AnimoSpacing.sm,
-  },
-  langOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: AnimoSpacing.md,
-    borderRadius: AnimoRadius.md,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: '#FAFAFA',
-  },
-  langOptionActive: {
-    borderColor: AnimoColors.accentPrimary,
-    backgroundColor: AnimoColors.greenTint,
-  },
-  langOptionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.md,
-  },
-  langOptionTitle: {
-    ...AnimoType.bodyEmphasis,
-    color: AnimoColors.textHighEmphasis,
-  },
-  langOptionSubtitle: {
-    ...AnimoType.caption,
-    color: AnimoColors.textLowEmphasis,
-  },
-  modalSafeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.appBackground,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: AnimoColors.surfacePrimary,
-  },
-  modalScroll: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.lg,
-    gap: AnimoSpacing.md,
-  },
-  personalInfoSafeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.background,
-  },
-  personalInfoContent: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingTop: AnimoSpacing.md,
-    paddingBottom: AnimoSpacing.xl,
-    gap: AnimoSpacing.lg,
-  },
-  personalInfoFooter: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingTop: AnimoSpacing.md,
-    paddingBottom: AnimoSpacing.md,
-  },
-  profileReadOnlyRow: {
-    gap: AnimoSpacing.xs,
-  },
-  ratingSummaryBanner: {
-    backgroundColor: AnimoColors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    alignItems: 'center',
-    gap: AnimoSpacing.xs,
-  },
-  ratingBigWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.sm,
-  },
-  ratingBigText: {
-    fontSize: 32,
-    lineHeight: 38,
-    fontFamily: 'Nunito_700Bold',
-    color: AnimoColors.textHighEmphasis,
-  },
-  starsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  starsRowSmall: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  ratingSubCaption: {
-    ...AnimoType.caption,
-    color: AnimoColors.textMediumEmphasis,
-    textAlign: 'center',
-  },
-  feedbackCard: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.sm,
-  },
+  readOnlyCard: { paddingHorizontal: AnimoV2Spacing.lg, paddingVertical: AnimoV2Spacing.sm },
+  readOnlyRow: { paddingVertical: AnimoV2Spacing.sm, gap: 2 },
+  ratingBanner: { padding: AnimoV2Spacing.lg, alignItems: 'center', gap: AnimoV2Spacing.xs },
+  ratingBigRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  feedbackCard: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.sm },
   feedbackHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: AnimoSpacing.md,
+    gap: AnimoV2Spacing.md,
   },
-  feedbackAuthor: {
-    ...AnimoType.bodyEmphasis,
-    color: AnimoColors.textHighEmphasis,
-  },
-  feedbackDate: {
-    ...AnimoType.caption,
-    color: AnimoColors.textLowEmphasis,
-  },
-  feedbackComment: {
-    ...AnimoType.body,
-    color: AnimoColors.textMediumEmphasis,
-    fontStyle: 'italic',
-    lineHeight: 22,
-  },
-  txCard: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.sm,
-  },
-  txHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: AnimoSpacing.md,
-  },
-  txVariety: {
-    ...AnimoType.bodyEmphasis,
-    color: AnimoColors.textHighEmphasis,
-  },
-  txSubtitle: {
-    ...AnimoType.caption,
-    color: AnimoColors.textMediumEmphasis,
-  },
-  txStatusBadge: {
-    backgroundColor: AnimoColors.accentPrimaryLight,
-    borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.sm,
-    paddingVertical: 2,
-  },
-  txStatusText: {
-    ...AnimoType.tag,
-    color: AnimoColors.accentPrimary,
-  },
-  txFooterRow: {
+  txFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: AnimoSpacing.md,
+    gap: AnimoV2Spacing.md,
   },
-  txMetaLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.md,
-  },
-  txRef: {
-    ...AnimoType.caption,
-    color: AnimoColors.textLowEmphasis,
-    fontFamily: 'monospace',
-  },
-  txQuantity: {
-    ...AnimoType.body,
-    color: AnimoColors.textMediumEmphasis,
-  },
-  txPrice: {
-    ...AnimoType.bodyEmphasis,
-    color: AnimoColors.accentPrimary,
-  },
-  flex: {
-    flex: 1,
-    gap: 2,
-  },
-  modalFooter: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingVertical: AnimoSpacing.md,
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderTopWidth: 1,
-    borderTopColor: AnimoColors.borderLowEmphasis,
-  },
-  emptyWrap: {
-    paddingVertical: AnimoSpacing.xxl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    ...AnimoType.body,
-    color: AnimoColors.textLowEmphasis,
-    textAlign: 'center',
-  },
-  pressed: {
-    opacity: 0.88,
-  },
+  divider: { height: 2, backgroundColor: AnimoV2Colors.borderDefault, borderRadius: 2 },
+  emptyText: { textAlign: 'center', paddingVertical: AnimoV2Spacing.xxl },
 });

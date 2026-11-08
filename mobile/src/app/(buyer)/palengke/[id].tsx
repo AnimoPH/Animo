@@ -1,49 +1,39 @@
-import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
-import { router, useLocalSearchParams } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import { router, useLocalSearchParams } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import {
-  ChevronLeft,
   ChevronRight,
   Droplets,
+  Lock,
   MapPin,
-  Maximize2,
+  Minus,
   Scale,
   ShieldCheck,
   Sprout,
-  X,
-} from "lucide-react-native";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+  Star,
+  TrendingUp,
+  type LucideIcon,
+} from 'lucide-react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AnimoButton } from "@/components/animo/animo-button";
-import { AnimoText } from "@/components/animo/animo-text";
-import { PalayReviewsCard } from "@/components/animo/palay-reviews";
-import { PriceRationaleCard } from "@/components/animo/price-rationale-card";
-import { BackHeader } from "@/components/animo/back-header";
-
-import { StatusBadge } from "@/components/animo/status-badge";
-import { AnimoColors, AnimoRadius, AnimoSpacing } from "@/constants/animo";
-import { formatPeso } from "@/constants/marketplace";
-import { fetchListingPhotos } from "@/services/crop-listing-service";
-import {
-  fetchFarmerPublicProfile,
-  type FarmerPublicProfile,
-} from "@/services/farmer-public-profile";
-import { fetchMarketplaceListing } from "@/services/marketplace-service";
-import { fetchMyActiveRequestForListing } from "@/services/purchase-request-service";
-import { useLanguage } from "@/hooks/use-language";
+import { AnimoText } from '@/components/animo/animo-text';
+import { PalayReviewsCard } from '@/components/animo/palay-reviews';
+import { priceRationaleRows, type PriceRationaleIcon } from '@/components/animo/price-rationale';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { PhotoGallery, type PhotoGalleryItem } from '@/components/animo/ui/photo-gallery';
+import { StickyFooter, V2BackHeader } from '@/components/animo/ui/screen-bits';
+import { StatusPill } from '@/components/animo/ui/status-pill';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing, type StatusTone } from '@/constants/animo';
+import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
+import type { TranslationKey } from '@/i18n/translations';
+import { fetchListingPhotos } from '@/services/crop-listing-service';
+import { fetchFarmerPublicProfile, type FarmerPublicProfile } from '@/services/farmer-public-profile';
+import { fetchMarketplaceListing } from '@/services/marketplace-service';
+import { fetchMyActiveRequestForListing } from '@/services/purchase-request-service';
 import {
   listingTitle,
   moistureLabel,
@@ -53,130 +43,71 @@ import {
   type CropListing,
   type ListingPhoto,
   type PhotoType,
-} from "@/types/crop-listing";
-import type { PurchaseRequest } from "@/types/purchase-request";
+} from '@/types/crop-listing';
+import type { PurchaseRequest } from '@/types/purchase-request';
 
-function PalayInfoRow({
-  icon,
-  label,
-  value,
-  showDivider,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  showDivider?: boolean;
-}) {
+const DEFAULT_PALAY_PHOTOS: Record<PhotoType, string> = {
+  Overview:
+    'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=1200&auto=format&fit=crop&q=80',
+  BeforeHarvest:
+    'https://images.unsplash.com/photo-1536657464919-892534f60d6e?w=1200&auto=format&fit=crop&q=80',
+  AfterHarvestUnsacked:
+    'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=1200&auto=format&fit=crop&q=80',
+};
+
+const PHOTO_SLOTS: { type: PhotoType; title: TranslationKey; short: TranslationKey; sub: TranslationKey }[] = [
+  { type: 'Overview', title: 'detailV2.photoOverviewTitle', short: 'detailV2.photoOverviewShort', sub: 'detailV2.photoOverviewSub' },
+  { type: 'BeforeHarvest', title: 'detailV2.photoBeforeTitle', short: 'detailV2.photoBeforeShort', sub: 'detailV2.photoBeforeSub' },
+  { type: 'AfterHarvestUnsacked', title: 'detailV2.photoGrainTitle', short: 'detailV2.photoGrainShort', sub: 'detailV2.photoGrainSub' },
+];
+
+const RATIONALE_ICON: Record<PriceRationaleIcon, { icon: LucideIcon; tone: StatusTone }> = {
+  lock: { icon: Lock, tone: 'success' },
+  moisture: { icon: Droplets, tone: 'warning' },
+  premium: { icon: TrendingUp, tone: 'caution' },
+  noPremium: { icon: Minus, tone: 'neutral' },
+};
+
+function InfoRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
-    <View style={[styles.specRow, showDivider && styles.specRowDivider]}>
-      <View style={styles.specRowLeft}>
-        {icon}
-        <AnimoText
-          variant="body"
-          color={AnimoColors.textMediumEmphasis}
-          style={styles.specRowLabel}
-        >
-          {label}
-        </AnimoText>
-      </View>
-      <AnimoText
-        variant="bodyEmphasis"
-        color={AnimoColors.accentPrimary}
-        style={styles.specRowValue}
-        numberOfLines={2}
-      >
+    <View style={styles.infoRow} accessible accessibilityLabel={`${label}: ${value}`}>
+      <Icon size={22} color={AnimoV2Colors.textBrand} strokeWidth={2.25} />
+      <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.infoLabel}>
+        {label}
+      </AnimoText>
+      <AnimoText variant="bodyStrong" style={styles.infoValue} numberOfLines={2}>
         {value}
       </AnimoText>
     </View>
   );
 }
 
-const DEFAULT_PALAY_PHOTOS: Record<PhotoType, string> = {
-  Overview:
-    "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=1200&auto=format&fit=crop&q=80",
-  BeforeHarvest:
-    "https://images.unsplash.com/photo-1536657464919-892534f60d6e?w=1200&auto=format&fit=crop&q=80",
-  AfterHarvestUnsacked:
-    "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=1200&auto=format&fit=crop&q=80",
-};
-
-const PHOTO_TYPE_DETAILS_TL: {
-  type: PhotoType;
-  title: string;
-  shortLabel: string;
-  subtitle: string;
-}[] = [
-  {
-    type: "Overview",
-    title: "Pangkalahatan",
-    shortLabel: "Overview",
-    subtitle: "Kabuuang ani at sako ng palay",
-  },
-  {
-    type: "BeforeHarvest",
-    title: "Bago Anihin (Taniman)",
-    shortLabel: "Bago Anihin",
-    subtitle: "Kalagayan ng palay sa bukid",
-  },
-  {
-    type: "AfterHarvestUnsacked",
-    title: "Pagkatapos Anihin (Butil)",
-    shortLabel: "Butil ng Palay",
-    subtitle: "Lapitang anyo ng mga butil",
-  },
-];
-
-const PHOTO_TYPE_DETAILS_EN: {
-  type: PhotoType;
-  title: string;
-  shortLabel: string;
-  subtitle: string;
-}[] = [
-  {
-    type: "Overview",
-    title: "Overview Photo",
-    shortLabel: "Overview",
-    subtitle: "Harvest and palay sacks",
-  },
-  {
-    type: "BeforeHarvest",
-    title: "Before Harvest (Field)",
-    shortLabel: "Before Harvest",
-    subtitle: "Condition of palay in the field",
-  },
-  {
-    type: "AfterHarvestUnsacked",
-    title: "After Harvest (Grains)",
-    shortLabel: "Palay Grains",
-    subtitle: "Close-up grain texture",
-  },
-];
+function TrustStat({ children, label }: { children: React.ReactNode; label: string }) {
+  return (
+    <View style={styles.trustStat}>
+      {children}
+      <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={1}>
+        {label}
+      </AnimoText>
+    </View>
+  );
+}
 
 /**
- * Detalye ng Listing — one real `croplisting` row for a buyer.
- *
- * Displays full rice specifications, 3-image expandable gallery, prominent location,
- * green icons, and the farmer's public transaction track record with large reviews.
+ * Detalye ng Listing: one real `croplisting` row for a buyer. Three-angle gallery, the locked
+ * Patas na Presyo, quality data, the farmer's public record and a sticky purchase-request action.
  */
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const { language, isTagalog } = useLanguage();
+  const { t, language, isTagalog } = useLanguage();
 
   const [listing, setListing] = useState<CropListing | null>(null);
-  const [farmerProfile, setFarmerProfile] =
-    useState<FarmerPublicProfile | null>(null);
+  const [farmerProfile, setFarmerProfile] = useState<FarmerPublicProfile | null>(null);
   const [photos, setPhotos] = useState<ListingPhoto[]>([]);
-  const [activeRequest, setActiveRequest] = useState<PurchaseRequest | null>(
-    null,
-  );
+  const [activeRequest, setActiveRequest] = useState<PurchaseRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
-
-  // 3-Image Gallery State
-  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalPhotoIndex, setModalPhotoIndex] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,13 +138,7 @@ export default function ListingDetailScreen() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setErrorMessage(
-            err instanceof Error
-              ? err.message
-              : isTagalog
-                ? "Hindi ma-load ang listing."
-                : "Failed to load listing.",
-          );
+          setErrorMessage(err instanceof Error ? err.message : isTagalog ? 'Hindi ma-load ang listing.' : 'Failed to load listing.');
         }
       })
       .finally(() => {
@@ -224,854 +149,288 @@ export default function ListingDetailScreen() {
     };
   }, [id, isTagalog]);
 
-  // Construct 3 distinct images (with real photos or high-res fallbacks)
-  const galleryItems = useMemo(() => {
-    const list = isTagalog ? PHOTO_TYPE_DETAILS_TL : PHOTO_TYPE_DETAILS_EN;
-    return list.map((slot) => {
-      const found = photos.find((p) => p.photoType === slot.type);
-      return {
-        ...slot,
-        url: found?.url || DEFAULT_PALAY_PHOTOS[slot.type],
-      };
-    });
-  }, [photos, isTagalog]);
+  // Three angles, with real photos or the stock fallbacks.
+  const galleryItems: PhotoGalleryItem[] = useMemo(
+    () =>
+      PHOTO_SLOTS.map((slot) => {
+        const found = photos.find((p) => p.photoType === slot.type);
+        return {
+          key: slot.type,
+          title: t(slot.title),
+          shortLabel: t(slot.short),
+          subtitle: t(slot.sub),
+          url: found?.url || DEFAULT_PALAY_PHOTOS[slot.type],
+        };
+      }),
+    [photos, t],
+  );
+
+  const header = <V2BackHeader title={t('buyDetailV2.title')} backLabel={t('common.back')} onBack={() => router.back()} />;
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-        <BackHeader
-          title={isTagalog ? "Detalye ng Listing" : "Listing Details"}
-        />
+      <View style={styles.screen}>
+        {header}
         <View style={styles.centerState}>
-          <ActivityIndicator color={AnimoColors.accentPrimary} />
+          <ActivityIndicator color={AnimoV2Colors.actionPrimary} accessibilityLabel={t('common.loading')} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (errorMessage || !listing) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-        <BackHeader
-          title={isTagalog ? "Detalye ng Listing" : "Listing Details"}
-        />
+      <View style={styles.screen}>
+        {header}
         <View style={styles.centerState}>
-          <AnimoText
-            variant="body"
-            color={AnimoColors.textMediumEmphasis}
-            style={styles.centerText}
-          >
-            {errorMessage ??
-              (isTagalog
-                ? "Hindi nahanap ang listing na ito."
-                : "Listing could not be found.")}
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+            {errorMessage ?? t('buyDetailV2.notFound')}
           </AnimoText>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
-  const activePhoto = galleryItems[selectedPhotoIndex] || galleryItems[0];
-  const modalActivePhoto = galleryItems[modalPhotoIndex] || galleryItems[0];
   const specificVariety = specificVarietyDisplay(listing, language);
-  const palayInfoRows: {
-    key: string;
-    icon: ReactNode;
-    label: string;
-    value: string;
-  }[] = [
-    {
-      key: "variety",
-      icon: <Sprout size={16} color={AnimoColors.textMediumEmphasis} />,
-      label: isTagalog ? "Uri ng palay" : "Rice Variety",
-      value: varietyLabel(listing, language),
-    },
+  const rationale = priceRationaleRows(listing);
+
+  const infoRows: { key: string; icon: LucideIcon; label: string; value: string }[] = [
+    { key: 'variety', icon: Sprout, label: t('detailV2.rowVariety'), value: varietyLabel(listing, language) },
     ...(specificVariety
-      ? [
-          {
-            key: "specificVariety",
-            icon: <Sprout size={16} color={AnimoColors.textMediumEmphasis} />,
-            label: isTagalog ? "Tiyak na uri ng palay" : "Specific Variety",
-            value: specificVariety,
-          },
-        ]
+      ? [{ key: 'specific', icon: Sprout, label: t('detailV2.rowSpecific'), value: specificVariety }]
       : []),
-    {
-      key: "moisture",
-      icon: <Droplets size={16} color={AnimoColors.textMediumEmphasis} />,
-      label: "Moisture",
-      value: moistureLabel(listing.declaredMoisture, language),
-    },
-    {
-      key: "purity",
-      icon: <ShieldCheck size={16} color={AnimoColors.textMediumEmphasis} />,
-      label: isTagalog ? "Kalidad" : "Quality Grade",
-      value: purityLabel(listing.declaredPurityGrade, language),
-    },
-    {
-      key: "weight",
-      icon: <Scale size={16} color={AnimoColors.textMediumEmphasis} />,
-      label: isTagalog ? "Aktwal na timbang" : "Actual Weight",
-      value: `${listing.netWeightKg} kg`,
-    },
+    { key: 'moisture', icon: Droplets, label: t('detailV2.rowMoisture'), value: moistureLabel(listing.declaredMoisture, language) },
+    { key: 'purity', icon: ShieldCheck, label: t('detailV2.rowPurity'), value: purityLabel(listing.declaredPurityGrade, language) },
+    { key: 'available', icon: Scale, label: t('buyDetailV2.rowAvailable'), value: `${listing.remainingQuantityKg.toLocaleString('en-PH')} kg` },
+    { key: 'weight', icon: Scale, label: t('detailV2.rowWeight'), value: `${listing.netWeightKg.toLocaleString('en-PH')} kg` },
   ];
 
-  const openModalAt = (index: number) => {
-    setModalPhotoIndex(index);
-    setModalVisible(true);
-  };
-
-  const handlePrevModalPhoto = () => {
-    setModalPhotoIndex((prev) =>
-      prev > 0 ? prev - 1 : galleryItems.length - 1,
-    );
-  };
-
-  const handleNextModalPhoto = () => {
-    setModalPhotoIndex((prev) =>
-      prev < galleryItems.length - 1 ? prev + 1 : 0,
-    );
-  };
+  const reviewLabel = farmerProfile
+    ? t(farmerProfile.totalReviews === 1 ? 'buyDetailV2.reviewOne' : 'buyDetailV2.reviewMany', {
+        count: farmerProfile.totalReviews,
+      })
+    : '';
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+    <View style={styles.screen}>
       <StatusBar style="dark" />
-      <BackHeader
-        title={isTagalog ? "Detalye ng Listing" : "Listing Details"}
-      />
+      {header}
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* 3-Image Gallery Section */}
-        <View style={styles.galleryContainer}>
-          {/* Main Active Image with Expand Trigger */}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => openModalAt(selectedPhotoIndex)}
-            style={styles.heroPhotoArea}
-          >
-            <Image
-              source={{ uri: activePhoto.url }}
-              style={styles.heroPhotoImage}
-              contentFit="cover"
-            />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <PhotoGallery items={galleryItems} />
 
-            {/* Top Left Title Badge */}
-            <View style={styles.photoTagBadge}>
-              <AnimoText
-                variant="caption"
-                color={AnimoColors.white}
-                style={styles.photoTagText}
-              >
-                {activePhoto.title}
-              </AnimoText>
-            </View>
-
-            {/* Top Right Expand Button */}
-            <View style={styles.expandButton}>
-              <Maximize2 size={16} color={AnimoColors.white} />
-            </View>
-
-            {/* Bottom Right Counter */}
-            <View style={styles.counterBadge}>
-              <AnimoText variant="tag" color={AnimoColors.white}>
-                {selectedPhotoIndex + 1} / {galleryItems.length}
-              </AnimoText>
-            </View>
-          </Pressable>
-
-          {/* 3-Thumbnail Row */}
-          <View style={styles.thumbnailRow}>
-            {galleryItems.map((item, index) => {
-              const isSelected = selectedPhotoIndex === index;
-              return (
-                <Pressable
-                  key={item.type}
-                  onPress={() => setSelectedPhotoIndex(index)}
-                  style={[
-                    styles.thumbnailCard,
-                    isSelected && styles.thumbnailCardActive,
-                  ]}
-                >
-                  <Image
-                    source={{ uri: item.url }}
-                    style={styles.thumbnailImg}
-                    contentFit="cover"
-                  />
-                  <View
-                    style={[
-                      styles.thumbnailLabelWrap,
-                      isSelected && styles.thumbnailLabelWrapActive,
-                    ]}
-                  >
-                    <AnimoText
-                      variant="caption"
-                      color={
-                        isSelected
-                          ? AnimoColors.accentPrimary
-                          : AnimoColors.textMediumEmphasis
-                      }
-                      style={isSelected && styles.thumbnailTextActive}
-                    >
-                      {item.shortLabel}
-                    </AnimoText>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <AnimoText
-            variant="caption"
-            color={AnimoColors.textLowEmphasis}
-            style={styles.galleryHint}
-          >
-            {isTagalog
-              ? "Pindutin ang larawan para palakihin at tingnan nang buo ang 3 anggulo ng palay."
-              : "Tap the photo to enlarge and view all 3 angles of the palay."}
-          </AnimoText>
-        </View>
-
-        {/* Summary card */}
-        <View style={styles.card}>
-          <View style={styles.titleRow}>
-            <AnimoText
-              variant="h2"
-              color={AnimoColors.accentPrimary}
-              style={styles.titleText}
-            >
+        {/* Title */}
+        <View style={styles.titleRow}>
+          <View style={styles.titleCol}>
+            <AnimoText variant="heading" accessibilityRole="header">
               {listingTitle(listing)}
             </AnimoText>
-            {specificVariety ? (
-              <StatusBadge label={specificVariety} tone="neutral" />
-            ) : null}
+            <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+              {t('buyDetailV2.availableKg', { kg: listing.remainingQuantityKg.toLocaleString('en-PH') })}
+            </AnimoText>
           </View>
+          {specificVariety ? <StatusPill tone="neutral" label={specificVariety} icon={Sprout} /> : null}
+        </View>
 
-          <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-            {listing.remainingQuantityKg} kg{" "}
-            {isTagalog ? "na available" : "available"}
-          </AnimoText>
-
-          <View style={styles.priceBlock}>
-            <AnimoText
-              variant="caption"
-              color={AnimoColors.textHighEmphasisInverse}
-              style={styles.priceLabel}
-            >
-              {isTagalog ? "Patas na Presyo" : "Fair Price"}
+        {/* Locked fair price */}
+        <View style={styles.revealEdge}>
+          <View style={styles.reveal}>
+            <AnimoText variant="tagV2" color={AnimoV2Colors.textOnBrand} style={styles.revealTag}>
+              {t('detailV2.fairPrice')}
             </AnimoText>
             <View style={styles.priceRow}>
-              <AnimoText
-                variant="display"
-                color={AnimoColors.textHighEmphasisInverse}
-              >
-                {listing.pricePerKg !== null
-                  ? formatPeso(listing.pricePerKg)
-                  : "—"}
+              <AnimoText variant="priceHero" color={AnimoV2Colors.textOnBrand}>
+                {listing.pricePerKg !== null ? formatPeso(listing.pricePerKg) : '—'}
               </AnimoText>
-              <AnimoText
-                variant="body"
-                color={AnimoColors.textHighEmphasisInverse}
-                style={styles.priceUnit}
-              >
-                {" "}
-                {isTagalog ? "bawat kilo" : "per kg"}
+              <AnimoText variant="subheading" color={AnimoV2Colors.textOnBrand}>
+                {t('detailV2.perKg')}
               </AnimoText>
             </View>
-            <AnimoText
-              variant="caption"
-              color={AnimoColors.textHighEmphasisInverse}
-              style={styles.priceTotal}
-            >
-              {isTagalog ? "Kabuuang halaga" : "Total value"} (
-              {listing.remainingQuantityKg}kg):{" "}
-              {listing.pricePerKg !== null
-                ? formatPeso(listing.pricePerKg * listing.remainingQuantityKg)
-                : "—"}
+            <AnimoText variant="bodyV2" color={AnimoV2Colors.textOnBrand}>
+              {t('detailV2.totalValue', { kg: listing.remainingQuantityKg })}{' '}
+              <AnimoText variant="bodyStrong" color={AnimoV2Colors.textOnBrand}>
+                {listing.pricePerKg !== null ? formatPeso(listing.pricePerKg * listing.remainingQuantityKg) : '—'}
+              </AnimoText>
             </AnimoText>
-          </View>
-          <PriceRationaleCard listing={listing} />
-
-          <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
-            {isTagalog ? "Pinakamaliit na order:" : "Minimum order:"}{" "}
-            {listing.minimumRequestKg} kg
-          </AnimoText>
-        </View>
-
-        {/* Impormasyon ng Palay — same row list as the farmer listing detail */}
-        <View style={styles.section}>
-          <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-            {isTagalog ? "Impormasyon ng Palay" : "Palay Information"}
-          </AnimoText>
-          <View style={styles.infoCard}>
-            {palayInfoRows.map((row, index) => (
-              <PalayInfoRow
-                key={row.key}
-                icon={row.icon}
-                label={row.label}
-                value={row.value}
-                showDivider={index < palayInfoRows.length - 1}
-              />
-            ))}
+            <AnimoText variant="captionV2" color={AnimoV2Colors.textOnBrand}>
+              {t('buyDetailV2.minOrder', { kg: listing.minimumRequestKg })}
+            </AnimoText>
           </View>
         </View>
 
-        {/* Farmer Profile Summary Card (Clickable to view full details) */}
-        {farmerProfile ? (
-          <View style={styles.section}>
-            <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-              {isTagalog ? "Profile ng Magsasaka" : "Farmer Profile"}
-            </AnimoText>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                isTagalog
-                  ? "Tingnan ang buong profile ng magsasaka"
-                  : "View full farmer profile"
-              }
-              onPress={() =>
-                router.push({
-                  pathname: "/(buyer)/palengke/magsasaka/[id]",
-                  params: { id: listing.id },
-                })
-              }
-              style={styles.farmerCard}
-            >
-              <View style={styles.farmerCardLeft}>
-                <View style={styles.farmerAvatar}>
-                  <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
-                    {farmerProfile.name[0] || "M"}
-                  </AnimoText>
-                </View>
-
-                <View style={styles.farmerDetails}>
-                  <AnimoText
-                    variant="bodyEmphasis"
-                    color={AnimoColors.textHighEmphasis}
-                    numberOfLines={1}
-                  >
-                    {farmerProfile.name}
-                  </AnimoText>
-
-                  {farmerProfile.location ? (
-                    <View style={styles.farmerLocationRow}>
-                      <MapPin size={14} color={AnimoColors.blackSecondary} />
-                      <AnimoText
-                        variant="caption"
-                        color={AnimoColors.textMediumEmphasis}
-                      >
-                        {farmerProfile.location}
+        {/* Why this price (only facts the listing supports) */}
+        {rationale ? (
+          <DepthCard depth="flat" style={styles.cardPad}>
+            {rationale.map((row, index) => {
+              const meta = RATIONALE_ICON[row.icon];
+              return (
+                <View key={row.id}>
+                  {index > 0 ? <View style={styles.divider} /> : null}
+                  <View style={styles.factorRow}>
+                    <IconTile icon={meta.icon} tone={meta.tone} size={36} />
+                    <View style={styles.factorCopy}>
+                      <AnimoText variant="bodyStrong">{t(row.label)}</AnimoText>
+                      <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                        {t(row.detail)}
                       </AnimoText>
                     </View>
-                  ) : null}
-
-                  <View style={styles.farmerRatingRow}>
-                    <Ionicons
-                      name={
-                        farmerProfile.totalReviews > 0
-                          ? "star"
-                          : "star-outline"
-                      }
-                      size={14}
-                      color="#424242"
-                    />
-                    <AnimoText
-                      variant="caption"
-                      color={AnimoColors.textHighEmphasis}
-                      style={styles.farmerRatingText}
-                    >
-                      {farmerProfile.totalReviews > 0
-                        ? farmerProfile.averageRating
-                        : "—"}
-                    </AnimoText>
-                    <AnimoText
-                      variant="caption"
-                      color={AnimoColors.textLowEmphasis}
-                    >
-                      ({farmerProfile.totalReviews}{" "}
-                      {isTagalog
-                        ? "review"
-                        : farmerProfile.totalReviews === 1
-                          ? "review"
-                          : "reviews"}
-                      )
-                    </AnimoText>
                   </View>
                 </View>
-              </View>
+              );
+            })}
+          </DepthCard>
+        ) : null}
 
-              <View style={styles.viewProfilePill}>
-                {/* <AnimoText variant="caption" color={AnimoColors.accentPrimary} style={styles.viewProfilePillText}>
-                  Tingnan ang Profile
-                </AnimoText> */}
-                <ChevronRight
-                  size={16}
-                  strokeWidth={3}
-                  color={AnimoColors.accentPrimary}
-                />
+        {/* Datos ng Kalidad */}
+        <DepthCard depth="flat" style={styles.cardPad}>
+          <AnimoText variant="subheading" accessibilityRole="header">
+            {t('buyDetailV2.qualityTitle')}
+          </AnimoText>
+          {infoRows.map((row) => (
+            <InfoRow key={row.key} icon={row.icon} label={row.label} value={row.value} />
+          ))}
+        </DepthCard>
+
+        {/* Farmer trust card: opens the full farmer profile */}
+        {farmerProfile ? (
+          <DepthCard
+            depth="flat"
+            onPress={() =>
+              router.push({
+                pathname: '/(buyer)/palengke/magsasaka/[id]',
+                params: { id: listing.id },
+              })
+            }
+            accessibilityLabel={t('buyDetailV2.viewFarmer')}
+            style={styles.cardPad}>
+            <AnimoText variant="subheading" accessibilityRole="header">
+              {t('buyDetailV2.farmerTitle')}
+            </AnimoText>
+            <View style={styles.farmerTop}>
+              <View style={styles.avatar}>
+                <AnimoText variant="heading" color={AnimoV2Colors.textBrand}>
+                  {farmerProfile.name[0]?.toUpperCase() || 'M'}
+                </AnimoText>
               </View>
-            </Pressable>
-          </View>
+              <View style={styles.farmerCopy}>
+                <AnimoText variant="bodyStrong" numberOfLines={1}>
+                  {farmerProfile.name}
+                </AnimoText>
+                {farmerProfile.location ? (
+                  <View style={styles.locationRow}>
+                    <MapPin size={16} color={AnimoV2Colors.textSecondary} strokeWidth={2.5} />
+                    <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={styles.flex}>
+                      {farmerProfile.location}
+                    </AnimoText>
+                  </View>
+                ) : null}
+              </View>
+              <ChevronRight size={24} color={AnimoV2Colors.textSecondary} strokeWidth={2.75} />
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.trustRow}>
+              <TrustStat label={reviewLabel}>
+                <View style={styles.ratingRow}>
+                  <AnimoText variant="heading">
+                    {farmerProfile.totalReviews > 0 ? farmerProfile.averageRating : '—'}
+                  </AnimoText>
+                  <Star
+                    size={18}
+                    strokeWidth={2.5}
+                    color={AnimoV2Colors.warningSolid}
+                    fill={farmerProfile.totalReviews > 0 ? AnimoV2Colors.warningSolid : 'transparent'}
+                  />
+                </View>
+              </TrustStat>
+              <TrustStat label={t('buyDetailV2.statTransactions')}>
+                <AnimoText variant="heading">{farmerProfile.completedTransactionsCount}</AnimoText>
+              </TrustStat>
+              <TrustStat label={t('buyDetailV2.statPositive')}>
+                <AnimoText variant="heading">
+                  {farmerProfile.positiveFeedbackPct != null ? `${farmerProfile.positiveFeedbackPct}%` : '—'}
+                </AnimoText>
+              </TrustStat>
+            </View>
+          </DepthCard>
         ) : null}
 
         <PalayReviewsCard
+          v2
           listingId={listing.id}
           onPress={() =>
             router.push({
-              pathname: "/(buyer)/palengke/reviews",
+              pathname: '/(buyer)/palengke/reviews',
               params: { id: listing.id },
             })
           }
         />
       </ScrollView>
 
-      <View style={styles.footer}>
+      <StickyFooter>
         {activeRequest ? (
-          <AnimoText
-            variant="caption"
-            color={AnimoColors.textLowEmphasis}
-            style={styles.activeRequestNote}
-          >
-            {isTagalog
-              ? "May aktibo ka nang request sa listing na ito."
-              : "You already have an active request for this listing."}
+          <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+            {t('buyDetailV2.activeRequestNote')}
           </AnimoText>
         ) : null}
-        <AnimoButton
-          label={
-            activeRequest
-              ? isTagalog
-                ? "May Aktibong Request Ka Na"
-                : "Active Request Exists"
-              : isTagalog
-                ? "Bumili"
-                : "Buy Now"
-          }
+        <ChunkyButton
+          label={activeRequest ? t('buyDetailV2.hasActive') : t('buyDetailV2.submit')}
           disabled={activeRequest !== null}
           onPress={() =>
             router.push({
-              pathname: "/(buyer)/palengke/bid",
+              pathname: '/(buyer)/palengke/bid',
               params: { id: listing.id },
             })
           }
         />
-      </View>
-
-      {/* Full-Screen 3-Image Expand Modal */}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          {/* Top Modal Navigation Bar with Safe Margin from Notifications */}
-          <View
-            style={[
-              styles.modalTopBar,
-              { paddingTop: Math.max(insets.top, 24) + AnimoSpacing.md },
-            ]}
-          >
-            <View style={styles.modalTitleWrap}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
-                {modalActivePhoto.title}
-              </AnimoText>
-              <AnimoText variant="caption" color={AnimoColors.muted}>
-                {modalPhotoIndex + 1} {isTagalog ? "ng" : "of"}{" "}
-                {galleryItems.length} · {modalActivePhoto.subtitle}
-              </AnimoText>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                isTagalog ? "Isara ang larawan" : "Close photo"
-              }
-              hitSlop={16}
-              onPress={() => setModalVisible(false)}
-              style={styles.modalCloseBtn}
-            >
-              <X size={22} color={AnimoColors.white} />
-            </Pressable>
-          </View>
-
-          {/* Main Full-Screen Photo Display with Prev/Next Controls */}
-          <View style={styles.modalMainPhotoContainer}>
-            <Image
-              source={{ uri: modalActivePhoto.url }}
-              style={styles.modalMainImage}
-              contentFit="contain"
-            />
-
-            {/* Left Nav Arrow */}
-            <Pressable
-              hitSlop={12}
-              onPress={handlePrevModalPhoto}
-              style={[styles.navArrowBtn, styles.navArrowLeft]}
-            >
-              <ChevronLeft size={24} color={AnimoColors.white} />
-            </Pressable>
-
-            {/* Right Nav Arrow */}
-            <Pressable
-              hitSlop={12}
-              onPress={handleNextModalPhoto}
-              style={[styles.navArrowBtn, styles.navArrowRight]}
-            >
-              <ChevronRight size={24} color={AnimoColors.white} />
-            </Pressable>
-          </View>
-
-          {/* Bottom Thumbnail Strip in Modal */}
-          <SafeAreaView style={styles.modalBottomStrip} edges={["bottom"]}>
-            <View style={styles.modalThumbRow}>
-              {galleryItems.map((item, index) => {
-                const isModalSelected = modalPhotoIndex === index;
-                return (
-                  <Pressable
-                    key={item.type}
-                    onPress={() => setModalPhotoIndex(index)}
-                    style={[
-                      styles.modalThumbBox,
-                      isModalSelected && styles.modalThumbBoxActive,
-                    ]}
-                  >
-                    <Image
-                      source={{ uri: item.url }}
-                      style={styles.modalThumbImg}
-                      contentFit="cover"
-                    />
-                  </Pressable>
-                );
-              })}
-            </View>
-          </SafeAreaView>
-        </View>
-      </Modal>
-    </SafeAreaView>
+        <View style={{ height: insets.bottom }} />
+      </StickyFooter>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.appBackground,
-  },
-  centerState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: AnimoSpacing.xl,
-  },
-  centerText: {
-    textAlign: "center",
-  },
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  flex: { flex: 1 },
+  centerState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: AnimoV2Spacing.xl },
+  centerText: { textAlign: 'center' },
   content: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingBottom: AnimoSpacing.xl,
-    gap: AnimoSpacing.lg,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.xs,
+    paddingBottom: AnimoV2Spacing.xl,
+    gap: AnimoV2Spacing.lg,
   },
-  galleryContainer: {
-    gap: AnimoSpacing.sm,
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: AnimoV2Spacing.md },
+  titleCol: { flex: 1, gap: 2 },
+  revealEdge: { borderRadius: AnimoV2Radius.xl, backgroundColor: AnimoV2Colors.actionPrimaryDepth, paddingBottom: 6 },
+  reveal: {
+    backgroundColor: AnimoV2Colors.surfaceBrand,
+    borderRadius: AnimoV2Radius.xl,
+    padding: AnimoV2Spacing.lg,
+    gap: AnimoV2Spacing.md,
   },
-  heroPhotoArea: {
-    width: "100%",
-    height: 220,
-    borderRadius: AnimoRadius.lg,
-    backgroundColor: AnimoColors.surfaceTertiary,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    position: "relative",
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
+  revealTag: { opacity: 0.9 },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: AnimoV2Spacing.sm },
+  cardPad: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
+  divider: { height: 2, borderRadius: 2, backgroundColor: AnimoV2Colors.borderDefault, marginBottom: AnimoV2Spacing.md },
+  factorRow: { flexDirection: 'row', alignItems: 'flex-start', gap: AnimoV2Spacing.md },
+  factorCopy: { flex: 1 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  infoLabel: { flex: 1 },
+  infoValue: { flexShrink: 1, maxWidth: '50%', textAlign: 'right' },
+  farmerTop: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: AnimoV2Colors.surfaceBrandSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  heroPhotoImage: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  photoTagBadge: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    paddingHorizontal: AnimoSpacing.sm,
-    paddingVertical: 4,
-    borderRadius: AnimoRadius.pill,
-  },
-  photoTagText: {
-    fontSize: 13.5,
-    fontFamily: "Nunito_600SemiBold",
-  },
-  expandButton: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  counterBadge: {
-    position: "absolute",
-    bottom: 12,
-    right: 12,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    paddingHorizontal: AnimoSpacing.sm,
-    paddingVertical: 3,
-    borderRadius: AnimoRadius.pill,
-  },
-  thumbnailRow: {
-    flexDirection: "row",
-    gap: AnimoSpacing.sm,
-  },
-  thumbnailCard: {
-    flex: 1,
-    height: 80,
-    borderRadius: AnimoRadius.md,
-    borderWidth: 1.5,
-    borderColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: AnimoColors.surfacePrimary,
-    overflow: "hidden",
-  },
-  thumbnailCardActive: {
-    borderColor: AnimoColors.accentPrimary,
-  },
-  thumbnailImg: {
-    flex: 1,
-    width: "100%",
-  },
-  thumbnailLabelWrap: {
-    paddingVertical: 3,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: AnimoColors.surfaceSecondary,
-  },
-  thumbnailLabelWrapActive: {
-    backgroundColor: AnimoColors.accentPrimaryLight,
-  },
-  thumbnailTextActive: {
-    fontFamily: "Nunito_600SemiBold",
-  },
-  galleryHint: {
-    textAlign: "center",
-    marginTop: 2,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    backgroundColor: AnimoColors.surfacePrimary,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.md,
-  },
-  titleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: AnimoSpacing.xs,
-  },
-  titleText: {
-    flex: 1,
-  },
-  priceBlock: {
-    backgroundColor: AnimoColors.accentPrimary,
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.md,
-  },
-  priceLabel: {
-    opacity: 0.85,
-  },
-  priceRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    marginTop: AnimoSpacing.sm,
-  },
-  priceUnit: {
-    opacity: 0.85,
-    marginBottom: AnimoSpacing.xs,
-  },
-  priceTotal: {
-    opacity: 0.8,
-    marginTop: AnimoSpacing.xs,
-  },
-  section: {
-    gap: AnimoSpacing.md,
-  },
-  infoCard: {
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    backgroundColor: AnimoColors.surfacePrimary,
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.sm,
-  },
-  specRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: AnimoSpacing.md,
-    paddingVertical: AnimoSpacing.md,
-  },
-  specRowDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: AnimoColors.borderLowEmphasis,
-  },
-  specRowLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: AnimoSpacing.sm,
-    flexShrink: 1,
-  },
-  specRowLabel: {
-    flexShrink: 1,
-  },
-  specRowValue: {
-    textAlign: "right",
-    flexShrink: 1,
-    maxWidth: "48%",
-  },
-  footer: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.md,
-    paddingBottom: AnimoSpacing.md,
-    gap: AnimoSpacing.xs,
-  },
-  activeRequestNote: {
-    textAlign: "center",
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.96)",
-    justifyContent: "space-between",
-  },
-  modalTopBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingBottom: AnimoSpacing.md,
-    gap: AnimoSpacing.md,
-  },
-  modalTitleWrap: {
-    flex: 1,
-    gap: 2,
-  },
-  modalCloseBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255, 255, 255, 0.22)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalMainPhotoContainer: {
-    flex: 1,
-    position: "relative",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: AnimoSpacing.sm,
-  },
-  modalMainImage: {
-    width: "100%",
-    height: "100%",
-  },
-  navArrowBtn: {
-    position: "absolute",
-    top: "50%",
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  navArrowLeft: {
-    left: 12,
-  },
-  navArrowRight: {
-    right: 12,
-  },
-  modalBottomStrip: {
-    paddingVertical: AnimoSpacing.md,
-    alignItems: "center",
-  },
-  modalThumbRow: {
-    flexDirection: "row",
-    gap: AnimoSpacing.md,
-  },
-  modalThumbBox: {
-    width: 60,
-    height: 60,
-    borderRadius: AnimoRadius.sm,
-    borderWidth: 2,
-    borderColor: "transparent",
-    overflow: "hidden",
-  },
-  modalThumbBoxActive: {
-    borderColor: AnimoColors.accentPrimary,
-  },
-  modalThumbImg: {
-    width: "100%",
-    height: "100%",
-  },
-  farmerCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.md,
-    gap: AnimoSpacing.md,
-  },
-  farmerCardLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: AnimoSpacing.md,
-    flex: 1,
-  },
-  farmerAvatar: {
-    width: 67,
-    height: 67,
-    borderRadius: 12,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: AnimoColors.accentPrimary,
-  },
-  farmerDetails: {
-    flex: 1,
-    gap: 3,
-  },
-  farmerLocationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  farmerRatingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 1,
-  },
-  farmerRatingText: {
-    fontFamily: "Nunito_700Bold",
-  },
-  viewProfilePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    // backgroundColor: AnimoColors.accentPrimaryLight,
-    // paddingHorizontal: AnimoSpacing.md,
-    // paddingVertical: 6,
-    // borderRadius: AnimoRadius.pill,
-  },
-  viewProfilePillText: {
-    fontFamily: "Nunito_600SemiBold",
-  },
+  farmerCopy: { flex: 1, gap: 2 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.xs },
+  trustRow: { flexDirection: 'row', gap: AnimoV2Spacing.sm },
+  trustStat: { flex: 1, alignItems: 'center', gap: 2 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.xs },
 });

@@ -1,23 +1,14 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { AlertCircle, Store } from 'lucide-react-native';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { AlertTriangle, ImageIcon, Store } from 'lucide-react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { AnimoColors, AnimoRadius, AnimoSpacing, AnimoType } from '@/constants/animo';
-import {
-  isBuyerNeedsActionStage,
-  type DisplayStage,
-  type PaymentMode,
-} from '@/types/transaction';
+import { BuyerStagePill } from '@/components/animo/buyer/txn-v2';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
-
-const DOT_TONE: Partial<Record<DisplayStage, string>> = {
-  request_pending: AnimoColors.moderate,
-  awaiting_payment: AnimoColors.focusRing,
-  payment_sent: AnimoColors.mild,
-  payment_confirmed: AnimoColors.mild,
-  delivered: AnimoColors.mild,
-};
+import { isBuyerNeedsActionStage, type DisplayStage, type PaymentMode } from '@/types/transaction';
 
 export type BuyerTransactionCardItem = {
   /** Request id pre-match, or transaction id post-match. */
@@ -33,6 +24,8 @@ export type BuyerTransactionCardItem = {
   farmer: string;
   date: string;
   time: string;
+  /** Cover photo of the listing, when one is available. */
+  photoUrl?: string;
 };
 
 export type BuyerTransactionCardProps = {
@@ -40,12 +33,12 @@ export type BuyerTransactionCardProps = {
   onPress?: () => void;
 };
 
-/** Buyer Transaksyon overview card — listing-first layout with farmer + status. */
+const PHOTO = 72;
+
+/** Buyer Transaksyon card: photo, listing, farmer, kg, total and a status pill (icon + label). */
 export function BuyerTransactionCard({ item, onPress }: BuyerTransactionCardProps) {
-  const { t, isTagalog } = useLanguage();
-  const isDone = item.stage === 'completed';
+  const { t } = useLanguage();
   const needsAction = isBuyerNeedsActionStage(item.stage);
-  const dotColor = DOT_TONE[item.stage];
 
   const handlePress = () => {
     if (onPress) {
@@ -68,235 +61,92 @@ export function BuyerTransactionCard({ item, onPress }: BuyerTransactionCardProp
   };
 
   return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      activeOpacity={0.85}
-      onPress={handlePress}
-      style={styles.card}>
-      <View style={styles.cardBody}>
-        {/* 1. Farmer + status */}
-        <View style={[styles.rowBetween, styles.headerRow]}>
-          <View style={styles.farmerRow}>
-            <Store size={14} color={AnimoColors.accentPrimary} />
-            <AnimoText
-              variant="bodyEmphasis"
-              color={AnimoColors.textHighEmphasis}
-              numberOfLines={1}
-              style={styles.farmerName}>
-              {item.farmer}
-            </AnimoText>
+    <View style={styles.wrap}>
+      <DepthCard
+        onPress={handlePress}
+        accessibilityLabel={t('buyTxV2.openCard', {
+          name: item.listingName,
+          farmer: item.farmer,
+          status: item.statusLabel,
+        })}>
+        <View style={styles.body}>
+          <View style={styles.top}>
+            <View style={styles.photo}>
+              {item.photoUrl ? (
+                <Image source={{ uri: item.photoUrl }} style={styles.photoImage} contentFit="cover" />
+              ) : (
+                <ImageIcon size={28} color={AnimoV2Colors.textTertiary} />
+              )}
+            </View>
+
+            <View style={styles.info}>
+              <AnimoText variant="bodyStrong" numberOfLines={2}>
+                {item.listingName}
+              </AnimoText>
+              <View style={styles.farmerRow}>
+                <Store size={16} color={AnimoV2Colors.textBrand} strokeWidth={2.5} />
+                <AnimoText
+                  variant="captionV2"
+                  color={AnimoV2Colors.textSecondary}
+                  numberOfLines={1}
+                  style={styles.farmerName}>
+                  {item.farmer}
+                </AnimoText>
+              </View>
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={1}>
+                {item.weight} · {item.pricePerKg}
+              </AnimoText>
+            </View>
           </View>
-          <StatusLabel label={item.statusLabel} isDone={isDone} dotColor={dotColor} />
-        </View>
 
-        {/* 2. Listing title */}
-        <AnimoText
-          variant="h3"
-          color={AnimoColors.textHighEmphasis}
-          numberOfLines={2}
-          style={styles.listingTitle}>
-          {item.listingName}
-        </AnimoText>
-
-        {/* 3. Variety (left) | kg + price/kg (right) */}
-        <View style={[styles.rowBetween, styles.metaRow]}>
-          {item.specificVariety ? (
-            <AnimoText
-              variant="caption"
-              color={AnimoColors.textMediumEmphasis}
-              numberOfLines={1}
-              style={styles.metaLeft}>
-              {item.specificVariety}
-            </AnimoText>
-          ) : (
-            <View style={styles.metaLeft} />
-          )}
-          <AnimoText
-            variant="caption"
-            color={AnimoColors.textMediumEmphasis}
-            numberOfLines={1}
-            style={styles.metaRight}>
-            {item.weight} ({item.pricePerKg})
-          </AnimoText>
-        </View>
-
-        {/* 4. Divider */}
-        <View style={styles.divider} />
-
-        {/* 5. Payment (left) | total (right) */}
-        <View style={[styles.rowBetween, styles.paymentRow]}>
-          <AnimoText
-            variant="caption"
-            color={AnimoColors.textHighEmphasis}
-            numberOfLines={1}
-            style={styles.metaLeft}>
-            {item.paymentMode
-              ? isTagalog
-                ? `Bayad: ${item.paymentMode}`
-                : `Payment: ${item.paymentMode}`
-              : isTagalog
-                ? 'Bayad: —'
-                : 'Payment: —'}
-          </AnimoText>
-          <AnimoText color={AnimoColors.accentPrimary} style={styles.price}>
+          <AnimoText variant="priceV2" color={AnimoV2Colors.textBrand}>
             {item.price}
           </AnimoText>
-        </View>
 
-        {/* 6. Date/time */}
-        <AnimoText variant="caption" color={AnimoColors.textLowEmphasis} style={styles.datetime}>
-          {item.date}
-          {item.time ? `  ·  ${item.time}` : ''}
-        </AnimoText>
-      </View>
+          <BuyerStagePill stage={item.stage} label={item.statusLabel} />
 
-      {/* 7. Needs-action banner */}
-      {needsAction ? (
-        <View style={styles.actionBanner}>
-          <AlertCircle size={14} color={AnimoColors.moderate} />
-          <AnimoText variant="caption" color={AnimoColors.moderate} style={styles.actionText}>
-            {t('action.needsAction')}
+          <AnimoText variant="captionV2" color={AnimoV2Colors.textTertiary}>
+            {item.date}
+            {item.time ? `  ·  ${item.time}` : ''}
           </AnimoText>
         </View>
-      ) : null}
-    </TouchableOpacity>
-  );
-}
 
-function StatusLabel({
-  label,
-  isDone,
-  dotColor,
-}: {
-  label: string;
-  isDone: boolean;
-  dotColor?: string;
-}) {
-  if (isDone) {
-    return (
-      <View style={styles.statusFilled}>
-        <AnimoText variant="tag" color={AnimoColors.white}>
-          {label}
-        </AnimoText>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.statusPlain}>
-      {dotColor ? <View style={[styles.statusDot, { backgroundColor: dotColor }]} /> : null}
-      <AnimoText
-        variant="tag"
-        color={dotColor ? AnimoColors.textHighEmphasis : AnimoColors.textLowEmphasis}>
-        {label}
-      </AnimoText>
+        {needsAction ? (
+          <View style={styles.action}>
+            <AlertTriangle size={18} color={AnimoV2Colors.cautionFg} strokeWidth={2.75} />
+            <AnimoText variant="tagV2" color={AnimoV2Colors.cautionFg}>
+              {t('action.needsAction')}
+            </AnimoText>
+          </View>
+        ) : null}
+      </DepthCard>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    marginBottom: AnimoSpacing.md,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
+  wrap: { marginBottom: AnimoV2Spacing.md },
+  body: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.sm },
+  top: { flexDirection: 'row', gap: AnimoV2Spacing.md },
+  photo: {
+    width: PHOTO,
+    height: PHOTO,
+    borderRadius: AnimoV2Radius.md,
+    backgroundColor: AnimoV2Colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
     overflow: 'hidden',
-    shadowColor: AnimoColors.darkBackground,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
   },
-  cardBody: {
-    padding: AnimoSpacing.lg,
-  },
-  rowBetween: {
+  photoImage: { width: PHOTO, height: PHOTO },
+  info: { flex: 1, minWidth: 0, gap: 2 },
+  farmerRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.xs },
+  farmerName: { flexShrink: 1 },
+  action: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: AnimoSpacing.sm,
-  },
-  farmerRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.xs,
-    minWidth: 0,
-  },
-  headerRow: {
-    marginBottom: AnimoSpacing.sm,
-  },
-  farmerName: {
-    flexShrink: 1,
-  },
-  statusFilled: {
-    backgroundColor: AnimoColors.accentPrimary,
-    borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: AnimoSpacing.xs,
-  },
-  statusPlain: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.xs,
-    flexShrink: 0,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: AnimoRadius.pill,
-  },
-  listingTitle: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontFamily: 'Nunito_700Bold',
-    marginBottom: AnimoSpacing.xs,
-  },
-  metaRow: {
-    marginBottom: AnimoSpacing.md,
-    alignItems: 'flex-start',
-  },
-  metaLeft: {
-    flex: 1,
-    minWidth: 0,
-    paddingRight: AnimoSpacing.sm,
-  },
-  metaRight: {
-    flexShrink: 0,
-    textAlign: 'right',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: AnimoColors.borderLowEmphasis,
-    marginBottom: AnimoSpacing.md,
-  },
-  paymentRow: {
-    marginBottom: AnimoSpacing.sm,
-    alignItems: 'center',
-  },
-  price: {
-    fontSize: 24,
-    lineHeight: 36,
-    fontFamily: 'Nunito_700Bold',
-    flexShrink: 0,
-  },
-  datetime: {
-    fontSize: 11,
-    lineHeight: 14,
-  },
-  actionBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: AnimoColors.surfaceTertiary,
-    backgroundColor: 'rgba(255, 224, 178, 0.4)',
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.sm,
-  },
-  actionText: {
-    ...AnimoType.caption,
-    fontFamily: 'Nunito_600SemiBold',
+    gap: AnimoV2Spacing.sm,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingVertical: AnimoV2Spacing.sm,
+    backgroundColor: AnimoV2Colors.cautionBg,
   },
 });

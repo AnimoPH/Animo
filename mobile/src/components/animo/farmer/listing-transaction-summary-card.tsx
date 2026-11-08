@@ -1,7 +1,8 @@
-import { AlertTriangle, ChevronRight } from 'lucide-react-native';
+import { AlertTriangle } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
 import { DepthCard } from '@/components/animo/ui/depth-card';
 import { StatusPill } from '@/components/animo/ui/status-pill';
 import { AnimoV2Colors, AnimoV2Spacing } from '@/constants/animo';
@@ -60,12 +61,15 @@ export function ListingTransactionSummaryCard({
             <Column label={t('ftx.earnings')} value={formatPeso(earnings)} brand />
           </View>
 
-          <View style={styles.link}>
-            <AnimoText variant="bodyStrong" color={AnimoV2Colors.textBrand}>
-              {t('ftx.viewOrders')}
-            </AnimoText>
-            <ChevronRight size={22} color={AnimoV2Colors.textBrand} strokeWidth={2.75} />
-          </View>
+          <ChunkyButton
+            size="sm"
+            flat
+            variant="secondary"
+            borderColor={AnimoV2Colors.actionPrimary}
+            label={t('ftx.viewOrders')}
+            onPress={onPress}
+            style={styles.link}
+          />
         </View>
 
         {needsAction ? (
@@ -101,7 +105,7 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: AnimoV2Spacing.sm },
   cols: { flexDirection: 'row', gap: AnimoV2Spacing.sm },
   col: { flex: 1, minWidth: 0 },
-  link: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  link: { alignSelf: 'stretch' },
   action: {
     flexDirection: 'row',
     alignItems: 'center',

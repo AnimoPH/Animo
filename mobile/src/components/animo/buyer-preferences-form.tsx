@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { Droplet, Sun } from 'lucide-react-native';
+
 import { AnimoText } from '@/components/animo/animo-text';
-import { FormCard } from '@/components/animo/form-card';
-import { LabeledInput } from '@/components/animo/labeled-input';
-import { SegmentedChoice } from '@/components/animo/segmented-choice';
-import { SelectField } from '@/components/animo/select-field';
 import { SpecificVarietyField } from '@/components/animo/specific-variety-field';
-import { AnimoColors, AnimoSpacing } from '@/constants/animo';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { OptionCard } from '@/components/animo/ui/option-card';
+import { TextField } from '@/components/animo/ui/text-field';
+import { AnimoV2Colors, AnimoV2Spacing } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
 import type { BuyerPreferences, UpsertBuyerPreferencesInput } from '@/types/buyer-preferences';
 import {
@@ -77,12 +78,11 @@ export type BuyerPreferencesFormProps = {
 
 /**
  * Optional buyer-side preferences: what variety, specific variety, moisture,
- * and typical order size a buyer usually looks for. Storage only — nothing
- * here affects search/ranking. Reused as-is on the onboarding Profile step
- * (register.tsx) and from the buyer Profile tab.
+ * and typical order size a buyer usually looks for. Storage only: nothing
+ * here affects search/ranking. v2 look (option cards, 56px fields).
  */
 export function BuyerPreferencesForm({ values, onChange }: BuyerPreferencesFormProps) {
-  const { language, isTagalog } = useLanguage();
+  const { t, language } = useLanguage();
   const [specificVarietyOpen, setSpecificVarietyOpen] = useState(false);
 
   const needsSpecificVariety =
@@ -94,12 +94,10 @@ export function BuyerPreferencesForm({ values, onChange }: BuyerPreferencesFormP
         ? getHybridSpecificVarieties(language)
         : [];
 
-  // preferredVarietyCode holds free text, not an option value — resolve back
+  // preferredVarietyCode holds free text, not an option value: resolve back
   // to "which row is checked" by matching label, so a previously saved
   // custom entry (no matching row) falls back to the "Iba pa" row. `''`
-  // (distinct from `null`) means "Iba pa picked, nothing typed yet" — using
-  // `!== null` here (not a truthiness check) keeps that row checked while
-  // the text box is still blank.
+  // (distinct from `null`) means "Iba pa picked, nothing typed yet".
   const matchedOption = specificVarietyOptions.find((o) => o.label === values.preferredVarietyCode);
   const specificFieldValue = matchedOption
     ? matchedOption.value
@@ -110,78 +108,91 @@ export function BuyerPreferencesForm({ values, onChange }: BuyerPreferencesFormP
   const customVarietyText = matchedOption ? '' : values.preferredVarietyCode ?? '';
 
   return (
-    <FormCard title={isTagalog ? 'Kagustuhan sa Pagbili' : 'Buyer Preferences'}>
-      <AnimoText variant="caption" color={AnimoColors.muted}>
-        {isTagalog
-          ? 'Opsyonal — maaari niyo itong laktawan o baguhin balang araw sa Profile.'
-          : 'Optional — you may skip or update this anytime in your Profile.'}
+    <View style={styles.form}>
+      <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+        {t('buyProfileV2.prefOptional')}
       </AnimoText>
 
-      <View>
-        <SelectField
-          label={isTagalog ? 'Uri ng Palay' : 'Rice Variety'}
-          placeholder={isTagalog ? 'Pumili ng uri ng palay' : 'Select rice variety'}
-          options={getVarietyOptions(language)}
-          value={values.preferredVariety}
-          onChange={(value) => {
-            const next = value as DeclaredVariety;
-            const nextNeedsSpecific = next === 'Inbred' || next === 'Hybrid';
-            // Reset on every pick (even Inbred <-> Hybrid) — same as the
-            // farmer listing flow's "Uri ng Palay" select (creation-listing.tsx).
-            onChange({ ...values, preferredVariety: next, preferredVarietyCode: null });
-            setSpecificVarietyOpen(nextNeedsSpecific);
-          }}
-        />
-        {needsSpecificVariety ? (
-          <View style={styles.inlineFieldSpacing}>
-            <SpecificVarietyField
-              label={isTagalog ? 'Tiyak na Uri ng Palay' : 'Specific Rice Variety'}
-              placeholder={isTagalog ? 'Pumili ng tiyak na uri' : 'Select specific variety'}
-              options={specificVarietyOptions}
-              value={specificFieldValue}
-              open={specificVarietyOpen}
-              onOpenChange={setSpecificVarietyOpen}
-              onSelect={(option) =>
-                onChange({
-                  ...values,
-                  preferredVarietyCode: option.value === SPECIFIC_VARIETY_OTHER ? '' : option.label,
-                })
-              }
-            />
-            {showCustomVarietyInput ? (
-              <View style={styles.inlineFieldSpacing}>
-                <LabeledInput
-                  value={customVarietyText}
-                  onChangeText={(text) => onChange({ ...values, preferredVarietyCode: text })}
-                  placeholder={isTagalog ? 'Ilagay ang tiyak na uri (opsyonal)' : 'Enter specific variety (optional)'}
-                />
-              </View>
-            ) : null}
-          </View>
-        ) : null}
+      <View style={styles.group}>
+        <AnimoText variant="bodyStrong">{t('buyProfileV2.prefVariety')}</AnimoText>
+        {getVarietyOptions(language).map((option) => (
+          <OptionCard
+            key={option.value}
+            label={option.label}
+            selected={values.preferredVariety === option.value}
+            onPress={() => {
+              const next = option.value as DeclaredVariety;
+              const nextNeedsSpecific = next === 'Inbred' || next === 'Hybrid';
+              // Reset on every pick (even Inbred <-> Hybrid), same as the farmer listing flow.
+              onChange({ ...values, preferredVariety: next, preferredVarietyCode: null });
+              setSpecificVarietyOpen(nextNeedsSpecific);
+            }}
+          />
+        ))}
       </View>
 
-      <SegmentedChoice
-        label={isTagalog ? 'Kagustuhan sa Halumigmig' : 'Preferred Moisture Level'}
-        options={getMoistureOptions(language)}
-        value={values.preferredMoisture}
-        onChange={(value) => onChange({ ...values, preferredMoisture: value })}
-      />
+      {needsSpecificVariety ? (
+        <View style={styles.group}>
+          <SpecificVarietyField
+            label={t('buyProfileV2.prefSpecific')}
+            placeholder={t('buyProfileV2.prefPickSpecific')}
+            options={specificVarietyOptions}
+            value={specificFieldValue}
+            open={specificVarietyOpen}
+            onOpenChange={setSpecificVarietyOpen}
+            onSelect={(option) =>
+              onChange({
+                ...values,
+                preferredVarietyCode: option.value === SPECIFIC_VARIETY_OTHER ? '' : option.label,
+              })
+            }
+          />
+          {showCustomVarietyInput ? (
+            <TextField
+              label={t('buyProfileV2.prefSpecific')}
+              value={customVarietyText}
+              onChangeText={(text) => onChange({ ...values, preferredVarietyCode: text })}
+              placeholder={t('buyProfileV2.prefCustom')}
+            />
+          ) : null}
+        </View>
+      ) : null}
 
-      <LabeledInput
-        label={isTagalog ? 'Karaniwang Dami na Binibili' : 'Typical Purchase Quantity'}
+      <View style={styles.group}>
+        <AnimoText variant="bodyStrong">{t('buyProfileV2.prefMoisture')}</AnimoText>
+        <View style={styles.moistureRow}>
+          {getMoistureOptions(language).map((option) => {
+            const selected = values.preferredMoisture === option.value;
+            return (
+              <OptionCard
+                key={option.value}
+                layout="stacked"
+                label={option.label}
+                selected={selected}
+                style={styles.moistureCard}
+                onPress={() => onChange({ ...values, preferredMoisture: option.value })}>
+                <IconTile icon={option.value === 'Dry' ? Sun : Droplet} tone={selected ? 'success' : 'warning'} />
+              </OptionCard>
+            );
+          })}
+        </View>
+      </View>
+
+      <TextField
+        label={t('buyProfileV2.prefQty')}
         placeholder="0"
         keyboardType="numeric"
-        suffixText={isTagalog ? 'kilo/kg' : 'kg'}
+        suffix={t('buyProfileV2.prefQtyUnit')}
         value={values.typicalQuantityKg}
         onChangeText={(text) => onChange({ ...values, typicalQuantityKg: text })}
       />
-    </FormCard>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  inlineFieldSpacing: {
-    marginTop: AnimoSpacing.sm,
-  },
+  form: { gap: AnimoV2Spacing.lg },
+  group: { gap: AnimoV2Spacing.sm },
+  moistureRow: { flexDirection: 'row', gap: AnimoV2Spacing.sm, alignItems: 'stretch' },
+  moistureCard: { flex: 1 },
 });

@@ -9,13 +9,15 @@ export type TextFieldProps = TextInputProps & {
   label: string;
   /** Unit suffix inside the field (e.g. "kg"). */
   suffix?: string;
+  /** Symbol inside the field before the text (e.g. "₱"). */
+  prefix?: string;
   /** Error text in words. Shown with an icon. */
   error?: string;
   hint?: string;
 };
 
 /** v2 input: label above (700), 56 high, 2px strong border, ink focus ring. */
-export function TextField({ label, suffix, error, hint, multiline, style, onFocus, onBlur, ...rest }: TextFieldProps) {
+export function TextField({ label, suffix, prefix, error, hint, multiline, style, onFocus, onBlur, ...rest }: TextFieldProps) {
   const [focused, setFocused] = useState(false);
   const borderColor = error
     ? AnimoV2Colors.dangerSolid
@@ -26,6 +28,11 @@ export function TextField({ label, suffix, error, hint, multiline, style, onFocu
     <View style={{ gap: AnimoV2Spacing.sm }}>
       <AnimoText variant="bodyStrong">{label}</AnimoText>
       <View style={[styles.box, multiline && styles.boxMulti, { borderColor }]}>
+        {prefix ? (
+          <AnimoText variant="bodyStrong" color={AnimoV2Colors.textTertiary} style={styles.prefix}>
+            {prefix}
+          </AnimoText>
+        ) : null}
         <TextInput
           accessibilityLabel={label}
           placeholderTextColor={AnimoV2Colors.textTertiary}
@@ -75,6 +82,7 @@ const styles = StyleSheet.create({
     backgroundColor: AnimoV2Colors.surfaceCard,
   },
   boxMulti: { alignItems: 'flex-start' },
+  prefix: { marginRight: AnimoV2Spacing.sm },
   input: {
     flex: 1,
     fontFamily: AnimoV2Font.regular,

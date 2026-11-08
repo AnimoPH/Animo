@@ -161,7 +161,6 @@ export function ListingDetailHeader({ listing, photos }: ListingDetailContentPro
           {galleryItems.map((item, index) => (
             <FilterChip
               key={item.type}
-              compact
               label={item.shortLabel}
               selected={selectedPhotoIndex === index}
               onPress={() => setSelectedPhotoIndex(index)}
