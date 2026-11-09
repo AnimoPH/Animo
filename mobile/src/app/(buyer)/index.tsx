@@ -187,6 +187,8 @@ export default function BuyerHomeScreen() {
   ];
 
   const fullName = account?.fullName?.trim() || t('role.buyer');
+  /** Greet with the first name only — the full name overflowed the header and truncated. */
+  const firstName = fullName.split(/\s+/)[0] || fullName;
   const goPalengke = () => router.push('/(buyer)/palengke');
   const openListing = (id: string) => router.push(`/(buyer)/palengke/${id}`);
 
@@ -221,9 +223,9 @@ export default function BuyerHomeScreen() {
             <Mascot size={52} tile={false} />
             <View style={styles.flex}>
               <AnimoText variant="title" color={AnimoV2Colors.textOnBrand} numberOfLines={1} accessibilityRole="header">
-                {t('home.greeting', { name: fullName })}
+                {t('home.greeting', { name: firstName })}
               </AnimoText>
-              <AnimoText variant="captionV2" color={AnimoV2Colors.textOnBrand} numberOfLines={2}>
+              <AnimoText variant="captionV2" color={AnimoV2Colors.brandLight} numberOfLines={2}>
                 {t('buyHomeV2.subtitle')}
               </AnimoText>
             </View>
@@ -503,10 +505,11 @@ const styles = StyleSheet.create({
   hero: {
     backgroundColor: AnimoV2Colors.surfaceBrand,
     paddingHorizontal: AnimoV2Spacing.lg,
-    paddingBottom: AnimoV2Spacing.xl,
+    paddingBottom: AnimoV2Spacing.lg,
     borderBottomLeftRadius: AnimoV2Radius.xl,
     borderBottomRightRadius: AnimoV2Radius.xl,
-    gap: AnimoV2Spacing.lg,
+    // Keeps the search row clear of the greeting; the farmer header has no second child.
+    gap: AnimoV2Spacing.md,
     overflow: 'hidden',
   },
   greetingRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
