@@ -41,6 +41,7 @@ import { formatPeso } from '@/constants/marketplace';
 import { barangayLabel } from '@/constants/profile-options';
 import { useLanguage } from '@/hooks/use-language';
 import { formatPhilippinePhone } from '@/lib/format-phone';
+import { formatRating } from '@/lib/format-rating';
 import { useSession } from '@/hooks/use-session';
 import { fetchTrustProfile, type TrustProfile } from '@/services/farmer-public-profile';
 import { fetchReceivedFeedbacks } from '@/services/received-feedback';
@@ -204,7 +205,7 @@ export default function FarmerProfileScreen() {
     : t('profileV2.noGcash');
 
   const hasRating = !!trustProfile && trustProfile.ratingCount > 0;
-  const averageRating = hasRating ? trustProfile.averageRating.toFixed(1) : '—';
+  const averageRating = formatRating(trustProfile?.averageRating ?? 0, hasRating);
   const reviewCount = trustProfile ? String(trustProfile.ratingCount) : '0';
   const transactionCount = trustProfile ? String(trustProfile.completedTransactions) : '0';
 
@@ -411,7 +412,7 @@ export default function FarmerProfileScreen() {
             showsVerticalScrollIndicator={false}>
             <DepthCard depth="flat" radius="lg" backgroundColor={AnimoV2Colors.surfaceBrandSubtle} borderColor={AnimoV2Colors.actionPrimary} style={styles.ratingBanner}>
               <View style={styles.ratingBigRow}>
-                <AnimoText variant="display">{hasRating ? trustProfile.averageRating.toFixed(1) : '—'}</AnimoText>
+                <AnimoText variant="display">{averageRating}</AnimoText>
                 <StarRow rating={trustProfile ? Math.round(trustProfile.averageRating) : 0} size={20} />
               </View>
               <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>

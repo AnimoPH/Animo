@@ -30,6 +30,7 @@ import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo'
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useCollapsingHeader } from '@/hooks/use-collapsing-header';
 import { useLanguage } from '@/hooks/use-language';
+import { formatRating } from '@/lib/format-rating';
 import { fetchCoverPhotos } from '@/services/crop-listing-service';
 import {
   fetchTopRankedFarmers,
@@ -531,7 +532,7 @@ function FarmerDirectoryCard({ farmer, onPress }: { farmer: RankedFarmer; onPres
               fill={hasReviews ? AnimoV2Colors.warningSolid : 'none'}
               strokeWidth={2.5}
             />
-            <AnimoText variant="bodyStrong">{hasReviews ? farmer.averageRating : '—'}</AnimoText>
+            <AnimoText variant="bodyStrong">{formatRating(farmer.averageRating, hasReviews)}</AnimoText>
             <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
               {t('buyPalV2.reviewsCount', { n: farmer.totalReviews })}
             </AnimoText>
