@@ -111,6 +111,12 @@ const STATUS_TONES: Record<ListingStatus, StatusTone> = {
   Archived: 'neutral',
 };
 
+/**
+ * The bottom tab bar's green "+" now opens the same creation flow, so the sticky button on this
+ * screen is hidden rather than deleted. Flip to `true` to bring it (and its tour step) back.
+ */
+const SHOW_STICKY_NEW_LISTING = false;
+
 /** Parses a filter text field, treating blank/garbage as "not set" rather than 0. */
 function parseNumber(text: string): number | undefined {
   const trimmed = text.trim();
@@ -368,6 +374,18 @@ export default function FarmerPalengkeScreen() {
     setModalOpen(false);
   };
 
+  const hasNoListingsAtAll =
+    listings.length === 0 &&
+    searchQuery.trim().length === 0 &&
+    activeFilterCount === 0 &&
+    waitingCards.length === 0;
+  const showFooter = SHOW_STICKY_NEW_LISTING && !loading && !errorMessage && !hasNoListingsAtAll;
+
+  // `fabRef` lands on the sticky button or, when there is nothing listed yet, on the empty
+  // state's button. With the sticky one hidden, only the empty state can hold it — so the step
+  // is dropped when neither is on screen, rather than spotlighting a target that isn't there.
+  const fabStepHasTarget = showFooter || hasNoListingsAtAll;
+
   const palengkeTourSteps: SpotlightStep[] = [
     {
       id: 'farmer-palengke-search',
@@ -379,16 +397,20 @@ export default function FarmerPalengkeScreen() {
       borderRadius: 16,
       padding: 6,
     },
-    {
-      id: 'farmer-palengke-fab',
-      title: t('spotlight.farmerPalengke.step2Title'),
-      description: t('spotlight.farmerPalengke.step2Desc'),
-      icon: Plus,
-      targetRef: fabRef,
-      shape: 'rectangle',
-      borderRadius: 16,
-      padding: 6,
-    },
+    ...(fabStepHasTarget
+      ? [
+          {
+            id: 'farmer-palengke-fab',
+            title: t('spotlight.farmerPalengke.step2Title'),
+            description: t('spotlight.farmerPalengke.step2Desc'),
+            icon: Plus,
+            targetRef: fabRef,
+            shape: 'rectangle' as const,
+            borderRadius: 16,
+            padding: 6,
+          },
+        ]
+      : []),
   ];
 
   const filterModalChildren = (
@@ -528,13 +550,6 @@ export default function FarmerPalengkeScreen() {
         </View>
     </>
   );
-
-  const hasNoListingsAtAll =
-    listings.length === 0 &&
-    searchQuery.trim().length === 0 &&
-    activeFilterCount === 0 &&
-    waitingCards.length === 0;
-  const showFooter = !loading && !errorMessage && !hasNoListingsAtAll;
 
   const goCreate = () => router.push('/(farmer)/creation-listing');
 

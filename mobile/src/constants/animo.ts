@@ -292,7 +292,8 @@ export const AnimoV2Size = {
   /** Confirm 56 vs 44 with the team (DESIGN_SPEC section 4). */
   controlHeight: 56,
   iconButton: 48,
-  tabItemMinHeight: 64,
+  /** Icon (26) + label (16) is 44, so 56 leaves even breathing room and clears the 48 tap target. */
+  tabItemMinHeight: 56,
   /** Chunky bottom edge in px. */
   depth: 4,
 } as const;

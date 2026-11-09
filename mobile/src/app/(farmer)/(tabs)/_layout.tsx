@@ -1,12 +1,12 @@
-import { Redirect, Tabs, useFocusEffect, useSegments } from 'expo-router';
+import { Redirect, Tabs, router, useFocusEffect, useSegments } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Home, Receipt, Sprout, User } from 'lucide-react-native';
 import { View } from 'react-native';
 
 import { AnimoTabBar, type TabItem } from '@/components/animo/animo-tab-bar';
 import { OutboxBanner } from '@/components/animo/outbox-banner';
 import { homeRouteForRole } from '@/constants/roles';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
+import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
 import { fetchPendingPurchaseRequestCountsByListing } from '@/services/purchase-request-service';
 import { fetchFarmerTransactions } from '@/services/transaction-service';
@@ -14,17 +14,18 @@ import { displayStageForMatch, isFarmerNeedsActionStage } from '@/types/transact
 
 /** Bottom navigation for the farmer (Magsasaka) module. */
 const FARMER_TAB_DEFS: Omit<TabItem, 'showBadge' | 'badgeCount'>[] = [
-  { name: 'index', label: 'Tahanan', labelKey: 'tab.home', icon: { outline: 'home-outline', filled: 'home' }, lucide: Home },
-  { name: 'palengke', label: 'Aking Ani', labelKey: 'tab.myHarvest', icon: { outline: 'leaf-outline', filled: 'leaf' }, lucide: Sprout },
-  { name: 'transaksyon', label: 'Transaksyon', labelKey: 'tab.transactions', icon: { outline: 'receipt-outline', filled: 'receipt' }, lucide: Receipt },
-  { name: 'profile', label: 'Profile', labelKey: 'tab.profile', icon: { outline: 'person-outline', filled: 'person' }, lucide: User },
+  { name: 'index', label: 'Tahanan', labelKey: 'tab.home', icon: { outline: 'home-outline', filled: 'home' } },
+  { name: 'palengke', label: 'Aking Ani', labelKey: 'tab.myHarvest', icon: { outline: 'leaf-outline', filled: 'leaf' } },
+  { name: 'transaksyon', label: 'Transaksyon', labelKey: 'tab.transactions', icon: { outline: 'receipt-outline', filled: 'receipt' } },
+  { name: 'profile', label: 'Profile', labelKey: 'tab.profile', icon: { outline: 'person-outline', filled: 'person' } },
 ];
 
-/** Clears the tab bar (~110) plus the sticky 76px button area on Aking Ani. */
-const AKING_ANI_BANNER_BOTTOM = 196;
+/** Clears the tab bar (~92) plus the sticky 76px button area on Aking Ani. */
+const AKING_ANI_BANNER_BOTTOM = 178;
 
 export default function FarmerLayout() {
   const { status, account } = useSession();
+  const { t } = useLanguage();
   const segments = useSegments();
   const onAkingAni = segments[segments.length - 1] === 'palengke';
   const [transaksyonNeedsAction, setTransaksyonNeedsAction] = useState(false);
@@ -85,7 +86,20 @@ export default function FarmerLayout() {
     <View style={{ flex: 1 }}>
       <Tabs
         screenOptions={{ headerShown: false }}
-        tabBar={(props) => <AnimoTabBar {...props} items={items} />}>
+        tabBar={(props) => (
+          <AnimoTabBar
+            {...props}
+            items={items}
+            // Listing palay is the farmer's core job, so it gets a permanent door — sitting
+            // third, between Aking Ani and Transaksyon.
+            action={{
+              icon: 'add',
+              accessibilityLabel: t('aniV2.newListing'),
+              onPress: () => router.push('/(farmer)/creation-listing'),
+              index: 2,
+            }}
+          />
+        )}>
         <Tabs.Screen name="index" />
         <Tabs.Screen name="palengke" />
         <Tabs.Screen name="transaksyon" />

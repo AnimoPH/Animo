@@ -128,7 +128,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: AnimoSpacing.lg,
     right: AnimoSpacing.lg,
-    bottom: 104,
+    /** Clears the bottom tab bar (~86 on Android, ~108 with an iPhone home indicator). */
+    bottom: 86,
     flexDirection: 'row',
     alignItems: 'center',
     gap: AnimoSpacing.sm,
