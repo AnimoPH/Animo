@@ -8,7 +8,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -213,10 +212,6 @@ function listingMatchesSearch(listing: CropListing, searchQuery: string): boolea
 export default function FarmerPalengkeScreen() {
   const { t, language, isTagalog } = useLanguage();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
-  const sidePadding = AnimoV2Spacing.md;
-  const cardGap = AnimoV2Spacing.sm;
-  const cardWidth = (windowWidth - sidePadding * 2 - cardGap) / 2;
   const [searchQuery, setSearchQuery] = useState('');
   const [appliedFilters, setAppliedFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
   const [draftFilters, setDraftFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
