@@ -2,7 +2,15 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Banknote, Clock, Lock, Smartphone, Wheat } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
@@ -27,6 +35,14 @@ import type { PurchaseRequest } from '@/types/purchase-request';
 
 /** Size of one stepper tap, in kg (DESIGN_SPEC section 6b). */
 const STEP_KG = 50;
+
+/**
+ * Typed quantities are whole kilograms: keep digits only and drop a fractional part. (The "Lahat"
+ * chip can still fill in an exact fractional remainder; editing that value drops the fraction.)
+ */
+function sanitizeKg(text: string): string {
+  return text.replace(/,/g, '').split('.')[0].replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+}
 
 function NoteCard({
   icon,
@@ -143,10 +159,18 @@ export default function BuyScreen() {
   const total = qtyNum * pricePerKg;
   const canConfirm = Number.isFinite(qtyNum) && qtyNum > 0 && !overRemaining && !underMinimum && pricePerKg > 0 && listing.status === 'Available' && !submitting;
 
-  // Stepper bounds: steps of 50 kg between the minimum and the remaining stock.
+  // Stepper bounds: steps of 50 kg between the minimum and the remaining stock. A typed amount
+  // can sit outside them (and is flagged below), so a step always lands back inside.
   const stepperValue = Number.isFinite(qtyNum) && qtyNum > 0 ? qtyNum : minimumKg;
   const canDecrement = stepperValue > minimumKg;
   const canIncrement = stepperValue < listing.remainingQuantityKg;
+  const clampKg = (kg: number) => Math.min(listing.remainingQuantityKg, Math.max(minimumKg, kg));
+  // Only as many digits as the stock allows can be typed.
+  const maxDigits = String(Math.max(1, Math.floor(listing.remainingQuantityKg))).length;
+  // Leaving the field empty (or 0) puts the minimum back; anything else the buyer typed stays.
+  const finishTyping = () => {
+    if (!(qtyNum > 0)) setQuantity(String(minimumKg));
+  };
   const halfKg = Math.min(listing.remainingQuantityKg, Math.max(minimumKg, Math.round(listing.remainingQuantityKg / 2)));
   const quantityError = overRemaining
     ? t('buyReqV2.overRemaining', { kg: listing.remainingQuantityKg })
@@ -156,6 +180,7 @@ export default function BuyScreen() {
 
   const handleConfirm = async () => {
     if (!canConfirm) return;
+    Keyboard.dismiss();
     setSubmitting(true);
     setSubmitError(null);
     const saveOffline = async () => {
@@ -196,7 +221,11 @@ export default function BuyScreen() {
       {header}
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}>
           {/* Mini listing summary */}
           <DepthCard depth="flat" radius="lg" style={styles.summaryCard}>
             <IconTile icon={Wheat} tone="success" size={56} solid shape="rounded" />
@@ -221,19 +250,34 @@ export default function BuyScreen() {
               incrementLabel={t('buyReqV2.increase', { kg: STEP_KG })}
               decrementDisabled={!canDecrement}
               incrementDisabled={!canIncrement}
-              onDecrement={() => setQuantity(String(Math.max(minimumKg, stepperValue - STEP_KG)))}
-              onIncrement={() => setQuantity(String(Math.min(listing.remainingQuantityKg, stepperValue + STEP_KG)))}
+              onDecrement={() => setQuantity(String(clampKg(stepperValue - STEP_KG)))}
+              onIncrement={() => setQuantity(String(clampKg(stepperValue + STEP_KG)))}
+              editable
+              inputValue={quantity}
+              onChangeText={(text) => setQuantity(sanitizeKg(text))}
+              onEndEditing={finishTyping}
+              inputLabel={t('buyReqV2.quantityInput')}
+              maxLength={maxDigits}
             />
+            <AnimoText variant="captionV2" color={AnimoV2Colors.textTertiary} style={styles.centerText}>
+              {t('buyReqV2.typeHint')}
+            </AnimoText>
             <View style={styles.shortcutRow}>
               <FilterChip
                 label={t('buyReqV2.half')}
                 selected={stepperValue === halfKg && stepperValue !== listing.remainingQuantityKg}
-                onPress={() => setQuantity(String(halfKg))}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setQuantity(String(halfKg));
+                }}
               />
               <FilterChip
                 label={t('buyReqV2.all')}
                 selected={stepperValue === listing.remainingQuantityKg}
-                onPress={() => setQuantity(String(listing.remainingQuantityKg))}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setQuantity(String(listing.remainingQuantityKg));
+                }}
               />
             </View>
             {quantityError ? (
