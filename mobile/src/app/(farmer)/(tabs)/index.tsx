@@ -29,6 +29,7 @@ import { DepthCard } from '@/components/animo/ui/depth-card';
 import { IconTile } from '@/components/animo/ui/icon-tile';
 import { Mascot } from '@/components/animo/ui/mascot';
 import { ProgressBar } from '@/components/animo/ui/progress-bar';
+import { SeeAllLink } from '@/components/animo/ui/see-all-link';
 import {
   AnimoV2Colors,
   AnimoV2Radius,
@@ -297,11 +298,9 @@ export default function FarmerHomeScreen() {
               <AnimoText variant="heading" accessibilityRole="header">
                 {t('farmer.activities')}
               </AnimoText>
-              <ChunkyButton
-                size="sm"
+              <SeeAllLink
                 label={t('farmer.activitiesView')}
                 onPress={() => router.push('/(farmer)/(tabs)/transaksyon')}
-                style={styles.seeAll}
               />
             </View>
 
@@ -518,7 +517,6 @@ const styles = StyleSheet.create({
   ctaTop: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
   activitySection: { gap: AnimoV2Spacing.md },
   activityHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  seeAll: { width: 112 },
   activityLoading: { alignItems: 'center', paddingVertical: AnimoV2Spacing.lg },
   activityList: { gap: AnimoV2Spacing.md },
   activityRow: {
