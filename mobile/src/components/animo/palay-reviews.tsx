@@ -9,6 +9,7 @@ import { BackHeader } from '@/components/animo/back-header';
 import { PalayReviewsCardV2, PalayReviewsScreenV2 } from '@/components/animo/farmer/palay-reviews-v2';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
+import { formatRating } from '@/lib/format-rating';
 import {
   averageReviewScore,
   fetchListingPalayReviews,
@@ -131,7 +132,7 @@ function LegacyPalayReviewsCard({
         onPress={onPress}
         style={styles.cardHeader}>
         <AnimoText variant="h2" color={AnimoColors.textHighEmphasis}>
-          {average !== null ? formatAverage(average) : '—'}
+          {formatRating(average ?? 0, average !== null)}
         </AnimoText>
         <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.cardTitle}>
           {isTagalog ? 'Mga Review ng Palay' : 'Palay Reviews'} ({reviews.length})

@@ -11,6 +11,7 @@ import { V2Dialog } from '@/components/animo/ui/dialog';
 import { IconTile } from '@/components/animo/ui/icon-tile';
 import { Mascot } from '@/components/animo/ui/mascot';
 import { V2BackHeader } from '@/components/animo/ui/screen-bits';
+import { StatusPill } from '@/components/animo/ui/status-pill';
 import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
@@ -169,9 +170,9 @@ export default function FarmerReceiptScreen() {
         <DepthCard>
           <View style={styles.cardBody}>
             <View style={styles.totalBlock}>
-              <AnimoText variant="tagV2" color={AnimoV2Colors.textTertiary}>
-                {t('frb.total')}
-              </AnimoText>
+              <View style={styles.statusWrap}>
+                <StatusPill tone="success" label={t('status.completed')} />
+              </View>
               <AnimoText variant="priceHero" color={AnimoV2Colors.textBrand}>
                 {formatPeso(payment?.amount ?? transaction.totalAmount)}
               </AnimoText>
@@ -298,7 +299,8 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: SCREEN_PADDING, paddingBottom: AnimoV2Spacing.xxl, gap: AnimoV2Spacing.lg },
   hero: { alignItems: 'center', gap: AnimoV2Spacing.sm, paddingTop: AnimoV2Spacing.sm },
   cardBody: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
-  totalBlock: { alignItems: 'center' },
+  totalBlock: { alignItems: 'center', gap: AnimoV2Spacing.sm },
+  statusWrap: { alignSelf: 'center' },
   gap: { gap: AnimoV2Spacing.md },
   divider: { height: 2, borderRadius: AnimoV2Radius.full, backgroundColor: AnimoV2Colors.borderDefault },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoV2Spacing.md },

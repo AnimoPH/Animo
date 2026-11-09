@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { LucideIcon } from 'lucide-react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { CommonActions, StackActions } from '@react-navigation/native';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactElement } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -30,10 +29,8 @@ export type TabItem = {
   name: string;
   label: string;
   labelKey?: TranslationKey;
-  /** Legacy Ionicons pair, used when `lucide` is not provided. */
+  /** Outline when idle, filled when focused — the state cue that does not depend on color. */
   icon: TabIonicon;
-  /** v2 Lucide icon (DESIGN_SPEC section 7). Preferred over `icon`. */
-  lucide?: LucideIcon;
   /** Red count badge (e.g. pending requests on Aking Ani). Takes precedence over `showBadge`. */
   badgeCount?: number;
   /** When true, shows a small attention dot on the icon (boolean, not a count). */
@@ -41,28 +38,59 @@ export type TabItem = {
 };
 
 /**
+ * A verb among the nouns. An action slot sits in the row but goes nowhere you can come back
+ * from, so it carries no label and wears the solid brand fill: in a bar where the tabs are
+ * quiet, it is the one thing to do rather than a place you are.
+ */
+export type TabAction = {
+  icon: IoniconName;
+  /** Spoken label — the button shows no text of its own. */
+  accessibilityLabel: string;
+  onPress: () => void;
+  /** Where it sits among the tabs (0-based). */
+  index: number;
+};
+
+const TAB_HEIGHT = AnimoV2Size.tabItemMinHeight;
+const EDGE = AnimoV2Size.depth;
+/** Full tappable height of a slot: the tab itself plus room for the action's bottom edge. */
+const SLOT_HEIGHT = TAB_HEIGHT + EDGE;
+
+const ICON_SIZE = 26;
+const LABEL_HEIGHT = 16;
+const ICON_LABEL_GAP = 2;
+
+/** Sized to the icon row, so it lines up with the tab glyphs and leaves the label row empty. */
+const ACTION_HEIGHT = 40;
+const ACTION_WIDTH = 48;
+const ACTION_SLOT_WIDTH = 56;
+/** Where a tab glyph's centre lands once icon + label are centred in the slot. */
+const ICON_CENTRE = (SLOT_HEIGHT - (ICON_SIZE + ICON_LABEL_GAP + LABEL_HEIGHT)) / 2 + ICON_SIZE / 2;
+/** Offsets the action so its centre matches that of the tab glyphs beside it. */
+const ACTION_TOP = Math.round(ICON_CENTRE - ACTION_HEIGHT / 2);
+
+/**
  * Reusable bottom navigation bar. Pass it as the `tabBar` of an Expo Router
  * `Tabs` layout along with the `items` for that module (buyer or farmer):
  *
  *   <Tabs tabBar={(props) => <AnimoTabBar {...props} items={BUYER_TABS} />}>
  *
- * Rounded card, Ionicons (outline idle / filled focused), brand-green active
- * state. Routing/active state come from the navigator, so it works with the
- * back button out of the box.
+ * The focused tab is shown by a filled icon plus a brand-green, heavier label — no filled pill,
+ * so the bar never competes with the primary action on the screen above it. Routing and active
+ * state come from the navigator, so it works with the back button out of the box.
  */
 export function AnimoTabBar({
   state,
   navigation,
   descriptors,
   items,
-  flatRoutes = [],
+  action,
 }: BottomTabBarProps & {
   items: TabItem[];
-  /** Route names on which the active tab drops its green fill and edge and shows green icon + label instead (e.g. the home tab). */
-  flatRoutes?: string[];
+  /** Optional non-route button in the row (e.g. the farmer's "new listing"). */
+  action?: TabAction;
 }) {
   const insets = useSafeAreaInsets();
-  const flat = flatRoutes.includes(state.routes[state.index].name);
   const { t } = useLanguage();
 
   // Respect `tabBarStyle: { display: 'none' }` set per screen (e.g. focused
@@ -73,157 +101,185 @@ export function AnimoTabBar({
     return null;
   }
 
-  return (
-    <View style={styles.rim}>
-    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, AnimoV2Spacing.md) + AnimoV2Spacing.sm }]}>
-      {state.routes.map((route, index) => {
-        const item = items.find((i) => i.name === route.name);
-        if (!item) return null;
+  const tabs: ReactElement[] = [];
+  state.routes.forEach((route, index) => {
+    const item = items.find((i) => i.name === route.name);
+    if (!item) return;
 
-        const focused = state.index === index;
-        const solidActive = focused && !flat;
-        const color = solidActive
-          ? AnimoV2Colors.textOnBrand
-          : focused
-            ? AnimoV2Colors.textBrand
-            : AnimoV2Colors.textSecondary;
-        const displayLabel = item.labelKey ? t(item.labelKey) : item.label;
-        const LucideGlyph = item.lucide;
-        const count = item.badgeCount ?? 0;
+    const focused = state.index === index;
+    const color = focused ? AnimoV2Colors.textBrand : AnimoV2Colors.textSecondary;
+    const displayLabel = item.labelKey ? t(item.labelKey) : item.label;
+    const count = item.badgeCount ?? 0;
 
-        const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
+    const onPress = () => {
+      const event = navigation.emit({
+        type: 'tabPress',
+        target: route.key,
+        canPreventDefault: true,
+      });
+      if (event.defaultPrevented) return;
+
+      // Tapping the tab you're already on does nothing.
+      if (focused) return;
+
+      if (item.rootScreen) {
+        // Nested navigator (e.g. the Palengke stack): enter at its root
+        // screen rather than restoring the last-visited sub-screen, and
+        // clear any sub-screens left from a previous visit.
+        navigation.dispatch(
+          CommonActions.navigate({
+            name: route.name,
+            params: { screen: item.rootScreen },
+          }),
+        );
+        if (route.state?.key) {
+          navigation.dispatch({
+            ...StackActions.popToTop(),
+            target: route.state.key,
           });
-          if (event.defaultPrevented) return;
+        }
+      } else {
+        navigation.navigate(route.name);
+      }
+    };
 
-          // Tapping the tab you're already on does nothing.
-          if (focused) return;
-
-          if (item.rootScreen) {
-            // Nested navigator (e.g. the Palengke stack): enter at its root
-            // screen rather than restoring the last-visited sub-screen, and
-            // clear any sub-screens left from a previous visit.
-            navigation.dispatch(
-              CommonActions.navigate({
-                name: route.name,
-                params: { screen: item.rootScreen },
-              }),
-            );
-            if (route.state?.key) {
-              navigation.dispatch({
-                ...StackActions.popToTop(),
-                target: route.state.key,
-              });
-            }
-          } else {
-            navigation.navigate(route.name);
-          }
-        };
-
-        return (
-          <Pressable
-            key={route.key}
-            accessibilityRole="button"
-            accessibilityState={focused ? { selected: true } : {}}
-            accessibilityLabel={count > 0 ? `${displayLabel}, ${count}` : displayLabel}
-            onPress={onPress}
-            style={styles.tabSlot}>
-            {solidActive ? <View style={styles.tabEdge} /> : null}
-            <View style={styles.tabWrap}>
-              {solidActive ? <View style={styles.tabFace} /> : null}
-              <View style={styles.tab}>
-                <View>
-                  {LucideGlyph ? (
-                    <LucideGlyph size={26} color={color} strokeWidth={focused ? 2.75 : 2.25} />
-                  ) : (
-                    <Ionicons name={focused ? item.icon.filled : item.icon.outline} size={26} color={color} />
-                  )}
-                  {count > 0 ? (
-                    <View style={[styles.badge, focused && { borderColor: AnimoV2Colors.actionPrimary }]}>
-                      <AnimoText variant="tagV2" color="#FFFFFF" style={styles.badgeText}>
-                        {count > 99 ? '99+' : count}
-                      </AnimoText>
-                    </View>
-                  ) : item.showBadge ? (
-                    <View style={[styles.dot, focused && { borderColor: AnimoV2Colors.actionPrimary }]} />
-                  ) : null}
-                </View>
-                <AnimoText
-                  variant="tagV2"
-                  color={color}
-                  numberOfLines={1}
-                  style={[styles.label, focused && styles.labelOn]}>
-                  {displayLabel}
+    tabs.push(
+      <Pressable
+        key={route.key}
+        accessibilityRole="button"
+        accessibilityState={focused ? { selected: true } : {}}
+        accessibilityLabel={count > 0 ? `${displayLabel}, ${count}` : displayLabel}
+        onPress={onPress}
+        style={({ pressed }) => [styles.tabSlot, pressed && styles.pressed]}>
+        <View style={styles.tab}>
+          <View>
+            <Ionicons name={focused ? item.icon.filled : item.icon.outline} size={ICON_SIZE} color={color} />
+            {count > 0 ? (
+              <View style={styles.badge}>
+                <AnimoText variant="tagV2" color="#FFFFFF" style={styles.badgeText}>
+                  {count > 99 ? '99+' : count}
                 </AnimoText>
               </View>
-            </View>
-          </Pressable>
-        );
-      })}
-    </View>
+            ) : item.showBadge ? (
+              <View style={styles.dot} />
+            ) : null}
+          </View>
+          <AnimoText
+            variant="tagV2"
+            color={color}
+            numberOfLines={1}
+            style={focused ? styles.labelOn : styles.label}>
+            {displayLabel}
+          </AnimoText>
+        </View>
+      </Pressable>,
+    );
+  });
+
+  const row = action
+    ? [
+        ...tabs.slice(0, action.index),
+        <ActionSlot
+          key="tab-action"
+          icon={action.icon}
+          accessibilityLabel={action.accessibilityLabel}
+          onPress={action.onPress}
+        />,
+        ...tabs.slice(action.index),
+      ]
+    : tabs;
+
+  return (
+    <View style={styles.rim}>
+      <View
+        style={[
+          styles.bar,
+          { paddingBottom: Math.max(insets.bottom, AnimoV2Spacing.sm) },
+        ]}>
+        {row}
+      </View>
     </View>
   );
 }
 
+/** Solid brand square with the house 4px bottom edge, so it reads as pressable, not as a tab. */
+function ActionSlot({ icon, accessibilityLabel, onPress }: Omit<TabAction, 'index'>) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={({ pressed }) => [styles.actionSlot, pressed && styles.pressed]}>
+      <View style={styles.actionStack}>
+        <View style={styles.actionEdge} />
+        <View style={styles.actionFace}>
+          <Ionicons name={icon} size={ICON_SIZE} color={AnimoV2Colors.actionOnPrimary} />
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  /** Soft beige rim (4px) around the rounded top, drawn as its own view so the corners are never cropped. */
+  /** 2px beige hairline above the bar, drawn as its own view so the rounded corners are never cropped. */
   rim: {
-    paddingTop: 4,
-    paddingHorizontal: 0,
+    paddingTop: 2,
     backgroundColor: AnimoV2Colors.borderDefault,
     borderTopLeftRadius: AnimoV2Radius.xl,
     borderTopRightRadius: AnimoV2Radius.xl,
-    elevation: 16,
+    elevation: 8,
     shadowColor: AnimoV2Colors.textPrimary,
-    shadowOpacity: 0.1,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: -4 },
   },
   bar: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: AnimoV2Spacing.xs,
     paddingHorizontal: AnimoV2Spacing.sm,
-    paddingTop: AnimoV2Spacing.md,
+    paddingTop: AnimoV2Spacing.sm,
     backgroundColor: AnimoV2Colors.surfaceCard,
     borderTopLeftRadius: AnimoV2Radius.xl,
     borderTopRightRadius: AnimoV2Radius.xl,
   },
-  tabSlot: { flex: 1, minWidth: 0 },
-  /** Dark edge peeking out below the active pill (absolutely positioned: Android can't do hard shadows). */
-  tabEdge: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: AnimoV2Size.depth,
-    height: AnimoV2Size.tabItemMinHeight,
-    borderRadius: AnimoV2Radius.lg,
-    backgroundColor: AnimoV2Colors.actionPrimaryDepth,
-  },
-  tabWrap: { height: AnimoV2Size.tabItemMinHeight + AnimoV2Size.depth },
+  tabSlot: { flex: 1, minWidth: 0, height: SLOT_HEIGHT },
+  pressed: { opacity: 0.6 },
+  /** Fills the slot and centres icon + label in it, so the spare pixels sit evenly above and below. */
   tab: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: AnimoV2Size.tabItemMinHeight,
+    height: SLOT_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
-    borderRadius: AnimoV2Radius.lg,
+    gap: ICON_LABEL_GAP,
     paddingHorizontal: 2,
   },
-  /** Mounted fresh when a tab becomes active: toggling a background on a rounded view loses its corners on Android. */
-  tabFace: {
+  actionSlot: {
+    width: ACTION_SLOT_WIDTH,
+    height: SLOT_HEIGHT,
+    alignItems: 'center',
+    paddingTop: ACTION_TOP,
+  },
+  actionStack: { width: ACTION_WIDTH, height: ACTION_HEIGHT + EDGE },
+  /** Darker edge below the face (absolutely positioned: Android can't do hard shadows). */
+  actionEdge: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: EDGE,
+    height: ACTION_HEIGHT,
+    borderRadius: AnimoV2Radius.md,
+    backgroundColor: AnimoV2Colors.actionPrimaryDepth,
+  },
+  actionFace: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: AnimoV2Size.tabItemMinHeight,
-    borderRadius: AnimoV2Radius.lg,
+    height: ACTION_HEIGHT,
+    borderRadius: AnimoV2Radius.md,
     backgroundColor: AnimoV2Colors.actionPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   label: { fontFamily: 'Nunito_600SemiBold', fontSize: 12, lineHeight: 16 },
   labelOn: { fontFamily: 'Nunito_800ExtraBold', fontSize: 12, lineHeight: 16 },

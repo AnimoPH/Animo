@@ -57,6 +57,7 @@ import { getRole } from '@/constants/roles';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
 import { formatPhilippinePhone } from '@/lib/format-phone';
+import { formatRating } from '@/lib/format-rating';
 import { useSession } from '@/hooks/use-session';
 import { updateMyBuyerProfile } from '@/services/auth-service';
 import {
@@ -336,7 +337,7 @@ export default function BuyerProfileScreen() {
     : t('profileV2.noGcash');
 
   const hasRating = !!trustProfile && trustProfile.ratingCount > 0;
-  const averageRating = hasRating ? trustProfile.averageRating.toFixed(1) : '—';
+  const averageRating = formatRating(trustProfile?.averageRating ?? 0, hasRating);
   const reviewCount = trustProfile ? String(trustProfile.ratingCount) : '0';
   const transactionCount = trustProfile ? String(trustProfile.completedTransactions) : '0';
 

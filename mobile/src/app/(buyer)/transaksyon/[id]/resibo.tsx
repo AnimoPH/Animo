@@ -220,14 +220,16 @@ export default function BuyerReceiptScreen() {
         </View>
 
         <DepthCard radius="xl" style={styles.receiptCard}>
-          <StatusPill
-            tone={isCompleted ? 'success' : 'warning'}
-            label={isCompleted
-              ? (isTagalog ? 'Kumpleto' : 'Completed')
-              : (isTagalog ? 'Naghihintay ng Kumpirmasyon' : 'Awaiting Confirmation')}
-          />
+          <View style={styles.statusWrap}>
+            <StatusPill
+              tone={isCompleted ? 'success' : 'warning'}
+              label={isCompleted
+                ? (isTagalog ? 'Kumpleto' : 'Completed')
+                : (isTagalog ? 'Naghihintay ng Kumpirmasyon' : 'Awaiting Confirmation')}
+            />
+          </View>
 
-          <AnimoText variant="display" color={AnimoV2Colors.textBrand}>
+          <AnimoText variant="display" color={AnimoV2Colors.textBrand} style={styles.centerText}>
             {formatPeso(payment?.amount ?? total)}
           </AnimoText>
 
@@ -363,6 +365,9 @@ const styles = StyleSheet.create({
   },
   hero: { alignItems: 'center', gap: AnimoV2Spacing.md, paddingVertical: AnimoV2Spacing.sm },
   receiptCard: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
+  // alignSelf (not alignItems): StatusPill sets its own alignSelf: 'flex-start',
+  // which would override a centering parent. The wrapper shrinks to the pill and centers itself.
+  statusWrap: { alignSelf: 'center' },
   dashedDivider: {
     borderTopWidth: 2,
     borderStyle: 'dashed',

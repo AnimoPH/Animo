@@ -14,6 +14,7 @@ import { StatusPill } from '@/components/animo/ui/status-pill';
 import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
+import { formatRating } from '@/lib/format-rating';
 import { fetchBuyerRatingComments, fetchBuyerTrustStats, type BuyerTrustStats } from '@/services/farmer-public-profile';
 
 /**
@@ -124,7 +125,7 @@ export default function BuyerProfileScreen() {
           <View style={styles.statEdge}>
             <View style={styles.stat}>
               <View style={styles.ratingRow}>
-                <AnimoText variant="title">{stats.averageRating || '—'}</AnimoText>
+                <AnimoText variant="title">{formatRating(stats.averageRating, hasRating)}</AnimoText>
                 {hasRating ? (
                   <Star size={20} strokeWidth={2.5} color={AnimoV2Colors.warningSolid} fill={AnimoV2Colors.warningSolid} />
                 ) : null}
@@ -162,7 +163,7 @@ export default function BuyerProfileScreen() {
               {t('buyerV2.rating')}
             </AnimoText>
             {hasRating ? (
-              <StatusPill tone="success" label={`${stats.averageRating} / 5.0`} />
+              <StatusPill tone="success" label={`${formatRating(stats.averageRating)} / 5.0`} />
             ) : (
               <AnimoText variant="bodyStrong">—</AnimoText>
             )}

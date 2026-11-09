@@ -2,18 +2,21 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ChevronDown, ChevronUp, Droplets, Scale, ShieldCheck, Sprout } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { FilterModal } from '@/components/animo/filter-modal';
 import { TransactionCard, type FarmerTransactionCardItem } from '@/components/animo/farmer/transaction-card';
 import { SearchFilterBar } from '@/components/animo/search-filter-bar';
+import { CollapsingHeader } from '@/components/animo/ui/collapsing-header';
 import { DepthCard } from '@/components/animo/ui/depth-card';
 import { FilterChip } from '@/components/animo/ui/filter-chip';
 import { Mascot } from '@/components/animo/ui/mascot';
 import { V2BackHeader } from '@/components/animo/ui/screen-bits';
 import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useCollapsingHeader } from '@/hooks/use-collapsing-header';
 import { useLanguage } from '@/hooks/use-language';
 import type { TranslationKey } from '@/i18n/translations';
 import { fetchCropListing } from '@/services/crop-listing-service';
@@ -109,6 +112,17 @@ export default function FarmerListingTransactionsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Collapsing top block (back header + search/filter): slides away on scroll down, and returns as
+  // just the search bar on scroll up. `followOverscroll` keeps the pull-to-refresh spinner visible
+  // on iOS instead of letting it hide behind the block.
+  const header = useCollapsingHeader({ followOverscroll: true });
+  const { headerHeight, showHeader } = header;
+
+  // Loading / error replace the list, which then remounts at the top: start with the block shown.
+  useEffect(() => {
+    showHeader(true);
+  }, [loading, error, showHeader]);
 
   const load = useCallback(
     async (isRefresh: boolean) => {
@@ -209,15 +223,6 @@ export default function FarmerListingTransactionsScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="dark" />
-      <V2BackHeader title={t('ftx.listTitle')} backLabel={t('ftx.back')} onBack={() => router.back()} />
-
-      <SearchFilterBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder={t('ftx.searchPlaceholder')}
-        activeFilterCount={activeFilterCount}
-        onFilterPress={openModal}
-      />
 
       <FilterModal
         visible={modalOpen}
@@ -241,20 +246,23 @@ export default function FarmerListingTransactionsScreen() {
       </FilterModal>
 
       {loading ? (
-        <View style={styles.centerFill}>
+        <View style={[styles.centerFill, { paddingTop: headerHeight }]}>
           <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
         </View>
       ) : error ? (
-        <View style={styles.centerFill}>
+        <View style={[styles.centerFill, { paddingTop: headerHeight }]}>
           <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg} style={styles.centerText}>
             {error}
           </AnimoText>
         </View>
       ) : (
-        <FlatList
+        <Animated.FlatList
           style={styles.flex}
           data={filteredData}
           keyExtractor={({ card }, index) => `${card.referenceId}-${index}`}
+          onScroll={header.onScroll}
+          scrollEventThrottle={16}
+          keyboardDismissMode="on-drag"
           renderItem={({ item: { outcome, card } }) => (
             <TransactionCard
               item={card}
@@ -271,9 +279,15 @@ export default function FarmerListingTransactionsScreen() {
               }
             />
           )}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingTop: headerHeight + AnimoV2Spacing.sm }]}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => load(true)}
+              progressViewOffset={headerHeight}
+            />
+          }
           ListHeaderComponent={
             listing ? (
               <PalayInformationCard
@@ -305,6 +319,21 @@ export default function FarmerListingTransactionsScreen() {
           }
         />
       )}
+
+      {/* Collapsing top block: overlays the list, slides away on scroll down and returns on scroll up. */}
+      <CollapsingHeader header={header}>
+        <View onLayout={header.onTitleLayout}>
+          <V2BackHeader title={t('ftx.listTitle')} backLabel={t('ftx.back')} onBack={() => router.back()} />
+        </View>
+
+        <SearchFilterBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={t('ftx.searchPlaceholder')}
+          activeFilterCount={activeFilterCount}
+          onFilterPress={openModal}
+        />
+      </CollapsingHeader>
     </View>
   );
 }

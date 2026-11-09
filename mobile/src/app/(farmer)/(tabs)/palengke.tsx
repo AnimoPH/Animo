@@ -8,9 +8,9 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  useWindowDimensions,
   View,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
@@ -23,6 +23,7 @@ import {
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
 import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { CollapsingHeader } from '@/components/animo/ui/collapsing-header';
 import { DepthCard } from '@/components/animo/ui/depth-card';
 import { FilterChip } from '@/components/animo/ui/filter-chip';
 import { Mascot } from '@/components/animo/ui/mascot';
@@ -38,6 +39,7 @@ import {
   type StatusTone,
 } from '@/constants/animo';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
+import { useCollapsingHeader } from '@/hooks/use-collapsing-header';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
 import { useOutboxItems } from '@/hooks/use-outbox-items';
@@ -107,6 +109,12 @@ const STATUS_TONES: Record<ListingStatus, StatusTone> = {
   Cancelled: 'danger',
   Archived: 'neutral',
 };
+
+/**
+ * The bottom tab bar's green "+" now opens the same creation flow, so the sticky button on this
+ * screen is hidden rather than deleted. Flip to `true` to bring it (and its tour step) back.
+ */
+const SHOW_STICKY_NEW_LISTING = false;
 
 /** Parses a filter text field, treating blank/garbage as "not set" rather than 0. */
 function parseNumber(text: string): number | undefined {
@@ -204,10 +212,6 @@ function listingMatchesSearch(listing: CropListing, searchQuery: string): boolea
 export default function FarmerPalengkeScreen() {
   const { t, language, isTagalog } = useLanguage();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
-  const sidePadding = AnimoV2Spacing.md;
-  const cardGap = AnimoV2Spacing.sm;
-  const cardWidth = (windowWidth - sidePadding * 2 - cardGap) / 2;
   const [searchQuery, setSearchQuery] = useState('');
   const [appliedFilters, setAppliedFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
   const [draftFilters, setDraftFilters] = useState<PalengkeFilterDraft>(EMPTY_FILTERS);
@@ -222,6 +226,13 @@ export default function FarmerPalengkeScreen() {
 
   const searchBarRef = useRef<View>(null);
   const fabRef = useRef<View>(null);
+
+  // Collapsing top block (title, search, status chips): slides away on scroll down, and returns as
+  // just the search and chips on scroll up. Pinned open while the spotlight tutorial runs, since it
+  // measures the search bar by position. `followOverscroll` keeps the pull-to-refresh spinner
+  // visible on iOS instead of letting it hide behind the block.
+  const header = useCollapsingHeader({ locked: showTutorial, followOverscroll: true });
+  const { headerHeight, showHeader } = header;
 
   const latestRequestId = useRef(0);
 
@@ -291,6 +302,15 @@ export default function FarmerPalengkeScreen() {
     );
   }, [listings, appliedFilters, searchQuery]);
 
+  // Only a populated list scrolls. Loading / error / empty states don't, so they get their top
+  // offset from the container; the list takes it as content padding so it slides under the header.
+  const listScrolls = !loading && !errorMessage && displayedListings.length > 0;
+
+  // A list that has just mounted (or a state with nothing to scroll) starts with the header shown.
+  useEffect(() => {
+    showHeader(true);
+  }, [listScrolls, showHeader]);
+
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -349,6 +369,18 @@ export default function FarmerPalengkeScreen() {
     setModalOpen(false);
   };
 
+  const hasNoListingsAtAll =
+    listings.length === 0 &&
+    searchQuery.trim().length === 0 &&
+    activeFilterCount === 0 &&
+    waitingCards.length === 0;
+  const showFooter = SHOW_STICKY_NEW_LISTING && !loading && !errorMessage && !hasNoListingsAtAll;
+
+  // `fabRef` lands on the sticky button or, when there is nothing listed yet, on the empty
+  // state's button. With the sticky one hidden, only the empty state can hold it — so the step
+  // is dropped when neither is on screen, rather than spotlighting a target that isn't there.
+  const fabStepHasTarget = showFooter || hasNoListingsAtAll;
+
   const palengkeTourSteps: SpotlightStep[] = [
     {
       id: 'farmer-palengke-search',
@@ -360,16 +392,20 @@ export default function FarmerPalengkeScreen() {
       borderRadius: 16,
       padding: 6,
     },
-    {
-      id: 'farmer-palengke-fab',
-      title: t('spotlight.farmerPalengke.step2Title'),
-      description: t('spotlight.farmerPalengke.step2Desc'),
-      icon: Plus,
-      targetRef: fabRef,
-      shape: 'rectangle',
-      borderRadius: 16,
-      padding: 6,
-    },
+    ...(fabStepHasTarget
+      ? [
+          {
+            id: 'farmer-palengke-fab',
+            title: t('spotlight.farmerPalengke.step2Title'),
+            description: t('spotlight.farmerPalengke.step2Desc'),
+            icon: Plus,
+            targetRef: fabRef,
+            shape: 'rectangle' as const,
+            borderRadius: 16,
+            padding: 6,
+          },
+        ]
+      : []),
   ];
 
   const filterModalChildren = (
@@ -510,60 +546,26 @@ export default function FarmerPalengkeScreen() {
     </>
   );
 
-  const hasNoListingsAtAll =
-    listings.length === 0 &&
-    searchQuery.trim().length === 0 &&
-    activeFilterCount === 0 &&
-    waitingCards.length === 0;
-  const showFooter = !loading && !errorMessage && !hasNoListingsAtAll;
-
   const goCreate = () => router.push('/(farmer)/creation-listing');
+
+  // Saved-on-the-phone listings. Inside the scrolling list they travel with it (so nothing is left
+  // behind when the header slides away); in the non-scrolling states they sit above the message.
+  const waitingBlock =
+    waitingCards.length > 0 ? (
+      <View style={[styles.waitingList, listScrolls && styles.waitingListInScroll]}>
+        {waitingCards.slice(0, 3).map((card) => (
+          <WaitingListingRow key={card.id} card={card} />
+        ))}
+        {waitingCards.length > 3 ? (
+          <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+            {t('aniV2.waitingMore', { n: waitingCards.length - 3 })}
+          </AnimoText>
+        ) : null}
+      </View>
+    ) : null;
 
   return (
     <View style={styles.screen}>
-      {/* Screen Header */}
-      <View style={[styles.header, { paddingTop: insets.top + AnimoV2Spacing.sm }]}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerTitleCol}>
-            <AnimoText variant="title" color={AnimoV2Colors.textPrimary} style={styles.headerTitle}>
-              {t('tab.myHarvest')}
-            </AnimoText>
-            <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
-              {t('aniV2.subtitle')}
-            </AnimoText>
-          </View>
-        </View>
-      </View>
-
-      <View ref={searchBarRef} collapsable={false} style={styles.searchWrap}>
-        <V2SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder={t('aniV2.searchPlaceholder')}
-          clearLabel={t('aniV2.clearSearch')}
-          filterLabel={t('aniV2.filters')}
-          activeFilterCount={badgeFilterCount}
-          onFilterPress={openModal}
-        />
-      </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.chipScroll}
-        contentContainerStyle={styles.chipRow}>
-        {chipDefs.map((chip) => (
-          <FilterChip
-            key={chip.value}
-            label={chip.label}
-            count={chip.count}
-            compact
-            selected={appliedFilters.status === chip.value}
-            onPress={() => setAppliedFilters((prev) => ({ ...prev, status: chip.value }))}
-          />
-        ))}
-      </ScrollView>
-
       <FilterModal
         visible={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -574,19 +576,8 @@ export default function FarmerPalengkeScreen() {
         {filterModalChildren}
       </FilterModal>
 
-      <View style={styles.listContainer}>
-        {waitingCards.length > 0 ? (
-          <View style={styles.waitingList}>
-            {waitingCards.slice(0, 3).map((card) => (
-              <WaitingListingRow key={card.id} card={card} />
-            ))}
-            {waitingCards.length > 3 ? (
-              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
-                {t('aniV2.waitingMore', { n: waitingCards.length - 3 })}
-              </AnimoText>
-            ) : null}
-          </View>
-        ) : null}
+      <View style={[styles.listContainer, !listScrolls && { paddingTop: headerHeight }]}>
+        {!listScrolls ? waitingBlock : null}
         {loading ? (
           <View style={styles.centerState}>
             <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
@@ -621,16 +612,21 @@ export default function FarmerPalengkeScreen() {
             </View>
           )
         ) : (
-          <ScrollView
-            contentContainerStyle={styles.listContent}
+          <Animated.ScrollView
+            onScroll={header.onScroll}
+            scrollEventThrottle={16}
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={[styles.listContent, { paddingTop: headerHeight + AnimoV2Spacing.xs }]}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
                 colors={[AnimoV2Colors.actionPrimary]}
+                progressViewOffset={headerHeight}
               />
             }>
+            {waitingBlock}
             <View style={styles.masonryRow}>
               <View style={styles.masonryColumn}>
                 {leftListings.map((item) => (
@@ -702,9 +698,57 @@ export default function FarmerPalengkeScreen() {
                 ))}
               </View>
             ) : null}
-          </ScrollView>
+          </Animated.ScrollView>
         )}
       </View>
+
+      {/* Collapsing top block: overlays the list, slides away on scroll down and returns on scroll up. */}
+      <CollapsingHeader header={header}>
+        {/* Screen Header */}
+        <View
+          onLayout={header.onTitleLayout}
+          style={[styles.header, { paddingTop: insets.top + AnimoV2Spacing.sm }]}>
+          <View style={styles.headerRow}>
+            <View style={styles.headerTitleCol}>
+              <AnimoText variant="title" color={AnimoV2Colors.textPrimary} style={styles.headerTitle}>
+                {t('tab.myHarvest')}
+              </AnimoText>
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                {t('aniV2.subtitle')}
+              </AnimoText>
+            </View>
+          </View>
+        </View>
+
+        <View ref={searchBarRef} collapsable={false} style={styles.searchWrap}>
+          <V2SearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={t('aniV2.searchPlaceholder')}
+            clearLabel={t('aniV2.clearSearch')}
+            filterLabel={t('aniV2.filters')}
+            activeFilterCount={badgeFilterCount}
+            onFilterPress={openModal}
+          />
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipScroll}
+          contentContainerStyle={styles.chipRow}>
+          {chipDefs.map((chip) => (
+            <FilterChip
+              key={chip.value}
+              label={chip.label}
+              count={chip.count}
+              compact
+              selected={appliedFilters.status === chip.value}
+              onPress={() => setAppliedFilters((prev) => ({ ...prev, status: chip.value }))}
+            />
+          ))}
+        </ScrollView>
+      </CollapsingHeader>
 
       {showFooter ? (
         <View style={styles.fabWrap} pointerEvents="box-none">
@@ -964,6 +1008,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: AnimoV2Spacing.lg,
     paddingBottom: AnimoV2Spacing.sm,
   },
+  // Inside the scrolling list (whose content already has side padding) so the rows keep the same
+  // screen-edge inset as when they sit outside it.
+  waitingListInScroll: { marginHorizontal: -AnimoV2Spacing.md },
   waitingRow: {
     flexDirection: 'row',
     alignItems: 'center',

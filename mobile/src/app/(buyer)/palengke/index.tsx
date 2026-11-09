@@ -1,8 +1,9 @@
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Search, Star, Users } from 'lucide-react-native';
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,14 +20,16 @@ import {
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
 import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { CollapsingHeader } from '@/components/animo/ui/collapsing-header';
 import { DepthCard } from '@/components/animo/ui/depth-card';
-import { FilterChip } from '@/components/animo/ui/filter-chip';
 import { Mascot } from '@/components/animo/ui/mascot';
 import { V2SearchBar } from '@/components/animo/ui/search-bar';
 import { SegmentedTabs } from '@/components/animo/ui/segmented-tabs';
 import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
+import { useCollapsingHeader } from '@/hooks/use-collapsing-header';
 import { useLanguage } from '@/hooks/use-language';
+import { formatRating } from '@/lib/format-rating';
 import { fetchCoverPhotos } from '@/services/crop-listing-service';
 import {
   fetchTopRankedFarmers,
@@ -37,9 +40,6 @@ import { moistureLabel, purityLabel, varietyLabel } from '@/types/crop-listing';
 import type { MarketplaceFilters, RankedListing } from '@/types/marketplace-filter';
 
 type TabMode = 'palay' | 'magsasaka';
-
-/** Quick chips above the grid. Display-only: they narrow what is already loaded. */
-type QuickFilter = 'all' | 'Inbred' | 'Hybrid' | 'Dry' | 'Wet';
 
 /** Parses a filter text field, treating blank/garbage as "not set" rather than 0. */
 function parseNumber(text: string): number | undefined {
@@ -60,7 +60,6 @@ export default function MarketplaceScreen() {
   const [activeTab, setActiveTab] = useState<TabMode>('palay');
   const [modalOpen, setModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
   const [showTutorial, setShowTutorial] = useState(false);
 
   // Draft filter state (committed when user taps "Ilapat" in the sheet)
@@ -80,6 +79,12 @@ export default function MarketplaceScreen() {
 
   const searchRowRef = useRef<View>(null);
   const tabBarRef = useRef<View>(null);
+
+  // Collapsing top block (title, search, tabs, chips): slides away on scroll down, and returns as
+  // just the compact controls on scroll up. Pinned open while the spotlight tutorial runs, since
+  // it measures the search row and tabs by position.
+  const header = useCollapsingHeader({ locked: showTutorial });
+  const { headerHeight, showHeader } = header;
 
   const latestRequestId = useRef(0);
 
@@ -209,14 +214,18 @@ export default function MarketplaceScreen() {
     });
   }, [ranked, searchQuery]);
 
-  const displayedListings = useMemo(() => {
-    if (quickFilter === 'all') return searchedListings;
-    return searchedListings.filter(({ listing }) =>
-      quickFilter === 'Dry' || quickFilter === 'Wet'
-        ? listing.declaredMoisture === quickFilter
-        : listing.declaredVariety === quickFilter,
-    );
-  }, [searchedListings, quickFilter]);
+  // Variety and moisture now live only in the filter sheet, so search is the last narrowing step.
+  const displayedListings = searchedListings;
+
+  const isListEmpty = displayedListings.length === 0;
+  // Loading / error / empty states aren't scrollable, so they get their top offset from the
+  // container; scrollable lists take it as content padding so they slide under the header.
+  const listScrolls = activeTab === 'magsasaka' || (!loading && !errorMessage && !isListEmpty);
+
+  // A fresh list (tab switch, or a state with nothing to scroll) always starts with the header shown.
+  useEffect(() => {
+    showHeader(true);
+  }, [activeTab, loading, errorMessage, isListEmpty, showHeader]);
 
   const displayedFarmers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -243,14 +252,6 @@ export default function MarketplaceScreen() {
     () => stackedListings.filter((_, idx) => idx % 2 === 1),
     [stackedListings],
   );
-
-  const quickChips: { value: QuickFilter; label: string }[] = [
-    { value: 'all', label: t('common.all') },
-    { value: 'Inbred', label: t('buyPalV2.chipInbred') },
-    { value: 'Hybrid', label: t('buyPalV2.chipHybrid') },
-    { value: 'Dry', label: t('buyPalV2.chipDry') },
-    { value: 'Wet', label: t('buyPalV2.chipWet') },
-  ];
 
   const buyerPalengkeTourSteps: SpotlightStep[] = [
     {
@@ -280,18 +281,6 @@ export default function MarketplaceScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="dark" />
-      {/* Screen header (same pattern as Aking Ani) */}
-      <View style={[styles.headerRow, { paddingTop: insets.top + AnimoV2Spacing.sm }]}>
-        <View style={styles.headerTitleCol}>
-          <AnimoText variant="title" accessibilityRole="header" style={styles.headerTitle}>
-            {t('tab.market')}
-          </AnimoText>
-          <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
-            {t('buyPalV2.subtitle')}
-          </AnimoText>
-        </View>
-      </View>
-
       <SpotlightTour
         steps={buyerPalengkeTourSteps}
         visible={showTutorial}
@@ -301,51 +290,6 @@ export default function MarketplaceScreen() {
           AsyncStorage.setItem(BUYER_PALENGKE_TUTORIAL_KEY, 'true').catch(() => {});
         }}
       />
-
-      {/* Search + filter button */}
-      <View ref={searchRowRef} collapsable={false} style={styles.padded}>
-        <V2SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder={activeTab === 'palay' ? t('buyPalV2.searchListings') : t('buyPalV2.searchFarmers')}
-          clearLabel={t('buyPalV2.clearSearch')}
-          filterLabel={t('buyPalV2.filters')}
-          activeFilterCount={activeFilterCount}
-          onFilterPress={activeTab === 'palay' ? () => setModalOpen(true) : undefined}
-        />
-      </View>
-
-      {/* Mga Palay vs Mga Magsasaka */}
-      <View ref={tabBarRef} collapsable={false} style={[styles.padded, styles.tabsWrap]}>
-        <SegmentedTabs<TabMode>
-          value={activeTab}
-          onChange={setActiveTab}
-          tabs={[
-            { key: 'palay', label: `Palay (${displayedListings.length})` },
-            {
-              key: 'magsasaka',
-              label: `${isTagalog ? 'Magsasaka' : 'Farmers'} (${displayedFarmers.length})`,
-            },
-          ]}
-        />
-      </View>
-
-      {activeTab === 'palay' ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.chipScroll}
-          contentContainerStyle={styles.chipRow}>
-          {quickChips.map((chip) => (
-            <FilterChip
-              key={chip.value}
-              label={chip.label}
-              selected={quickFilter === chip.value}
-              onPress={() => setQuickFilter(chip.value)}
-            />
-          ))}
-        </ScrollView>
-      ) : null}
 
       <BuyerFilterSheet
         visible={modalOpen}
@@ -365,7 +309,7 @@ export default function MarketplaceScreen() {
       />
 
       {/* Main content */}
-      <View style={styles.listContainer}>
+      <View style={[styles.listContainer, !listScrolls && { paddingTop: headerHeight }]}>
         {activeTab === 'palay' ? (
           loading ? (
             <View style={styles.centerState}>
@@ -389,13 +333,18 @@ export default function MarketplaceScreen() {
               <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
                 {searchQuery.trim().length > 0
                   ? t('buyPalV2.emptySearch', { q: searchQuery })
-                  : activeFilterCount > 0 || quickFilter !== 'all'
+                  : activeFilterCount > 0
                     ? t('buyPalV2.emptyFilters')
                     : t('buyPalV2.emptyNone')}
               </AnimoText>
             </View>
           ) : (
-            <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+            <Animated.ScrollView
+              onScroll={header.onScroll}
+              scrollEventThrottle={16}
+              keyboardDismissMode="on-drag"
+              contentContainerStyle={[styles.listContent, { paddingTop: headerHeight + AnimoV2Spacing.xs }]}
+              showsVerticalScrollIndicator={false}>
               <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={styles.resultCount}>
                 {t('buyPalV2.resultCount', { n: displayedListings.length })}
               </AnimoText>
@@ -434,15 +383,18 @@ export default function MarketplaceScreen() {
                   />
                 </View>
               ) : null}
-            </ScrollView>
+            </Animated.ScrollView>
           )
         ) : (
           /* Farmer profiles & directory */
-          <FlatList
+          <Animated.FlatList
             key="magsasaka-list"
             data={displayedFarmers}
             keyExtractor={(item) => item.farmerId}
-            contentContainerStyle={styles.farmersDirectoryList}
+            onScroll={header.onScroll}
+            scrollEventThrottle={16}
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={[styles.farmersDirectoryList, { paddingTop: headerHeight + AnimoV2Spacing.md }]}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <View style={styles.centerState}>
@@ -468,6 +420,52 @@ export default function MarketplaceScreen() {
           />
         )}
       </View>
+
+      {/* Collapsing top block: overlays the list, slides away on scroll down and returns on scroll up. */}
+      <CollapsingHeader header={header}>
+        {/* Screen header (same pattern as Aking Ani) */}
+        <View
+          onLayout={header.onTitleLayout}
+          style={[styles.headerRow, { paddingTop: insets.top + AnimoV2Spacing.sm }]}>
+          <View style={styles.headerTitleCol}>
+            <AnimoText variant="title" accessibilityRole="header" style={styles.headerTitle}>
+              {t('tab.market')}
+            </AnimoText>
+            <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+              {t('buyPalV2.subtitle')}
+            </AnimoText>
+          </View>
+        </View>
+
+        {/* Search + filter button */}
+        <View ref={searchRowRef} collapsable={false} style={styles.padded}>
+          <V2SearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={activeTab === 'palay' ? t('buyPalV2.searchListings') : t('buyPalV2.searchFarmers')}
+            clearLabel={t('buyPalV2.clearSearch')}
+            filterLabel={t('buyPalV2.filters')}
+            activeFilterCount={activeFilterCount}
+            onFilterPress={activeTab === 'palay' ? () => setModalOpen(true) : undefined}
+          />
+        </View>
+
+        {/* Mga Palay vs Mga Magsasaka */}
+        <View ref={tabBarRef} collapsable={false} style={[styles.padded, styles.tabsWrap]}>
+          <SegmentedTabs<TabMode>
+            value={activeTab}
+            onChange={setActiveTab}
+            tabs={[
+              { key: 'palay', label: `Palay (${displayedListings.length})` },
+              {
+                key: 'magsasaka',
+                label: `${isTagalog ? 'Magsasaka' : 'Farmers'} (${displayedFarmers.length})`,
+              },
+            ]}
+          />
+        </View>
+
+      </CollapsingHeader>
     </View>
   );
 }
@@ -499,7 +497,7 @@ function FarmerDirectoryCard({ farmer, onPress }: { farmer: RankedFarmer; onPres
               fill={hasReviews ? AnimoV2Colors.warningSolid : 'none'}
               strokeWidth={2.5}
             />
-            <AnimoText variant="bodyStrong">{hasReviews ? farmer.averageRating : '—'}</AnimoText>
+            <AnimoText variant="bodyStrong">{formatRating(farmer.averageRating, hasReviews)}</AnimoText>
             <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
               {t('buyPalV2.reviewsCount', { n: farmer.totalReviews })}
             </AnimoText>
@@ -537,15 +535,8 @@ const styles = StyleSheet.create({
   },
   headerTitleCol: { flex: 1, gap: 2 },
   headerTitle: { fontSize: 24, lineHeight: 30 },
-  tabsWrap: { marginTop: AnimoV2Spacing.md },
-  chipScroll: { flexGrow: 0 },
-  chipRow: {
-    flexDirection: 'row',
-    gap: AnimoV2Spacing.sm,
-    paddingHorizontal: AnimoV2Spacing.lg,
-    paddingTop: AnimoV2Spacing.md,
-    paddingBottom: AnimoV2Spacing.xs,
-  },
+  // The tabs are the last thing in the header now, so they carry its bottom padding.
+  tabsWrap: { marginTop: AnimoV2Spacing.md, paddingBottom: AnimoV2Spacing.md },
   listContainer: { flex: 1 },
   listContent: {
     paddingHorizontal: AnimoV2Spacing.md,

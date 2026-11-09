@@ -33,6 +33,7 @@ import {
 } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
+import { formatRating } from '@/lib/format-rating';
 import { fetchFarmerPublicProfile, type FarmerPublicProfile } from '@/services/farmer-public-profile';
 import { fetchMarketplaceListing } from '@/services/marketplace-service';
 import {
@@ -240,7 +241,7 @@ export default function FarmerProfileScreen() {
             <StatTile
               icon={Star}
               tone="warning"
-              value={hasReviews ? String(profile.averageRating) : '—'}
+              value={formatRating(profile.averageRating, hasReviews)}
               label={reviewsLabel}
               accessibilityLabel={t('buyFarmerV2.viewReviews')}
               onPress={() => setShowFeedbackModal(true)}
@@ -276,7 +277,9 @@ export default function FarmerProfileScreen() {
             <View style={styles.divider} />
             <DataRow label={t('buyFarmerV2.avgRating')}>
               <View style={styles.ratingValue}>
-                <AnimoText variant="bodyStrong">{hasReviews ? `${profile.averageRating} / 5.0` : '—'}</AnimoText>
+                <AnimoText variant="bodyStrong">
+                  {hasReviews ? `${formatRating(profile.averageRating)} / 5.0` : '—'}
+                </AnimoText>
                 <Stars rating={roundedRating} size={16} />
               </View>
             </DataRow>
@@ -423,7 +426,7 @@ export default function FarmerProfileScreen() {
       <V2Sheet visible={showFeedbackModal} onClose={() => setShowFeedbackModal(false)} title={t('buyFarmerV2.ratingFeedback')}>
         <View style={styles.feedbackHead}>
           <View style={styles.ratingValue}>
-            <AnimoText variant="display">{hasReviews ? profile.averageRating : '—'}</AnimoText>
+            <AnimoText variant="display">{formatRating(profile.averageRating, hasReviews)}</AnimoText>
             <Star
               size={30}
               strokeWidth={2.5}

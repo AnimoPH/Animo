@@ -2,8 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Bell, ClipboardList, Filter, Search } from 'lucide-react-native';
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, RefreshControl, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
@@ -18,12 +19,14 @@ import {
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
 import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { CollapsingHeader } from '@/components/animo/ui/collapsing-header';
 import { FilterChip } from '@/components/animo/ui/filter-chip';
 import { Mascot } from '@/components/animo/ui/mascot';
 import { IconButton } from '@/components/animo/ui/screen-bits';
 import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
+import { useCollapsingHeader } from '@/hooks/use-collapsing-header';
 import { useLanguage } from '@/hooks/use-language';
 import { fetchMyCropListings } from '@/services/crop-listing-service';
 import { fetchUnreadNotificationCount } from '@/services/notification-service';
@@ -189,6 +192,18 @@ export default function FarmerTransactionsScreen() {
 
   const searchBarRef = useRef<View>(null);
   const bellRef = useRef<View>(null);
+
+  // Collapsing top block (title + bell, search/filter): slides away on scroll down, and returns as
+  // just the search bar on scroll up. Pinned open while the spotlight tutorial runs, since it
+  // measures the search bar and bell by position. `followOverscroll` keeps the pull-to-refresh
+  // spinner visible on iOS instead of letting it hide behind the block.
+  const header = useCollapsingHeader({ locked: showTutorial, followOverscroll: true });
+  const { headerHeight, showHeader } = header;
+
+  // Loading / error replace the list, which then remounts at the top: start with the block shown.
+  useEffect(() => {
+    showHeader(true);
+  }, [loading, error, showHeader]);
 
   const load = useCallback(
     async (isRefresh: boolean) => {
@@ -362,36 +377,6 @@ export default function FarmerTransactionsScreen() {
     <View style={styles.screen}>
       <StatusBar style="dark" />
 
-      <View style={[styles.titleRow, { paddingTop: insets.top + AnimoV2Spacing.md }]}>
-        <View style={styles.flex}>
-          <AnimoText variant="title" accessibilityRole="header">
-            {t('ftx.title')}
-          </AnimoText>
-          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
-            {t('ftx.subtitle')}
-          </AnimoText>
-        </View>
-        <View ref={bellRef} collapsable={false}>
-          <IconButton
-            icon={<Bell size={26} color={AnimoV2Colors.textBrand} strokeWidth={2.5} />}
-            label={unread > 0 ? t('ftx.bellUnread', { count: unread }) : t('ftx.bell')}
-            onPress={() => router.push('/(farmer)/notipikasyon')}
-            backgroundColor={AnimoV2Colors.surfaceCard}
-          />
-          {unread > 0 ? <View style={styles.bellDot} /> : null}
-        </View>
-      </View>
-
-      <View ref={searchBarRef} collapsable={false}>
-        <SearchFilterBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder={t('ftx.searchPlaceholder')}
-          activeFilterCount={activeFilterCount}
-          onFilterPress={openModal}
-        />
-      </View>
-
       <FilterModal
         visible={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -466,20 +451,23 @@ export default function FarmerTransactionsScreen() {
       </FilterModal>
 
       {loading ? (
-        <View style={styles.centerFill}>
+        <View style={[styles.centerFill, { paddingTop: headerHeight + SCREEN_PADDING }]}>
           <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
         </View>
       ) : error ? (
-        <View style={styles.centerFill}>
+        <View style={[styles.centerFill, { paddingTop: headerHeight + SCREEN_PADDING }]}>
           <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg} style={styles.centerText}>
             {error}
           </AnimoText>
         </View>
       ) : (
-        <FlatList
+        <Animated.FlatList
           style={styles.flex}
           data={filteredData}
           keyExtractor={(item) => item.listing.id}
+          onScroll={header.onScroll}
+          scrollEventThrottle={16}
+          keyboardDismissMode="on-drag"
           renderItem={({ item }) => (
             <ListingTransactionSummaryCard
               title={listingTitle(item.listing)}
@@ -497,9 +485,15 @@ export default function FarmerTransactionsScreen() {
               }
             />
           )}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingTop: headerHeight + AnimoV2Spacing.sm }]}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => load(true)}
+              progressViewOffset={headerHeight}
+            />
+          }
           ListEmptyComponent={
             searchQuery.trim() !== '' ? (
               <MessageState
@@ -540,6 +534,41 @@ export default function FarmerTransactionsScreen() {
           }
         />
       )}
+
+      {/* Collapsing top block: overlays the list, slides away on scroll down and returns on scroll up. */}
+      <CollapsingHeader header={header}>
+        <View
+          onLayout={header.onTitleLayout}
+          style={[styles.titleRow, { paddingTop: insets.top + AnimoV2Spacing.md }]}>
+          <View style={styles.flex}>
+            <AnimoText variant="title" accessibilityRole="header">
+              {t('ftx.title')}
+            </AnimoText>
+            <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+              {t('ftx.subtitle')}
+            </AnimoText>
+          </View>
+          <View ref={bellRef} collapsable={false}>
+            <IconButton
+              icon={<Bell size={26} color={AnimoV2Colors.textBrand} strokeWidth={2.5} />}
+              label={unread > 0 ? t('ftx.bellUnread', { count: unread }) : t('ftx.bell')}
+              onPress={() => router.push('/(farmer)/notipikasyon')}
+              backgroundColor={AnimoV2Colors.surfaceCard}
+            />
+            {unread > 0 ? <View style={styles.bellDot} /> : null}
+          </View>
+        </View>
+
+        <View ref={searchBarRef} collapsable={false}>
+          <SearchFilterBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={t('ftx.searchPlaceholder')}
+            activeFilterCount={activeFilterCount}
+            onFilterPress={openModal}
+          />
+        </View>
+      </CollapsingHeader>
 
       <SpotlightTour
         visible={showTutorial}

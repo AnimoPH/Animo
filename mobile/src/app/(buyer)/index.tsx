@@ -23,10 +23,10 @@ import {
   type SpotlightStep,
   TUTORIAL_STORAGE_KEY,
 } from '@/components/animo/spotlight-tour';
-import { ChunkyButton } from '@/components/animo/ui/chunky-button';
 import { DepthCard } from '@/components/animo/ui/depth-card';
 import { IconTile } from '@/components/animo/ui/icon-tile';
 import { Mascot } from '@/components/animo/ui/mascot';
+import { SeeAllLink } from '@/components/animo/ui/see-all-link';
 import { StatusPill } from '@/components/animo/ui/status-pill';
 import { AnimoV2Colors, AnimoV2Radius, AnimoV2Size, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
@@ -187,6 +187,8 @@ export default function BuyerHomeScreen() {
   ];
 
   const fullName = account?.fullName?.trim() || t('role.buyer');
+  /** Greet with the first name only — the full name overflowed the header and truncated. */
+  const firstName = fullName.split(/\s+/)[0] || fullName;
   const goPalengke = () => router.push('/(buyer)/palengke');
   const openListing = (id: string) => router.push(`/(buyer)/palengke/${id}`);
 
@@ -221,9 +223,9 @@ export default function BuyerHomeScreen() {
             <Mascot size={52} tile={false} />
             <View style={styles.flex}>
               <AnimoText variant="title" color={AnimoV2Colors.textOnBrand} numberOfLines={1} accessibilityRole="header">
-                {t('home.greeting', { name: fullName })}
+                {t('home.greeting', { name: firstName })}
               </AnimoText>
-              <AnimoText variant="captionV2" color={AnimoV2Colors.textOnBrand} numberOfLines={2}>
+              <AnimoText variant="captionV2" color={AnimoV2Colors.brandLight} numberOfLines={2}>
                 {t('buyHomeV2.subtitle')}
               </AnimoText>
             </View>
@@ -412,7 +414,7 @@ function SectionHeader({
       <AnimoText variant="heading" accessibilityRole="header" style={styles.flex}>
         {title}
       </AnimoText>
-      <ChunkyButton size="sm" label={actionLabel} onPress={onAction} style={styles.seeAll} />
+      <SeeAllLink label={actionLabel} onPress={onAction} />
     </View>
   );
 }
@@ -503,10 +505,11 @@ const styles = StyleSheet.create({
   hero: {
     backgroundColor: AnimoV2Colors.surfaceBrand,
     paddingHorizontal: AnimoV2Spacing.lg,
-    paddingBottom: AnimoV2Spacing.xl,
+    paddingBottom: AnimoV2Spacing.lg,
     borderBottomLeftRadius: AnimoV2Radius.xl,
     borderBottomRightRadius: AnimoV2Radius.xl,
-    gap: AnimoV2Spacing.lg,
+    // Keeps the search row clear of the greeting; the farmer header has no second child.
+    gap: AnimoV2Spacing.md,
     overflow: 'hidden',
   },
   greetingRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
@@ -559,7 +562,6 @@ const styles = StyleSheet.create({
   insightFoot: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.sm },
   section: { gap: AnimoV2Spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoV2Spacing.md },
-  seeAll: { width: 112 },
   /** Lets a horizontal list scroll edge to edge while the page keeps its side padding. */
   bleed: { marginHorizontal: -AnimoV2Spacing.lg },
   horizontalList: {

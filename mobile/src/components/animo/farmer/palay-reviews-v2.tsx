@@ -9,6 +9,7 @@ import { FilterChip } from '@/components/animo/ui/filter-chip';
 import { V2BackHeader } from '@/components/animo/ui/screen-bits';
 import { AnimoV2Colors, AnimoV2Spacing } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
+import { formatRating } from '@/lib/format-rating';
 import {
   averageReviewScore,
   fetchListingPalayReviews,
@@ -97,7 +98,7 @@ export function PalayReviewsCardV2({ listingId, onPress }: { listingId: string; 
         onPress={onPress}
         style={styles.cardHeader}>
         <View style={styles.avgRow}>
-          <AnimoText variant="heading">{average !== null ? average.toFixed(1) : '—'}</AnimoText>
+          <AnimoText variant="heading">{formatRating(average ?? 0, average !== null)}</AnimoText>
           <Star size={22} strokeWidth={2.5} color={AnimoV2Colors.warningSolid} fill={AnimoV2Colors.warningSolid} />
         </View>
         <AnimoText variant="bodyStrong" color={AnimoV2Colors.textSecondary}>

@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react-native';
 import type { ReactNode } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
@@ -20,6 +20,11 @@ export type V2DialogProps = {
   actions?: ReactNode;
   /** When false the scrim tap does not dismiss (e.g. while submitting). */
   dismissable?: boolean;
+  /**
+   * Set when the body holds a text input: the dialog moves up out of the keyboard's way, and taps
+   * on its buttons work while the keyboard is open instead of first just closing it.
+   */
+  avoidKeyboard?: boolean;
 };
 
 /** Centered dialog: 28 radius, big icon circle, title, text, stacked buttons. Scrim is dark green 55%. */
@@ -33,6 +38,7 @@ export function V2Dialog({
   children,
   actions,
   dismissable = true,
+  avoidKeyboard = false,
 }: V2DialogProps) {
   return (
     <Modal
@@ -41,14 +47,20 @@ export function V2Dialog({
       animationType="fade"
       onRequestClose={dismissable ? onClose : undefined}
       statusBarTranslucent>
-      <View style={styles.scrimMid}>
+      <KeyboardAvoidingView
+        enabled={avoidKeyboard}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.scrimMid}>
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={dismissable ? onClose : undefined}
           accessibilityLabel="Isara"
         />
         <View style={styles.dialog} accessibilityViewIsModal>
-          <ScrollView bounces={false} contentContainerStyle={{ gap: AnimoV2Spacing.lg }}>
+          <ScrollView
+            bounces={false}
+            keyboardShouldPersistTaps={avoidKeyboard ? 'handled' : 'never'}
+            contentContainerStyle={{ gap: AnimoV2Spacing.lg }}>
             <View style={styles.top}>
               {icon ? <IconTile icon={icon} tone={iconTone} size={72} solid /> : null}
               <AnimoText variant="heading" style={{ textAlign: 'center' }}>
@@ -64,7 +76,7 @@ export function V2Dialog({
             {actions ? <View style={{ gap: AnimoV2Spacing.md }}>{actions}</View> : null}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

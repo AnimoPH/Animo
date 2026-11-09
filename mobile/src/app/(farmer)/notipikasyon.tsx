@@ -5,10 +5,9 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { DepthCard } from '@/components/animo/ui/depth-card';
 import { FilterChip } from '@/components/animo/ui/filter-chip';
-import { IconTile } from '@/components/animo/ui/icon-tile';
 import { Mascot } from '@/components/animo/ui/mascot';
+import { NotificationRow } from '@/components/animo/ui/notification-row';
 import { V2BackHeader } from '@/components/animo/ui/screen-bits';
 import { AnimoV2Colors, AnimoV2Size, AnimoV2Spacing, type StatusTone } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
@@ -21,8 +20,6 @@ import {
   type InboxNotification,
   type NotificationCategory,
 } from '@/services/notification-service';
-
-const UNREAD_DOT = 12;
 
 /** Icon and tone for a queue row. Advisories read as caution, transactions as success. */
 function rowVisual(item: InboxNotification): { icon: LucideIcon; tone: StatusTone } {
@@ -158,27 +155,18 @@ export default function FarmerNotificationsScreen() {
             const text = notificationText(item, isTagalog);
             const { icon, tone } = rowVisual(item);
             return (
-              <DepthCard
+              <NotificationRow
                 key={item.id}
-                depth="flat"
-                radius="lg"
-                onPress={() => handleNotificationPress(item)}
+                icon={icon}
+                tone={tone}
+                title={text.title}
+                body={text.body.replace(/\s*\n\s*/g, ' ')}
+                time={formatNotificationTime(item.createdAt, isTagalog)}
+                unread={!item.read}
+                unreadLabel={t('inbox.unread')}
                 accessibilityLabel={`${item.read ? '' : `${t('inbox.unread')}. `}${text.title}. ${text.body}`}
-                backgroundColor={item.read ? AnimoV2Colors.surfaceCard : AnimoV2Colors.surfaceBrandSubtle}
-                borderColor={item.read ? AnimoV2Colors.borderDefault : AnimoV2Colors.actionPrimary}
-                style={styles.row}>
-                <IconTile icon={icon} tone={tone} />
-                <View style={styles.textWrap}>
-                  <AnimoText variant="bodyStrong">{text.title}</AnimoText>
-                  <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
-                    {text.body.replace(/\s*\n\s*/g, ' ')}
-                  </AnimoText>
-                  <AnimoText variant="tagV2" color={AnimoV2Colors.textTertiary} style={styles.time}>
-                    {formatNotificationTime(item.createdAt, isTagalog)}
-                  </AnimoText>
-                </View>
-                {!item.read ? <View style={styles.unreadDot} accessibilityLabel={t('inbox.unread')} /> : null}
-              </DepthCard>
+                onPress={() => handleNotificationPress(item)}
+              />
             );
           })
         )}
@@ -201,21 +189,6 @@ const styles = StyleSheet.create({
     paddingTop: AnimoV2Spacing.sm,
     paddingBottom: AnimoV2Spacing.xxl,
     gap: AnimoV2Spacing.md,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: AnimoV2Spacing.md,
-    padding: AnimoV2Spacing.md,
-  },
-  textWrap: { flex: 1, minWidth: 0, gap: 2 },
-  time: { marginTop: AnimoV2Spacing.xs },
-  unreadDot: {
-    width: UNREAD_DOT,
-    height: UNREAD_DOT,
-    borderRadius: UNREAD_DOT / 2,
-    backgroundColor: AnimoV2Colors.actionPrimary,
-    marginTop: AnimoV2Spacing.xs,
   },
   centered: { paddingVertical: AnimoV2Spacing.xxl, alignItems: 'center', justifyContent: 'center' },
   empty: {

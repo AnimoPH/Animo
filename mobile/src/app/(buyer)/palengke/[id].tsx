@@ -29,6 +29,7 @@ import { StatusPill } from '@/components/animo/ui/status-pill';
 import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing, type StatusTone } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
+import { formatRating } from '@/lib/format-rating';
 import type { TranslationKey } from '@/i18n/translations';
 import { fetchListingPhotos } from '@/services/crop-listing-service';
 import { fetchFarmerPublicProfile, type FarmerPublicProfile } from '@/services/farmer-public-profile';
@@ -334,7 +335,7 @@ export default function ListingDetailScreen() {
               <TrustStat label={reviewLabel}>
                 <View style={styles.ratingRow}>
                   <AnimoText variant="heading">
-                    {farmerProfile.totalReviews > 0 ? farmerProfile.averageRating : '—'}
+                    {formatRating(farmerProfile.averageRating, farmerProfile.totalReviews > 0)}
                   </AnimoText>
                   <Star
                     size={18}

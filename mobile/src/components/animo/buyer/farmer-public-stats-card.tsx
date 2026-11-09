@@ -13,6 +13,7 @@ import { StyleSheet, View } from 'react-native';
 import { AnimoText } from '@/components/animo/animo-text';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
+import { formatRating } from '@/lib/format-rating';
 import type { FarmerPublicProfile } from '@/services/farmer-public-profile';
 import { translateVarietyName } from '@/types/crop-listing';
 
@@ -135,7 +136,7 @@ export function FarmerPublicStatsCard({ profile }: FarmerPublicStatsCardProps) {
               fill={profile.totalReviews > 0 ? '#F59E0B' : 'transparent'}
             />
             <AnimoText variant="h1" color={AnimoColors.textHighEmphasis} style={styles.ratingNumber}>
-              {profile.totalReviews > 0 ? profile.averageRating : '—'}
+              {formatRating(profile.averageRating, profile.totalReviews > 0)}
             </AnimoText>
           </View>
 
