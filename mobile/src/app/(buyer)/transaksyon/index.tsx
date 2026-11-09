@@ -3,7 +3,8 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Bell, ChevronLeft, ChevronRight, Filter, Search } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
@@ -17,6 +18,7 @@ import {
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
 import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { CollapsingHeader } from '@/components/animo/ui/collapsing-header';
 import { Mascot } from '@/components/animo/ui/mascot';
 import { IconButton } from '@/components/animo/ui/screen-bits';
 import { V2SearchBar } from '@/components/animo/ui/search-bar';
@@ -24,6 +26,7 @@ import { SegmentedTabs } from '@/components/animo/ui/segmented-tabs';
 import { AnimoV2Colors, AnimoV2Radius, AnimoV2Size, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
+import { useCollapsingHeader } from '@/hooks/use-collapsing-header';
 import { useLanguage } from '@/hooks/use-language';
 import { parseBuyerTransactionListFilter } from '@/lib/buyer-transactions-nav';
 import { visiblePages } from '@/lib/visible-pages';
@@ -110,6 +113,18 @@ export default function BuyerTransactionsScreen() {
   const searchBarRef = useRef<View>(null);
   const tabsRef = useRef<View>(null);
   const bellRef = useRef<View>(null);
+
+  // Collapsing top block (title + bell, search, tabs): slides away on scroll down, and returns as
+  // just the search and tabs on scroll up. Pinned open while the spotlight tutorial runs, since it
+  // measures the tabs, search and bell by position. `followOverscroll` keeps the pull-to-refresh
+  // spinner visible on iOS instead of letting it hide behind the block.
+  const header = useCollapsingHeader({ locked: showTutorial, followOverscroll: true });
+  const { headerHeight, showHeader } = header;
+
+  // Loading / error replace the list, which then remounts at the top: start with the block shown.
+  useEffect(() => {
+    showHeader(true);
+  }, [loading, error, showHeader]);
 
   const loadUnread = useCallback(() => {
     fetchUnreadNotificationCount()
@@ -286,70 +301,33 @@ export default function BuyerTransactionsScreen() {
     <View style={styles.screen}>
       <StatusBar style="dark" />
 
-      <View style={[styles.titleRow, { paddingTop: insets.top + AnimoV2Spacing.md }]}>
-        <View style={styles.flex}>
-          <AnimoText variant="title" accessibilityRole="header" style={styles.headerTitle}>
-            {t('buyTxV2.title')}
-          </AnimoText>
-          <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
-            {t('buyTxV2.subtitle')}
-          </AnimoText>
-        </View>
-        <View ref={bellRef} collapsable={false}>
-          <IconButton
-            icon={<Bell size={26} color={AnimoV2Colors.textBrand} strokeWidth={2.5} />}
-            label={unread > 0 ? t('buyTxV2.bellUnread', { count: unread }) : t('buyTxV2.bell')}
-            onPress={() => router.push('/(buyer)/notipikasyon')}
-            backgroundColor={AnimoV2Colors.surfaceCard}
-          />
-          {unread > 0 ? <View style={styles.bellDot} /> : null}
-        </View>
-      </View>
-
-      <View ref={searchBarRef} collapsable={false} style={styles.block}>
-        <V2SearchBar
-          value={searchQuery}
-          onChangeText={handleSearchChange}
-          placeholder={t('buyTxV2.searchPh')}
-          clearLabel={t('buyTxV2.clearSearch')}
-        />
-      </View>
-
-      <View ref={tabsRef} collapsable={false} style={styles.block}>
-        <SegmentedTabs<FilterValue>
-          tabs={[
-            { key: 'Lahat', label: t('buyTxV2.tabAll') },
-            { key: 'Kasalukuyan', label: t('buyTxV2.tabActive') },
-            { key: 'Tapos na', label: t('buyTxV2.tabHistory') },
-          ]}
-          value={appliedFilter}
-          onChange={handleTabChange}
-        />
-      </View>
-
       {loading ? (
-        <View style={styles.centerFill}>
+        <View style={[styles.centerFill, { paddingTop: headerHeight + SCREEN_PADDING }]}>
           <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
         </View>
       ) : error ? (
-        <View style={styles.centerFill}>
+        <View style={[styles.centerFill, { paddingTop: headerHeight + SCREEN_PADDING }]}>
           <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg} style={styles.centerText}>
             {error}
           </AnimoText>
         </View>
       ) : (
-        <FlatList
+        <Animated.FlatList
           style={styles.flex}
           data={paginatedData}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <BuyerTransactionCard item={item} />}
-          contentContainerStyle={styles.list}
+          onScroll={header.onScroll}
+          scrollEventThrottle={16}
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={[styles.list, { paddingTop: headerHeight + AnimoV2Spacing.xs }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => load(true)}
               colors={[AnimoV2Colors.actionPrimary]}
+              progressViewOffset={headerHeight}
             />
           }
           ListFooterComponent={
@@ -391,6 +369,52 @@ export default function BuyerTransactionsScreen() {
           }
         />
       )}
+
+      {/* Collapsing top block: overlays the list, slides away on scroll down and returns on scroll up. */}
+      <CollapsingHeader header={header}>
+        <View
+          onLayout={header.onTitleLayout}
+          style={[styles.titleRow, { paddingTop: insets.top + AnimoV2Spacing.md }]}>
+          <View style={styles.flex}>
+            <AnimoText variant="title" accessibilityRole="header" style={styles.headerTitle}>
+              {t('buyTxV2.title')}
+            </AnimoText>
+            <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+              {t('buyTxV2.subtitle')}
+            </AnimoText>
+          </View>
+          <View ref={bellRef} collapsable={false}>
+            <IconButton
+              icon={<Bell size={26} color={AnimoV2Colors.textBrand} strokeWidth={2.5} />}
+              label={unread > 0 ? t('buyTxV2.bellUnread', { count: unread }) : t('buyTxV2.bell')}
+              onPress={() => router.push('/(buyer)/notipikasyon')}
+              backgroundColor={AnimoV2Colors.surfaceCard}
+            />
+            {unread > 0 ? <View style={styles.bellDot} /> : null}
+          </View>
+        </View>
+
+        <View ref={searchBarRef} collapsable={false} style={styles.block}>
+          <V2SearchBar
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            placeholder={t('buyTxV2.searchPh')}
+            clearLabel={t('buyTxV2.clearSearch')}
+          />
+        </View>
+
+        <View ref={tabsRef} collapsable={false} style={styles.block}>
+          <SegmentedTabs<FilterValue>
+            tabs={[
+              { key: 'Lahat', label: t('buyTxV2.tabAll') },
+              { key: 'Kasalukuyan', label: t('buyTxV2.tabActive') },
+              { key: 'Tapos na', label: t('buyTxV2.tabHistory') },
+            ]}
+            value={appliedFilter}
+            onChange={handleTabChange}
+          />
+        </View>
+      </CollapsingHeader>
 
       <SpotlightTour
         visible={showTutorial}
