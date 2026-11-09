@@ -120,6 +120,7 @@ describe('running a fixture with the real rule', () => {
       [{ planting_date: daysAgo(100), rice_type_category: 'Inbred', status: 'Harvested' }, 409],
       [{ planting_date: null, rice_type_category: 'Inbred', status: 'Growing' }, 409],
       [{ planting_date: daysAgo(100), rice_type_category: 'Traditional', status: 'Growing' }, 409],
+      [{ planting_date: daysAgo(100), rice_type_category: 'Organic', status: 'Growing' }, 409],
     ];
     for (const [c, status] of cases) {
       const { store, calls } = fakeStore(c);

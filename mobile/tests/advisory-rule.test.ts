@@ -43,8 +43,8 @@ describe('ripeness from the planting date and the variety category', () => {
   const today = new Date('2026-12-01T00:00:00Z');
   const daysAgo = (n: number) => new Date(today.getTime() - n * 86_400_000).toISOString().slice(0, 10);
 
-  it('uses the maturity days Hybrid 110, Inbred 120, Organic 120, Specialty 122', () => {
-    assert.deepEqual(MATURITY_DAYS, { Hybrid: 110, Inbred: 120, Organic: 120, Specialty: 122 });
+  it('uses the maturity days Hybrid 110, Inbred 120, Specialty 122', () => {
+    assert.deepEqual(MATURITY_DAYS, { Hybrid: 110, Inbred: 120, Specialty: 122 });
   });
 
   it('is days since planting over maturity days', () => {
@@ -52,17 +52,18 @@ describe('ripeness from the planting date and the variety category', () => {
     assert.equal(ripenessPct(daysAgo(110), 'Hybrid', today), 1);
   });
 
-  it('crosses 85% on day 94 for Hybrid and day 102 for Inbred and Organic', () => {
+  it('crosses 85% on day 94 for Hybrid, day 102 for Inbred and day 104 for Specialty', () => {
     assert.ok((ripenessPct(daysAgo(93), 'Hybrid', today) ?? 0) < 0.85);
     assert.ok((ripenessPct(daysAgo(94), 'Hybrid', today) ?? 0) >= 0.85);
     assert.ok((ripenessPct(daysAgo(101), 'Inbred', today) ?? 0) < 0.85);
     assert.ok((ripenessPct(daysAgo(102), 'Inbred', today) ?? 0) >= 0.85);
-    assert.ok((ripenessPct(daysAgo(101), 'Organic', today) ?? 0) < 0.85);
+    assert.ok((ripenessPct(daysAgo(103), 'Specialty', today) ?? 0) < 0.85);
     assert.ok((ripenessPct(daysAgo(104), 'Specialty', today) ?? 0) >= 0.85);
   });
 
   it('is null for a category with no maturity days, so no advisory is written', () => {
     assert.equal(ripenessPct(daysAgo(100), 'Traditional', today), null);
+    assert.equal(ripenessPct(daysAgo(100), 'Organic', today), null);
     assert.equal(ripenessPct(daysAgo(100), '', today), null);
   });
 

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 import { secureSessionStorage } from '@/lib/secure-session-storage';
+import { withSuspensionMessages } from '@/lib/suspension';
 
 /**
  * Supabase client for the mobile app. Session persists via
@@ -19,6 +20,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
+  // a refusal for a suspended account comes back with the reason in its message
+  global: { fetch: withSuspensionMessages(fetch) },
   auth: {
     storage: secureSessionStorage,
     persistSession: true,

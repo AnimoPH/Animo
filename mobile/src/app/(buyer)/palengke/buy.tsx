@@ -1,25 +1,21 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Lock } from 'lucide-react-native';
+import { Banknote, Clock, Lock, Smartphone, Wheat } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
 import { BidConfirmationModal } from '@/components/animo/bid-confirmation-modal';
-import { FeedbackModal } from '@/components/animo/feedback-modal';
-import { LabeledInput } from '@/components/animo/labeled-input';
-import { ListingImage } from '@/components/animo/listing-image';
-import { StatusBadge } from '@/components/animo/status-badge';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { V2Dialog } from '@/components/animo/ui/dialog';
+import { FilterChip } from '@/components/animo/ui/filter-chip';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { StickyFooter, V2BackHeader } from '@/components/animo/ui/screen-bits';
+import { QuantityStepper } from '@/components/animo/ui/stepper';
+import { StatusPill } from '@/components/animo/ui/status-pill';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing, type StatusTone } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { cancelPurchaseRequest, submitPurchaseRequest } from '@/services/purchase-request-service';
 import { fetchMarketplaceListing } from '@/services/marketplace-service';
@@ -28,12 +24,46 @@ import { useSession } from '@/hooks/use-session';
 import { isOnlineNow, isSignalError, newRequestId, savePurchaseRequestOffline } from '@/lib/outbox/enqueue-actions';
 import { minimumPurchaseKg, varietyLabel, type CropListing } from '@/types/crop-listing';
 import type { PurchaseRequest } from '@/types/purchase-request';
-import { BackHeader } from '@/components/animo/back-header';
+
+/** Size of one stepper tap, in kg (DESIGN_SPEC section 6b). */
+const STEP_KG = 50;
+
+function NoteCard({
+  icon,
+  tone,
+  title,
+  body,
+}: {
+  icon: typeof Clock;
+  tone: StatusTone;
+  title: string;
+  body: string;
+}) {
+  const bgs: Record<StatusTone, string> = {
+    success: AnimoV2Colors.successBg,
+    warning: AnimoV2Colors.warningBg,
+    danger: AnimoV2Colors.dangerBg,
+    caution: AnimoV2Colors.cautionBg,
+    neutral: AnimoV2Colors.surfaceMuted,
+  };
+  return (
+    <View style={[styles.note, { backgroundColor: bgs[tone] }]}>
+      <IconTile icon={icon} tone={tone} size={40} solid />
+      <View style={styles.noteCopy}>
+        <AnimoText variant="bodyStrong">{title}</AnimoText>
+        <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+          {body}
+        </AnimoText>
+      </View>
+    </View>
+  );
+}
 
 /** Bumili ng Palay — purchase request screen with quantity, system-locked pricing, and a real cancel-window confirmation modal. */
 export default function BuyScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { language, isTagalog } = useLanguage();
+  const { t, language, isTagalog } = useLanguage();
+  const insets = useSafeAreaInsets();
 
   const [listing, setListing] = useState<CropListing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,27 +109,29 @@ export default function BuyScreen() {
     };
   }, [id, isTagalog]);
 
+  const header = <V2BackHeader title={t('buyReqV2.title')} backLabel={t('common.back')} onBack={() => router.back()} />;
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <BackHeader title={isTagalog ? 'Bumili ng Palay' : 'Buy Palay'} />
+      <View style={styles.screen}>
+        {header}
         <View style={styles.missing}>
-          <ActivityIndicator color={AnimoColors.green} />
+          <ActivityIndicator color={AnimoV2Colors.actionPrimary} accessibilityLabel={t('common.loading')} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!listing || loadError) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <BackHeader title={isTagalog ? 'Bumili ng Palay' : 'Buy Palay'} />
+      <View style={styles.screen}>
+        {header}
         <View style={styles.missing}>
-          <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            {loadError ?? (isTagalog ? 'Hindi na available ang pagbili para sa listing na ito.' : 'Purchase is no longer available for this listing.')}
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+            {loadError ?? t('buyReqV2.unavailable')}
           </AnimoText>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -110,6 +142,17 @@ export default function BuyScreen() {
   const underMinimum = qtyNum > 0 && qtyNum < minimumKg;
   const total = qtyNum * pricePerKg;
   const canConfirm = Number.isFinite(qtyNum) && qtyNum > 0 && !overRemaining && !underMinimum && pricePerKg > 0 && listing.status === 'Available' && !submitting;
+
+  // Stepper bounds: steps of 50 kg between the minimum and the remaining stock.
+  const stepperValue = Number.isFinite(qtyNum) && qtyNum > 0 ? qtyNum : minimumKg;
+  const canDecrement = stepperValue > minimumKg;
+  const canIncrement = stepperValue < listing.remainingQuantityKg;
+  const halfKg = Math.min(listing.remainingQuantityKg, Math.max(minimumKg, Math.round(listing.remainingQuantityKg / 2)));
+  const quantityError = overRemaining
+    ? t('buyReqV2.overRemaining', { kg: listing.remainingQuantityKg })
+    : underMinimum
+      ? t('buyReqV2.underMinimum', { kg: minimumKg })
+      : null;
 
   const handleConfirm = async () => {
     if (!canConfirm) return;
@@ -148,155 +191,144 @@ export default function BuyScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <View style={styles.screen}>
       <StatusBar style="dark" />
-      <BackHeader title={isTagalog ? 'Bumili ng Palay' : 'Buy Palay'} />
+      {header}
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          {/* Listing summary */}
-          <View style={styles.summaryCard}>
-            <ListingImage height={64} borderRadius={AnimoRadius.md} style={styles.thumb} />
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {/* Mini listing summary */}
+          <DepthCard depth="flat" radius="lg" style={styles.summaryCard}>
+            <IconTile icon={Wheat} tone="success" size={56} solid shape="rounded" />
             <View style={styles.flex}>
-              <AnimoText variant="h3" color={AnimoColors.black}>
+              <AnimoText variant="subheading" numberOfLines={2}>
                 {varietyLabel(listing, language)}
               </AnimoText>
-              <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                {formatPeso(pricePerKg)} {isTagalog ? 'bawat kilo' : 'per kg'}
+              <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+                {formatPeso(pricePerKg)} {t('detailV2.perKg')}
               </AnimoText>
             </View>
-          </View>
+          </DepthCard>
 
-          {/* Quantity details */}
-          <View style={styles.card}>
-            <AnimoText variant="h3" color={AnimoColors.black}>
-              {isTagalog ? 'Detalye ng Pagbili' : 'Purchase Details'}
+          {/* Quantity */}
+          <DepthCard depth="flat" style={styles.cardPad}>
+            <AnimoText variant="subheading" accessibilityRole="header">
+              {t('buyReqV2.quantityTitle')}
             </AnimoText>
-            <LabeledInput
-              label={isTagalog ? 'Dami na nais bilhin' : 'Quantity to purchase'}
-              keyboardType="decimal-pad"
-              value={quantity}
-              onChangeText={(t) => {
-                if (/^\d*\.?\d*$/.test(t)) setQuantity(t);
-              }}
-              suffixText="kilo/kg"
-              error={overRemaining || underMinimum}
-              hint={
-                overRemaining
-                  ? isTagalog
-                    ? `Hindi maaaring lumampas sa ${listing.remainingQuantityKg} kg na natitirang stock.`
-                    : `Cannot exceed ${listing.remainingQuantityKg} kg remaining stock.`
-                  : underMinimum
-                    ? isTagalog
-                      ? `Kailangan ng hindi bababa sa ${minimumKg} kg.`
-                      : `Minimum required is ${minimumKg} kg.`
-                    : isTagalog
-                      ? `${minimumKg}–${listing.remainingQuantityKg} kg ang maaaring hilingin.`
-                      : `${minimumKg}–${listing.remainingQuantityKg} kg can be requested.`
-              }
-              hintTone={overRemaining || underMinimum ? 'danger' : 'muted'}
+            <QuantityStepper
+              value={stepperValue}
+              decrementLabel={t('buyReqV2.decrease', { kg: STEP_KG })}
+              incrementLabel={t('buyReqV2.increase', { kg: STEP_KG })}
+              decrementDisabled={!canDecrement}
+              incrementDisabled={!canIncrement}
+              onDecrement={() => setQuantity(String(Math.max(minimumKg, stepperValue - STEP_KG)))}
+              onIncrement={() => setQuantity(String(Math.min(listing.remainingQuantityKg, stepperValue + STEP_KG)))}
             />
-            {overRemaining && listing.remainingQuantityKg > 0 ? (
-              <AnimoButton
-                label={isTagalog ? `Gamitin ang natitirang ${listing.remainingQuantityKg} kg` : `Use remaining ${listing.remainingQuantityKg} kg`}
-                variant="secondary"
+            <View style={styles.shortcutRow}>
+              <FilterChip
+                label={t('buyReqV2.half')}
+                selected={stepperValue === halfKg && stepperValue !== listing.remainingQuantityKg}
+                onPress={() => setQuantity(String(halfKg))}
+              />
+              <FilterChip
+                label={t('buyReqV2.all')}
+                selected={stepperValue === listing.remainingQuantityKg}
                 onPress={() => setQuantity(String(listing.remainingQuantityKg))}
               />
+            </View>
+            {quantityError ? (
+              <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg}>
+                {quantityError}
+              </AnimoText>
+            ) : (
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                {t('buyReqV2.range', { min: minimumKg, max: listing.remainingQuantityKg })}
+              </AnimoText>
+            )}
+            {listing.remainingQuantityKg > 0 && listing.remainingQuantityKg < listing.minimumRequestKg ? (
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                {t('buyReqV2.belowMinimum')}
+              </AnimoText>
             ) : null}
-          </View>
+          </DepthCard>
 
-          {listing.remainingQuantityKg > 0 && listing.remainingQuantityKg < listing.minimumRequestKg ? (
-            <AnimoText variant="caption" color={AnimoColors.muted}>
-              {isTagalog
-                ? 'Mas mababa sa karaniwang minimum ang natitirang stock. Bilhin ang buong natitira.'
-                : 'Remaining stock is below the usual minimum. Purchase the full remainder.'}
-            </AnimoText>
-          ) : null}
-
-          {/* Locked price / total */}
-          <View style={styles.lockedCard}>
-            <View style={styles.lockedHeader}>
-              <View style={styles.lockedTitle}>
-                <Lock size={16} color={AnimoColors.blackSecondary} />
-                <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                  {isTagalog ? 'Nakatakda ng sistema' : 'System Fixed Price'}
-                </AnimoText>
-              </View>
-              <StatusBadge label={isTagalog ? 'Hindi mababago' : 'Fixed'} tone="neutral" />
+          {/* Locked price and live total */}
+          <DepthCard
+            depth="flat"
+            backgroundColor={AnimoV2Colors.surfaceBrandSubtle}
+            borderColor={AnimoV2Colors.actionPrimary}
+            style={styles.cardPad}>
+            <View style={styles.lockedHead}>
+              <Lock size={20} color={AnimoV2Colors.textBrand} strokeWidth={2.75} />
+              <AnimoText variant="bodyStrong" style={styles.flex}>
+                {t('buyReqV2.lockedTitle')}
+              </AnimoText>
+              <StatusPill tone="success" label={t('buyReqV2.lockedBadge')} icon={Lock} />
             </View>
-
             <View style={styles.rowBetween}>
-              <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                {isTagalog ? 'Presyo bawat kilo' : 'Price per kg'}
+              <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+                {t('buyReqV2.pricePerKg')}
               </AnimoText>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                {formatPeso(pricePerKg)}
-              </AnimoText>
+              <AnimoText variant="bodyStrong">{formatPeso(pricePerKg)}</AnimoText>
             </View>
-            <AnimoText variant="caption" color={AnimoColors.muted}>
-              {isTagalog
-                ? 'Kinomputa ng ANIMO para sa patas na presyo batay sa pamantayan.'
-                : 'Computed by ANIMO for standard fair pricing.'}
+            <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+              {t('buyReqV2.lockedNote')}
             </AnimoText>
-
             <View style={styles.divider} />
-
             <View style={styles.rowBetween}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.black} style={styles.rowLabel}>
-                {isTagalog ? 'Kabuuang halaga' : 'Total Amount'}
+              <AnimoText variant="bodyStrong" style={styles.flex}>
+                {t('buyReqV2.total')}
               </AnimoText>
-              <AnimoText variant="price" color={AnimoColors.green} style={styles.rowValue}>
+              <AnimoText variant="priceHero" color={AnimoV2Colors.textBrand} style={styles.totalValue} numberOfLines={1} adjustsFontSizeToFit>
                 {formatPeso(total)}
               </AnimoText>
             </View>
-            <AnimoText variant="caption" color={AnimoColors.muted}>
-              {isTagalog ? 'Awtomatikong kinakalkula:' : 'Automatically calculated:'} {formatPeso(pricePerKg)} × {qtyNum} kg
+            <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+              {t('buyReqV2.calc', { price: formatPeso(pricePerKg), qty: Number.isFinite(qtyNum) ? qtyNum : 0 })}
             </AnimoText>
-          </View>
+          </DepthCard>
+
+          {/* Notes */}
+          <NoteCard icon={Clock} tone="warning" title={t('buyReqV2.cancelNoteTitle')} body={t('buyReqV2.cancelNoteBody')} />
+          <NoteCard icon={Banknote} tone="success" title={t('buyReqV2.payNoteTitle')} body={t('buyReqV2.payNoteBody')} />
+          <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+            {t('buyReqV2.allocationNote')}
+          </AnimoText>
 
           {submitError ? (
-            <AnimoText variant="caption" color={AnimoColors.danger}>
+            <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg}>
               {submitError}
             </AnimoText>
           ) : null}
         </ScrollView>
 
-        <View style={styles.footer}>
-          <AnimoButton
-            label={
-              submitting
-                ? isTagalog
-                  ? 'Ipinapadala…'
-                  : 'Sending…'
-                : isTagalog
-                  ? 'Kumpirmahin ang Pagbili'
-                  : 'Confirm Purchase'
-            }
+        <StickyFooter>
+          <ChunkyButton
+            label={submitting ? t('buyReqV2.sending') : t('buyReqV2.submit')}
             onPress={handleConfirm}
             disabled={!canConfirm}
           />
-        </View>
+          <View style={{ height: insets.bottom }} />
+        </StickyFooter>
       </KeyboardAvoidingView>
 
-      <FeedbackModal
+      <V2Dialog
         visible={savedOffline}
-        tone="info"
-        title={isTagalog ? 'Na-save sa phone' : 'Saved on this phone'}
-        message={
-          isTagalog
-            ? 'Walang signal kaya naka-save ang request sa phone. Ipapadala ito isang beses pagbalik ng signal.'
-            : 'There is no signal, so the request is saved on this phone. It is sent once when the signal returns.'
+        onClose={() => {}}
+        dismissable={false}
+        icon={Smartphone}
+        iconTone="warning"
+        title={t('buyReqV2.offlineTitle')}
+        message={t('buyReqV2.offlineBody')}
+        actions={
+          <ChunkyButton
+            label={t('detailV2.ok')}
+            onPress={() => {
+              setSavedOffline(false);
+              router.replace('/(buyer)/transaksyon');
+            }}
+          />
         }
-        confirmLabel={isTagalog ? 'Sige' : 'OK'}
-        onConfirm={() => {
-          setSavedOffline(false);
-          router.replace('/(buyer)/transaksyon');
-        }}
       />
 
       <BidConfirmationModal
@@ -314,93 +346,34 @@ export default function BuyScreen() {
           router.replace('/(buyer)/transaksyon');
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.background,
-  },
-  flex: {
-    flex: 1,
-  },
-  missing: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  flex: { flex: 1 },
+  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: AnimoV2Spacing.xl },
+  centerText: { textAlign: 'center' },
   content: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingBottom: AnimoSpacing.xl,
-    gap: AnimoSpacing.lg,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.xs,
+    paddingBottom: AnimoV2Spacing.xl,
+    gap: AnimoV2Spacing.lg,
   },
-  summaryCard: {
+  summaryCard: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md, padding: AnimoV2Spacing.md },
+  cardPad: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
+  shortcutRow: { flexDirection: 'row', gap: AnimoV2Spacing.sm },
+  lockedHead: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.sm },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoV2Spacing.md },
+  divider: { height: 2, borderRadius: 2, backgroundColor: AnimoV2Colors.brandLight },
+  totalValue: { flexShrink: 1, textAlign: 'right' },
+  note: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.md,
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.md,
-    backgroundColor: AnimoColors.white,
+    alignItems: 'flex-start',
+    gap: AnimoV2Spacing.md,
+    padding: AnimoV2Spacing.md,
+    borderRadius: AnimoV2Radius.lg,
   },
-  thumb: {
-    width: 64,
-  },
-  badgeWrap: {
-    marginTop: 4,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.lg,
-    backgroundColor: AnimoColors.white,
-  },
-  lockedCard: {
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.surface,
-  },
-  lockedHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  lockedTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  rowBetween: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: AnimoSpacing.sm,
-  },
-  rowLabel: {
-    flex: 1,
-    flexShrink: 1,
-  },
-  rowValue: {
-    textAlign: 'right',
-    flexShrink: 0,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: AnimoColors.border,
-    marginVertical: AnimoSpacing.xs,
-  },
-  footer: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingTop: AnimoSpacing.md,
-    paddingBottom: AnimoSpacing.md,
-    backgroundColor: AnimoColors.background,
-  },
+  noteCopy: { flex: 1, gap: 2 },
 });

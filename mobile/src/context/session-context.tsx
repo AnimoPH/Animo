@@ -7,6 +7,7 @@ import { AppState, Platform } from 'react-native';
 
 import { useOutboxFlush } from '@/hooks/use-outbox-flush';
 import { resolveSession, type ProfileCheck } from '@/lib/account-cache';
+import { setSuspension } from '@/lib/suspension';
 import { fetchMyProfile, signOut as signOutRequest } from '@/services/auth-service';
 import { isRealTap, requestInbox } from '@/lib/notification-route';
 import { supabase } from '@/lib/supabase';
@@ -142,6 +143,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       appStateListener.remove();
     };
   }, [hydrate]);
+
+  // Error messages read this to say why an action was refused.
+  useEffect(() => {
+    setSuspension(account?.accountStatus === 'Suspended', account?.suspensionReason);
+  }, [account?.accountStatus, account?.suspensionReason]);
 
   // Save the Expo push token once the account is signed in.
   const accountId = account?.id ?? null;

@@ -1,37 +1,22 @@
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import {
-  Check,
-  CheckCircle2,
-  ChevronRight,
-  Clock,
-  FileText,
-  HelpCircle,
-  Package,
-  Phone,
-  Star,
-  User,
-  X,
-  XCircle,
-} from 'lucide-react-native';
+import { Check, Info, Phone, Star, User, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { FeedbackModal } from '@/components/animo/feedback-modal';
-import { ProgressTracker } from '@/components/animo/progress-tracker';
-import {
-  AmountComparisonCard,
-  RecordedPaymentMethodCard,
-  TransactionStatusRow,
-  TransactionSummaryCard,
-} from '@/components/animo/transaction-cycle-cards';
-import { BackHeader } from '@/components/animo/back-header';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { FARMER_STAGE_PILL, FarmerStagePill, stageIcon } from '@/components/animo/farmer/farmer-stage';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { V2Dialog } from '@/components/animo/ui/dialog';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { StickyFooter, V2BackHeader } from '@/components/animo/ui/screen-bits';
+import { Timeline, type TimelineStep, type TimelineStepState } from '@/components/animo/ui/timeline';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing, AnimoV2Status } from '@/constants/animo';
+import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
+import type { TranslationKey } from '@/i18n/translations';
 import { isOnlineNow, isSignalError, saveFarmerConfirmOffline } from '@/lib/outbox/enqueue-actions';
 import { fetchCropListing } from '@/services/crop-listing-service';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
@@ -42,15 +27,16 @@ import {
   fetchTransactionCounterpart,
   markDelivered,
 } from '@/services/transaction-service';
-import type { CropListing } from '@/types/crop-listing';
+import { listingTitle, type CropListing } from '@/types/crop-listing';
 import type { PurchaseRequest } from '@/types/purchase-request';
 import {
-  DISPLAY_STAGE_TONE,
-  getDisplayStageLabel,
+  PAYMENT_MODE_LABELS,
   buildProgressSteps,
   deriveDisplayStage,
   formatReferenceId,
+  getDisplayStageLabel,
   type DisplayStage,
+  type ProgressStepKey,
   type PurchaseOutcome,
   type TransactionCounterpart,
   type TransactionWithPayment,
@@ -58,6 +44,20 @@ import {
 
 type ConfirmKind = 'payment_received' | 'delivered' | null;
 type ActionConfirmType = 'confirm_payment' | 'confirm_delivered' | null;
+
+const STEP_LABEL_KEY: Record<ProgressStepKey, TranslationKey> = {
+  kahilingan: 'ftx.stepRequest',
+  tinanggap: 'ftx.stepAccepted',
+  bayad: 'ftx.stepPayment',
+  kumpleto: 'ftx.stepDone',
+};
+
+const STATE_LABEL_KEY: Record<TimelineStepState, TranslationKey> = {
+  done: 'ftx.stDone',
+  current: 'ftx.stCurrent',
+  upcoming: 'ftx.stUpcoming',
+  failed: 'ftx.stFailed',
+};
 
 /**
  * Farmer Transaction Detail Screen — reads a real `transactionmatch` (this
@@ -70,7 +70,7 @@ type ActionConfirmType = 'confirm_payment' | 'confirm_delivered' | null;
 export default function FarmerTransactionDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { language, isTagalog } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [transaction, setTransaction] = useState<TransactionWithPayment | null>(null);
   const [request, setRequest] = useState<PurchaseRequest | null>(null);
@@ -105,11 +105,11 @@ export default function FarmerTransactionDetailScreen() {
         setRequest(requestResult);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : (isTagalog ? 'Hindi ma-load ang transaksyon.' : 'Failed to load transaction.'));
+      setError(e instanceof Error ? e.message : t('ftx.loadTxError'));
     } finally {
       setLoading(false);
     }
-  }, [id, isTagalog]);
+  }, [id, t]);
 
   useEffect(() => {
     load();
@@ -146,7 +146,7 @@ export default function FarmerTransactionDetailScreen() {
     } catch (e) {
       // The signal dropped before the confirm reached the server: keep it instead of losing it.
       if (type === 'confirm_payment' && isSignalError(e) && (await saveOffline().catch(() => false))) return;
-      setActionError(e instanceof Error ? e.message : (isTagalog ? 'Hindi naisagawa ang aksyon.' : 'Action failed.'));
+      setActionError(e instanceof Error ? e.message : t('ftx.actionFailed'));
     }
   };
 
@@ -158,60 +158,99 @@ export default function FarmerTransactionDetailScreen() {
       setShowCancelModal(false);
       setShowCancelSuccessModal(true);
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : (isTagalog ? 'Hindi makansela ang transaksyon.' : 'Failed to cancel transaction.'));
+      setActionError(e instanceof Error ? e.message : t('ftx.cancelFailed'));
       setShowCancelModal(false);
     }
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <BackHeader title={isTagalog ? 'Detalye ng Transaksyon' : 'Transaction Details'} />
+      <View style={styles.screen}>
+        <V2BackHeader title={t('ftx.detailTitle')} backLabel={t('ftx.back')} onBack={() => router.back()} />
         <View style={styles.missing}>
-          <ActivityIndicator color={AnimoColors.accentPrimary} />
+          <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!transaction || !request || error) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <View style={styles.screen}>
         <StatusBar style="dark" />
-        <BackHeader title={isTagalog ? 'Detalye ng Transaksyon' : 'Transaction Details'} />
+        <V2BackHeader title={t('ftx.detailTitle')} backLabel={t('ftx.back')} onBack={() => router.back()} />
         <View style={styles.missing}>
-          <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-            {error ?? (isTagalog ? 'Hindi nahanap ang transaksyon na ito.' : 'Transaction not found.')}
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+            {error ?? t('ftx.txNotFound')}
           </AnimoText>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   const outcome: PurchaseOutcome = { kind: 'matched', request, transaction };
   const stage = deriveDisplayStage(outcome);
-  const isCompleted = stage === 'completed';
   const canCancel = transaction.status === 'Pending_Payment';
-  const steps = buildProgressSteps(outcome, 'farmer', language);
+  const steps: TimelineStep[] = buildProgressSteps(outcome, 'farmer', language).map((step) => ({
+    key: step.key,
+    label: t(STEP_LABEL_KEY[step.key]),
+    detail: [step.timestamp, step.detail].filter(Boolean).join(' · ') || undefined,
+    state: step.state,
+  }));
+  const showP2pNote = stage === 'awaiting_payment' || stage === 'payment_sent';
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <View style={styles.screen}>
       <StatusBar style="dark" />
-      <BackHeader title={farmerHeaderTitle(stage, language)} />
+      <V2BackHeader title={headerTitle(stage, t)} backLabel={t('ftx.back')} onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <TransactionStatusRow label={getDisplayStageLabel(stage, language)} tone={DISPLAY_STAGE_TONE[stage]} />
-        <StageBanner stage={stage} lang={language} />
+        <StageBanner stage={stage} label={getDisplayStageLabel(stage, language)} t={t} />
 
         {listing ? (
-          <TransactionSummaryCard
-            listing={listing}
-            quantityKg={transaction.quantityKg}
-            pricePerKg={transaction.agreedPricePerKg}
-            totalAmount={transaction.totalAmount}
-            referenceId={formatReferenceId(request.id, 'PR')}
-            language={language}
-          />
+          <DepthCard>
+            <View style={styles.cardBody}>
+              <View style={styles.rowBetween}>
+                <AnimoText variant="subheading" style={styles.flex} numberOfLines={2}>
+                  {listingTitle(listing)}
+                </AnimoText>
+                <AnimoText variant="captionV2" color={AnimoV2Colors.textTertiary}>
+                  {formatReferenceId(request.id, 'PR')}
+                </AnimoText>
+              </View>
+              <View style={styles.rowBetween}>
+                <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.flex}>
+                  {t('ftx.kgAtPrice', {
+                    kg: transaction.quantityKg,
+                    price: formatPeso(transaction.agreedPricePerKg),
+                  })}
+                </AnimoText>
+                <AnimoText variant="priceV2" color={AnimoV2Colors.textBrand}>
+                  {formatPeso(transaction.totalAmount)}
+                </AnimoText>
+              </View>
+            </View>
+          </DepthCard>
+        ) : null}
+
+        <DepthCard depth="flat">
+          <View style={styles.cardBody}>
+            <AnimoText variant="subheading">{t('ftx.timelineTitle')}</AnimoText>
+            <Timeline
+              steps={steps}
+              stateLabel={(s) => t(STATE_LABEL_KEY[s])}
+              stepLabel={(n) => t('ftx.stepN', { n })}
+            />
+          </View>
+        </DepthCard>
+
+        {showP2pNote ? (
+          <View style={styles.note}>
+            <IconTile icon={Info} tone="warning" size={36} />
+            <AnimoText variant="captionV2" color={AnimoV2Colors.warningFg} style={styles.flex}>
+              {t('ftx.p2pNote')}
+            </AnimoText>
+          </View>
         ) : null}
 
         {buyer ? (
@@ -219,269 +258,174 @@ export default function FarmerTransactionDetailScreen() {
             buyer={buyer}
             quantityKg={transaction.quantityKg}
             total={transaction.totalAmount}
-            lang={language}
+            t={t}
             onCall={() => handleCallBuyer(buyer.phone)}
           />
         ) : null}
 
         {transaction.payment ? (
-          <AmountComparisonCard
+          <PaymentCard
             paidAmount={transaction.payment.amount}
             agreedAmount={transaction.totalAmount}
-            isTagalog={isTagalog}
-          />
-        ) : null}
-
-        {transaction.payment ? (
-          <RecordedPaymentMethodCard
             mode={transaction.payment.paymentMode}
             reference={transaction.payment.gcashReferenceNumber}
-            isTagalog={isTagalog}
+            t={t}
           />
-        ) : null}
-
-        <ProgressTracker title={isTagalog ? 'Progreso ng Transaksyon' : 'Transaction Progress'} steps={steps} />
-
-        {isCompleted ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push({ pathname: '/(farmer)/resibo', params: { id: transaction.id } } as Href)}
-            style={({ pressed }) => [styles.receiptRow, pressed && styles.pressed]}>
-            <View style={styles.receiptIcon}>
-              <FileText size={20} color={AnimoColors.green} />
-            </View>
-            <View style={styles.flex}>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                {isTagalog ? 'Digital na Resibo' : 'Digital Receipt'}
-              </AnimoText>
-              <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                {isTagalog ? 'Naka-save sa iyong talaan' : 'Saved to your records'}
-              </AnimoText>
-            </View>
-            <ChevronRight size={18} color={AnimoColors.objectLowEmphasis} />
-          </Pressable>
         ) : null}
 
         {actionError ? (
-          <AnimoText variant="caption" color={AnimoColors.danger}>
-            {actionError}
-          </AnimoText>
+          <View style={styles.errorRow}>
+            <X size={18} color={AnimoV2Colors.dangerFg} strokeWidth={3} />
+            <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg} style={styles.flex}>
+              {actionError}
+            </AnimoText>
+          </View>
         ) : null}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <StickyFooter>
         <FooterActions
           stage={stage}
           canCancel={canCancel}
-          lang={language}
+          t={t}
           onConfirmPayment={() => setActionConfirmType('confirm_payment')}
           onConfirmDelivered={() => setActionConfirmType('confirm_delivered')}
           onCancel={() => setShowCancelModal(true)}
+          onViewReceipt={() =>
+            router.push({ pathname: '/(farmer)/resibo', params: { id: transaction.id } } as Href)
+          }
           onRate={() => router.push({ pathname: '/(farmer)/review', params: { id: transaction.id } })}
           onBackToMarket={() => router.push('/(farmer)/(tabs)/palengke' as Href)}
         />
-      </View>
+      </StickyFooter>
 
-      <Modal visible={actionConfirmType !== null} transparent animationType="fade" onRequestClose={() => setActionConfirmType(null)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setActionConfirmType(null)}>
-          <Pressable style={styles.confirmModalCard} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.confirmModalIconCircle}>
-              <HelpCircle size={28} color={AnimoColors.accentPrimary} />
-            </View>
-            <View style={styles.confirmModalHeaderGroup}>
-              <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.textCenter}>
-                {actionConfirmType === 'confirm_payment'
-                  ? (isTagalog ? 'Kumpirmahin ang Bayad?' : 'Confirm Payment?')
-                  : (isTagalog ? 'Kumpirmahin ang Paghahatid?' : 'Confirm Delivery?')}
-              </AnimoText>
-              <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
-                {actionConfirmType === 'confirm_payment'
-                  ? (isTagalog
-                      ? 'Sigurado ka bang natanggap mo na ang buong bayad sa GCash o Cash?'
-                      : 'Are you sure you have received the full payment via GCash or Cash?')
-                  : (isTagalog
-                      ? 'Sigurado ka bang naihatid mo na ang palay sa mamimili? Ito ang huling hakbang bago makumpleto ang transaksyon.'
-                      : 'Are you sure you have delivered the palay to the buyer? This is the final step to complete the transaction.')}
-              </AnimoText>
-            </View>
-            <View style={styles.modalActions}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleExecuteAction}
-                style={({ pressed }) => [styles.confirmActionBtn, pressed && styles.pressed]}>
-                <Check size={18} color={AnimoColors.white} />
-                <AnimoText variant="button" color={AnimoColors.white}>
-                  {actionConfirmType === 'confirm_payment'
-                    ? (isTagalog ? 'Oo, Nakumpirma ang Bayad' : 'Yes, Confirm Payment')
-                    : (isTagalog ? 'Oo, Naihatid Na' : 'Yes, Delivered')}
-                </AnimoText>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setActionConfirmType(null)}
-                style={({ pressed }) => [styles.cancelDismissBtn, pressed && styles.pressed]}>
-                <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
-                  {isTagalog ? 'Huwag Muna' : 'Not Now'}
-                </AnimoText>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal visible={showCancelModal} transparent animationType="fade" onRequestClose={() => setShowCancelModal(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)}>
-          <Pressable style={styles.confirmModalCard} onPress={(e) => e.stopPropagation()}>
-            <View style={[styles.confirmModalIconCircle, styles.dangerIconCircle]}>
-              <XCircle size={28} color={AnimoColors.danger} />
-            </View>
-            <View style={styles.confirmModalHeaderGroup}>
-              <AnimoText variant="h2" color={AnimoColors.textHighEmphasis} style={styles.textCenter}>
-                {isTagalog ? 'Kanselahin ang Transaksyon?' : 'Cancel Transaction?'}
-              </AnimoText>
-              <AnimoText variant="body" color={AnimoColors.textMediumEmphasis} style={styles.textCenter}>
-                {isTagalog
-                  ? 'Wala pang naitalang bayad sa transaksyong ito. Muling magiging available ang dami ng palay.'
-                  : 'No payment has been recorded for this transaction yet. The crop quantity will become available again.'}
-              </AnimoText>
-            </View>
-            <View style={styles.modalActions}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleConfirmCancel}
-                style={({ pressed }) => [styles.confirmRejectBtn, pressed && styles.pressed]}>
-                <X size={18} color={AnimoColors.white} />
-                <AnimoText variant="button" color={AnimoColors.white}>
-                  {isTagalog ? 'Kanselahin ang Transaksyon' : 'Cancel Transaction'}
-                </AnimoText>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setShowCancelModal(false)}
-                style={({ pressed }) => [styles.cancelDismissBtn, pressed && styles.pressed]}>
-                <AnimoText variant="button" color={AnimoColors.textHighEmphasis}>
-                  {isTagalog ? 'Bumalik' : 'Back'}
-                </AnimoText>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <FeedbackModal
-        visible={savedOffline}
-        tone="info"
-        title={isTagalog ? 'Na-save sa phone' : 'Saved on this phone'}
-        message={
-          isTagalog
-            ? 'Walang signal kaya naka-save ang kumpirmasyon ng bayad sa phone. Ipapadala ito isang beses pagbalik ng signal.'
-            : 'There is no signal, so the payment confirmation is saved on this phone. It is sent once when the signal returns.'
+      <V2Dialog
+        visible={actionConfirmType !== null}
+        onClose={() => setActionConfirmType(null)}
+        icon={Check}
+        iconTone="success"
+        title={actionConfirmType === 'confirm_payment' ? t('ftx.dlgPayTitle') : t('ftx.dlgDeliverTitle')}
+        message={actionConfirmType === 'confirm_payment' ? t('ftx.dlgPayMsg') : t('ftx.dlgDeliverMsg')}
+        actions={
+          <>
+            <ChunkyButton
+              label={actionConfirmType === 'confirm_payment' ? t('ftx.dlgPayYes') : t('ftx.dlgDeliverYes')}
+              onPress={handleExecuteAction}
+            />
+            <ChunkyButton label={t('ftx.notNow')} variant="secondary" onPress={() => setActionConfirmType(null)} />
+          </>
         }
-        confirmLabel={isTagalog ? 'Sige' : 'OK'}
-        onConfirm={() => {
+      />
+
+      <V2Dialog
+        visible={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        icon={X}
+        iconTone="danger"
+        title={t('ftx.dlgCancelTitle')}
+        message={t('ftx.dlgCancelMsg')}
+        actions={
+          <>
+            <ChunkyButton label={t('ftx.cancelTx')} variant="danger" onPress={handleConfirmCancel} />
+            <ChunkyButton label={t('ftx.back')} variant="secondary" onPress={() => setShowCancelModal(false)} />
+          </>
+        }
+      />
+
+      <V2Dialog
+        visible={savedOffline}
+        onClose={() => {
           setSavedOffline(false);
           router.replace('/(farmer)/(tabs)/transaksyon');
         }}
+        icon={Info}
+        iconTone="warning"
+        title={t('ftx.offlineTitle')}
+        message={t('ftx.offlineMsg')}
+        dismissable={false}
+        actions={
+          <ChunkyButton
+            label={t('ftx.ok')}
+            onPress={() => {
+              setSavedOffline(false);
+              router.replace('/(farmer)/(tabs)/transaksyon');
+            }}
+          />
+        }
       />
 
-      <FeedbackModal
+      <V2Dialog
         visible={showCancelSuccessModal}
-        tone="danger"
-        title={isTagalog ? 'Matagumpay na Nakansela' : 'Successfully Cancelled'}
-        message={isTagalog ? 'Nakansela na ang transaksyong ito.' : 'This transaction has been cancelled.'}
-        confirmLabel="OK"
-        onConfirm={() => {
+        onClose={() => {
           setShowCancelSuccessModal(false);
           router.replace('/(farmer)/(tabs)/transaksyon');
         }}
+        icon={X}
+        iconTone="danger"
+        title={t('ftx.cancelledTitle')}
+        message={t('ftx.cancelledMsg')}
+        dismissable={false}
+        actions={
+          <ChunkyButton
+            label={t('ftx.ok')}
+            onPress={() => {
+              setShowCancelSuccessModal(false);
+              router.replace('/(farmer)/(tabs)/transaksyon');
+            }}
+          />
+        }
       />
 
-      <FeedbackModal
+      <V2Dialog
         visible={confirm !== null}
-        tone="success"
-        title={
-          confirm === 'delivered'
-            ? (isTagalog ? 'Kumpleto na ang Transaksyon' : 'Transaction Completed')
-            : (isTagalog ? 'Nakumpirma ang Bayad' : 'Payment Confirmed')
-        }
-        message={
-          confirm === 'delivered'
-            ? (isTagalog
-                ? 'Naitala ang paghahatid at natapos na ang transaksyon. Maaari mo nang tingnan ang digital na resibo.'
-                : 'Delivery recorded and transaction completed. You can now view your digital receipt.')
-            : (isTagalog
-                ? 'Nakumpirma ang bayad. Kapag naihatid mo na ang palay, kumpirmahin din ang paghahatid.'
-                : 'Payment confirmed. Once you have delivered the crop, confirm the delivery as well.')
-        }
-        confirmLabel={isTagalog ? 'Sige' : 'OK'}
-        onConfirm={() => setConfirm(null)}
+        onClose={() => setConfirm(null)}
+        icon={Check}
+        iconTone="success"
+        title={confirm === 'delivered' ? t('ftx.doneTitle') : t('ftx.payConfTitle')}
+        message={confirm === 'delivered' ? t('ftx.doneMsg') : t('ftx.payConfMsg')}
+        actions={<ChunkyButton label={t('ftx.ok')} onPress={() => setConfirm(null)} />}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
-function StageBanner({
-  stage,
-  lang = 'tl',
-}: {
-  stage: DisplayStage;
-  lang?: 'tl' | 'en';
-}) {
-  const isEn = lang === 'en';
-  const header = (() => {
+type Translate = (key: TranslationKey, params?: Record<string, string | number>) => string;
+
+function StageBanner({ stage, label, t }: { stage: DisplayStage; label: string; t: Translate }) {
+  const copy = (() => {
     switch (stage) {
       case 'awaiting_payment':
-        return {
-          icon: <Clock size={20} color="#B4791A" />,
-          iconBg: '#FBF0D9',
-          title: isEn ? 'Request Accepted' : 'Tinanggap ang Kahilingan',
-          caption: isEn ? 'Awaiting payment from buyer.' : 'Naghihintay ng bayad mula sa mamimili.',
-        };
+        return { title: t('ftx.bnAwaitingTitle'), caption: t('ftx.bnAwaitingCap') };
       case 'payment_sent':
-        return {
-          icon: <Package size={20} color="#D97706" />,
-          iconBg: '#FEF3C7',
-          title: isEn ? 'Payment Sent' : 'Naipadala na ang Bayad',
-          caption: isEn ? 'Confirm once full payment is received.' : 'Kumpirmahin kapag natanggap na ang buong bayad.',
-        };
+        return { title: t('ftx.bnSentTitle'), caption: t('ftx.bnSentCap') };
       case 'payment_confirmed':
-        return {
-          icon: <CheckCircle2 size={20} color={AnimoColors.accentPrimary} />,
-          iconBg: AnimoColors.accentPrimaryLight,
-          title: isEn ? 'Payment Confirmed' : 'Nakumpirma ang Bayad',
-          caption: isEn ? 'Confirm once you have delivered the palay.' : 'Kumpirmahin kapag naihatid mo na ang palay.',
-        };
+        return { title: t('ftx.bnConfirmedTitle'), caption: t('ftx.bnConfirmedCap') };
       case 'completed':
-        return {
-          icon: <CheckCircle2 size={20} color={AnimoColors.accentPrimary} />,
-          iconBg: AnimoColors.accentPrimaryLight,
-          title: isEn ? 'Transaction Completed' : 'Kumpleto na ang Transaksyon',
-          caption: isEn ? 'Crop delivered and transaction closed.' : 'Naihatid na ang palay at naisara na ang transaksyon.',
-        };
+        return { title: t('ftx.bnDoneTitle'), caption: t('ftx.bnDoneCap') };
       default:
-        return {
-          icon: <XCircle size={20} color={AnimoColors.danger} />,
-          iconBg: AnimoColors.dangerTint,
-          title: isEn ? 'Transaction Cancelled' : 'Nakansela ang Transaksyon',
-          caption: isEn ? 'This transaction is no longer active.' : 'Hindi na itutuloy ang transaksyong ito.',
-        };
+        return { title: t('ftx.bnCancelledTitle'), caption: t('ftx.bnCancelledCap') };
     }
   })();
+  const { tone } = FARMER_STAGE_PILL[stage];
+  const palette = AnimoV2Status[tone];
 
   return (
-    <View style={styles.bannerCard}>
-      <View style={styles.bannerRow}>
-        <View style={[styles.bannerIcon, { backgroundColor: header.iconBg }]}>{header.icon}</View>
-        <View style={styles.bannerText}>
-          <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            {header.title}
+    <DepthCard depth="flat" backgroundColor={palette.bg} borderColor={palette.solid}>
+      <View style={[styles.cardBody, styles.bannerRow]}>
+        <IconTile icon={stageIcon(stage)} tone={tone} size={56} solid />
+        <View style={styles.flex}>
+          <AnimoText variant="subheading" color={palette.fg}>
+            {copy.title}
           </AnimoText>
-          <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            {header.caption}
+          <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+            {copy.caption}
           </AnimoText>
+          <View style={styles.pillGap}>
+            <FarmerStagePill stage={stage} label={label} />
+          </View>
         </View>
       </View>
-    </View>
+    </DepthCard>
   );
 }
 
@@ -489,16 +433,15 @@ function BuyerPartyCard({
   buyer,
   quantityKg,
   total,
-  lang = 'tl',
+  t,
   onCall,
 }: {
   buyer: TransactionCounterpart;
   quantityKg: number;
   total: number;
-  lang?: 'tl' | 'en';
+  t: Translate;
   onCall: () => void;
 }) {
-  const isEn = lang === 'en';
   const openBuyerProfile = () => {
     router.push({
       pathname: '/(farmer)/mamimili/[id]',
@@ -511,265 +454,228 @@ function BuyerPartyCard({
   };
 
   return (
-    <View style={styles.partyCard}>
-      <View style={styles.partyHeaderRow}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={isEn ? 'View buyer profile' : 'Tingnan ang profile ng mamimili'}
-          hitSlop={8}
-          onPress={openBuyerProfile}
-          style={({ pressed }) => [styles.partyAvatar, pressed && styles.pressed]}>
-          <User size={20} color={AnimoColors.accentPrimary} />
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={isEn ? `View profile of ${buyer.name}` : `Tingnan ang profile ni ${buyer.name}`}
-          hitSlop={8}
-          onPress={openBuyerProfile}
-          style={styles.flex}>
-          <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            {buyer.name}
+    <DepthCard depth="flat">
+      <View style={styles.cardBody}>
+        <View style={styles.partyRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('ftx.viewBuyer', { name: buyer.name })}
+            onPress={openBuyerProfile}
+            style={styles.partyInfo}>
+            <IconTile icon={User} tone="success" />
+            <View style={styles.flex}>
+              <AnimoText variant="subheading" numberOfLines={1}>
+                {buyer.name}
+              </AnimoText>
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                {t('ftx.buyer')}
+              </AnimoText>
+            </View>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('ftx.callBuyer', { name: buyer.name })}
+            onPress={onCall}
+            style={({ pressed }) => [styles.callBtn, pressed && styles.pressed]}>
+            <Phone size={20} color={AnimoV2Colors.textOnBrand} strokeWidth={2.75} />
+            <AnimoText variant="tagV2" color={AnimoV2Colors.textOnBrand}>
+              {t('ftx.call')}
+            </AnimoText>
+          </Pressable>
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.rowBetween}>
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+            {t('ftx.contactNumber')}
           </AnimoText>
-          <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            {isEn ? 'Buyer' : 'Mamimili'}
+          <AnimoText variant="bodyStrong" style={styles.rightText}>
+            {buyer.phone}
           </AnimoText>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={isEn ? `Call ${buyer.name}` : `Tawagan si ${buyer.name}`}
-          onPress={onCall}
-          style={({ pressed }) => [styles.callBtn, pressed && styles.pressed]}>
-          <Phone size={14} color={AnimoColors.white} />
-          <AnimoText variant="caption" color={AnimoColors.white} style={styles.callBtnText}>
-            {isEn ? 'Call' : 'Tawagan'}
-          </AnimoText>
-        </Pressable>
+        </View>
       </View>
+    </DepthCard>
+  );
+}
 
-      <View style={styles.divider} />
+/** Amount paid vs agreed total, plus how it was paid (GCash reference when there is one). */
+function PaymentCard({
+  paidAmount,
+  agreedAmount,
+  mode,
+  reference,
+  t,
+}: {
+  paidAmount: number;
+  agreedAmount: number;
+  mode: keyof typeof PAYMENT_MODE_LABELS;
+  reference?: string | null;
+  t: Translate;
+}) {
+  const difference = paidAmount - agreedAmount;
+  const isMatch = Math.abs(difference) < 0.01;
 
-      <View style={styles.partyContactRow}>
-        <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-          Contact Number:
+  return (
+    <DepthCard depth="flat">
+      <View style={styles.cardBody}>
+        <AnimoText variant="captionV2" color={AnimoV2Colors.textTertiary}>
+          {t('ftx.amountPaid')}
         </AnimoText>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.phoneValue}>
-          {buyer.phone}
+        <AnimoText variant="heading" color={AnimoV2Colors.textBrand}>
+          {formatPeso(paidAmount)}
         </AnimoText>
+        <View style={styles.divider} />
+        <View style={styles.rowBetween}>
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+            {t('ftx.agreedPrice')}
+          </AnimoText>
+          <AnimoText variant="bodyStrong">{formatPeso(agreedAmount)}</AnimoText>
+        </View>
+        <View style={styles.rowBetween}>
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+            {t('ftx.difference')}
+          </AnimoText>
+          <View style={styles.matchRow}>
+            {isMatch ? <Check size={18} color={AnimoV2Colors.successFg} strokeWidth={3} /> : null}
+            <AnimoText variant="bodyStrong" color={isMatch ? AnimoV2Colors.successFg : AnimoV2Colors.textPrimary}>
+              {isMatch ? `${formatPeso(0)} (${t('ftx.match')})` : formatPeso(Math.abs(difference))}
+            </AnimoText>
+          </View>
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.rowBetween}>
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+            {t('ftx.payMethod')}
+          </AnimoText>
+          <View style={styles.rightCol}>
+            <AnimoText variant="bodyStrong">{PAYMENT_MODE_LABELS[mode]}</AnimoText>
+            {mode === 'GCash' && reference ? (
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textTertiary}>
+                {t('ftx.refShort', { ref: reference })}
+              </AnimoText>
+            ) : null}
+          </View>
+        </View>
       </View>
-    </View>
+    </DepthCard>
   );
 }
 
 function FooterActions({
   stage,
   canCancel,
-  lang = 'tl',
+  t,
   onConfirmPayment,
   onConfirmDelivered,
   onCancel,
+  onViewReceipt,
   onRate,
   onBackToMarket,
 }: {
   stage: DisplayStage;
   canCancel: boolean;
-  lang?: 'tl' | 'en';
+  t: Translate;
   onConfirmPayment: () => void;
   onConfirmDelivered: () => void;
   onCancel: () => void;
+  onViewReceipt: () => void;
   onRate: () => void;
   onBackToMarket: () => void;
 }) {
-  const isEn = lang === 'en';
+  const cancelButton = canCancel ? (
+    <ChunkyButton
+      label={t('ftx.cancelTx')}
+      variant="secondary"
+      icon={X}
+      textColor={AnimoV2Colors.dangerFg}
+      borderColor={AnimoV2Colors.dangerSolid}
+      onPress={onCancel}
+    />
+  ) : null;
 
   if (stage === 'payment_sent') {
     return (
-      <View style={styles.footerStack}>
-        <AnimoButton label={isEn ? 'Payment Received' : 'Natanggap ang Bayad'} icon={Check} onPress={onConfirmPayment} />
-        {canCancel ? <AnimoButton label={isEn ? 'Cancel Transaction' : 'Kanselahin ang Transaksyon'} variant="dangerOutline" icon={X} onPress={onCancel} /> : null}
-      </View>
+      <>
+        <ChunkyButton label={t('ftx.confirmPaymentBtn')} icon={Check} onPress={onConfirmPayment} />
+        {cancelButton}
+      </>
     );
   }
 
   if (stage === 'awaiting_payment') {
-    return (
-      <View style={styles.footerStack}>
-        {canCancel ? <AnimoButton label={isEn ? 'Cancel Transaction' : 'Kanselahin ang Transaksyon'} variant="dangerOutline" icon={X} onPress={onCancel} /> : null}
-      </View>
-    );
+    return cancelButton;
   }
 
   if (stage === 'payment_confirmed') {
-    return (
-      <View style={styles.footerStack}>
-        <AnimoButton label={isEn ? 'Confirm Delivery' : 'Kumpirmahin ang Paghahatid'} icon={Check} onPress={onConfirmDelivered} />
-      </View>
-    );
+    return <ChunkyButton label={t('ftx.confirmDelivery')} icon={Check} onPress={onConfirmDelivered} />;
   }
 
   if (stage === 'completed') {
     return (
-      <View style={styles.footerStack}>
-        <AnimoButton label={isEn ? 'Leave a Rating' : 'Magbigay ng Rating'} variant="primary" icon={Star} onPress={onRate} />
-        <AnimoButton label={isEn ? 'Back to Marketplace' : 'Bumalik sa Palengke'} variant="secondary" icon={Check} onPress={onBackToMarket} />
-      </View>
+      <>
+        <ChunkyButton label={t('ftx.viewReceipt')} onPress={onViewReceipt} />
+        <ChunkyButton label={t('ftx.leaveRating')} variant="secondary" icon={Star} onPress={onRate} />
+        <ChunkyButton label={t('ftx.backToMarket')} variant="ghost" onPress={onBackToMarket} />
+      </>
     );
   }
 
-  return (
-    <View style={styles.footerStack}>
-      <AnimoButton label={isEn ? 'Back to Transactions' : 'Bumalik sa Transaksyon'} variant="secondary" onPress={() => router.back()} />
-    </View>
-  );
+  return <ChunkyButton label={t('ftx.backToTx')} variant="secondary" onPress={() => router.back()} />;
 }
 
-function farmerHeaderTitle(stage: DisplayStage, lang: 'tl' | 'en' = 'tl'): string {
-  const isEn = lang === 'en';
+function headerTitle(stage: DisplayStage, t: Translate): string {
   switch (stage) {
     case 'awaiting_payment':
     case 'payment_sent':
-      return isEn ? 'Payment' : 'Pagbabayad';
+      return t('ftx.hdrPayment');
     case 'payment_confirmed':
-      return isEn ? 'Delivery' : 'Paghahatid';
+      return t('ftx.hdrDelivery');
     case 'completed':
-      return isEn ? 'Transaction Details' : 'Detalye ng Transaksyon';
+      return t('ftx.detailTitle');
     default:
-      return isEn ? 'Transaction Status' : 'Katayuan ng Transaksyon';
+      return t('ftx.hdrStatus');
   }
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: AnimoColors.appBackground },
-  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: AnimoSpacing.xl },
-  scroll: { paddingHorizontal: AnimoSpacing.lg, paddingTop: AnimoSpacing.sm, paddingBottom: AnimoSpacing.xl, gap: AnimoSpacing.lg },
-  flex: { flex: 1 },
-  bannerCard: {
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.surfacePrimary,
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: AnimoV2Spacing.xl },
+  centerText: { textAlign: 'center' },
+  scroll: {
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.xs,
+    paddingBottom: AnimoV2Spacing.xl,
+    gap: AnimoV2Spacing.lg,
   },
-  bannerRow: { flexDirection: 'row', gap: AnimoSpacing.md },
-  bannerIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  bannerText: { flex: 1, gap: 2 },
-  bannerMeta: { flexDirection: 'row', alignItems: 'center', gap: AnimoSpacing.sm },
-  divider: { height: 1, backgroundColor: AnimoColors.borderLowEmphasis, marginVertical: AnimoSpacing.xs },
-  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoSpacing.md },
-  metaLabel: { flex: 1 },
-  metaValue: { textAlign: 'right', flexShrink: 0 },
-  listingCard: {
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    backgroundColor: AnimoColors.surfacePrimary,
-    gap: AnimoSpacing.sm,
-  },
-  listingCardMuted: { opacity: 0.7 },
-  listingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: AnimoSpacing.md },
-  listingTitleGroup: { flex: 1, gap: 2 },
-  listingPriceText: { textAlign: 'right', flexShrink: 0 },
-  specsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: AnimoSpacing.md, marginTop: 4 },
-  specItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  partyCard: {
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    backgroundColor: AnimoColors.surfacePrimary,
-    gap: AnimoSpacing.sm,
-  },
-  partyHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoSpacing.md },
-  partyAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.accentPrimaryLight,
+  flex: { flex: 1, minWidth: 0 },
+  cardBody: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
+  bannerRow: { flexDirection: 'row', alignItems: 'center' },
+  pillGap: { marginTop: AnimoV2Spacing.sm },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoV2Spacing.md },
+  rightText: { flexShrink: 1, textAlign: 'right' },
+  rightCol: { alignItems: 'flex-end' },
+  matchRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.xs },
+  divider: { height: 2, borderRadius: 2, backgroundColor: AnimoV2Colors.borderDefault },
+  note: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: AnimoV2Spacing.md,
+    padding: AnimoV2Spacing.md,
+    borderRadius: AnimoV2Radius.lg,
+    borderWidth: 2,
+    borderColor: AnimoV2Colors.warningSolid,
+    backgroundColor: AnimoV2Colors.warningBg,
   },
+  partyRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  partyInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md, minHeight: 48 },
   callBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: AnimoColors.accentPrimary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: AnimoRadius.pill,
-  },
-  callBtnText: { fontFamily: 'PlusJakartaSans_600SemiBold' },
-  partyContactRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoSpacing.md, paddingVertical: 2 },
-  phoneValue: { flexShrink: 1, textAlign: 'right' },
-  receiptRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.md,
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-  },
-  receiptIcon: { width: 40, height: 40, borderRadius: AnimoRadius.md, backgroundColor: AnimoColors.greenTint, alignItems: 'center', justifyContent: 'center' },
-  footer: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.sm,
-    paddingBottom: AnimoSpacing.md,
-    backgroundColor: AnimoColors.appBackground,
-    borderTopWidth: 1,
-    borderTopColor: AnimoColors.borderLowEmphasis,
-  },
-  footerStack: { gap: AnimoSpacing.sm },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: AnimoSpacing.lg },
-  confirmModalCard: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.xl,
-    gap: AnimoSpacing.md,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  confirmModalIconCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: AnimoColors.accentPrimaryLight, alignItems: 'center', justifyContent: 'center' },
-  dangerIconCircle: { backgroundColor: AnimoColors.dangerTint },
-  confirmModalHeaderGroup: { alignItems: 'center', gap: AnimoSpacing.xs },
-  confirmActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: AnimoSpacing.sm,
-    width: '100%',
-    height: 50,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.accentPrimary,
-  },
-  textCenter: { textAlign: 'center' },
-  modalActions: { width: '100%', gap: AnimoSpacing.sm, marginTop: 6 },
-  confirmRejectBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: AnimoSpacing.sm,
-    width: '100%',
-    height: 50,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.danger,
-  },
-  cancelDismissBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: 48,
-    borderRadius: AnimoRadius.pill,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: AnimoColors.surfacePrimary,
+    gap: AnimoV2Spacing.xs,
+    minHeight: 48,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    borderRadius: AnimoV2Radius.full,
+    backgroundColor: AnimoV2Colors.actionPrimary,
   },
   pressed: { opacity: 0.85 },
+  errorRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.sm },
 });

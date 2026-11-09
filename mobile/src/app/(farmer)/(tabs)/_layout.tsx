@@ -1,5 +1,6 @@
-import { Redirect, Tabs, useFocusEffect } from 'expo-router';
+import { Redirect, Tabs, useFocusEffect, useSegments } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
+import { Home, Receipt, Sprout, User } from 'lucide-react-native';
 import { View } from 'react-native';
 
 import { AnimoTabBar, type TabItem } from '@/components/animo/animo-tab-bar';
@@ -12,16 +13,23 @@ import { fetchFarmerTransactions } from '@/services/transaction-service';
 import { displayStageForMatch, isFarmerNeedsActionStage } from '@/types/transaction';
 
 /** Bottom navigation for the farmer (Magsasaka) module. */
-const FARMER_TAB_DEFS: Omit<TabItem, 'showBadge'>[] = [
-  { name: 'index', label: 'Tahanan', labelKey: 'tab.home', icon: { outline: 'home-outline', filled: 'home' } },
-  { name: 'palengke', label: 'Aking Ani', labelKey: 'tab.myHarvest', icon: { outline: 'leaf-outline', filled: 'leaf' } },
-  { name: 'transaksyon', label: 'Transaksyon', labelKey: 'tab.transactions', icon: { outline: 'receipt-outline', filled: 'receipt' } },
-  { name: 'profile', label: 'Profile', labelKey: 'tab.profile', icon: { outline: 'person-outline', filled: 'person' } },
+const FARMER_TAB_DEFS: Omit<TabItem, 'showBadge' | 'badgeCount'>[] = [
+  { name: 'index', label: 'Tahanan', labelKey: 'tab.home', icon: { outline: 'home-outline', filled: 'home' }, lucide: Home },
+  { name: 'palengke', label: 'Aking Ani', labelKey: 'tab.myHarvest', icon: { outline: 'leaf-outline', filled: 'leaf' }, lucide: Sprout },
+  { name: 'transaksyon', label: 'Transaksyon', labelKey: 'tab.transactions', icon: { outline: 'receipt-outline', filled: 'receipt' }, lucide: Receipt },
+  { name: 'profile', label: 'Profile', labelKey: 'tab.profile', icon: { outline: 'person-outline', filled: 'person' }, lucide: User },
 ];
+
+/** Clears the tab bar (~110) plus the sticky 76px button area on Aking Ani. */
+const AKING_ANI_BANNER_BOTTOM = 196;
 
 export default function FarmerLayout() {
   const { status, account } = useSession();
+  const segments = useSegments();
+  const onAkingAni = segments[segments.length - 1] === 'palengke';
   const [transaksyonNeedsAction, setTransaksyonNeedsAction] = useState(false);
+  /** Pending purchase requests across all listings (red count badge on Aking Ani). */
+  const [pendingRequestCount, setPendingRequestCount] = useState(0);
 
   const isFarmerSession = status === 'authenticated' && account?.role === 'magsasaka';
 
@@ -32,10 +40,10 @@ export default function FarmerLayout() {
         fetchPendingPurchaseRequestCountsByListing(),
         fetchFarmerTransactions().catch(() => []),
       ]);
-      const any =
-        [...counts.values()].some((n) => n > 0) ||
-        transactions.some((tx) => isFarmerNeedsActionStage(displayStageForMatch(tx)));
-      setTransaksyonNeedsAction(any);
+      setPendingRequestCount([...counts.values()].reduce((sum, n) => sum + n, 0));
+      setTransaksyonNeedsAction(
+        transactions.some((tx) => isFarmerNeedsActionStage(displayStageForMatch(tx))),
+      );
     } catch {
       // Keep the last known badge state on transient failures.
     }
@@ -55,10 +63,12 @@ export default function FarmerLayout() {
 
   const items = useMemo<TabItem[]>(
     () =>
-      FARMER_TAB_DEFS.map((tab) =>
-        tab.name === 'transaksyon' ? { ...tab, showBadge: transaksyonNeedsAction } : tab,
-      ),
-    [transaksyonNeedsAction],
+      FARMER_TAB_DEFS.map((tab) => {
+        if (tab.name === 'transaksyon') return { ...tab, showBadge: transaksyonNeedsAction };
+        if (tab.name === 'palengke') return { ...tab, badgeCount: pendingRequestCount };
+        return tab;
+      }),
+    [transaksyonNeedsAction, pendingRequestCount],
   );
 
   // Guards the group against deep-links — an unauthenticated user or a
@@ -81,8 +91,8 @@ export default function FarmerLayout() {
         <Tabs.Screen name="transaksyon" />
         <Tabs.Screen name="profile" />
       </Tabs>
-      {/* 72 keeps the banner left of the + button on Aking Ani (56 wide, 24 from the edge) */}
-      <OutboxBanner rightInset={72} />
+      {/* On Aking Ani the sticky "Bagong Listing" button sits above the tab bar, so lift the banner over it. */}
+      <OutboxBanner bottomOffset={onAkingAni ? AKING_ANI_BANNER_BOTTOM : undefined} />
     </View>
   );
 }

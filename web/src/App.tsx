@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
+import { LoadingBar } from '@/components/loading-bar';
 import { LanguageProvider } from '@/context/language-context';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { AccountReviewPage } from '@/pages/account-review';
@@ -18,11 +19,7 @@ function ConsoleRoutes() {
   };
 
   if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: 'var(--animo-muted)' }}>
-        Naglo-load…
-      </div>
-    );
+    return <LoadingBar />;
   }
 
   const guard = (element: React.ReactNode) =>

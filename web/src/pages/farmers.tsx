@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { LoadingBar } from '@/components/loading-bar';
+import { Skeleton, SkeletonTableRows } from '@/components/skeleton';
 import { barangayLabel } from '@/lib/barangay-label';
 import type { Farmer } from '@/constants/dashboard';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
@@ -130,6 +132,8 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
   const activeCount = farmersList.filter((f) => f.status === 'active').length;
   const barangaysCount = new Set(farmersList.map((f) => f.barangay)).size;
 
+  const showSkeleton = loading && farmersList.length === 0;
+
   return (
     <ConsoleLayout
       title={t('farmers.title')}
@@ -138,23 +142,26 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
       {/* Metric summary row */}
       <section style={styles.summaryRow}>
         <SummaryCard
+          loading={showSkeleton}
           label={isTagalog ? 'Kabuuang Nakarehistro' : 'Total Registered'}
           value={String(farmersList.length)}
           unit={isTagalog ? 'magsasaka' : 'farmers'}
         />
         <SummaryCard
+          loading={showSkeleton}
           label={isTagalog ? 'Aktibo' : 'Active'}
           value={String(activeCount)}
           unit={isTagalog ? 'aktibong account' : 'active accounts'}
         />
         <SummaryCard
+          loading={showSkeleton}
           label={isTagalog ? 'Saklaw' : 'Coverage'}
           value={String(barangaysCount)}
           unit={isTagalog ? 'barangay' : 'barangays'}
         />
       </section>
 
-      {loading ? <p style={styles.loadNotice}>{t('common.loading')}</p> : null}
+      {loading ? <LoadingBar /> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
 
       {/* Main Table Card */}
@@ -237,7 +244,9 @@ export function FarmersPage({ onSignOut }: FarmersPageProps) {
               </tr>
             </thead>
             <tbody>
-              {filteredFarmers.length === 0 ? (
+              {showSkeleton ? (
+                <SkeletonTableRows columns={7} cellStyle={styles.td} />
+              ) : filteredFarmers.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ ...styles.td, textAlign: 'center', color: 'var(--animo-muted)', padding: '30px 0' }}>
                     {t('farmers.noResults')}
@@ -266,16 +275,18 @@ function SummaryCard({
   value,
   unit,
   unitColor,
+  loading = false,
 }: {
   label: string;
   value: string;
   unit: string;
   unitColor?: string;
+  loading?: boolean;
 }) {
   return (
     <article className="animo-card" style={styles.summaryCard}>
       <span style={styles.summaryLabel}>{label}</span>
-      <span style={styles.summaryValue}>{value}</span>
+      <span style={styles.summaryValue}>{loading ? <Skeleton width={56} height={32} /> : value}</span>
       <span style={{ ...styles.summaryUnit, color: unitColor || 'var(--animo-muted)' }}>{unit}</span>
     </article>
   );
@@ -359,11 +370,6 @@ const styles: Record<string, React.CSSProperties> = {
   summaryLabel: { fontSize: 14, fontWeight: 600, color: 'var(--animo-black-secondary)' },
   summaryValue: { fontSize: 32, fontWeight: 800, lineHeight: '38px' },
   summaryUnit: { fontSize: 13, color: 'var(--animo-muted)' },
-  loadNotice: {
-    margin: '0 0 12px',
-    color: 'var(--animo-black-secondary)',
-    fontSize: 14,
-  },
   errorNotice: {
     margin: '0 0 12px',
     color: 'var(--animo-danger)',

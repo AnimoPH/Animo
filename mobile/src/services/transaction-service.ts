@@ -1,4 +1,5 @@
 import { GCASH_REF_FORMAT_MESSAGE } from '@/constants/payment';
+import { isSuspensionNotice } from '@/lib/suspension';
 import { requireAuthUserId } from '@/services/crop-listing-service';
 import { unwrapFunctionError } from '@/services/auth-service';
 import {
@@ -348,6 +349,8 @@ export async function recordPayment(
  * choose the message; it is never returned.
  */
 export function recordPaymentFailureMessage(error: unknown): string {
+  const original = error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' ? error.message : '';
+  if (isSuspensionNotice(original)) return original;
   const message =
     error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
       ? error.message.toLowerCase()

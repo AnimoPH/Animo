@@ -1,37 +1,23 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import {
-  ChevronDown,
-  ChevronUp,
-  Droplets,
-  Scale,
-  ShieldCheck,
-  Sprout,
-} from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Droplets, Scale, ShieldCheck, Sprout } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { BackHeader } from '@/components/animo/back-header';
 import { FilterModal } from '@/components/animo/filter-modal';
 import { TransactionCard, type FarmerTransactionCardItem } from '@/components/animo/farmer/transaction-card';
 import { SearchFilterBar } from '@/components/animo/search-filter-bar';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { FilterChip } from '@/components/animo/ui/filter-chip';
+import { Mascot } from '@/components/animo/ui/mascot';
+import { V2BackHeader } from '@/components/animo/ui/screen-bits';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
+import type { TranslationKey } from '@/i18n/translations';
 import { fetchCropListing } from '@/services/crop-listing-service';
-import {
-  fetchCounterpartNames,
-  fetchListingPurchaseOutcomes,
-} from '@/services/transaction-service';
+import { fetchCounterpartNames, fetchListingPurchaseOutcomes } from '@/services/transaction-service';
 import {
   listingTitle,
   moistureLabel,
@@ -53,12 +39,12 @@ import {
 
 type StatusFilter = 'all' | 'response' | 'payment' | 'pickup' | 'completed';
 
-const STATUS_FILTERS: { value: StatusFilter; tl: string; en: string }[] = [
-  { value: 'all', tl: 'Lahat', en: 'All' },
-  { value: 'response', tl: 'Naghihintay ng sagot', en: 'Awaiting response' },
-  { value: 'payment', tl: 'Naghihintay ng bayad', en: 'Awaiting payment' },
-  { value: 'pickup', tl: 'Naghihintay ng pickup', en: 'Awaiting pickup' },
-  { value: 'completed', tl: 'Tapos na', en: 'Completed' },
+const STATUS_FILTERS: { value: StatusFilter; labelKey: TranslationKey }[] = [
+  { value: 'all', labelKey: 'ftx.filterAll' },
+  { value: 'response', labelKey: 'ftx.statusResponse' },
+  { value: 'payment', labelKey: 'ftx.statusPayment' },
+  { value: 'pickup', labelKey: 'ftx.statusPickup' },
+  { value: 'completed', labelKey: 'ftx.filterDone' },
 ];
 
 function stageMatchesFilter(stage: DisplayStage, filter: StatusFilter): boolean {
@@ -69,13 +55,14 @@ function stageMatchesFilter(stage: DisplayStage, filter: StatusFilter): boolean 
   return stage === 'completed';
 }
 
-const SCREEN_PADDING = AnimoSpacing.lg;
+const SCREEN_PADDING = AnimoV2Spacing.lg;
 
 function toCardItem(
   outcome: PurchaseOutcome,
   listing: CropListing | undefined,
   buyerName?: string,
   lang: 'tl' | 'en' = 'tl',
+  buyerFallback = 'Mamimili',
 ): FarmerTransactionCardItem {
   const stage = deriveDisplayStage(outcome);
   const quantityKg =
@@ -98,7 +85,7 @@ function toCardItem(
     weight: `${quantityKg} kg`,
     pricePerKg: `${formatPeso(pricePerKg)}/kg`,
     paymentMode: outcome.kind === 'matched' ? (outcome.transaction.payment?.paymentMode ?? null) : null,
-    buyer: buyerName || (lang === 'en' ? 'Buyer' : 'Mamimili'),
+    buyer: buyerName || buyerFallback,
     date: formatDate(outcome.request.submittedAt, lang),
     time: formatTime(outcome.request.submittedAt),
   };
@@ -126,7 +113,7 @@ export default function FarmerListingTransactionsScreen() {
   const load = useCallback(
     async (isRefresh: boolean) => {
       if (!listingId) {
-        setError(isTagalog ? 'Walang listing ID.' : 'Missing listing ID.');
+        setError(t('ftx.missingId'));
         setLoading(false);
         return;
       }
@@ -139,7 +126,7 @@ export default function FarmerListingTransactionsScreen() {
           fetchListingPurchaseOutcomes(listingId),
         ]);
         if (!listingResult) {
-          setError(isTagalog ? 'Hindi makita ang listing.' : 'Listing not found.');
+          setError(t('ftx.listingNotFound'));
           setListing(null);
           setOutcomes([]);
           return;
@@ -153,19 +140,13 @@ export default function FarmerListingTransactionsScreen() {
         const names = await fetchCounterpartNames(buyerIds);
         setBuyerNamesById(names);
       } catch (e) {
-        setError(
-          e instanceof Error
-            ? e.message
-            : isTagalog
-              ? 'Hindi ma-load ang listahan ng transaksyon.'
-              : 'Could not load transaction list.',
-        );
+        setError(e instanceof Error ? e.message : t('ftx.listLoadError'));
       } finally {
         if (isRefresh) setRefreshing(false);
         else setLoading(false);
       }
     },
-    [listingId, isTagalog],
+    [listingId, t],
   );
 
   useEffect(() => {
@@ -177,10 +158,16 @@ export default function FarmerListingTransactionsScreen() {
       const buyerId = outcome.kind === 'matched' ? outcome.transaction.buyerId : outcome.request.buyerId;
       return {
         outcome,
-        card: toCardItem(outcome, listing ?? undefined, buyerNamesById.get(buyerId), language),
+        card: toCardItem(
+          outcome,
+          listing ?? undefined,
+          buyerNamesById.get(buyerId),
+          language,
+          t('ftx.buyerFallback'),
+        ),
       };
     });
-  }, [outcomes, listing, buyerNamesById, language]);
+  }, [outcomes, listing, buyerNamesById, language, t]);
 
   const activeFilterCount = appliedFilter === 'all' ? 0 : 1;
 
@@ -217,19 +204,17 @@ export default function FarmerListingTransactionsScreen() {
     setModalOpen(false);
   };
 
+  const hasSearch = searchQuery.trim() !== '';
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <View style={styles.screen}>
       <StatusBar style="dark" />
-      <BackHeader
-        title={isTagalog ? "Listahan ng Transaksyon" : "Transaction List"}
-      />
+      <V2BackHeader title={t('ftx.listTitle')} backLabel={t('ftx.back')} onBack={() => router.back()} />
 
       <SearchFilterBar
         value={searchQuery}
         onChangeText={setSearchQuery}
-        placeholder={
-          isTagalog ? "Pangalan, presyo, katayuan..." : "Name, price, status..."
-        }
+        placeholder={t('ftx.searchPlaceholder')}
         activeFilterCount={activeFilterCount}
         onFilterPress={openModal}
       />
@@ -239,21 +224,15 @@ export default function FarmerListingTransactionsScreen() {
         onClose={() => setModalOpen(false)}
         onReset={resetFilters}
         onApply={applyFilters}
-        activeCount={draftFilter === "all" ? 0 : 1}
-      >
+        activeCount={draftFilter === 'all' ? 0 : 1}>
         <View style={styles.filterSection}>
-          <AnimoText
-            variant="bodyEmphasis"
-            color={AnimoColors.textHighEmphasis}
-          >
-            {isTagalog ? "Katayuan" : "Status"}
-          </AnimoText>
+          <AnimoText variant="bodyStrong">{t('ftx.filterStatus')}</AnimoText>
           <View style={styles.chipsWrap}>
             {STATUS_FILTERS.map((choice) => (
-              <FilterChoiceChip
+              <FilterChip
                 key={choice.value}
-                label={isTagalog ? choice.tl : choice.en}
-                active={draftFilter === choice.value}
+                label={t(choice.labelKey)}
+                selected={draftFilter === choice.value}
                 onPress={() => setDraftFilter(choice.value)}
               />
             ))}
@@ -263,30 +242,30 @@ export default function FarmerListingTransactionsScreen() {
 
       {loading ? (
         <View style={styles.centerFill}>
-          <ActivityIndicator color={AnimoColors.accentPrimary} />
+          <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
         </View>
       ) : error ? (
         <View style={styles.centerFill}>
-          <AnimoText variant="body" color={AnimoColors.danger}>
+          <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg} style={styles.centerText}>
             {error}
           </AnimoText>
         </View>
       ) : (
         <FlatList
-          style={styles.scroll}
+          style={styles.flex}
           data={filteredData}
           keyExtractor={({ card }, index) => `${card.referenceId}-${index}`}
           renderItem={({ item: { outcome, card } }) => (
             <TransactionCard
               item={card}
               onPress={() =>
-                deriveDisplayStage(outcome) === "request_pending"
+                deriveDisplayStage(outcome) === 'request_pending'
                   ? router.push({
-                      pathname: "/(farmer)/listing-detail",
-                      params: { id: listingId, tab: "orders" },
+                      pathname: '/(farmer)/listing-detail',
+                      params: { id: listingId, tab: 'orders' },
                     })
                   : router.push({
-                      pathname: "/(farmer)/transaksyon/[id]",
+                      pathname: '/(farmer)/transaksyon/[id]',
                       params: { id: card.id },
                     })
               }
@@ -294,12 +273,7 @@ export default function FarmerListingTransactionsScreen() {
           )}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => load(true)}
-            />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
           ListHeaderComponent={
             listing ? (
               <PalayInformationCard
@@ -307,76 +281,31 @@ export default function FarmerListingTransactionsScreen() {
                 expanded={infoExpanded}
                 onToggle={() => setInfoExpanded((v) => !v)}
                 lang={language}
-                isTagalog={isTagalog}
               />
             ) : null
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <AnimoText
-                variant="h3"
-                color={AnimoColors.textHighEmphasis}
-                style={styles.emptyTitle}
-              >
-                {searchQuery.trim()
-                  ? isTagalog
-                    ? `Walang resulta para sa "${searchQuery}"`
-                    : `No results for "${searchQuery}"`
+              <Mascot size={96} />
+              <AnimoText variant="heading" style={styles.centerText}>
+                {hasSearch
+                  ? t('ftx.noResults', { query: searchQuery })
                   : activeFilterCount > 0
-                    ? isTagalog
-                      ? "Walang transaksyon sa filter na ito."
-                      : "No transactions match this filter."
-                    : isTagalog
-                      ? "Wala pang transaksyon sa listing na ito"
-                      : "No transactions for this listing yet"}
+                    ? t('ftx.noTxFilter')
+                    : t('ftx.noTx')}
               </AnimoText>
-              <AnimoText
-                variant="body"
-                color={AnimoColors.textLowEmphasis}
-                style={styles.emptyBody}
-              >
-                {searchQuery.trim()
-                  ? isTagalog
-                    ? "Subukan ang ibang keyword o i-clear ang search."
-                    : "Try another keyword or clear search."
+              <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+                {hasSearch
+                  ? t('ftx.noResultsHint')
                   : activeFilterCount > 0
-                    ? isTagalog
-                      ? "Subukan ang ibang katayuan o i-clear ang filter."
-                      : "Try another status or clear the filter."
-                    : isTagalog
-                      ? "Kapag may bumili, lalabas dito ang kanilang mga kahilingan at bayad."
-                      : "When buyers place requests, their orders and payments will appear here."}
+                    ? t('ftx.noTxFilterHint')
+                    : t('ftx.noTxHint')}
               </AnimoText>
             </View>
           }
         />
       )}
-    </SafeAreaView>
-  );
-}
-
-function FilterChoiceChip({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={[styles.chipItem, active && styles.chipItemActive]}>
-      <AnimoText
-        variant="body"
-        color={active ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
-        style={active ? styles.chipTextActive : undefined}>
-        {label}
-      </AnimoText>
-    </Pressable>
+    </View>
   );
 }
 
@@ -385,191 +314,133 @@ function PalayInformationCard({
   expanded,
   onToggle,
   lang = 'tl',
-  isTagalog = true,
 }: {
   listing: CropListing;
   expanded: boolean;
   onToggle: () => void;
   lang?: 'tl' | 'en';
-  isTagalog?: boolean;
 }) {
+  const { t } = useLanguage();
   const specificVariety = specificVarietyDisplay(listing);
+  const iconProps = { size: 22, color: AnimoV2Colors.textBrand, strokeWidth: 2.25 } as const;
   const rows: { key: string; icon: ReactNode; label: string; value: string }[] = [
     {
       key: 'variety',
-      icon: <Sprout size={16} color={AnimoColors.textMediumEmphasis} />,
-      label: isTagalog ? 'Uri ng palay' : 'Palay variety',
+      icon: <Sprout {...iconProps} />,
+      label: t('ftx.infoVariety'),
       value: varietyLabel(listing, lang),
     },
     ...(specificVariety
       ? [
           {
             key: 'specificVariety',
-            icon: <Sprout size={16} color={AnimoColors.textMediumEmphasis} />,
-            label: isTagalog ? 'Tiyak na uri ng palay' : 'Specific variety',
+            icon: <Sprout {...iconProps} />,
+            label: t('ftx.infoSpecific'),
             value: specificVariety,
           },
         ]
       : []),
     {
       key: 'moisture',
-      icon: <Droplets size={16} color={AnimoColors.textMediumEmphasis} />,
-      label: 'Moisture',
+      icon: <Droplets {...iconProps} />,
+      label: t('ftx.infoMoisture'),
       value: moistureLabel(listing.declaredMoisture, lang),
     },
     {
       key: 'purity',
-      icon: <ShieldCheck size={16} color={AnimoColors.textMediumEmphasis} />,
-      label: isTagalog ? 'Kalidad' : 'Quality grade',
+      icon: <ShieldCheck {...iconProps} />,
+      label: t('ftx.infoGrade'),
       value: purityLabel(listing.declaredPurityGrade, lang),
     },
     {
       key: 'weight',
-      icon: <Scale size={16} color={AnimoColors.textMediumEmphasis} />,
-      label: isTagalog ? 'Aktwal na timbang' : 'Actual weight',
+      icon: <Scale {...iconProps} />,
+      label: t('ftx.infoWeight'),
       value: `${listing.netWeightKg} kg`,
     },
   ];
+  const Chevron = expanded ? ChevronUp : ChevronDown;
 
   return (
-    <View style={styles.infoCard}>
-      <Pressable accessibilityRole="button" onPress={onToggle} style={styles.infoHeader}>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-          {isTagalog ? 'Impormasyon ng Palay' : 'Palay Information'}
-        </AnimoText>
-        {expanded ? (
-          <ChevronUp size={20} color={AnimoColors.textMediumEmphasis} />
-        ) : (
-          <ChevronDown size={20} color={AnimoColors.textMediumEmphasis} />
-        )}
-      </Pressable>
+    <View style={styles.infoWrap}>
+      <DepthCard depth="flat">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+          accessibilityLabel={t('ftx.palayInfo')}
+          onPress={onToggle}
+          style={styles.infoHeader}>
+          <AnimoText variant="subheading">{t('ftx.palayInfo')}</AnimoText>
+          <Chevron size={24} color={AnimoV2Colors.textSecondary} strokeWidth={2.75} />
+        </Pressable>
 
-      {expanded ? (
-        <>
-          <AnimoText variant="h3" color={AnimoColors.accentPrimary} style={styles.infoTitle}>
-            {listingTitle(listing)}
-          </AnimoText>
-          <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.infoSectionLabel}>
-            {isTagalog ? 'Ibang Impormasyon:' : 'Other Information:'}
-          </AnimoText>
-          {rows.map((row) => (
-            <View key={row.key} style={styles.infoRow}>
-              <View style={styles.infoRowLeft}>
-                {row.icon}
-                <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                  {row.label}
-                </AnimoText>
+        {expanded ? (
+          <View style={styles.infoBody}>
+            <AnimoText variant="heading" color={AnimoV2Colors.textBrand}>
+              {listingTitle(listing)}
+            </AnimoText>
+            {rows.map((row) => (
+              <View key={row.key}>
+                <View style={styles.divider} />
+                <View style={styles.infoRow}>
+                  {row.icon}
+                  <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.flex}>
+                    {row.label}
+                  </AnimoText>
+                  <AnimoText variant="bodyStrong" style={styles.infoValue}>
+                    {row.value}
+                  </AnimoText>
+                </View>
               </View>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                {row.value}
+            ))}
+            <View style={styles.priceBar}>
+              <AnimoText variant="bodyStrong" color={AnimoV2Colors.textOnBrand}>
+                {t('ftx.fairPrice')}
+              </AnimoText>
+              <AnimoText variant="priceV2" color={AnimoV2Colors.textOnBrand}>
+                {listing.pricePerKg !== null ? `${formatPeso(listing.pricePerKg)}/kg` : '—'}
               </AnimoText>
             </View>
-          ))}
-          <View style={styles.priceFooter}>
-            <AnimoText variant="body" color={AnimoColors.textHighEmphasisInverse}>
-              {isTagalog ? 'Patas na presyo:' : 'Fair price:'}
-            </AnimoText>
-            <AnimoText variant="h3" color={AnimoColors.textHighEmphasisInverse}>
-              {listing.pricePerKg !== null ? `${formatPeso(listing.pricePerKg)}/kg` : '—'}
-            </AnimoText>
           </View>
-        </>
-      ) : null}
+        ) : null}
+      </DepthCard>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: AnimoColors.appBackground },
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  flex: { flex: 1, minWidth: 0 },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: SCREEN_PADDING },
-  scroll: { flex: 1 },
-  list: {
-    paddingHorizontal: SCREEN_PADDING,
-    paddingBottom: AnimoSpacing.xxl,
-  },
-  infoCard: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    padding: AnimoSpacing.lg,
-    marginBottom: AnimoSpacing.md,
-    overflow: 'hidden',
-  },
+  centerText: { textAlign: 'center' },
+  list: { paddingHorizontal: SCREEN_PADDING, paddingTop: AnimoV2Spacing.sm, paddingBottom: AnimoV2Spacing.xxl },
+  infoWrap: { marginBottom: AnimoV2Spacing.lg },
   infoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    // marginBottom: AnimoSpacing.sm,
+    minHeight: 56,
+    paddingHorizontal: AnimoV2Spacing.lg,
   },
-  infoTitle: {
-    marginTop: AnimoSpacing.md,
-    marginBottom: AnimoSpacing.md,
-  },
-  infoSectionLabel: {
-    marginBottom: AnimoSpacing.sm,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: AnimoSpacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: AnimoColors.borderLowEmphasis,
-  },
-  infoRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.sm,
-    flex: 1,
-    paddingRight: AnimoSpacing.md,
-  },
-  priceFooter: {
-    marginTop: AnimoSpacing.md,
-    marginHorizontal: -AnimoSpacing.lg,
-    marginBottom: -AnimoSpacing.lg,
-    backgroundColor: AnimoColors.accentPrimary,
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.md,
+  infoBody: { paddingHorizontal: AnimoV2Spacing.lg, paddingBottom: AnimoV2Spacing.lg, gap: AnimoV2Spacing.sm },
+  divider: { height: 2, borderRadius: 2, backgroundColor: AnimoV2Colors.borderDefault, marginBottom: AnimoV2Spacing.sm },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  infoValue: { flexShrink: 1, textAlign: 'right' },
+  priceBar: {
+    marginTop: AnimoV2Spacing.sm,
+    padding: AnimoV2Spacing.md,
+    borderRadius: AnimoV2Radius.md,
+    backgroundColor: AnimoV2Colors.actionPrimary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  filterSection: {
-    gap: AnimoSpacing.sm,
-  },
-  chipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: AnimoSpacing.sm,
-    marginTop: 2,
-  },
-  chipItem: {
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: 10,
-    borderRadius: AnimoRadius.pill,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: AnimoColors.surfacePrimary,
-  },
-  chipItemActive: {
-    borderColor: AnimoColors.accentPrimary,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-  },
-  chipTextActive: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-    color: AnimoColors.accentPrimary,
-  },
+  filterSection: { gap: AnimoV2Spacing.sm },
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: AnimoV2Spacing.sm },
   empty: {
     alignItems: 'center',
-    marginTop: AnimoSpacing.xl,
-    paddingHorizontal: AnimoSpacing.lg,
-  },
-  emptyTitle: {
-    textAlign: 'center',
-  },
-  emptyBody: {
-    textAlign: 'center',
-    marginTop: AnimoSpacing.sm,
+    gap: AnimoV2Spacing.md,
+    paddingTop: AnimoV2Spacing.xl,
+    paddingHorizontal: AnimoV2Spacing.lg,
   },
 });

@@ -16,6 +16,8 @@ import {
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ConsoleLayout } from "@/components/console-layout";
+import { LoadingBar } from "@/components/loading-bar";
+import { Skeleton } from "@/components/skeleton";
 import { useLanguage } from "@/hooks/use-language";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useAuth } from "@/lib/auth-context";
@@ -145,13 +147,18 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
 
   const appInfo = useMemo(
     () => [
-      { label: isTagalog ? "Bersyon" : "Version", value: "ANIMO LGU 1.4.0" },
+      {
+        label: isTagalog ? "Bersyon" : "Version",
+        value: "ANIMO LGU 1.4.0",
+        loading: false,
+      },
       {
         label: isTagalog ? "Pinakabagong datos ng presyo" : "Latest price data",
         value: latestPriceData,
+        loading,
       },
     ],
-    [isTagalog, latestPriceData],
+    [isTagalog, latestPriceData, loading],
   );
 
   // Desktop keeps the original style objects; overrides apply only at ≤1024px / ≤640px.
@@ -233,7 +240,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
         </div>
       )}
 
-      {loading ? <p style={styles.loadNotice}>{t("common.loading")}</p> : null}
+      {loading ? <LoadingBar /> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
 
       <div style={gridStyle}>
@@ -269,15 +276,21 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
               value="Municipal Agriculture Officer"
             />
             <DetailRow label={t("common.email")} value={email} />
-            <DetailRow label={t("settings.contact")} value={contactNumber} />
+            <DetailRow
+              label={t("settings.contact")}
+              value={contactNumber}
+              loading={loading}
+            />
             <DetailRow
               label={isTagalog ? "Petsa ng Rehistro:" : "Date Registered:"}
               value={registeredDate}
+              loading={loading}
             />
             <DetailRow label={t("settings.office")} value="Antipolo, Rizal" />
             <DetailRow
               label={t("settings.coverage")}
               value={barangayCoverage}
+              loading={loading}
             />
           </dl>
 
@@ -413,6 +426,7 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
                     key={info.label}
                     label={info.label}
                     value={info.value}
+                    loading={info.loading}
                   />
                 ))}
               </dl>
@@ -868,11 +882,21 @@ export function SettingsPage({ onSignOut }: SettingsPageProps) {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({
+  label,
+  value,
+  loading = false,
+}: {
+  label: string;
+  value: string;
+  loading?: boolean;
+}) {
   return (
     <div style={styles.detailRow}>
       <dt style={styles.detailLabel}>{label}</dt>
-      <dd style={styles.detailValue}>{value}</dd>
+      <dd style={styles.detailValue}>
+        {loading ? <Skeleton width={120} /> : value}
+      </dd>
     </div>
   );
 }
@@ -936,11 +960,6 @@ const styles: Record<string, React.CSSProperties> = {
   gridOneColumn: { gridTemplateColumns: "minmax(0, 1fr)" },
   // Mobile (≤640px): matches the 16px gutter and card padding used on the dashboard.
   panelMobile: { padding: 16 },
-  loadNotice: {
-    margin: "0 0 12px",
-    color: "var(--animo-black-secondary)",
-    fontSize: 14,
-  },
   errorNotice: {
     margin: "0 0 12px",
     color: "var(--animo-danger)",
@@ -1034,6 +1053,9 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     color: "var(--animo-black)",
     textAlign: "right",
+    margin: 0,
+    minWidth: 0,
+    overflowWrap: "anywhere",
   },
   sectionHeading: {
     fontSize: 16,

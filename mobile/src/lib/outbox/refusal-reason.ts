@@ -1,3 +1,5 @@
+import { isSuspensionNotice } from '../suspension.ts';
+
 /**
  * Plain-language reason for a saved action the server refused. The match is on
  * the database message that outbox-store kept in lastError.
@@ -51,6 +53,7 @@ const REASONS: { match: RegExp; tl: string; en: string }[] = [
 ];
 
 export function refusalReason(lastError: string | null, isTagalog: boolean): string {
+  if (lastError && isSuspensionNotice(lastError)) return lastError;
   const hit = lastError ? REASONS.find((reason) => reason.match.test(lastError)) : undefined;
   if (hit) return isTagalog ? hit.tl : hit.en;
   return isTagalog

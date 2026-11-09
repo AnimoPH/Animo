@@ -1,13 +1,15 @@
-import { TriangleAlert, X } from 'lucide-react-native';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AlertTriangle, X } from 'lucide-react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { V2Dialog } from '@/components/animo/ui/dialog';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
 
 export type CancelRequestModalProps = {
   visible: boolean;
-  /** Headline, e.g. "Kanselahin ang request?" */
+  /** Headline, e.g. "Kanselahin ang kahilingan?" */
   title: string;
   /** What cancelling does at this stage. */
   body: string;
@@ -24,10 +26,9 @@ export type CancelRequestModalProps = {
 };
 
 /**
- * Confirmation sheet for cancelling a purchase request.
+ * Confirmation dialog for cancelling a purchase request.
  *
- * The consequences differ by stage — before the downpayment nothing is at
- * stake, after it money is already in escrow — so the caller supplies them
+ * The consequences differ by stage, so the caller supplies them
  * rather than this component assuming.
  */
 export function CancelRequestModal({
@@ -43,141 +44,49 @@ export function CancelRequestModal({
   const { t } = useLanguage();
 
   return (
-    <Modal
+    <V2Dialog
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onDismiss}>
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
-          <View style={styles.iconCircle}>
-            <TriangleAlert size={28} color={AnimoColors.danger} />
-          </View>
-
-          <AnimoText variant="h2" color={AnimoColors.black} style={styles.center}>
-            {title}
-          </AnimoText>
-
-          <AnimoText
-            variant="body"
-            color={AnimoColors.blackSecondary}
-            style={styles.center}>
-            {body}
-          </AnimoText>
-
-          {consequences.length > 0 ? (
-            <ScrollView
-              style={styles.consequenceBox}
-              contentContainerStyle={styles.consequenceInner}
-              showsVerticalScrollIndicator={false}>
-              {consequences.map((line) => (
-                <View key={line} style={styles.consequenceRow}>
-                  <View style={styles.bullet} />
-                  <AnimoText
-                    variant="caption"
-                    color={AnimoColors.blackSecondary}
-                    style={styles.flex}>
-                    {line}
-                  </AnimoText>
-                </View>
-              ))}
-            </ScrollView>
-          ) : null}
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={onConfirm}
-            style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}>
-            <X size={20} color={AnimoColors.white} />
-            <AnimoText variant="button" color={AnimoColors.white}>
-              {confirmLabel}
-            </AnimoText>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={onDismiss}
-            style={({ pressed }) => [styles.dismissButton, pressed && styles.pressed]}>
-            <AnimoText variant="button" color={AnimoColors.black}>
-              {dismissLabel ?? t('modal.dontProceed')}
-            </AnimoText>
-          </Pressable>
+      onClose={onDismiss}
+      icon={AlertTriangle}
+      iconTone="danger"
+      title={title}
+      message={body}
+      actions={
+        <>
+          <ChunkyButton variant="danger" icon={X} label={confirmLabel} onPress={onConfirm} />
+          <ChunkyButton variant="secondary" label={dismissLabel ?? t('modal.dontProceed')} onPress={onDismiss} />
+        </>
+      }>
+      {consequences.length > 0 ? (
+        <View style={styles.consequenceBox}>
+          {consequences.map((line) => (
+            <View key={line} style={styles.consequenceRow}>
+              <View style={styles.bullet} />
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={styles.flex}>
+                {line}
+              </AnimoText>
+            </View>
+          ))}
         </View>
-      </View>
-    </Modal>
+      ) : null}
+    </V2Dialog>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
-    paddingHorizontal: AnimoSpacing.xl,
-  },
-  sheet: {
-    backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.xl,
-    gap: AnimoSpacing.md,
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: AnimoColors.dangerTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  center: {
-    textAlign: 'center',
-  },
   consequenceBox: {
-    width: '100%',
-    maxHeight: 168,
-    backgroundColor: AnimoColors.surface,
-    borderRadius: AnimoRadius.md,
+    backgroundColor: AnimoV2Colors.surfaceMuted,
+    borderRadius: AnimoV2Radius.lg,
+    padding: AnimoV2Spacing.md,
+    gap: AnimoV2Spacing.sm,
   },
-  consequenceInner: {
-    padding: AnimoSpacing.md,
-    gap: AnimoSpacing.sm,
-  },
-  consequenceRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: AnimoSpacing.sm,
-  },
+  consequenceRow: { flexDirection: 'row', alignItems: 'flex-start', gap: AnimoV2Spacing.sm },
   bullet: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: AnimoColors.muted,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: AnimoV2Colors.dangerSolid,
     marginTop: 6,
   },
-  flex: {
-    flex: 1,
-  },
-  confirmButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: AnimoSpacing.sm,
-    width: '100%',
-    height: 56,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.danger,
-  },
-  dismissButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: 52,
-    borderRadius: AnimoRadius.pill,
-    borderWidth: 1.5,
-    borderColor: AnimoColors.border,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
+  flex: { flex: 1 },
 });

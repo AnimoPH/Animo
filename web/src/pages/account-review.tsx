@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { LoadingBar } from '@/components/loading-bar';
+import { Skeleton, SkeletonTableRows } from '@/components/skeleton';
 import { barangayLabel } from '@/lib/barangay-label';
 import { useLanguage } from '@/hooks/use-language';
 import {
@@ -173,6 +175,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
       }));
   }, [reviews, isTagalog]);
 
+  const showSkeleton = loading && profile === null;
   const name = profile?.fullName ?? '—';
   const initials =
     profile?.fullName
@@ -232,7 +235,7 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
       title={`${t('review.title')}: ${name}`}
       subtitle={`${t('review.subtitle')} · ${isFarmer ? t('review.farmerRole') : t('review.buyerRole')} (${userId})`}
       onSignOut={onSignOut}>
-      {loading ? <p style={styles.loadNotice}>{t('common.loading')}</p> : null}
+      {loading ? <LoadingBar /> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
 
       {/* Back Button */}
@@ -284,11 +287,11 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                 background: isFarmer ? 'var(--animo-green-tint)' : '#EFF6FF',
                 color: isFarmer ? 'var(--animo-green)' : '#2563EB',
               }}>
-              {initials}
+              {showSkeleton ? null : initials}
             </span>
             <div>
               <div style={styles.nameRow}>
-                <h2 style={styles.profileName}>{name}</h2>
+                <h2 style={styles.profileName}>{showSkeleton ? <Skeleton width={180} height={24} /> : name}</h2>
                 <span
                   style={{
                     ...styles.statusPill,
@@ -354,10 +357,10 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
 
         {/* Metadata Details Grid */}
         <div style={styles.metaGrid}>
-          <MetaItem icon={Phone} label={isTagalog ? 'Numero ng Telepono' : 'Phone Number'} value={phone} />
-          <MetaItem icon={MapPin} label={isTagalog ? 'Barangay / Lokasyon' : 'Barangay / Location'} value={barangay} />
-          <MetaItem icon={Calendar} label={isTagalog ? 'Petsa ng Rehistro' : 'Date Registered'} value={registeredDate} />
-          <MetaItem
+          <MetaItem loading={showSkeleton} icon={Phone} label={isTagalog ? 'Numero ng Telepono' : 'Phone Number'} value={phone} />
+          <MetaItem loading={showSkeleton} icon={MapPin} label={isTagalog ? 'Barangay / Lokasyon' : 'Barangay / Location'} value={barangay} />
+          <MetaItem loading={showSkeleton} icon={Calendar} label={isTagalog ? 'Petsa ng Rehistro' : 'Date Registered'} value={registeredDate} />
+          <MetaItem loading={showSkeleton}
             icon={Star}
             label="Rating Score"
             value={
@@ -440,7 +443,9 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
           <div style={styles.divider} />
 
           <div style={styles.reviewsList}>
-            {reviews.length === 0 ? (
+            {showSkeleton ? (
+              <ReviewCardSkeletons />
+            ) : reviews.length === 0 ? (
               <p style={styles.emptyNotice}>
                 {isTagalog
                   ? 'Wala pang natatanggap na review ang account na ito.'
@@ -497,7 +502,9 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
           </div>
 
           <div style={styles.reportsList}>
-            {reports.length === 0 ? (
+            {showSkeleton ? (
+              <ReviewCardSkeletons />
+            ) : reports.length === 0 ? (
               <div style={styles.emptyReportsBox}>
                 <CheckCircle2 size={36} color="var(--animo-green)" />
                 <p style={styles.emptyNotice}>
@@ -574,7 +581,9 @@ export function AccountReviewPage({ onSignOut }: AccountReviewPageProps) {
                 </tr>
               </thead>
               <tbody>
-                {transactions.length === 0 ? (
+                {showSkeleton ? (
+                  <SkeletonTableRows columns={7} rows={3} cellStyle={styles.td} />
+                ) : transactions.length === 0 ? (
                   <tr>
                     <td colSpan={7} style={{ ...styles.td, textAlign: 'center', color: 'var(--animo-muted)' }}>
                       {isTagalog ? 'Walang nakatalang transaksyon kamakailan.' : 'No recent transactions recorded.'}
@@ -745,10 +754,12 @@ function MetaItem({
   icon: Icon,
   label,
   value,
+  loading = false,
 }: {
   icon: any;
   label: string;
   value: string;
+  loading?: boolean;
 }) {
   return (
     <div style={styles.metaItem}>
@@ -757,20 +768,29 @@ function MetaItem({
       </span>
       <div>
         <span style={styles.metaLabel}>{label}</span>
-        <span style={styles.metaValue}>{value}</span>
+        <span style={styles.metaValue}>{loading ? <Skeleton width={110} /> : value}</span>
       </div>
     </div>
+  );
+}
+
+function ReviewCardSkeletons() {
+  return (
+    <>
+      {[0, 1].map((index) => (
+        <div key={index} style={styles.reviewCard}>
+          <Skeleton width={140} height={16} />
+          <Skeleton width={96} height={12} />
+          <Skeleton width="80%" />
+        </div>
+      ))}
+    </>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
   topBackRow: {
     marginBottom: -8,
-  },
-  loadNotice: {
-    margin: '0 0 12px',
-    color: 'var(--animo-black-secondary)',
-    fontSize: 14,
   },
   errorNotice: {
     margin: '0 0 12px',

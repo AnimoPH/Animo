@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 
 import { ConsoleLayout } from '@/components/console-layout';
+import { LoadingBar } from '@/components/loading-bar';
+import { Skeleton, SkeletonTableRows } from '@/components/skeleton';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useLanguage } from '@/hooks/use-language';
 import {
@@ -112,6 +114,8 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
   const activeCount = buyersList.filter((b) => b.status === 'active').length;
   const suspendedCount = buyersList.filter((b) => b.status === 'suspended').length;
 
+  const showSkeleton = loading && buyersList.length === 0;
+
   return (
     <ConsoleLayout
       title={t('buyers.title')}
@@ -119,16 +123,19 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
       onSignOut={onSignOut}>
       <section style={styles.summaryRow}>
         <SummaryCard
+          loading={showSkeleton}
           label={isTagalog ? 'Kabuuang Nakarehistro' : 'Total Registered'}
           value={String(buyersList.length)}
           unit={isTagalog ? 'mamimili' : 'buyers'}
         />
         <SummaryCard
+          loading={showSkeleton}
           label={isTagalog ? 'Aktibo' : 'Active'}
           value={String(activeCount)}
           unit={isTagalog ? 'aktibong bumibili' : 'active buyers'}
         />
         <SummaryCard
+          loading={showSkeleton}
           label={isTagalog ? 'Suspendido' : 'Suspended'}
           value={String(suspendedCount)}
           unit={isTagalog ? 'may paglabag' : 'with violations'}
@@ -136,7 +143,7 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
         />
       </section>
 
-      {loading ? <p style={styles.loadNotice}>{t('common.loading')}</p> : null}
+      {loading ? <LoadingBar /> : null}
       {loadError ? <p style={styles.errorNotice}>{loadError}</p> : null}
 
       <article className="animo-card" style={styles.panel}>
@@ -199,7 +206,9 @@ export function BuyersPage({ onSignOut }: BuyersPageProps) {
               </tr>
             </thead>
             <tbody>
-              {filteredBuyers.length === 0 ? (
+              {showSkeleton ? (
+                <SkeletonTableRows columns={6} cellStyle={styles.td} />
+              ) : filteredBuyers.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
@@ -235,16 +244,18 @@ function SummaryCard({
   value,
   unit,
   unitColor,
+  loading = false,
 }: {
   label: string;
   value: string;
   unit: string;
   unitColor?: string;
+  loading?: boolean;
 }) {
   return (
     <article className="animo-card" style={styles.summaryCard}>
       <span style={styles.summaryLabel}>{label}</span>
-      <span style={styles.summaryValue}>{value}</span>
+      <span style={styles.summaryValue}>{loading ? <Skeleton width={56} height={32} /> : value}</span>
       <span style={{ ...styles.summaryUnit, color: unitColor || 'var(--animo-muted)' }}>{unit}</span>
     </article>
   );
@@ -323,11 +334,6 @@ const styles: Record<string, React.CSSProperties> = {
   summaryLabel: { fontSize: 14, fontWeight: 600, color: 'var(--animo-black-secondary)' },
   summaryValue: { fontSize: 32, fontWeight: 800, lineHeight: '38px' },
   summaryUnit: { fontSize: 13, color: 'var(--animo-muted)' },
-  loadNotice: {
-    margin: '0 0 12px',
-    color: 'var(--animo-black-secondary)',
-    fontSize: 14,
-  },
   errorNotice: {
     margin: '0 0 12px',
     color: 'var(--animo-danger)',

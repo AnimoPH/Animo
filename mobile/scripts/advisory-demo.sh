@@ -6,7 +6,7 @@
 # Before the demo (once):
 #   1. Log a crop for the demo farmer in the app (Itala ang Taniman). For
 #      Advance Cut the planting date must be at least 102 days ago for Inbred
-#      or Organic (94 for Hybrid, 104 for Specialty). A planting date closer
+#      (94 for Hybrid, 104 for Specialty). A planting date closer
 #      to today gives Delayed Harvest. The date picker allows past dates.
 #   2. Turn the switch on:   npx supabase secrets set ADVISORY_FIXTURES_ENABLED=true
 #      and redeploy once:    npx supabase functions deploy refresh-advisory --no-verify-jwt

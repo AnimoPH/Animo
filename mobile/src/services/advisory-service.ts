@@ -12,19 +12,17 @@ import { requireAuthUserId } from '@/services/crop-listing-service';
  * not a second source of truth for the decision.
  */
 
-export type RiceTypeCategory = 'Hybrid' | 'Inbred' | 'Organic' | 'Specialty';
+export type RiceTypeCategory = 'Hybrid' | 'Inbred' | 'Specialty';
 
 export const RICE_TYPE_OPTIONS_TL: { value: RiceTypeCategory; label: string }[] = [
   { value: 'Inbred', label: 'Inbred' },
   { value: 'Hybrid', label: 'Hybrid' },
-  { value: 'Organic', label: 'Organiko (Organic)' },
   { value: 'Specialty', label: 'Espesyal (Specialty)' },
 ];
 
 export const RICE_TYPE_OPTIONS_EN: { value: RiceTypeCategory; label: string }[] = [
   { value: 'Inbred', label: 'Inbred' },
   { value: 'Hybrid', label: 'Hybrid' },
-  { value: 'Organic', label: 'Organic' },
   { value: 'Specialty', label: 'Specialty' },
 ];
 
@@ -37,7 +35,6 @@ export function getRiceTypeOptions(lang: 'tl' | 'en' = 'tl'): { value: RiceTypeC
 const MATURITY_DAYS: Record<RiceTypeCategory, number> = {
   Hybrid: 110,
   Inbred: 120,
-  Organic: 120,
   Specialty: 122,
 };
 

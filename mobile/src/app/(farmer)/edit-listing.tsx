@@ -1,21 +1,26 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Image } from 'expo-image';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, X } from 'lucide-react-native';
+import { Lock } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { BackHeader } from '@/components/animo/back-header';
-import { LabeledInput } from '@/components/animo/labeled-input';
-import { PhotoSourceSheet } from '@/components/animo/photo-source-sheet';
-import { SelectField } from '@/components/animo/select-field';
-import { SpecificVarietyField } from '@/components/animo/specific-variety-field';
-import { SegmentedChoice } from '@/components/animo/segmented-choice';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import {
+  InlineError,
+  MoistureGradeFields,
+  PhotoSlotGrid,
+  PhotoSourceSheetV2,
+  VarietyFields,
+  WeightFields,
+} from '@/components/animo/farmer/listing-form-v2';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { StickyFooter, V2BackHeader } from '@/components/animo/ui/screen-bits';
+import { TextField } from '@/components/animo/ui/text-field';
+import { AnimoV2Colors, AnimoV2Spacing } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
 import {
   fetchCropListing,
@@ -28,10 +33,6 @@ import {
   SPECIFIC_VARIETY_OTHER,
   getHybridSpecificVarieties,
   getInbredSpecificVarieties,
-  getMoistureOptions,
-  getPhotoSlots,
-  getPurityOptions,
-  getVarietyOptions,
   type DeclaredVariety,
   type MoistureType,
   type PhotoType,
@@ -73,7 +74,8 @@ function resolveSpecificVariety(
 /** Edit an existing listing — same fields as create; locks non-cosmetic when an active deal exists. */
 export default function EditListingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { language, isTagalog } = useLanguage();
+  const { t, language, isTagalog } = useLanguage();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | undefined>();
   const [cosmeticOnly, setCosmeticOnly] = useState(false);
@@ -84,7 +86,6 @@ export default function EditListingScreen() {
   const [listingName, setListingName] = useState('');
   const [customVariety, setCustomVariety] = useState('');
   const [specificVariety, setSpecificVariety] = useState<SpecificVarietyOption | null>(null);
-  const [specificVarietyOpen, setSpecificVarietyOpen] = useState(false);
   const [specificVarietyCustom, setSpecificVarietyCustom] = useState('');
   const [moistureType, setMoistureType] = useState<MoistureType>('Dry');
   const [purityGrade, setPurityGrade] = useState<PurityGrade | ''>('');
@@ -290,308 +291,151 @@ export default function EditListingScreen() {
     }
   };
 
-  const photoSlots = getPhotoSlots(language);
+  const title = t('wizV2.editTitle');
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <BackHeader title={isTagalog ? 'I-edit ang Listing' : 'Edit Listing'} />
+      <View style={styles.screen}>
+        <V2BackHeader title={title} backLabel={t('wizV2.back')} onBack={() => router.back()} />
         <View style={styles.center}>
-          <ActivityIndicator color={AnimoColors.accentPrimary} />
+          <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (loadError) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <BackHeader title={isTagalog ? 'I-edit ang Listing' : 'Edit Listing'} />
+      <View style={styles.screen}>
+        <V2BackHeader title={title} backLabel={t('wizV2.back')} onBack={() => router.back()} />
         <View style={styles.center}>
-          <AnimoText variant="body" color={AnimoColors.danger}>
-            {loadError}
-          </AnimoText>
+          <InlineError message={loadError} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <BackHeader title={isTagalog ? 'I-edit ang Listing' : 'Edit Listing'} />
+    <KeyboardAvoidingView style={styles.screen} behavior={Platform.select({ ios: 'padding', default: 'height' })}>
+      <V2BackHeader title={title} backLabel={t('wizV2.back')} onBack={() => router.back()} />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
         {cosmeticOnly ? (
-          <View style={[styles.card, styles.shadow]}>
-            <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-              {isTagalog
-                ? 'May aktibong request o transaksyon ang listing na ito. Maaari mo lang baguhin ang pangalan at mga larawan; presyo, dami, uri, moisture, at kalinisan ay naka-lock.'
-                : 'This listing has active requests or deals. Only the title and photos can be edited; price, weight, variety, moisture, and purity grade are locked.'}
+          <DepthCard
+            depth="flat"
+            radius="lg"
+            backgroundColor={AnimoV2Colors.warningBg}
+            borderColor={AnimoV2Colors.warningSolid}
+            style={styles.noteCard}>
+            <IconTile icon={Lock} tone="warning" size={36} />
+            <AnimoText variant="captionV2" color={AnimoV2Colors.textPrimary} style={{ flex: 1 }}>
+              {t('wizV2.editLocked')}
             </AnimoText>
-          </View>
+          </DepthCard>
         ) : null}
 
-        <View style={[styles.card, styles.shadow]}>
-          <AnimoText variant="h3" color={AnimoColors.textHighEmphasis}>
-            {isTagalog ? 'Mga Larawan ng Palay' : 'Harvest Photos'}
-          </AnimoText>
-          <View style={styles.photoRow}>
-            {photoSlots.map((slot) => {
-              const localUri = photos[slot.value];
-              return (
-                <Pressable
-                  key={slot.value}
-                  accessibilityRole="button"
-                  onPress={() => setActiveSlot(slot.value)}
-                  style={styles.photoTile}>
-                  {localUri ? (
-                    <>
-                      <Image source={{ uri: localUri }} style={styles.photoTileImage} contentFit="cover" />
-                      {dirtyPhotoSlots.has(slot.value) ? (
-                        <Pressable
-                          accessibilityRole="button"
-                          onPress={() => handleClearPhoto(slot.value)}
-                          style={styles.photoTileClear}
-                          hitSlop={8}>
-                          <X size={12} color={AnimoColors.textHighEmphasisInverse} />
-                        </Pressable>
-                      ) : null}
-                    </>
-                  ) : (
-                    <View style={styles.photoTileIconWrap}>
-                      <Camera size={20} color={AnimoColors.accentPrimary} />
-                    </View>
-                  )}
-                  <AnimoText
-                    variant="tag"
-                    color={AnimoColors.textMediumEmphasis}
-                    style={styles.photoTileLabel}>
-                    {slot.label}
-                  </AnimoText>
-                </Pressable>
-              );
-            })}
-          </View>
+        <View style={styles.section}>
+          <AnimoText variant="subheading">{t('wizV2.photosTitle')}</AnimoText>
+          <PhotoSlotGrid
+            photos={photos}
+            onPressSlot={setActiveSlot}
+            canClear={(slot) => dirtyPhotoSlots.has(slot)}
+            onClear={handleClearPhoto}
+          />
         </View>
 
-        <View style={[styles.card, styles.shadow]}>
-          <LabeledInput
-            label={isTagalog ? 'Pangalan ng Listing' : 'Listing Name'}
+        <View style={styles.section}>
+          <AnimoText variant="subheading">{t('wizV2.detailsTitle')}</AnimoText>
+          <TextField
+            label={t('wizV2.nameLabel')}
             value={listingName}
             onChangeText={setListingName}
-            placeholder={isTagalog ? 'Hal. Palay Listing' : 'e.g. Palay Listing'}
+            placeholder={t('wizV2.namePh')}
           />
-
-          <View pointerEvents={cosmeticOnly ? 'none' : 'auto'} style={cosmeticOnly ? styles.locked : undefined}>
-            <View style={styles.inlineFieldSpacing}>
-              <SelectField
-                label={isTagalog ? 'Uri ng Palay' : 'Rice Variety'}
-                placeholder={isTagalog ? 'Pumili ng uri ng palay' : 'Select rice variety'}
-                options={getVarietyOptions(language)}
-                value={variety || null}
-                onChange={(value) => {
-                  const next = value as DeclaredVariety;
-                  setVariety(next);
-                  setCustomVariety('');
-                  setSpecificVariety(null);
+          <View
+            pointerEvents={cosmeticOnly ? 'none' : 'auto'}
+            style={[{ gap: AnimoV2Spacing.xl }, cosmeticOnly ? styles.locked : undefined]}>
+            <VarietyFields
+              variety={variety}
+              onVarietyChange={(next) => {
+                setVariety(next);
+                setCustomVariety('');
+                setSpecificVariety(null);
+                setSpecificVarietyCustom('');
+              }}
+              customVariety={customVariety}
+              onCustomVarietyChange={setCustomVariety}
+              specificOptions={specificVarietyOptions}
+              specificVariety={specificVariety}
+              onSpecificSelect={(option) => {
+                setSpecificVariety(option);
+                if (option.value !== SPECIFIC_VARIETY_OTHER) {
                   setSpecificVarietyCustom('');
-                  setSpecificVarietyOpen(next === 'Inbred' || next === 'Hybrid');
-                }}
-              />
-            </View>
-            {variety === 'Others' ? (
-              <View style={styles.inlineFieldSpacing}>
-                <LabeledInput
-                  value={customVariety}
-                  onChangeText={setCustomVariety}
-                  placeholder={isTagalog ? 'Ilagay ang pangalan ng uri' : 'Enter variety name'}
-                  editable={!cosmeticOnly}
-                />
-              </View>
-            ) : null}
-            {needsSpecificVariety ? (
-              <View style={styles.inlineFieldSpacing}>
-                <SpecificVarietyField
-                  label={isTagalog ? 'Tiyak na Uri ng Palay' : 'Specific Rice Variety'}
-                  placeholder={isTagalog ? 'Pumili ng tiyak na uri' : 'Select specific variety'}
-                  options={specificVarietyOptions}
-                  value={specificVariety?.value ?? null}
-                  open={cosmeticOnly ? false : specificVarietyOpen}
-                  onOpenChange={setSpecificVarietyOpen}
-                  onSelect={(option) => {
-                    setSpecificVariety(option);
-                    if (option.value !== SPECIFIC_VARIETY_OTHER) {
-                      setSpecificVarietyCustom('');
-                    }
-                  }}
-                />
-                {specificVariety?.value === SPECIFIC_VARIETY_OTHER ? (
-                  <View style={styles.inlineFieldSpacing}>
-                    <LabeledInput
-                      value={specificVarietyCustom}
-                      onChangeText={setSpecificVarietyCustom}
-                      placeholder={isTagalog ? 'Ilagay ang tiyak na uri' : 'Enter specific variety'}
-                      editable={!cosmeticOnly}
-                    />
-                  </View>
-                ) : null}
-              </View>
-            ) : null}
-
-            <SegmentedChoice
-              label={isTagalog ? 'Halumigmig' : 'Moisture'}
-              options={getMoistureOptions(language)}
-              value={moistureType}
-              onChange={setMoistureType}
+                }
+              }}
+              specificCustom={specificVarietyCustom}
+              onSpecificCustomChange={setSpecificVarietyCustom}
+              editable={!cosmeticOnly}
             />
-
-            <SelectField
-              label={isTagalog ? 'Kalinisan (Purity Grade)' : 'Purity Grade'}
-              placeholder={isTagalog ? 'Pumili ng kalinisan ng palay' : 'Select purity grade'}
-              options={getPurityOptions(language)}
-              value={purityGrade || null}
-              onChange={(value) => setPurityGrade(value as PurityGrade)}
+            <MoistureGradeFields
+              moisture={moistureType}
+              onMoistureChange={setMoistureType}
+              grade={purityGrade}
+              onGradeChange={setPurityGrade}
             />
           </View>
         </View>
 
         <View
           pointerEvents={cosmeticOnly ? 'none' : 'auto'}
-          style={[styles.card, styles.shadow, cosmeticOnly ? styles.locked : undefined]}>
-          <LabeledInput
-            label={isTagalog ? 'Timbang ng Palay (Gross Weight)' : 'Gross Weight'}
-            value={grossWeight}
-            onChangeText={setGrossWeight}
-            keyboardType="numeric"
-            placeholder="0"
-            suffixText={isTagalog ? 'kilo/kg' : 'kg'}
+          style={[styles.section, cosmeticOnly ? styles.locked : undefined]}>
+          <AnimoText variant="subheading">{t('wizV2.weightTitle')}</AnimoText>
+          <WeightFields
+            gross={grossWeight}
+            tare={tareWeight}
+            onGrossChange={setGrossWeight}
+            onTareChange={setTareWeight}
+            net={netWeight}
             editable={!cosmeticOnly}
           />
-          <LabeledInput
-            label={isTagalog ? 'Timbang ng Sako at iba pa (Tare Weight)' : 'Tare Weight (Sacks & deductibles)'}
-            value={tareWeight}
-            onChangeText={setTareWeight}
-            keyboardType="numeric"
-            placeholder="0"
-            suffixText={isTagalog ? 'kilo/kg' : 'kg'}
-            editable={!cosmeticOnly}
-          />
-          <View>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
-              {isTagalog ? 'Kabuuan (Net Weight)' : 'Net Weight'}
-            </AnimoText>
-            <View style={styles.netWeightField}>
-              <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
-                {netWeight}
-              </AnimoText>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.textLowEmphasis}>
-                {isTagalog ? 'kilo/kg' : 'kg'}
-              </AnimoText>
-            </View>
-          </View>
         </View>
 
-        {errorMessage ? (
-          <AnimoText variant="body" color={AnimoColors.danger}>
-            {errorMessage}
-          </AnimoText>
-        ) : null}
+        {errorMessage ? <InlineError message={errorMessage} /> : null}
+      </ScrollView>
 
-        <AnimoButton
-          label={isTagalog ? 'I-save' : 'Save Changes'}
-          variant="primary"
+      <StickyFooter>
+        <ChunkyButton
+          label={t('wizV2.editSave')}
           disabled={!canSubmit}
           loading={submitting}
           onPress={handleSubmit}
         />
-      </ScrollView>
+        <View style={{ height: insets.bottom }} />
+      </StickyFooter>
 
-      <PhotoSourceSheet
+      <PhotoSourceSheetV2
         visible={activeSlot !== null}
         onPickCamera={() => handlePickSource('camera')}
         onPickGallery={() => handlePickSource('gallery')}
         onClose={() => setActiveSlot(null)}
       />
-    </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.appBackground,
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: AnimoSpacing.lg,
-  },
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: AnimoV2Spacing.lg },
   scrollContent: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.lg,
-    paddingBottom: AnimoSpacing.xl,
-    gap: AnimoSpacing.xl,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.sm,
+    paddingBottom: AnimoV2Spacing.xl,
+    gap: AnimoV2Spacing.xl,
   },
-  shadow: {
-    shadowColor: AnimoColors.darkBackground,
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  card: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.xl,
-  },
-  locked: {
-    opacity: 0.55,
-  },
-  inlineFieldSpacing: {
-    marginTop: AnimoSpacing.md,
-  },
-  photoRow: {
-    flexDirection: 'row',
-    gap: AnimoSpacing.md,
-  },
-  photoTile: {
-    flex: 1,
-    aspectRatio: 1,
-    borderRadius: AnimoRadius.lg,
-    borderWidth: 1.5,
-    borderColor: AnimoColors.accentPrimary,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    backgroundColor: AnimoColors.accentPrimaryLight,
-  },
-  photoTileImage: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  photoTileClear: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  photoTileIconWrap: {
-    marginBottom: AnimoSpacing.xs,
-  },
-  photoTileLabel: {
-    textAlign: 'center',
-    paddingHorizontal: 2,
-  },
-  netWeightField: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: AnimoSpacing.sm,
-    marginTop: AnimoSpacing.xs,
-  },
+  section: { gap: AnimoV2Spacing.lg },
+  noteCard: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md, padding: AnimoV2Spacing.md },
+  locked: { opacity: 0.55 },
 });

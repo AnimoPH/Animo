@@ -1,30 +1,20 @@
-import { router, Stack, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 
-import { ProgressSteps } from "@/components/animo/farmer/progress-steps";
 import { AnimoText } from "@/components/animo/animo-text";
-import {
-  AnimoColors,
-  AnimoType,
-  AnimoSpacing,
-  AnimoRadius,
-} from "@/constants/animo";
-import { BackHeader } from "@/components/animo/back-header";
+import { AnimoV2Colors, AnimoV2Spacing } from "@/constants/animo";
 import { useLanguage } from "@/hooks/use-language";
 
-const SCREEN_PADDING = AnimoSpacing.lg;
-
 const RING_SIZE = 140;
-const RING_THICKNESS = 8;
+const RING_THICKNESS = 12;
 const RING_RADIUS = (RING_SIZE - RING_THICKNESS) / 2;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-/** Uploading — shown right after "Ipasa na"; animates 0-100% then advances to the result screen. */
+/** Uploading — shown right after publishing; animates 0-100% then advances to the result screen. */
 export default function ListingUploadingScreen() {
   const { t } = useLanguage();
   const { listingId, price } = useLocalSearchParams<{
@@ -62,133 +52,73 @@ export default function ListingUploadingScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <BackHeader title="Gumawa ng Listing" />
-
-      {/* Progress Bar */}
-      <ProgressSteps currentStep={1} />
-
-      <View style={styles.content}>
-        <View style={styles.progressWrapper}>
-          <Svg width={RING_SIZE} height={RING_SIZE}>
-            <Circle
-              cx={RING_SIZE / 2}
-              cy={RING_SIZE / 2}
-              r={RING_RADIUS}
-              stroke={AnimoColors.borderLowEmphasis}
-              strokeWidth={RING_THICKNESS}
-              fill="none"
-            />
-            <AnimatedCircle
-              cx={RING_SIZE / 2}
-              cy={RING_SIZE / 2}
-              r={RING_RADIUS}
-              stroke={AnimoColors.accentPrimary}
-              strokeWidth={RING_THICKNESS}
-              strokeDasharray={RING_CIRCUMFERENCE}
-              strokeDashoffset={strokeDashoffset}
-              strokeLinecap="round"
-              fill="none"
-              rotation="-90"
-              origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
-            />
-          </Svg>
-          <View style={styles.progressCenter}>
-            <AnimoText variant="h2" color={AnimoColors.accentPrimary}>
-              {displayPercent}%
-            </AnimoText>
-          </View>
+    <View style={styles.screen}>
+      <View
+        style={styles.progressWrapper}
+        accessible
+        accessibilityRole="progressbar"
+        accessibilityLabel={t("listing.uploadingTitle")}
+        accessibilityValue={{ min: 0, max: 100, now: displayPercent }}>
+        <Svg width={RING_SIZE} height={RING_SIZE}>
+          <Circle
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RING_RADIUS}
+            stroke={AnimoV2Colors.borderDefault}
+            strokeWidth={RING_THICKNESS}
+            fill="none"
+          />
+          <AnimatedCircle
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RING_RADIUS}
+            stroke={AnimoV2Colors.actionPrimary}
+            strokeWidth={RING_THICKNESS}
+            strokeDasharray={RING_CIRCUMFERENCE}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            fill="none"
+            rotation="-90"
+            origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+          />
+        </Svg>
+        <View style={styles.progressCenter}>
+          <AnimoText variant="title" color={AnimoV2Colors.textBrand}>
+            {displayPercent}%
+          </AnimoText>
         </View>
-
-        <AnimoText
-          variant="h1"
-          color={AnimoColors.textHighEmphasis}
-          style={styles.title}
-        >
-          {t('listing.uploadingTitle')}
-        </AnimoText>
-        <AnimoText
-          variant="body"
-          color={AnimoColors.textMediumEmphasis}
-          style={styles.body}
-        >
-          {t('listing.uploadingSubtitle')}
-        </AnimoText>
       </View>
-    </SafeAreaView>
+
+      <AnimoText variant="title" style={styles.title} accessibilityRole="header">
+        {t("listing.uploadingTitle")}
+      </AnimoText>
+      <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.body}>
+        {t("listing.uploadingSubtitle")}
+      </AnimoText>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.appBackground,
-  },
-  stepRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    paddingHorizontal: SCREEN_PADDING,
-    paddingVertical: AnimoSpacing.md,
-    backgroundColor: AnimoColors.surfacePrimary,
-  },
-  stepItem: {
-    alignItems: "center",
-    width: 72,
-  },
-  stepCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: AnimoRadius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepCircleFilled: {
-    backgroundColor: AnimoColors.accentPrimary,
-  },
-  stepCircleUpcoming: {
-    borderWidth: 1.5,
-    borderColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: "transparent",
-  },
-  stepLabel: {
-    marginTop: AnimoSpacing.xs,
-    textAlign: "center",
-  },
-  stepConnector: {
-    flex: 1,
-    height: 2,
-    marginTop: 13,
-  },
-  stepConnectorDone: {
-    backgroundColor: AnimoColors.accentPrimary,
-  },
-  stepConnectorUpcoming: {
-    backgroundColor: AnimoColors.borderLowEmphasis,
-  },
-  content: {
+  screen: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: AnimoColors.appBackground,
+    backgroundColor: AnimoV2Colors.surfaceApp,
+    paddingHorizontal: AnimoV2Spacing.xl,
   },
   progressWrapper: {
     width: RING_SIZE,
     height: RING_SIZE,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: AnimoSpacing.xl,
+    marginBottom: AnimoV2Spacing.xl,
   },
   progressCenter: {
     position: "absolute",
     alignItems: "center",
     justifyContent: "center",
   },
-  title: {
-    textAlign: "center",
-    marginBottom: AnimoSpacing.sm,
-  },
-  body: {
-    textAlign: "center",
-    paddingHorizontal: SCREEN_PADDING,
-  },
+  title: { textAlign: "center", marginBottom: AnimoV2Spacing.sm },
+  body: { textAlign: "center" },
 });

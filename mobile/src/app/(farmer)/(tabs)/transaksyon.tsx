@@ -1,37 +1,35 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Bell, ClipboardList, Filter, Search } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { AppHeader } from '@/components/animo/app-header';
 import { FilterModal } from '@/components/animo/filter-modal';
 import { ListingTransactionSummaryCard } from '@/components/animo/farmer/listing-transaction-summary-card';
+import { TransactionCard, type FarmerTransactionCardItem } from '@/components/animo/farmer/transaction-card';
 import { LabeledInput } from '@/components/animo/labeled-input';
 import { SearchFilterBar } from '@/components/animo/search-filter-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   FARMER_TXN_TUTORIAL_KEY,
   SpotlightTour,
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { FilterChip } from '@/components/animo/ui/filter-chip';
+import { Mascot } from '@/components/animo/ui/mascot';
+import { IconButton } from '@/components/animo/ui/screen-bits';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useLanguage } from '@/hooks/use-language';
 import { fetchMyCropListings } from '@/services/crop-listing-service';
+import { fetchUnreadNotificationCount } from '@/services/notification-service';
 import { fetchPurchaseRequestRollupByListing } from '@/services/purchase-request-service';
 import {
+  fetchCounterpartNames,
   fetchFarmerTransactions,
   listingLastActivityAt,
   sumCompletedEarnings,
@@ -45,9 +43,18 @@ import {
   type CropListing,
   type DeclaredVariety,
 } from '@/types/crop-listing';
-import { displayStageForMatch, isFarmerNeedsActionStage, type TransactionWithPayment } from '@/types/transaction';
+import {
+  displayStageForMatch,
+  formatDate,
+  formatReferenceId,
+  formatTime,
+  getDisplayStageLabel,
+  isFarmerNeedsActionStage,
+  type TransactionWithPayment,
+} from '@/types/transaction';
+import type { TranslationKey } from '@/i18n/translations';
 
-const SCREEN_PADDING = AnimoSpacing.lg;
+const SCREEN_PADDING = AnimoV2Spacing.lg;
 
 type StatusFilter = 'Lahat' | 'Kasalukuyan' | 'Tapos na' | 'Kailangan';
 type VarietyChoice = 'Lahat' | DeclaredVariety;
@@ -68,11 +75,11 @@ const EMPTY_FILTERS: TxnFilterDraft = {
   variety: 'Lahat',
 };
 
-const STATUS_FILTERS: { value: StatusFilter; tl: string; en: string }[] = [
-  { value: 'Lahat', tl: 'Lahat', en: 'All' },
-  { value: 'Kasalukuyan', tl: 'Kasalukuyan', en: 'Ongoing' },
-  { value: 'Tapos na', tl: 'Tapos na', en: 'Completed' },
-  { value: 'Kailangan', tl: 'Kailangan ng aksyon', en: 'Needs action' },
+const STATUS_FILTERS: { value: StatusFilter; labelKey: TranslationKey }[] = [
+  { value: 'Lahat', labelKey: 'ftx.filterAll' },
+  { value: 'Kasalukuyan', labelKey: 'ftx.filterOngoing' },
+  { value: 'Tapos na', labelKey: 'ftx.filterDone' },
+  { value: 'Kailangan', labelKey: 'ftx.filterAction' },
 ];
 
 const VARIETY_CHOICES: { value: VarietyChoice; label: string }[] = [
@@ -160,9 +167,10 @@ type ListingRollup = {
   lastActivityAt: string;
 };
 
-/** Farmer Transaksyon — per-listing rollups (kg left / sold / Buong Kita). */
+/** Farmer Transaksyon — per-listing rollups (kg left / sold / Buong Kita) then the order list. */
 export default function FarmerTransactionsScreen() {
   const { t, language, isTagalog } = useLanguage();
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [appliedFilters, setAppliedFilters] = useState<TxnFilterDraft>(EMPTY_FILTERS);
   const [draftFilters, setDraftFilters] = useState<TxnFilterDraft>(EMPTY_FILTERS);
@@ -171,8 +179,10 @@ export default function FarmerTransactionsScreen() {
 
   const [listings, setListings] = useState<CropListing[]>([]);
   const [transactions, setTransactions] = useState<TransactionWithPayment[]>([]);
+  const [buyerNames, setBuyerNames] = useState<Map<string, string>>(new Map());
   const [pendingCounts, setPendingCounts] = useState<Map<string, number>>(new Map());
   const [prLatestUpdatedAt, setPrLatestUpdatedAt] = useState<Map<string, string>>(new Map());
+  const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -180,34 +190,44 @@ export default function FarmerTransactionsScreen() {
   const searchBarRef = useRef<View>(null);
   const bellRef = useRef<View>(null);
 
-  const load = useCallback(async (isRefresh: boolean) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
-    try {
-      const [myListings, txs, prRollup] = await Promise.all([
-        fetchMyCropListings(),
-        fetchFarmerTransactions(),
-        fetchPurchaseRequestRollupByListing().catch(() => ({
-          pendingCounts: new Map<string, number>(),
-          latestUpdatedAt: new Map<string, string>(),
-        })),
-      ]);
-      setListings(myListings);
-      setTransactions(txs);
-      setPendingCounts(prRollup.pendingCounts);
-      setPrLatestUpdatedAt(prRollup.latestUpdatedAt);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : (isTagalog ? 'Hindi ma-load ang mga transaksyon.' : 'Could not load transactions.'));
-    } finally {
-      if (isRefresh) setRefreshing(false);
-      else setLoading(false);
-    }
-  }, [isTagalog]);
+  const load = useCallback(
+    async (isRefresh: boolean) => {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
+      try {
+        const [myListings, txs, prRollup] = await Promise.all([
+          fetchMyCropListings(),
+          fetchFarmerTransactions(),
+          fetchPurchaseRequestRollupByListing().catch(() => ({
+            pendingCounts: new Map<string, number>(),
+            latestUpdatedAt: new Map<string, string>(),
+          })),
+        ]);
+        setListings(myListings);
+        setTransactions(txs);
+        setPendingCounts(prRollup.pendingCounts);
+        setPrLatestUpdatedAt(prRollup.latestUpdatedAt);
+        // Buyer names are a nice-to-have for the order rows: never fail the screen over them.
+        setBuyerNames(
+          await fetchCounterpartNames(txs.map((tx) => tx.buyerId)).catch(() => new Map<string, string>()),
+        );
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t('ftx.loadError'));
+      } finally {
+        if (isRefresh) setRefreshing(false);
+        else setLoading(false);
+      }
+    },
+    [t],
+  );
 
   useFocusEffect(
     useCallback(() => {
       load(false);
+      fetchUnreadNotificationCount()
+        .then(setUnread)
+        .catch(() => {});
       let active = true;
       AsyncStorage.getItem(FARMER_TXN_TUTORIAL_KEY).then((seen) => {
         if (active) setShowTutorial(seen !== 'true');
@@ -253,6 +273,34 @@ export default function FarmerTransactionsScreen() {
       (item) => rollupMatchesFilters(item, appliedFilters) && rollupMatchesSearch(item, searchQuery),
     );
   }, [rollups, appliedFilters, searchQuery]);
+
+  /** Matched sales across all listings, newest first (the "Mga Order" rows). */
+  const orderItems = useMemo((): FarmerTransactionCardItem[] => {
+    const titleByListing = new Map(listings.map((l) => [l.id, listingTitle(l)]));
+    return [...transactions]
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      .map((tx) => {
+        const stage = displayStageForMatch(tx);
+        return {
+          id: tx.id,
+          referenceId: formatReferenceId(tx.id, 'TXN'),
+          stage,
+          statusLabel: getDisplayStageLabel(stage, language),
+          variety: '',
+          moisture: '',
+          price: formatPeso(tx.totalAmount),
+          weight: `${tx.quantityKg} kg`,
+          pricePerKg: `${formatPeso(tx.agreedPricePerKg)}/kg`,
+          paymentMode: tx.payment?.paymentMode ?? null,
+          buyer: buyerNames.get(tx.buyerId) ?? t('ftx.buyerFallback'),
+          date: formatDate(tx.createdAt, language),
+          time: formatTime(tx.createdAt),
+          listingTitle: titleByListing.get(tx.listingId),
+        };
+      });
+  }, [transactions, listings, buyerNames, language, t]);
+
+  const showOrders = searchQuery.trim() === '' && activeFilterCount === 0 && orderItems.length > 0;
 
   const openModal = () => {
     setDraftFilters(appliedFilters);
@@ -302,21 +350,43 @@ export default function FarmerTransactionsScreen() {
     },
   ];
 
+  const varietyLabelFor = (value: VarietyChoice, fallback: string): string => {
+    if (value === 'Lahat') return t('ftx.filterAll');
+    if (value === 'Traditional_or_Heirloom') return t('ftx.varTrad');
+    if (value === 'Mix_of_Varieties') return t('ftx.varMix');
+    if (value === 'Others') return t('ftx.varOthers');
+    return fallback;
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <View style={styles.screen}>
       <StatusBar style="dark" />
-      <AppHeader
-        bellRef={bellRef}
-        onPressBell={() => router.push('/(farmer)/notipikasyon')}
-      />
+
+      <View style={[styles.titleRow, { paddingTop: insets.top + AnimoV2Spacing.md }]}>
+        <View style={styles.flex}>
+          <AnimoText variant="title" accessibilityRole="header">
+            {t('ftx.title')}
+          </AnimoText>
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+            {t('ftx.subtitle')}
+          </AnimoText>
+        </View>
+        <View ref={bellRef} collapsable={false}>
+          <IconButton
+            icon={<Bell size={26} color={AnimoV2Colors.textBrand} strokeWidth={2.5} />}
+            label={unread > 0 ? t('ftx.bellUnread', { count: unread }) : t('ftx.bell')}
+            onPress={() => router.push('/(farmer)/notipikasyon')}
+            backgroundColor={AnimoV2Colors.surfaceCard}
+          />
+          {unread > 0 ? <View style={styles.bellDot} /> : null}
+        </View>
+      </View>
 
       <View ref={searchBarRef} collapsable={false}>
         <SearchFilterBar
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder={
-            isTagalog ? 'Pangalan, presyo, katayuan...' : 'Name, price, status...'
-          }
+          placeholder={t('ftx.searchPlaceholder')}
           activeFilterCount={activeFilterCount}
           onFilterPress={openModal}
         />
@@ -327,18 +397,15 @@ export default function FarmerTransactionsScreen() {
         onClose={() => setModalOpen(false)}
         onReset={resetFilters}
         onApply={applyFilters}
-        activeCount={countActiveFilters(draftFilters)}
-      >
+        activeCount={countActiveFilters(draftFilters)}>
         <View style={styles.filterSection}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-            {isTagalog ? 'Katayuan' : 'Status'}
-          </AnimoText>
+          <AnimoText variant="bodyStrong">{t('ftx.filterStatus')}</AnimoText>
           <View style={styles.chipsWrap}>
             {STATUS_FILTERS.map((choice) => (
-              <FilterChoiceChip
+              <FilterChip
                 key={choice.value}
-                label={isTagalog ? choice.tl : choice.en}
-                active={draftFilters.status === choice.value}
+                label={t(choice.labelKey)}
+                selected={draftFilters.status === choice.value}
                 onPress={() => setDraftFilters((prev) => ({ ...prev, status: choice.value }))}
               />
             ))}
@@ -347,104 +414,70 @@ export default function FarmerTransactionsScreen() {
 
         <View style={styles.filterSection}>
           <LabeledInput
-            label={isTagalog ? 'Natitirang dami (kg)' : 'Remaining weight (kg)'}
-            hint={
-              isTagalog
-                ? 'Ipakita lamang ang mga listing na may natitirang timbang na ito.'
-                : 'Only show listings with at least this much left.'
-            }
+            label={t('ftx.filterRemaining')}
+            hint={t('ftx.filterRemainingHint')}
             keyboardType="numeric"
             suffixText="kg"
-            placeholder={isTagalog ? 'Halimbawa: 100' : 'e.g. 100'}
+            placeholder={t('ftx.filterRemainingPlaceholder')}
             value={draftFilters.minRemainingText}
-            onChangeText={(minRemainingText) =>
-              setDraftFilters((prev) => ({ ...prev, minRemainingText }))
-            }
+            onChangeText={(minRemainingText) => setDraftFilters((prev) => ({ ...prev, minRemainingText }))}
           />
         </View>
 
         <View style={styles.filterSection}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-            {isTagalog ? 'Buong Kita (₱)' : 'Total earnings (₱)'}
-          </AnimoText>
+          <AnimoText variant="bodyStrong">{t('ftx.filterEarnings')}</AnimoText>
           <View style={styles.filterPriceRow}>
-            <View style={styles.filterPriceField}>
+            <View style={styles.flex}>
               <LabeledInput
-                label={isTagalog ? 'Pinakamababa' : 'Minimum'}
+                label={t('ftx.filterMin')}
                 keyboardType="numeric"
                 prefixText="₱"
                 placeholder="1000"
                 value={draftFilters.minEarningsText}
-                onChangeText={(minEarningsText) =>
-                  setDraftFilters((prev) => ({ ...prev, minEarningsText }))
-                }
+                onChangeText={(minEarningsText) => setDraftFilters((prev) => ({ ...prev, minEarningsText }))}
               />
             </View>
-            <View style={styles.filterPriceField}>
+            <View style={styles.flex}>
               <LabeledInput
-                label={isTagalog ? 'Pinakamataas' : 'Maximum'}
+                label={t('ftx.filterMax')}
                 keyboardType="numeric"
                 prefixText="₱"
                 placeholder="8000"
                 value={draftFilters.maxEarningsText}
-                onChangeText={(maxEarningsText) =>
-                  setDraftFilters((prev) => ({ ...prev, maxEarningsText }))
-                }
+                onChangeText={(maxEarningsText) => setDraftFilters((prev) => ({ ...prev, maxEarningsText }))}
               />
             </View>
           </View>
         </View>
 
         <View style={styles.filterSection}>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-            {isTagalog ? 'Uri ng palay' : 'Rice variety'}
-          </AnimoText>
+          <AnimoText variant="bodyStrong">{t('ftx.filterVariety')}</AnimoText>
           <View style={styles.chipsWrap}>
-            {VARIETY_CHOICES.map((choice) => {
-              const label =
-                choice.value === 'Lahat'
-                  ? isTagalog
-                    ? 'Lahat'
-                    : 'All'
-                  : choice.value === 'Traditional_or_Heirloom'
-                    ? isTagalog
-                      ? 'Tradisyonal o Pamana'
-                      : 'Traditional / Heirloom'
-                    : choice.value === 'Mix_of_Varieties'
-                      ? isTagalog
-                        ? 'Halo-halong Uri'
-                        : 'Mixed Varieties'
-                      : choice.value === 'Others'
-                        ? isTagalog
-                          ? 'Iba pa'
-                          : 'Others'
-                        : choice.label;
-              return (
-                <FilterChoiceChip
-                  key={choice.value}
-                  label={label}
-                  active={draftFilters.variety === choice.value}
-                  onPress={() => setDraftFilters((prev) => ({ ...prev, variety: choice.value }))}
-                />
-              );
-            })}
+            {VARIETY_CHOICES.map((choice) => (
+              <FilterChip
+                key={choice.value}
+                label={varietyLabelFor(choice.value, choice.label)}
+                selected={draftFilters.variety === choice.value}
+                onPress={() => setDraftFilters((prev) => ({ ...prev, variety: choice.value }))}
+              />
+            ))}
           </View>
         </View>
       </FilterModal>
 
       {loading ? (
         <View style={styles.centerFill}>
-          <ActivityIndicator color={AnimoColors.accentPrimary} />
+          <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
         </View>
       ) : error ? (
         <View style={styles.centerFill}>
-          <AnimoText variant="body" color={AnimoColors.danger}>
+          <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg} style={styles.centerText}>
             {error}
           </AnimoText>
         </View>
       ) : (
         <FlatList
-          style={styles.scroll}
+          style={styles.flex}
           data={filteredData}
           keyExtractor={(item) => item.listing.id}
           renderItem={({ item }) => (
@@ -454,6 +487,7 @@ export default function FarmerTransactionsScreen() {
               remainingKg={item.listing.remainingQuantityKg}
               soldKg={item.soldKg}
               earnings={item.earnings}
+              soldOut={item.listing.status === 'Sold_Out'}
               needsAction={item.pendingCount > 0 || item.actionCount > 0}
               onPress={() =>
                 router.push({
@@ -468,12 +502,41 @@ export default function FarmerTransactionsScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
           ListEmptyComponent={
             searchQuery.trim() !== '' ? (
-              <SearchEmptyState query={searchQuery} onClear={() => setSearchQuery('')} isTagalog={isTagalog} />
+              <MessageState
+                icon={<Search size={48} color={AnimoV2Colors.borderStrong} strokeWidth={2.25} />}
+                title={t('ftx.noResults', { query: searchQuery })}
+                body={t('ftx.noResultsHint')}
+                cta={t('ftx.clearSearch')}
+                onCta={() => setSearchQuery('')}
+              />
             ) : activeFilterCount > 0 ? (
-              <FilterEmptyState isTagalog={isTagalog} onClear={resetFilters} />
+              <MessageState
+                icon={<Filter size={48} color={AnimoV2Colors.borderStrong} strokeWidth={2.25} />}
+                title={t('ftx.noMatchFilter')}
+                cta={t('ftx.clearFilter')}
+                onCta={resetFilters}
+              />
             ) : (
-              <EmptyState isTagalog={isTagalog} />
+              <MessageState
+                mascot
+                title={t('ftx.emptyTitle')}
+                body={t('ftx.emptyBody')}
+                cta={t('ftx.emptyCta')}
+                onCta={() => router.push('/(farmer)/(tabs)/palengke')}
+              />
             )
+          }
+          ListFooterComponent={
+            showOrders ? (
+              <View style={styles.orders}>
+                <AnimoText variant="heading" accessibilityRole="header" style={styles.ordersHeading}>
+                  {t('ftx.ordersHeading')}
+                </AnimoText>
+                {orderItems.map((item) => (
+                  <TransactionCard key={item.id} item={item} />
+                ))}
+              </View>
+            ) : null
           }
         />
       )}
@@ -488,158 +551,77 @@ export default function FarmerTransactionsScreen() {
           AsyncStorage.setItem(FARMER_TXN_TUTORIAL_KEY, 'true').catch(() => {});
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
-function FilterChoiceChip({
-  label,
-  active,
-  onPress,
+function MessageState({
+  icon,
+  mascot = false,
+  title,
+  body,
+  cta,
+  onCta,
 }: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
+  icon?: React.ReactNode;
+  mascot?: boolean;
+  title: string;
+  body?: string;
+  cta: string;
+  onCta: () => void;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={[styles.chipItem, active && styles.chipItemActive]}>
-      <AnimoText
-        variant="body"
-        color={active ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
-        style={active ? styles.chipTextActive : undefined}>
-        {label}
-      </AnimoText>
-    </Pressable>
-  );
-}
-
-function FilterEmptyState({ isTagalog, onClear }: { isTagalog: boolean; onClear: () => void }) {
-  return (
     <View style={styles.empty}>
-      <Filter size={48} color={AnimoColors.accentPrimaryLight} />
-      <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
-        {isTagalog ? 'Walang listing sa filter na ito.' : 'No listings match this filter.'}
+      {mascot ? <Mascot size={112} /> : (icon ?? <ClipboardList size={64} color={AnimoV2Colors.borderStrong} />)}
+      <AnimoText variant="title" style={styles.centerText}>
+        {title}
       </AnimoText>
-      <TouchableOpacity accessibilityRole="button" activeOpacity={0.85} onPress={onClear} style={styles.searchEmptyCta}>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
-          {isTagalog ? 'I-clear ang filter' : 'Clear filters'}
+      {body ? (
+        <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+          {body}
         </AnimoText>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-function SearchEmptyState({ query, onClear, isTagalog }: { query: string; onClear: () => void; isTagalog: boolean }) {
-  return (
-    <View style={styles.empty}>
-      <Search size={48} color={AnimoColors.accentPrimaryLight} />
-      <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
-        {isTagalog ? `Walang resulta para sa "${query}"` : `No results for "${query}"`}
-      </AnimoText>
-      <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
-        {isTagalog ? "Subukan ang ibang keyword o i-clear ang search." : "Try a different keyword or clear search."}
-      </AnimoText>
-      <TouchableOpacity accessibilityRole="button" activeOpacity={0.85} onPress={onClear} style={styles.searchEmptyCta}>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
-          {isTagalog ? "I-clear ang Search" : "Clear Search"}
-        </AnimoText>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-function EmptyState({ isTagalog }: { isTagalog: boolean }) {
-  return (
-    <View style={styles.empty}>
-      <ClipboardList size={64} color={AnimoColors.accentPrimaryLight} />
-      <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
-        {isTagalog ? "Wala pang listing" : "No listings yet"}
-      </AnimoText>
-      <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
-        {isTagalog ? "Maglista ng palay para magsimulang makatanggap ng mga kahilingan." : "List your harvest to start receiving purchase requests."}
-      </AnimoText>
-      <TouchableOpacity
-        accessibilityRole="button"
-        activeOpacity={0.85}
-        onPress={() => router.push('/(farmer)/(tabs)/palengke')}
-        style={styles.emptyCta}>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
-          {isTagalog ? "Maglista ng Palay" : "List Palay"}
-        </AnimoText>
-      </TouchableOpacity>
+      ) : null}
+      <View style={styles.emptyCta}>
+        <ChunkyButton label={cta} onPress={onCta} />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: AnimoColors.appBackground },
-  centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll: { flex: 1, backgroundColor: AnimoColors.appBackground },
-  filterSection: {
-    gap: AnimoSpacing.sm,
-  },
-  filterPriceRow: {
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  flex: { flex: 1, minWidth: 0 },
+  titleRow: {
     flexDirection: 'row',
-    gap: AnimoSpacing.md,
-  },
-  filterPriceField: {
-    flex: 1,
-  },
-  chipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: AnimoSpacing.sm,
-    marginTop: 2,
-  },
-  chipItem: {
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: 10,
-    borderRadius: AnimoRadius.pill,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: AnimoColors.surfacePrimary,
-  },
-  chipItemActive: {
-    borderColor: AnimoColors.accentPrimary,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-  },
-  chipTextActive: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-    color: AnimoColors.accentPrimary,
-  },
-  list: {
+    alignItems: 'flex-start',
+    gap: AnimoV2Spacing.md,
     paddingHorizontal: SCREEN_PADDING,
-    paddingBottom: AnimoSpacing.xxl,
+    paddingBottom: AnimoV2Spacing.sm,
   },
+  bellDot: {
+    position: 'absolute',
+    top: 8,
+    right: 10,
+    width: 14,
+    height: 14,
+    borderRadius: AnimoV2Radius.full,
+    backgroundColor: AnimoV2Colors.dangerSolid,
+    borderWidth: 2,
+    borderColor: AnimoV2Colors.surfaceCard,
+  },
+  centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SCREEN_PADDING },
+  centerText: { textAlign: 'center' },
+  filterSection: { gap: AnimoV2Spacing.sm },
+  filterPriceRow: { flexDirection: 'row', gap: AnimoV2Spacing.md },
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: AnimoV2Spacing.sm },
+  list: { paddingHorizontal: SCREEN_PADDING, paddingTop: AnimoV2Spacing.sm, paddingBottom: AnimoV2Spacing.xxl },
+  orders: { marginTop: AnimoV2Spacing.sm },
+  ordersHeading: { marginBottom: AnimoV2Spacing.md },
   empty: {
     alignItems: 'center',
-    marginTop: AnimoSpacing.xxl,
+    gap: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.xxl,
+    paddingHorizontal: AnimoV2Spacing.lg,
   },
-  emptyTitle: {
-    textAlign: 'center',
-    marginTop: AnimoSpacing.lg,
-  },
-  emptyBody: {
-    textAlign: 'center',
-    marginTop: AnimoSpacing.sm,
-    paddingHorizontal: AnimoSpacing.xxl,
-  },
-  emptyCta: {
-    backgroundColor: AnimoColors.accentPrimary,
-    borderRadius: AnimoRadius.lg,
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingVertical: AnimoSpacing.md,
-    marginTop: AnimoSpacing.xl,
-  },
-  searchEmptyCta: {
-    backgroundColor: AnimoColors.surfaceTertiary,
-    borderRadius: AnimoRadius.lg,
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingVertical: AnimoSpacing.md,
-    marginTop: AnimoSpacing.xl,
-  },
+  emptyCta: { alignSelf: 'stretch' },
 });

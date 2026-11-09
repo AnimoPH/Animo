@@ -38,6 +38,18 @@ Local Auth has no hosted users. Register again (or seed) on local Postgres. `EXP
 - `supabase/migrations/` — schema (apply with local `supabase start` / `db reset`, or `db push` to hosted)
 - `supabase/functions/` — OTP, registration, PSA sync, `refresh-dry-base` (needs `PRICING_SERVICE_URL` when serving)
 
+## Weather forecast (farmer advisories)
+
+The `refresh-advisory` edge function fetches the rain forecast from **OpenWeatherMap** (`/data/2.5/forecast`, 3-hour slots) for one fixed point, Antipolo (14.5842, 121.1763), and writes a row to `weather_forecast_feed`. A rain rate of at least **7.5 mm/h** (PAGASA Yellow warning level) anywhere in the 24-48 h window means rain is expected, and `decideAdvisory` turns that plus crop ripeness into Advance Cut, Delayed Harvest or No Action Needed. The rule lives in `supabase/functions/_shared/advisory-rule.ts`.
+
+- **Key:** set the `OPENWEATHERMAP_API_KEY` edge function secret. It is not an Expo variable.
+  - Hosted: `npx supabase secrets set OPENWEATHERMAP_API_KEY=...`
+  - Local: add `OPENWEATHERMAP_API_KEY=...` to the file you pass to `npx supabase functions serve --env-file ...`
+- **Schedule:** pg_cron calls the function every 6 hours (migration `0025`). It needs the `advisory_refresh_service_role_key` and `advisory_refresh_function_url` Vault secrets, created once as described in that migration.
+- **Without a key** (or when OpenWeatherMap fails) the function logs the error and repeats the last row with `is_stale=true` instead of going silent. A fresh local database only has the seed row (0 mm, no rain).
+- **Manual run:** `curl -X POST <API_URL>/functions/v1/refresh-advisory -H "Authorization: Bearer <SERVICE_ROLE_KEY>"`
+- **Demo without real rain:** `scripts/advisory-demo.sh` (see the header of that file).
+
 ## Expo template leftovers
 
 `npx expo start` still works as usual (Expo Go, emulator, web). Do not run `npm run reset-project` on this repo — that is create-expo-app scaffolding, not ANIMO.

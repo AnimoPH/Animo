@@ -1,14 +1,16 @@
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { CheckCircle2, ChevronRight, Megaphone } from 'lucide-react-native';
+import { CheckCircle2, CloudRain, Megaphone, ShoppingBasket, type LucideIcon } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { BackHeader } from '@/components/animo/back-header';
-import { FilterChips } from '@/components/animo/filter-chips';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { FilterChip } from '@/components/animo/ui/filter-chip';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { Mascot } from '@/components/animo/ui/mascot';
+import { V2BackHeader } from '@/components/animo/ui/screen-bits';
+import { AnimoV2Colors, AnimoV2Size, AnimoV2Spacing, type StatusTone } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
 import {
   fetchMyNotifications,
@@ -20,12 +22,22 @@ import {
   type NotificationCategory,
 } from '@/services/notification-service';
 
+const UNREAD_DOT = 12;
+
+/** Icon and tone for a queue row. Advisories read as caution, transactions as success. */
+function rowVisual(item: InboxNotification): { icon: LucideIcon; tone: StatusTone } {
+  if (item.kind === 'advisory') return { icon: CloudRain, tone: 'caution' };
+  if (item.kind === 'purchase_request_received') return { icon: ShoppingBasket, tone: 'warning' };
+  if (item.category === 'transaksyon') return { icon: CheckCircle2, tone: 'success' };
+  return { icon: Megaphone, tone: 'warning' };
+}
+
 /**
- * Mga Notipikasyon — farmer inbox. Rows come from push_notification_queue.
+ * Mensahe: farmer inbox. Rows come from push_notification_queue.
  * Titles and bodies are the Tagalog text the queue stored.
  */
 export default function FarmerNotificationsScreen() {
-  const { isTagalog } = useLanguage();
+  const { t, isTagalog } = useLanguage();
   const [filter, setFilter] = useState<NotificationCategory>('lahat');
   const [notifications, setNotifications] = useState<InboxNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,21 +59,15 @@ export default function FarmerNotificationsScreen() {
     }, [load]),
   );
 
-  const categoryFilters: { value: NotificationCategory; label: string }[] = isTagalog
-    ? [
-        { value: 'lahat', label: 'Lahat' },
-        { value: 'transaksyon', label: 'Transaksyon' },
-        { value: 'palengke', label: 'Palengke' },
-        { value: 'sistema', label: 'Sistema' },
-      ]
-    : [
-        { value: 'lahat', label: 'All' },
-        { value: 'transaksyon', label: 'Transactions' },
-        { value: 'palengke', label: 'Marketplace' },
-        { value: 'sistema', label: 'System' },
-      ];
+  const categoryFilters: { value: NotificationCategory; label: string }[] = [
+    { value: 'lahat', label: t('common.all') },
+    { value: 'transaksyon', label: t('inbox.filterTransactions') },
+    { value: 'palengke', label: t('inbox.filterMarketplace') },
+    { value: 'sistema', label: t('inbox.filterSystem') },
+  ];
 
   const filteredItems = notifications.filter((item) => filter === 'lahat' || item.category === filter);
+  const hasUnread = notifications.some((item) => !item.read);
 
   const handleMarkAllAsRead = () => {
     void markAllNotificationsRead()
@@ -80,158 +86,143 @@ export default function FarmerNotificationsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <View style={styles.screen}>
       <StatusBar style="dark" />
-      <BackHeader title={isTagalog ? 'Mga Notipikasyon' : 'Notifications'} />
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+      <V2BackHeader
+        title={t('inbox.title')}
+        onBack={() => router.back()}
+        backLabel={t('common.back')}
+        right={
+          hasUnread ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('inbox.readAll')}
+              onPress={handleMarkAllAsRead}
+              hitSlop={8}
+              style={styles.readAll}>
+              <AnimoText variant="bodyStrong" color={AnimoV2Colors.textBrand}>
+                {t('inbox.readAll')}
+              </AnimoText>
+            </Pressable>
+          ) : null
+        }
+      />
 
-      <View style={styles.filterBar}>
-        <FilterChips inset={false} options={categoryFilters} value={filter} onChange={setFilter} />
-        <Pressable onPress={handleMarkAllAsRead} hitSlop={8} style={styles.readAllButton}>
-          <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
-            {isTagalog ? 'Basahin Lahat' : 'Mark all as read'}
-          </AnimoText>
-        </Pressable>
+      <View style={styles.chipWrap}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipRow}>
+          {categoryFilters.map((option) => (
+            <FilterChip
+              key={option.value}
+              label={option.label}
+              selected={filter === option.value}
+              onPress={() => setFilter(option.value)}
+            />
+          ))}
+        </ScrollView>
       </View>
 
+      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <View style={styles.loadingState}>
-            <ActivityIndicator
-              color={AnimoColors.accentPrimary}
-              accessibilityLabel={isTagalog ? 'Naglo-load' : 'Loading'}
-            />
+          <View style={styles.centered}>
+            <ActivityIndicator color={AnimoV2Colors.actionPrimary} accessibilityLabel={t('common.loading')} />
           </View>
         ) : null}
         {loadError ? (
-          <AnimoText variant="body" color={AnimoColors.danger}>
+          <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg}>
             {loadError}
           </AnimoText>
         ) : null}
         {!loading && filteredItems.length === 0 ? (
-          <View style={styles.emptyState}>
-            <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyText}>
-              {isTagalog ? 'Walang mga notipikasyon sa kategoryang ito.' : 'No notifications in this category.'}
-            </AnimoText>
+          <View style={styles.empty}>
+            <Mascot size={112} />
+            {notifications.length === 0 ? (
+              <>
+                <AnimoText variant="title" style={styles.centerText}>
+                  {t('inbox.emptyTitle')}
+                </AnimoText>
+                <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+                  {t('inbox.emptyBody')}
+                </AnimoText>
+              </>
+            ) : (
+              <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+                {t('inbox.emptyCategory')}
+              </AnimoText>
+            )}
           </View>
         ) : (
           filteredItems.map((item) => {
             const text = notificationText(item, isTagalog);
+            const { icon, tone } = rowVisual(item);
             return (
-            <Pressable
-              key={item.id}
-              accessibilityRole="button"
-              accessibilityLabel={text.title}
-              style={[styles.notificationCard, !item.read && styles.unreadCard]}
-              onPress={() => handleNotificationPress(item)}>
-              <View
-                style={[
-                  styles.iconCircle,
-                  {
-                    backgroundColor:
-                      item.category === 'transaksyon' ? AnimoColors.accentPrimaryLight : '#FDF6E4',
-                  },
-                ]}>
-                {item.category === 'transaksyon' ? (
-                  <CheckCircle2 size={20} color={AnimoColors.accentPrimary} />
-                ) : (
-                  <Megaphone size={20} color="#B4791A" />
-                )}
-              </View>
-              <View style={styles.textWrap}>
-                <View style={styles.topRow}>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis} style={styles.flex}>
-                    {text.title}
+              <DepthCard
+                key={item.id}
+                depth="flat"
+                radius="lg"
+                onPress={() => handleNotificationPress(item)}
+                accessibilityLabel={`${item.read ? '' : `${t('inbox.unread')}. `}${text.title}. ${text.body}`}
+                backgroundColor={item.read ? AnimoV2Colors.surfaceCard : AnimoV2Colors.surfaceBrandSubtle}
+                borderColor={item.read ? AnimoV2Colors.borderDefault : AnimoV2Colors.actionPrimary}
+                style={styles.row}>
+                <IconTile icon={icon} tone={tone} />
+                <View style={styles.textWrap}>
+                  <AnimoText variant="bodyStrong">{text.title}</AnimoText>
+                  <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                    {text.body.replace(/\s*\n\s*/g, ' ')}
                   </AnimoText>
-                  {!item.read && <View style={styles.unreadDot} />}
+                  <AnimoText variant="tagV2" color={AnimoV2Colors.textTertiary} style={styles.time}>
+                    {formatNotificationTime(item.createdAt, isTagalog)}
+                  </AnimoText>
                 </View>
-                <AnimoText variant="body" color={AnimoColors.textMediumEmphasis}>
-                  {text.body}
-                </AnimoText>
-                <AnimoText variant="tag" color={AnimoColors.textLowEmphasis}>
-                  {formatNotificationTime(item.createdAt, isTagalog)}
-                </AnimoText>
-              </View>
-              {item.targetRoute ? <ChevronRight size={18} color={AnimoColors.objectLowEmphasis} /> : null}
-            </Pressable>
+                {!item.read ? <View style={styles.unreadDot} accessibilityLabel={t('inbox.unread')} /> : null}
+              </DepthCard>
             );
           })
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.background,
-  },
-  filterBar: {
-    paddingVertical: AnimoSpacing.sm,
-    gap: AnimoSpacing.xs,
-  },
-  readAllButton: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.xs,
-    alignSelf: 'flex-end',
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  readAll: { minHeight: AnimoV2Size.iconButton, justifyContent: 'center', paddingHorizontal: AnimoV2Spacing.md },
+  chipWrap: { flexGrow: 0 },
+  chipRow: {
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingVertical: AnimoV2Spacing.sm,
+    gap: AnimoV2Spacing.sm,
   },
   list: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingBottom: AnimoSpacing.xxl,
-    gap: AnimoSpacing.md,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.sm,
+    paddingBottom: AnimoV2Spacing.xxl,
+    gap: AnimoV2Spacing.md,
   },
-  notificationCard: {
+  row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: AnimoSpacing.md,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    backgroundColor: AnimoColors.surfacePrimary,
+    gap: AnimoV2Spacing.md,
+    padding: AnimoV2Spacing.md,
   },
-  unreadCard: {
-    borderColor: AnimoColors.accentPrimary,
-    backgroundColor: '#F7FCF7',
-  },
-  iconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  textWrap: {
-    flex: 1,
-    gap: 4,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  flex: {
-    flex: 1,
-  },
+  textWrap: { flex: 1, minWidth: 0, gap: 2 },
+  time: { marginTop: AnimoV2Spacing.xs },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: AnimoColors.accentPrimary,
+    width: UNREAD_DOT,
+    height: UNREAD_DOT,
+    borderRadius: UNREAD_DOT / 2,
+    backgroundColor: AnimoV2Colors.actionPrimary,
+    marginTop: AnimoV2Spacing.xs,
   },
-  // Same spinner as the Transaksyon tab, centered in the content area below the filter pills.
-  loadingState: {
-    paddingVertical: AnimoSpacing.xxl,
+  centered: { paddingVertical: AnimoV2Spacing.xxl, alignItems: 'center', justifyContent: 'center' },
+  empty: {
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: AnimoV2Spacing.md,
+    paddingTop: AnimoV2Spacing.xxxl,
+    paddingHorizontal: AnimoV2Spacing.lg,
   },
-  emptyState: {
-    paddingVertical: AnimoSpacing.xxl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    textAlign: 'center',
-  },
+  centerText: { textAlign: 'center' },
 });

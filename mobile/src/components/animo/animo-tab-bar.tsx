@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { LucideIcon } from 'lucide-react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { CommonActions, StackActions } from '@react-navigation/native';
 import type { ComponentProps } from 'react';
@@ -6,7 +7,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Size, AnimoV2Spacing } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
 import type { TranslationKey } from '@/i18n/translations';
 
@@ -29,7 +30,12 @@ export type TabItem = {
   name: string;
   label: string;
   labelKey?: TranslationKey;
+  /** Legacy Ionicons pair, used when `lucide` is not provided. */
   icon: TabIonicon;
+  /** v2 Lucide icon (DESIGN_SPEC section 7). Preferred over `icon`. */
+  lucide?: LucideIcon;
+  /** Red count badge (e.g. pending requests on Aking Ani). Takes precedence over `showBadge`. */
+  badgeCount?: number;
   /** When true, shows a small attention dot on the icon (boolean, not a count). */
   showBadge?: boolean;
 };
@@ -49,8 +55,14 @@ export function AnimoTabBar({
   navigation,
   descriptors,
   items,
-}: BottomTabBarProps & { items: TabItem[] }) {
+  flatRoutes = [],
+}: BottomTabBarProps & {
+  items: TabItem[];
+  /** Route names on which the active tab drops its green fill and edge and shows green icon + label instead (e.g. the home tab). */
+  flatRoutes?: string[];
+}) {
   const insets = useSafeAreaInsets();
+  const flat = flatRoutes.includes(state.routes[state.index].name);
   const { t } = useLanguage();
 
   // Respect `tabBarStyle: { display: 'none' }` set per screen (e.g. focused
@@ -62,116 +74,184 @@ export function AnimoTabBar({
   }
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, AnimoSpacing.md) }]}>
-      <View style={styles.bar}>
-        {state.routes.map((route, index) => {
-          const item = items.find((i) => i.name === route.name);
-          if (!item) return null;
+    <View style={styles.rim}>
+    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, AnimoV2Spacing.md) + AnimoV2Spacing.sm }]}>
+      {state.routes.map((route, index) => {
+        const item = items.find((i) => i.name === route.name);
+        if (!item) return null;
 
-          const focused = state.index === index;
-          const color = focused ? AnimoColors.green : AnimoColors.muted;
-          const displayLabel = item.labelKey ? t(item.labelKey) : item.label;
+        const focused = state.index === index;
+        const solidActive = focused && !flat;
+        const color = solidActive
+          ? AnimoV2Colors.textOnBrand
+          : focused
+            ? AnimoV2Colors.textBrand
+            : AnimoV2Colors.textSecondary;
+        const displayLabel = item.labelKey ? t(item.labelKey) : item.label;
+        const LucideGlyph = item.lucide;
+        const count = item.badgeCount ?? 0;
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-            if (event.defaultPrevented) return;
+        const onPress = () => {
+          const event = navigation.emit({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          });
+          if (event.defaultPrevented) return;
 
-            // Tapping the tab you're already on does nothing.
-            if (focused) return;
+          // Tapping the tab you're already on does nothing.
+          if (focused) return;
 
-            if (item.rootScreen) {
-              // Nested navigator (e.g. the Palengke stack): enter at its root
-              // screen rather than restoring the last-visited sub-screen, and
-              // clear any sub-screens left from a previous visit.
-              navigation.dispatch(
-                CommonActions.navigate({
-                  name: route.name,
-                  params: { screen: item.rootScreen },
-                }),
-              );
-              if (route.state?.key) {
-                navigation.dispatch({
-                  ...StackActions.popToTop(),
-                  target: route.state.key,
-                });
-              }
-            } else {
-              navigation.navigate(route.name);
+          if (item.rootScreen) {
+            // Nested navigator (e.g. the Palengke stack): enter at its root
+            // screen rather than restoring the last-visited sub-screen, and
+            // clear any sub-screens left from a previous visit.
+            navigation.dispatch(
+              CommonActions.navigate({
+                name: route.name,
+                params: { screen: item.rootScreen },
+              }),
+            );
+            if (route.state?.key) {
+              navigation.dispatch({
+                ...StackActions.popToTop(),
+                target: route.state.key,
+              });
             }
-          };
+          } else {
+            navigation.navigate(route.name);
+          }
+        };
 
-          return (
-            <Pressable
-              key={route.key}
-              accessibilityRole="button"
-              accessibilityState={focused ? { selected: true } : {}}
-              accessibilityLabel={displayLabel}
-              onPress={onPress}
-              style={styles.tab}>
-              <View style={styles.iconSlot}>
-                <Ionicons
-                  name={focused ? item.icon.filled : item.icon.outline}
-                  size={24}
+        return (
+          <Pressable
+            key={route.key}
+            accessibilityRole="button"
+            accessibilityState={focused ? { selected: true } : {}}
+            accessibilityLabel={count > 0 ? `${displayLabel}, ${count}` : displayLabel}
+            onPress={onPress}
+            style={styles.tabSlot}>
+            {solidActive ? <View style={styles.tabEdge} /> : null}
+            <View style={styles.tabWrap}>
+              {solidActive ? <View style={styles.tabFace} /> : null}
+              <View style={styles.tab}>
+                <View>
+                  {LucideGlyph ? (
+                    <LucideGlyph size={26} color={color} strokeWidth={focused ? 2.75 : 2.25} />
+                  ) : (
+                    <Ionicons name={focused ? item.icon.filled : item.icon.outline} size={26} color={color} />
+                  )}
+                  {count > 0 ? (
+                    <View style={[styles.badge, focused && { borderColor: AnimoV2Colors.actionPrimary }]}>
+                      <AnimoText variant="tagV2" color="#FFFFFF" style={styles.badgeText}>
+                        {count > 99 ? '99+' : count}
+                      </AnimoText>
+                    </View>
+                  ) : item.showBadge ? (
+                    <View style={[styles.dot, focused && { borderColor: AnimoV2Colors.actionPrimary }]} />
+                  ) : null}
+                </View>
+                <AnimoText
+                  variant="tagV2"
                   color={color}
-                />
-                {item.showBadge ? <View style={styles.needsActionDot} /> : null}
+                  numberOfLines={1}
+                  style={[styles.label, focused && styles.labelOn]}>
+                  {displayLabel}
+                </AnimoText>
               </View>
-              <AnimoText variant="tag" color={color} style={styles.label}>
-                {displayLabel}
-              </AnimoText>
-            </Pressable>
-          );
-        })}
-      </View>
+            </View>
+          </Pressable>
+        );
+      })}
+    </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    paddingHorizontal: AnimoSpacing.md,
-    paddingTop: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.background,
+  /** Soft beige rim (4px) around the rounded top, drawn as its own view so the corners are never cropped. */
+  rim: {
+    paddingTop: 4,
+    paddingHorizontal: 0,
+    backgroundColor: AnimoV2Colors.borderDefault,
+    borderTopLeftRadius: AnimoV2Radius.xl,
+    borderTopRightRadius: AnimoV2Radius.xl,
+    elevation: 16,
+    shadowColor: AnimoV2Colors.textPrimary,
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: -6 },
   },
   bar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    backgroundColor: AnimoColors.white,
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.lg,
-    paddingVertical: AnimoSpacing.sm,
-    paddingHorizontal: AnimoSpacing.sm,
+    gap: AnimoV2Spacing.xs,
+    paddingHorizontal: AnimoV2Spacing.sm,
+    paddingTop: AnimoV2Spacing.md,
+    backgroundColor: AnimoV2Colors.surfaceCard,
+    borderTopLeftRadius: AnimoV2Radius.xl,
+    borderTopRightRadius: AnimoV2Radius.xl,
   },
+  tabSlot: { flex: 1, minWidth: 0 },
+  /** Dark edge peeking out below the active pill (absolutely positioned: Android can't do hard shadows). */
+  tabEdge: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: AnimoV2Size.depth,
+    height: AnimoV2Size.tabItemMinHeight,
+    borderRadius: AnimoV2Radius.lg,
+    backgroundColor: AnimoV2Colors.actionPrimaryDepth,
+  },
+  tabWrap: { height: AnimoV2Size.tabItemMinHeight + AnimoV2Size.depth },
   tab: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: AnimoV2Size.tabItemMinHeight,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: AnimoSpacing.xs,
+    gap: 2,
+    borderRadius: AnimoV2Radius.lg,
+    paddingHorizontal: 2,
   },
-  /** Relative slot so the needs-action dot can sit on the glyph corner. */
-  iconSlot: {
-    position: 'relative',
+  /** Mounted fresh when a tab becomes active: toggling a background on a rounded view loses its corners on Android. */
+  tabFace: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: AnimoV2Size.tabItemMinHeight,
+    borderRadius: AnimoV2Radius.lg,
+    backgroundColor: AnimoV2Colors.actionPrimary,
   },
-  /** Matches AppHeader notification bell unreadDot. */
-  needsActionDot: {
+  label: { fontFamily: 'Nunito_600SemiBold', fontSize: 12, lineHeight: 16 },
+  labelOn: { fontFamily: 'Nunito_800ExtraBold', fontSize: 12, lineHeight: 16 },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -12,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 5,
+    borderRadius: 10,
+    backgroundColor: AnimoV2Colors.dangerSolid,
+    borderWidth: 2,
+    borderColor: AnimoV2Colors.surfaceCard,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { fontSize: 12, lineHeight: 16, fontFamily: 'Nunito_800ExtraBold' },
+  /** Attention dot (no count). */
+  dot: {
     position: 'absolute',
     top: -2,
     right: -4,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: AnimoColors.danger,
-    borderWidth: 1.5,
-    borderColor: AnimoColors.white,
-  },
-  label: {
-    fontSize: 12.5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: AnimoV2Colors.dangerSolid,
+    borderWidth: 2,
+    borderColor: AnimoV2Colors.surfaceCard,
   },
 });

@@ -506,6 +506,6 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   devChipLabel: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Nunito_600SemiBold',
   },
 });

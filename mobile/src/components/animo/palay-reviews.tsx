@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
 import { BackHeader } from '@/components/animo/back-header';
+import { PalayReviewsCardV2, PalayReviewsScreenV2 } from '@/components/animo/farmer/palay-reviews-v2';
 import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
 import { useLanguage } from '@/hooks/use-language';
 import {
@@ -72,8 +73,22 @@ export function PalayReviewRow({ review, isTagalog }: { review: PalayReview; isT
   );
 }
 
-/** Listing-detail card: average, count, and the three newest buyer reviews. */
+/**
+ * Listing-detail card: average, count, and the three newest buyer reviews.
+ * Pass `v2` for the redesigned (farmer) look; the buyer keeps the legacy look.
+ */
 export function PalayReviewsCard({
+  v2,
+  ...props
+}: {
+  listingId: string;
+  onPress: () => void;
+  v2?: boolean;
+}) {
+  return v2 ? <PalayReviewsCardV2 {...props} /> : <LegacyPalayReviewsCard {...props} />;
+}
+
+function LegacyPalayReviewsCard({
   listingId,
   onPress,
 }: {
@@ -146,8 +161,16 @@ export function PalayReviewsCard({
   );
 }
 
-/** Full list with a 1–5 star filter. Shared by the farmer and buyer routes. */
-export function PalayReviewsScreen({ listingId }: { listingId: string }) {
+/** Full list with a 1–5 star filter. Shared by the farmer and buyer routes (`v2` = farmer look). */
+export function PalayReviewsScreen({ listingId, v2 }: { listingId: string; v2?: boolean }) {
+  return v2 ? <FarmerReviewsFrame listingId={listingId} /> : <LegacyPalayReviewsScreen listingId={listingId} />;
+}
+
+function FarmerReviewsFrame({ listingId }: { listingId: string }) {
+  return <PalayReviewsScreenV2 listingId={listingId} />;
+}
+
+function LegacyPalayReviewsScreen({ listingId }: { listingId: string }) {
   const { isTagalog } = useLanguage();
   const [reviews, setReviews] = useState<PalayReview[]>([]);
   const [loading, setLoading] = useState(true);

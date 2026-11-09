@@ -26,6 +26,8 @@ export type Account = {
   gcashNumber: string | null;
   walletAddress: string | null;
   accountStatus: 'Active' | 'Suspended';
+  /** Why the LGU suspended the account; null while active. */
+  suspensionReason: string | null;
   /** ISO date (not datetime) — matches the dictionary's `date_registered`. */
   dateRegistered: string;
 };
