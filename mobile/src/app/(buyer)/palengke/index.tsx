@@ -2,7 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Search, Star, Users } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -22,7 +22,6 @@ import {
 import { ChunkyButton } from '@/components/animo/ui/chunky-button';
 import { CollapsingHeader } from '@/components/animo/ui/collapsing-header';
 import { DepthCard } from '@/components/animo/ui/depth-card';
-import { FilterChip } from '@/components/animo/ui/filter-chip';
 import { Mascot } from '@/components/animo/ui/mascot';
 import { V2SearchBar } from '@/components/animo/ui/search-bar';
 import { SegmentedTabs } from '@/components/animo/ui/segmented-tabs';
@@ -41,9 +40,6 @@ import { moistureLabel, purityLabel, varietyLabel } from '@/types/crop-listing';
 import type { MarketplaceFilters, RankedListing } from '@/types/marketplace-filter';
 
 type TabMode = 'palay' | 'magsasaka';
-
-/** Quick chips above the grid. Display-only: they narrow what is already loaded. */
-type QuickFilter = 'all' | 'Inbred' | 'Hybrid' | 'Dry' | 'Wet';
 
 /** Parses a filter text field, treating blank/garbage as "not set" rather than 0. */
 function parseNumber(text: string): number | undefined {
@@ -64,7 +60,6 @@ export default function MarketplaceScreen() {
   const [activeTab, setActiveTab] = useState<TabMode>('palay');
   const [modalOpen, setModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
   const [showTutorial, setShowTutorial] = useState(false);
 
   // Draft filter state (committed when user taps "Ilapat" in the sheet)
@@ -219,14 +214,8 @@ export default function MarketplaceScreen() {
     });
   }, [ranked, searchQuery]);
 
-  const displayedListings = useMemo(() => {
-    if (quickFilter === 'all') return searchedListings;
-    return searchedListings.filter(({ listing }) =>
-      quickFilter === 'Dry' || quickFilter === 'Wet'
-        ? listing.declaredMoisture === quickFilter
-        : listing.declaredVariety === quickFilter,
-    );
-  }, [searchedListings, quickFilter]);
+  // Variety and moisture now live only in the filter sheet, so search is the last narrowing step.
+  const displayedListings = searchedListings;
 
   const isListEmpty = displayedListings.length === 0;
   // Loading / error / empty states aren't scrollable, so they get their top offset from the
@@ -263,14 +252,6 @@ export default function MarketplaceScreen() {
     () => stackedListings.filter((_, idx) => idx % 2 === 1),
     [stackedListings],
   );
-
-  const quickChips: { value: QuickFilter; label: string }[] = [
-    { value: 'all', label: t('common.all') },
-    { value: 'Inbred', label: t('buyPalV2.chipInbred') },
-    { value: 'Hybrid', label: t('buyPalV2.chipHybrid') },
-    { value: 'Dry', label: t('buyPalV2.chipDry') },
-    { value: 'Wet', label: t('buyPalV2.chipWet') },
-  ];
 
   const buyerPalengkeTourSteps: SpotlightStep[] = [
     {
@@ -352,7 +333,7 @@ export default function MarketplaceScreen() {
               <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
                 {searchQuery.trim().length > 0
                   ? t('buyPalV2.emptySearch', { q: searchQuery })
-                  : activeFilterCount > 0 || quickFilter !== 'all'
+                  : activeFilterCount > 0
                     ? t('buyPalV2.emptyFilters')
                     : t('buyPalV2.emptyNone')}
               </AnimoText>
@@ -484,22 +465,6 @@ export default function MarketplaceScreen() {
           />
         </View>
 
-        {activeTab === 'palay' ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.chipScroll}
-            contentContainerStyle={styles.chipRow}>
-            {quickChips.map((chip) => (
-              <FilterChip
-                key={chip.value}
-                label={chip.label}
-                selected={quickFilter === chip.value}
-                onPress={() => setQuickFilter(chip.value)}
-              />
-            ))}
-          </ScrollView>
-        ) : null}
       </CollapsingHeader>
     </View>
   );
@@ -570,15 +535,8 @@ const styles = StyleSheet.create({
   },
   headerTitleCol: { flex: 1, gap: 2 },
   headerTitle: { fontSize: 24, lineHeight: 30 },
-  tabsWrap: { marginTop: AnimoV2Spacing.md },
-  chipScroll: { flexGrow: 0 },
-  chipRow: {
-    flexDirection: 'row',
-    gap: AnimoV2Spacing.sm,
-    paddingHorizontal: AnimoV2Spacing.lg,
-    paddingTop: AnimoV2Spacing.md,
-    paddingBottom: AnimoV2Spacing.xs,
-  },
+  // The tabs are the last thing in the header now, so they carry its bottom padding.
+  tabsWrap: { marginTop: AnimoV2Spacing.md, paddingBottom: AnimoV2Spacing.md },
   listContainer: { flex: 1 },
   listContent: {
     paddingHorizontal: AnimoV2Spacing.md,
