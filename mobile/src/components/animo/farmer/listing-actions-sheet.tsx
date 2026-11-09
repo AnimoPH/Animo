@@ -1,8 +1,14 @@
-import { Archive, MoreHorizontal, Pencil, Trash2 } from 'lucide-react-native';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Archive, MoreHorizontal, Pencil, Trash2, type LucideIcon } from 'lucide-react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { V2Sheet } from '@/components/animo/ui/dialog';
+import { IconButton } from '@/components/animo/ui/screen-bits';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
+import { useLanguage } from '@/hooks/use-language';
+import type { TranslationKey } from '@/i18n/translations';
 
 export type ListingActionsSheetProps = {
   visible: boolean;
@@ -15,7 +21,38 @@ export type ListingActionsSheetProps = {
   onClose: () => void;
 };
 
-/** Bottom sheet for farmer listing management: Edit / Archive / Delete. */
+function ActionRow({
+  icon,
+  labelKey,
+  onPress,
+  danger,
+}: {
+  icon: LucideIcon;
+  labelKey: TranslationKey;
+  onPress: () => void;
+  danger?: boolean;
+}) {
+  const { t } = useLanguage();
+  const label = t(labelKey);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.option,
+        danger && styles.optionDanger,
+        pressed && styles.optionPressed,
+      ]}>
+      <IconTile icon={icon} tone={danger ? 'danger' : 'success'} size={40} />
+      <AnimoText variant="bodyStrong" color={danger ? AnimoV2Colors.dangerFg : AnimoV2Colors.textPrimary}>
+        {label}
+      </AnimoText>
+    </Pressable>
+  );
+}
+
+/** Bottom sheet for farmer listing management: Edit / Archive / Delete (existing actions only). */
 export function ListingActionsSheet({
   visible,
   canDelete,
@@ -26,137 +63,45 @@ export function ListingActionsSheet({
   onDelete,
   onClose,
 }: ListingActionsSheetProps) {
+  const { t } = useLanguage();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-          <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.title}>
-            Mga Aksyon
-          </AnimoText>
-
-          {canEdit ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={onEdit}
-              style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}>
-              <View style={styles.iconWrap}>
-                <Pencil size={22} color={AnimoColors.accentPrimary} />
-              </View>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                I-edit
-              </AnimoText>
-            </Pressable>
-          ) : null}
-
-          {canArchive ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={onArchive}
-              style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}>
-              <View style={styles.iconWrap}>
-                <Archive size={22} color={AnimoColors.accentPrimary} />
-              </View>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
-                I-archive
-              </AnimoText>
-            </Pressable>
-          ) : null}
-
-          {canDelete ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={onDelete}
-              style={({ pressed }) => [styles.option, styles.optionDanger, pressed && styles.optionPressed]}>
-              <View style={[styles.iconWrap, styles.iconWrapDanger]}>
-                <Trash2 size={22} color={AnimoColors.danger} />
-              </View>
-              <AnimoText variant="bodyEmphasis" color={AnimoColors.danger}>
-                Tanggalin
-              </AnimoText>
-            </Pressable>
-          ) : null}
-
-          <Pressable accessibilityRole="button" onPress={onClose} style={styles.cancelButton}>
-            <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
-              Cancel
-            </AnimoText>
-          </Pressable>
-        </Pressable>
-      </Pressable>
-    </Modal>
+    <V2Sheet visible={visible} onClose={onClose} title={t('actionsV2.title')}>
+      <View style={{ gap: AnimoV2Spacing.md }}>
+        {canEdit ? <ActionRow icon={Pencil} labelKey="actionsV2.edit" onPress={onEdit} /> : null}
+        {canArchive ? <ActionRow icon={Archive} labelKey="detailV2.archive" onPress={onArchive} /> : null}
+        {canDelete ? <ActionRow icon={Trash2} labelKey="detailV2.delete" onPress={onDelete} danger /> : null}
+      </View>
+      <ChunkyButton variant="secondary" label={t('actionsV2.close')} onPress={onClose} />
+    </V2Sheet>
   );
 }
 
 export function ListingOverflowButton({ onPress }: { onPress: () => void }) {
+  const { t } = useLanguage();
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Mga aksyon sa listing"
+    <IconButton
+      icon={<MoreHorizontal size={26} color={AnimoV2Colors.textPrimary} strokeWidth={2.5} />}
+      label={t('actionsV2.overflow')}
       onPress={onPress}
-      hitSlop={12}
-      style={styles.overflowButton}>
-      <MoreHorizontal size={24} color={AnimoColors.textHighEmphasis} />
-    </Pressable>
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderTopLeftRadius: AnimoRadius.lg,
-    borderTopRightRadius: AnimoRadius.lg,
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingTop: AnimoSpacing.lg,
-    paddingBottom: AnimoSpacing.xl,
-    gap: AnimoSpacing.sm,
-  },
-  title: {
-    marginBottom: AnimoSpacing.sm,
-  },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: AnimoSpacing.md,
-    borderRadius: AnimoRadius.md,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingVertical: AnimoSpacing.md,
+    gap: AnimoV2Spacing.md,
+    minHeight: 64,
+    borderRadius: AnimoV2Radius.lg,
+    borderWidth: 2,
+    borderColor: AnimoV2Colors.borderDefault,
+    borderBottomColor: AnimoV2Colors.edgeSoft,
+    borderBottomWidth: 4,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingVertical: AnimoV2Spacing.sm,
+    backgroundColor: AnimoV2Colors.surfaceCard,
   },
-  optionDanger: {
-    borderColor: AnimoColors.danger,
-  },
-  optionPressed: {
-    backgroundColor: AnimoColors.accentPrimaryLight,
-  },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: AnimoRadius.pill,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconWrapDanger: {
-    backgroundColor: AnimoColors.dangerTint,
-  },
-  cancelButton: {
-    alignItems: 'center',
-    paddingVertical: AnimoSpacing.lg,
-    marginTop: AnimoSpacing.sm,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.lg,
-  },
-  overflowButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  optionDanger: { borderColor: AnimoV2Colors.dangerSolid, borderBottomColor: AnimoV2Colors.dangerFg },
+  optionPressed: { backgroundColor: AnimoV2Colors.surfaceBrandSubtle },
 });

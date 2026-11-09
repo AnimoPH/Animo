@@ -11,7 +11,7 @@ export default function BuyerPalayReviewsRoute() {
   return (
     <>
       <StatusBar style="dark" />
-      <PalayReviewsScreen listingId={listingId ?? ''} />
+      <PalayReviewsScreen v2 listingId={listingId ?? ''} />
     </>
   );
 }

@@ -5,14 +5,20 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { CancelRequestModal } from '@/components/animo/cancel-request-modal';
 import { FarmerCard, LockedFarmerCard } from '@/components/animo/farmer-card';
-import { FeedbackModal } from '@/components/animo/feedback-modal';
-import { NoticeBanner } from '@/components/animo/notice-banner';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import {
+  BuyerCancelDialog,
+  BuyerFeedbackDialog,
+  InfoNote,
+  TxnHeader,
+} from '@/components/animo/buyer/txn-v2';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { StickyFooter } from '@/components/animo/ui/screen-bits';
+import { AnimoV2Colors, AnimoV2Spacing } from '@/constants/animo';
 import { fetchCropListing } from '@/services/crop-listing-service';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
 import {
@@ -23,7 +29,6 @@ import {
 import { useLanguage } from '@/hooks/use-language';
 import type { CropListing } from '@/types/crop-listing';
 import {
-  DISPLAY_STAGE_TONE,
   buildProgressSteps,
   cancelPolicy,
   deriveDisplayStage,
@@ -32,7 +37,6 @@ import {
   type PurchaseOutcome,
   type TransactionCounterpart,
 } from '@/types/transaction';
-import { BackHeader } from '@/components/animo/back-header';
 import { TransactionStatusRow, TransactionSummaryCard } from '@/components/animo/transaction-cycle-cards';
 
 /**
@@ -44,7 +48,7 @@ import { TransactionStatusRow, TransactionSummaryCard } from '@/components/animo
  */
 export default function PickupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { language, isTagalog } = useLanguage();
+  const { language, isTagalog, t } = useLanguage();
 
   const [outcome, setOutcome] = useState<PurchaseOutcome | null>(null);
   const [listing, setListing] = useState<CropListing | null>(null);
@@ -93,10 +97,10 @@ export default function PickupScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title="Pickup" />
+      <SafeAreaView style={styles.safeArea} edges={[]}>
+        <TxnHeader title="Pickup" />
         <View style={styles.missing}>
-          <ActivityIndicator color={AnimoColors.green} />
+          <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
         </View>
       </SafeAreaView>
     );
@@ -104,10 +108,10 @@ export default function PickupScreen() {
 
   if (!outcome || outcome.kind !== 'matched' || error) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title="Pickup" />
+      <SafeAreaView style={styles.safeArea} edges={[]}>
+        <TxnHeader title="Pickup" />
         <View style={styles.missing}>
-          <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+          <AnimoText variant="body" color={AnimoV2Colors.textSecondary}>
             {error ?? (isTagalog ? 'Hindi nahanap ang transaksyon na ito.' : 'Transaction could not be found.')}
           </AnimoText>
         </View>
@@ -135,39 +139,42 @@ export default function PickupScreen() {
     }
   };
 
+  const stage = deriveDisplayStage(outcome);
+  const requestedKg = outcome.request.requestedQuantityKg;
+  const acceptedKg = outcome.transaction.quantityKg;
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title="Pickup" />
+      <TxnHeader title="Pickup" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <TransactionStatusRow
-          label={getDisplayStageLabel(deriveDisplayStage(outcome), language)}
-          tone={DISPLAY_STAGE_TONE[deriveDisplayStage(outcome)]}
-        />
-        <View style={styles.card}>
-          <View style={styles.bannerRow}>
-            <View style={styles.bannerIcon}>
-              <CheckCircle2 size={20} color={AnimoColors.green} />
-            </View>
-            <View style={styles.bannerText}>
-              <AnimoText variant="h3" color={AnimoColors.black}>
-                {isTagalog ? 'Tinanggap ang Iyong Request' : 'Your Request Was Accepted'}
-              </AnimoText>
-              <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                {isTagalog
-                  ? 'Makipag-ugnayan sa magsasaka para sa oras at lokasyon ng pickup. Walang naka-sistemang iskedyul — direktang usapan ito sa pagitan ninyo.'
-                  : 'Coordinate with the farmer regarding pickup time and location. There is no automated schedule — arrange directly with the farmer.'}
-              </AnimoText>
-            </View>
+        <TransactionStatusRow stage={stage} label={getDisplayStageLabel(stage, language)} />
+        <DepthCard depth="flat" radius="xl" style={styles.banner}>
+          <IconTile icon={CheckCircle2} tone="success" />
+          <View style={styles.bannerText}>
+            <AnimoText variant="subheading">
+              {isTagalog ? 'Tinanggap ang Iyong Kahilingan' : 'Your Request Was Accepted'}
+            </AnimoText>
+            <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+              {isTagalog
+                ? 'Makipag-ugnayan sa magsasaka para sa oras at lokasyon ng pickup. Walang naka-sistemang iskedyul — direktang usapan ito sa pagitan ninyo.'
+                : 'Coordinate with the farmer regarding pickup time and location. There is no automated schedule — arrange directly with the farmer.'}
+            </AnimoText>
           </View>
-        </View>
+        </DepthCard>
 
-        <NoticeBanner tone="info" icon={<Info size={16} color="#2563A8" />}>
+        {acceptedKg < requestedKg ? (
+          <InfoNote tone="warning" icon={Info}>
+            {t('buyTxV2.partialNote', { accepted: acceptedKg, requested: requestedKg })}
+          </InfoNote>
+        ) : null}
+
+        <InfoNote tone="neutral" icon={Info}>
           {isTagalog
             ? 'Kapag nakuha na ang palay, magpatuloy sa pagbabayad sa magsasaka.'
             : 'Once the palay has been picked up, proceed with paying the farmer.'}
-        </NoticeBanner>
+        </InfoNote>
 
         {listing ? (
           <TransactionSummaryCard
@@ -188,29 +195,31 @@ export default function PickupScreen() {
         />
 
         {cancelError ? (
-          <AnimoText variant="caption" color={AnimoColors.danger}>
+          <AnimoText variant="captionV2" color={AnimoV2Colors.dangerFg}>
             {cancelError}
           </AnimoText>
         ) : null}
       </ScrollView>
 
-      <View style={styles.footerStack}>
-        <AnimoButton
+      <StickyFooter>
+        <ChunkyButton
           label={isTagalog ? 'Magpatuloy sa Bayad' : 'Proceed to Payment'}
           icon={Check}
           onPress={() => router.push(`/(buyer)/transaksyon/${outcome.request.id}/bayad`)}
         />
         {policy.triggerLabel ? (
-          <AnimoButton
+          <ChunkyButton
             label={policy.triggerLabel}
-            variant="dangerOutline"
+            variant="secondary"
             icon={X}
+            textColor={AnimoV2Colors.dangerFg}
+            borderColor={AnimoV2Colors.dangerSolid}
             onPress={() => setCancelling(true)}
           />
         ) : null}
-      </View>
+      </StickyFooter>
 
-      <CancelRequestModal
+      <BuyerCancelDialog
         visible={cancelling}
         title={policy.title}
         body={policy.body}
@@ -220,7 +229,7 @@ export default function PickupScreen() {
         onConfirm={handleConfirmCancel}
       />
 
-      <FeedbackModal
+      <BuyerFeedbackDialog
         visible={showCancelledSuccessModal}
         tone="danger"
         title={isTagalog ? 'Matagumpay na Nakansela' : 'Successfully Cancelled'}
@@ -238,48 +247,25 @@ export default function PickupScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: AnimoColors.background,
+    backgroundColor: AnimoV2Colors.surfaceApp,
   },
   missing: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: AnimoSpacing.xl,
+    paddingHorizontal: AnimoV2Spacing.xl,
   },
   content: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingBottom: AnimoSpacing.xl,
-    gap: AnimoSpacing.lg,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.sm,
+    paddingBottom: AnimoV2Spacing.xl,
+    gap: AnimoV2Spacing.lg,
   },
-  card: {
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.white,
-  },
-  bannerRow: {
+  banner: {
     flexDirection: 'row',
-    gap: AnimoSpacing.md,
+    alignItems: 'flex-start',
+    gap: AnimoV2Spacing.md,
+    padding: AnimoV2Spacing.lg,
   },
-  bannerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: AnimoColors.greenTint,
-  },
-  bannerText: {
-    flex: 1,
-    gap: 2,
-  },
-  footerStack: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingTop: AnimoSpacing.md,
-    paddingBottom: AnimoSpacing.md,
-    gap: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.background,
-  },
+  bannerText: { flex: 1, minWidth: 0, gap: 2 },
 });

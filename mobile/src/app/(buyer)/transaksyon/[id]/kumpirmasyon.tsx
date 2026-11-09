@@ -1,27 +1,28 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Banknote, Check, CheckCircle2, Lock, TriangleAlert } from 'lucide-react-native';
+import { Banknote, CheckCircle2, Info, Smartphone, TriangleAlert } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { useSession } from '@/hooks/use-session';
 import { isOnlineNow, isSignalError, saveBuyerConfirmOffline } from '@/lib/outbox/enqueue-actions';
-import { NoticeBanner } from '@/components/animo/notice-banner';
-import { StatusBadge } from '@/components/animo/status-badge';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import {
+  BuyerFeedbackDialog,
+  DetailRow,
+  Divider,
+  InfoNote,
+  TxnHeader,
+} from '@/components/animo/buyer/txn-v2';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { FilterChip } from '@/components/animo/ui/filter-chip';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { StickyFooter } from '@/components/animo/ui/screen-bits';
+import { StatusPill } from '@/components/animo/ui/status-pill';
+import { TextField } from '@/components/animo/ui/text-field';
+import { AnimoV2Colors, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { fetchCropListing } from '@/services/crop-listing-service';
 import { fetchPurchaseRequest } from '@/services/purchase-request-service';
@@ -30,7 +31,6 @@ import { TransactionSummaryCard } from '@/components/animo/transaction-cycle-car
 import type { CropListing } from '@/types/crop-listing';
 import { useLanguage } from '@/hooks/use-language';
 import { formatReferenceId, requestTotal, type PurchaseOutcome } from '@/types/transaction';
-import { BackHeader } from '@/components/animo/back-header';
 
 type DiscrepancyReason = string;
 
@@ -106,10 +106,10 @@ export default function PaymentConfirmationScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title={isTagalog ? 'Kumpirmasyon ng Bayad' : 'Payment Confirmation'} />
+      <SafeAreaView style={styles.safeArea} edges={[]}>
+        <TxnHeader title={isTagalog ? 'Kumpirmasyon ng Bayad' : 'Payment Confirmation'} />
         <View style={styles.missing}>
-          <ActivityIndicator color={AnimoColors.green} />
+          <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
         </View>
       </SafeAreaView>
     );
@@ -119,10 +119,10 @@ export default function PaymentConfirmationScreen() {
 
   if (!outcome || outcome.kind !== 'matched' || !payment || loadError) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title={isTagalog ? 'Kumpirmasyon ng Bayad' : 'Payment Confirmation'} />
+      <SafeAreaView style={styles.safeArea} edges={[]}>
+        <TxnHeader title={isTagalog ? 'Kumpirmasyon ng Bayad' : 'Payment Confirmation'} />
         <View style={styles.missing}>
-          <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+          <AnimoText variant="body" color={AnimoV2Colors.textSecondary}>
             {loadError ?? (isTagalog ? 'Wala pang naitalang bayad para sa transaksyong ito.' : 'No payment recorded yet for this transaction.')}
           </AnimoText>
         </View>
@@ -167,9 +167,9 @@ export default function PaymentConfirmationScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title={isTagalog ? 'Kumpirmasyon ng Bayad' : 'Payment Confirmation'} />
+      <TxnHeader title={isTagalog ? 'Kumpirmasyon ng Bayad' : 'Payment Confirmation'} />
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -185,84 +185,52 @@ export default function PaymentConfirmationScreen() {
           ) : null}
           {isMatch ? (
             <>
-              <View style={styles.card}>
-                <View style={styles.statusRow}>
-                  <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-                    Status:
-                  </AnimoText>
-                  <StatusBadge label={isTagalog ? 'Naitala' : 'Recorded'} tone="success" />
-                </View>
+              <DepthCard depth="flat" radius="xl" style={styles.card}>
+                <StatusPill tone="success" label={isTagalog ? 'Naitala' : 'Recorded'} />
                 <View style={styles.bannerRow}>
-                  <View style={[styles.bannerIcon, styles.bannerIconSuccess]}>
-                    <CheckCircle2 size={22} color={AnimoColors.green} />
-                  </View>
+                  <IconTile icon={CheckCircle2} tone="success" />
                   <View style={styles.bannerText}>
-                    <AnimoText variant="h3" color={AnimoColors.black}>
-                      {isTagalog ? 'Tugma ang Halaga' : 'Amount Matches'}
-                    </AnimoText>
-                    <AnimoText variant="caption" color={AnimoColors.muted}>
+                    <AnimoText variant="subheading">{isTagalog ? 'Tugma ang Halaga' : 'Amount Matches'}</AnimoText>
+                    <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
                       {isTagalog ? 'Naitala ang bayad na binigay' : 'Payment recorded accurately'}
                     </AnimoText>
                   </View>
                 </View>
-              </View>
+              </DepthCard>
 
-              <PaidAmountCard
-                actualAmount={actualAmount}
-                agreedTotal={agreedTotal}
-                isTagalog={isTagalog}
-              />
+              <PaidAmountCard actualAmount={actualAmount} agreedTotal={agreedTotal} isTagalog={isTagalog} />
 
-              <View style={styles.card}>
-                <AnimoText variant="h3" color={AnimoColors.black}>
-                  {isTagalog ? 'Paraan ng Bayad' : 'Payment Mode'}
-                </AnimoText>
-                <View style={styles.methodInfoBox}>
-                  <View style={styles.methodRow}>
-                    {payment.paymentMode === 'GCash' ? (
-                      <View style={styles.gcashLogo}>
-                        <AnimoText variant="tag" color={AnimoColors.white}>
-                          GCash
-                        </AnimoText>
-                      </View>
-                    ) : (
-                      <View style={styles.cashLogo}>
-                        <Banknote size={18} color={AnimoColors.green} />
-                      </View>
-                    )}
-                    <View style={styles.methodTexts}>
-                      <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                        {payment.paymentMode === 'GCash' ? 'GCash Transfer' : 'Cash'}
+              <DepthCard depth="flat" radius="xl" style={styles.card}>
+                <AnimoText variant="subheading">{isTagalog ? 'Paraan ng Bayad' : 'Payment Mode'}</AnimoText>
+                <View style={styles.bannerRow}>
+                  <IconTile icon={payment.paymentMode === 'GCash' ? Smartphone : Banknote} tone="success" size={40} />
+                  <View style={styles.bannerText}>
+                    <AnimoText variant="bodyStrong">
+                      {payment.paymentMode === 'GCash' ? 'GCash Transfer' : 'Cash'}
+                    </AnimoText>
+                    {payment.gcashReferenceNumber ? (
+                      <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                        Ref: {payment.gcashReferenceNumber}
                       </AnimoText>
-                      {payment.gcashReferenceNumber ? (
-                        <AnimoText variant="caption" color={AnimoColors.muted}>
-                          Ref: {payment.gcashReferenceNumber}
-                        </AnimoText>
-                      ) : null}
-                    </View>
-                    <Check size={18} color={AnimoColors.green} strokeWidth={3} />
+                    ) : null}
                   </View>
                 </View>
-              </View>
+              </DepthCard>
 
-              <NoticeBanner tone="info" icon={<Lock size={16} color="#2563A8" />}>
+              <InfoNote tone="neutral" icon={Info}>
                 {isTagalog
                   ? 'Tugma ang halaga kaya hindi na kailangan ng paliwanag.'
                   : 'Amount matches; no explanation needed.'}
-              </NoticeBanner>
+              </InfoNote>
             </>
           ) : (
             <>
-              <View style={[styles.card, styles.warningCard]}>
+              <DepthCard depth="flat" radius="xl" backgroundColor={AnimoV2Colors.warningBg} borderColor={AnimoV2Colors.warningSolid} style={styles.card}>
                 <View style={styles.bannerRow}>
-                  <View style={[styles.bannerIcon, styles.bannerIconWarning]}>
-                    <TriangleAlert size={22} color="#B4791A" />
-                  </View>
+                  <IconTile icon={TriangleAlert} tone="warning" solid />
                   <View style={styles.bannerText}>
-                    <AnimoText variant="h3" color={AnimoColors.black}>
-                      {isTagalog ? 'Hindi Tugma ang Halaga' : 'Amount Mismatch'}
-                    </AnimoText>
-                    <AnimoText variant="caption" color={AnimoColors.blackSecondary}>
+                    <AnimoText variant="subheading">{isTagalog ? 'Hindi Tugma ang Halaga' : 'Amount Mismatch'}</AnimoText>
+                    <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
                       {difference > 0
                         ? isTagalog
                           ? 'Mas mataas ang binayaran kaysa napagkasunduang presyo'
@@ -273,21 +241,17 @@ export default function PaymentConfirmationScreen() {
                     </AnimoText>
                   </View>
                 </View>
-              </View>
+              </DepthCard>
 
-              <PaidAmountCard
-                actualAmount={actualAmount}
-                agreedTotal={agreedTotal}
-                isTagalog={isTagalog}
-              />
+              <PaidAmountCard actualAmount={actualAmount} agreedTotal={agreedTotal} isTagalog={isTagalog} />
 
-              <View style={styles.card}>
-                <AnimoText variant="h3" color={AnimoColors.black}>
+              <DepthCard depth="flat" radius="xl" style={styles.card}>
+                <AnimoText variant="subheading">
                   {isTagalog
                     ? 'Tandaan ang Pagkakaiba (para sa iyo lang)'
                     : 'Note Discrepancy (for your reference)'}
                 </AnimoText>
-                <AnimoText variant="caption" color={AnimoColors.muted}>
+                <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
                   {isTagalog
                     ? 'Opsyonal lang ang talang ito. Hindi ito sine-save o ipinapadala at mawawala kapag umalis ka sa pahinang ito.'
                     : 'This optional note is not saved or sent to anyone and will be lost when you leave this screen.'}
@@ -295,46 +259,38 @@ export default function PaymentConfirmationScreen() {
 
                 <View style={styles.chipGroup}>
                   {reasons.map((reason) => (
-                    <Pressable
+                    <FilterChip
                       key={reason}
-                      style={[styles.chip, selectedReason === reason && styles.chipActive]}
-                      onPress={() => setSelectedReason(reason)}>
-                      <AnimoText variant="caption" color={selectedReason === reason ? AnimoColors.green : AnimoColors.black}>
-                        {reason}
-                      </AnimoText>
-                    </Pressable>
+                      compact
+                      label={reason}
+                      selected={selectedReason === reason}
+                      onPress={() => setSelectedReason(reason)}
+                    />
                   ))}
                 </View>
 
-                <View style={styles.textareaContainer}>
-                  <TextInput
-                    style={styles.textarea}
-                    placeholder={isTagalog ? 'Isulat ang tala dito...' : 'Write note here...'}
-                    placeholderTextColor={AnimoColors.muted}
-                    multiline
-                    numberOfLines={4}
-                    maxLength={300}
-                    value={explanation}
-                    onChangeText={setExplanation}
-                    textAlignVertical="top"
-                  />
-                  <AnimoText variant="tag" color={AnimoColors.muted} style={styles.counter}>
-                    {explanation.length}/300
-                  </AnimoText>
-                </View>
-              </View>
+                <TextField
+                  label={isTagalog ? 'Tala' : 'Note'}
+                  placeholder={isTagalog ? 'Isulat ang tala dito...' : 'Write note here...'}
+                  multiline
+                  maxLength={300}
+                  value={explanation}
+                  onChangeText={setExplanation}
+                  hint={`${explanation.length}/300`}
+                />
+              </DepthCard>
             </>
           )}
 
           {submitError ? (
-            <AnimoText variant="caption" color={AnimoColors.danger}>
+            <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg}>
               {submitError}
             </AnimoText>
           ) : null}
         </ScrollView>
 
-        <View style={styles.footerStack}>
-          <AnimoButton
+        <StickyFooter>
+          <ChunkyButton
             label={
               submitting
                 ? isTagalog
@@ -351,10 +307,10 @@ export default function PaymentConfirmationScreen() {
             onPress={handleConfirm}
             disabled={submitting}
           />
-        </View>
+        </StickyFooter>
       </KeyboardAvoidingView>
 
-      <FeedbackModal
+      <BuyerFeedbackDialog
         visible={savedOffline}
         tone="info"
         title={isTagalog ? 'Na-save sa phone' : 'Saved on this phone'}
@@ -370,7 +326,7 @@ export default function PaymentConfirmationScreen() {
         }}
       />
 
-      <FeedbackModal
+      <BuyerFeedbackDialog
         visible={showConfirmModal}
         tone="success"
         title={isTagalog ? 'Naipadala ang Kumpirmasyon' : 'Confirmation Sent'}
@@ -403,103 +359,40 @@ function PaidAmountCard({
   const isMatch = Math.abs(difference) < 0.01;
 
   return (
-    <View style={styles.card}>
-      <AnimoText variant="caption" color={AnimoColors.muted}>
+    <DepthCard depth="flat" radius="xl" style={styles.card}>
+      <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
         {isTagalog ? 'Halagang Binayaran' : 'Amount Paid'}
       </AnimoText>
-      <AnimoText variant="h1" color={AnimoColors.black}>
-        {formatPeso(actualAmount)}
-      </AnimoText>
+      <AnimoText variant="display">{formatPeso(actualAmount)}</AnimoText>
 
-      <View style={styles.divider} />
+      <Divider />
 
-      <View style={styles.rowBetween}>
-        <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-          {isTagalog ? 'Napagkasunduang presyo' : 'Agreed Price'}
-        </AnimoText>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-          {formatPeso(agreedTotal)}
-        </AnimoText>
-      </View>
-      <View style={styles.rowBetween}>
-        <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-          {isTagalog ? 'Pagkakaiba' : 'Difference'}
-        </AnimoText>
-        <AnimoText
-          variant="bodyEmphasis"
-          color={isMatch ? AnimoColors.green : difference > 0 ? '#B4791A' : AnimoColors.danger}>
-          {isMatch
-            ? `₱0.00 · ${isTagalog ? 'Tugma' : 'Exact match'}`
-            : difference > 0
-              ? `+${formatPeso(difference)}`
-              : `-${formatPeso(Math.abs(difference))}`}
-        </AnimoText>
-      </View>
-    </View>
+      <DetailRow label={isTagalog ? 'Napagkasunduang presyo' : 'Agreed Price'} value={formatPeso(agreedTotal)} />
+      <DetailRow
+        label={isTagalog ? 'Pagkakaiba' : 'Difference'}
+        value={
+          isMatch
+            ? `₱0.00 (${isTagalog ? 'Tugma' : 'Match'})`
+            : `${difference > 0 ? '+' : '-'}${formatPeso(Math.abs(difference))}`
+        }
+        brand={isMatch}
+      />
+    </DepthCard>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: AnimoColors.background },
+  safeArea: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
   flex: { flex: 1 },
-  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: AnimoSpacing.xl },
-  content: { paddingHorizontal: AnimoSpacing.xl, paddingBottom: AnimoSpacing.xl, gap: AnimoSpacing.lg },
-  card: {
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.white,
+  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: AnimoV2Spacing.xl },
+  content: {
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.sm,
+    paddingBottom: AnimoV2Spacing.xl,
+    gap: AnimoV2Spacing.lg,
   },
-  warningCard: { borderColor: '#F0D79A', backgroundColor: '#FDF6E4' },
-  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoSpacing.md },
-  bannerRow: { flexDirection: 'row', gap: AnimoSpacing.md, alignItems: 'center' },
-  bannerIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  bannerIconSuccess: { backgroundColor: AnimoColors.greenTint },
-  bannerIconWarning: { backgroundColor: '#FBF0D9' },
-  bannerText: { flex: 1, gap: 2 },
-  bannerMeta: { flexDirection: 'row', alignItems: 'center', gap: AnimoSpacing.sm, marginTop: AnimoSpacing.xs },
-  divider: { height: 1, backgroundColor: AnimoColors.border, marginVertical: AnimoSpacing.xs },
-  rowBetween: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: AnimoSpacing.sm },
-  methodInfoBox: {
-    borderWidth: 1,
-    borderColor: AnimoColors.green,
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.md,
-    gap: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.greenTint,
-  },
-  methodRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoSpacing.md },
-  gcashLogo: { backgroundColor: '#0B76D1', borderRadius: AnimoRadius.sm, paddingHorizontal: 8, paddingVertical: 4 },
-  cashLogo: { backgroundColor: AnimoColors.white, borderRadius: AnimoRadius.sm, padding: 6 },
-  methodTexts: { flex: 1, gap: 1 },
-  chipGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: AnimoSpacing.sm, marginTop: AnimoSpacing.xs },
-  chip: {
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: AnimoSpacing.sm,
-    borderRadius: AnimoRadius.md,
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    backgroundColor: AnimoColors.surface,
-  },
-  chipActive: { borderColor: AnimoColors.green, backgroundColor: AnimoColors.greenTint },
-  textareaContainer: {
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.md,
-    backgroundColor: AnimoColors.surface,
-    marginTop: AnimoSpacing.xs,
-    gap: AnimoSpacing.xs,
-  },
-  textarea: { fontSize: 16, color: AnimoColors.black, minHeight: 80 },
-  counter: { alignSelf: 'flex-end' },
-  footerStack: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingTop: AnimoSpacing.md,
-    paddingBottom: AnimoSpacing.md,
-    gap: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.background,
-  },
+  card: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
+  bannerRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  bannerText: { flex: 1, minWidth: 0, gap: 2 },
+  chipGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: AnimoV2Spacing.sm },
 });

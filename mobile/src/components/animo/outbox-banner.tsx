@@ -25,7 +25,7 @@ function newPriceFrom(item: OutboxItem): number | null {
  * farmer confirms the new peso or drops it. `rightInset` keeps it clear of a
  * button on the right edge, like the + on Aking Ani.
  */
-export function OutboxBanner({ rightInset = 0 }: { rightInset?: number }) {
+export function OutboxBanner({ rightInset = 0, bottomOffset }: { rightInset?: number; bottomOffset?: number }) {
   const { isTagalog } = useLanguage();
   const { account } = useSession();
   const items = useOutboxItems(account?.id ?? null);
@@ -65,7 +65,11 @@ export function OutboxBanner({ rightInset = 0 }: { rightInset?: number }) {
   return (
     <>
       <Pressable
-        style={[styles.banner, rightInset > 0 && { right: AnimoSpacing.lg + rightInset }]}
+        style={[
+          styles.banner,
+          rightInset > 0 && { right: AnimoSpacing.lg + rightInset },
+          bottomOffset !== undefined && { bottom: bottomOffset },
+        ]}
         disabled={!stuck}
         onPress={() => setReviewing(true)}
         accessibilityRole={stuck ? 'button' : 'text'}>

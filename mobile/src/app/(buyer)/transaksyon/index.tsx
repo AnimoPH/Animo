@@ -1,23 +1,12 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Bell, ChevronLeft, ChevronRight, ClipboardList, Filter, Search } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Bell, ChevronLeft, ChevronRight, Filter, Search } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { AppHeader } from '@/components/animo/app-header';
-import { FilterModal } from '@/components/animo/filter-modal';
-import { SearchFilterBar } from '@/components/animo/search-filter-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   BuyerTransactionCard,
   type BuyerTransactionCardItem,
@@ -27,13 +16,19 @@ import {
   SpotlightTour,
   type SpotlightStep,
 } from '@/components/animo/spotlight-tour';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { Mascot } from '@/components/animo/ui/mascot';
+import { IconButton } from '@/components/animo/ui/screen-bits';
+import { V2SearchBar } from '@/components/animo/ui/search-bar';
+import { SegmentedTabs } from '@/components/animo/ui/segmented-tabs';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Size, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useLanguage } from '@/hooks/use-language';
 import { parseBuyerTransactionListFilter } from '@/lib/buyer-transactions-nav';
 import { visiblePages } from '@/lib/visible-pages';
-import { fetchCropListingsByIds } from '@/services/crop-listing-service';
+import { fetchCoverPhotos, fetchCropListingsByIds } from '@/services/crop-listing-service';
+import { fetchUnreadNotificationCount } from '@/services/notification-service';
 import {
   fetchBuyerPurchaseOutcomes,
   fetchCounterpartNames,
@@ -55,18 +50,17 @@ import {
   type PurchaseOutcome,
 } from '@/types/transaction';
 
-const SCREEN_PADDING = AnimoSpacing.lg;
+const SCREEN_PADDING = AnimoV2Spacing.lg;
 const PAGE_SIZE = 5;
 
 type FilterValue = 'Lahat' | 'Kasalukuyan' | 'Tapos na';
-
-const FILTERS: FilterValue[] = ['Lahat', 'Kasalukuyan', 'Tapos na'];
 
 function toCardItem(
   outcome: PurchaseOutcome,
   listing: CropListing | undefined,
   farmerName?: string,
   lang: 'tl' | 'en' = 'tl',
+  photoUrl?: string,
 ): BuyerTransactionCardItem {
   const stage = deriveDisplayStage(outcome);
   const quantityKg =
@@ -89,30 +83,39 @@ function toCardItem(
     farmer: farmerName || (lang === 'en' ? 'Farmer' : 'Magsasaka'),
     date: formatDate(outcome.request.submittedAt),
     time: formatTime(outcome.request.submittedAt),
+    photoUrl,
   };
 }
 
-/** Buyer Transaksyon — requests & matched transactions matching farmer transaksyon UI layout. */
+/** Buyer Transaksyon: requests and matched transactions, split into Lahat / Aktibo / Kasaysayan. */
 export default function BuyerTransactionsScreen() {
   const { language, isTagalog, t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const { filter: filterParam } = useLocalSearchParams<{ filter?: string | string[] }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [appliedFilter, setAppliedFilter] = useState<FilterValue>('Lahat');
-  const [draftFilter, setDraftFilter] = useState<FilterValue>('Lahat');
-  const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showTutorial, setShowTutorial] = useState(false);
 
   const [outcomes, setOutcomes] = useState<PurchaseOutcome[]>([]);
   const [listingsById, setListingsById] = useState<Map<string, CropListing>>(new Map());
+  const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
   const [farmerNamesByListing, setFarmerNamesByListing] = useState<Map<string, string>>(new Map());
   const [counterpartNamesById, setCounterpartNamesById] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unread, setUnread] = useState(0);
 
   const searchBarRef = useRef<View>(null);
+  const tabsRef = useRef<View>(null);
   const bellRef = useRef<View>(null);
+
+  const loadUnread = useCallback(() => {
+    fetchUnreadNotificationCount()
+      .then(setUnread)
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(async (isRefresh: boolean) => {
     if (isRefresh) setRefreshing(true);
@@ -125,6 +128,11 @@ export default function BuyerTransactionsScreen() {
       const farmerIds = result
         .map((o) => (o.kind === 'matched' ? o.transaction.farmerId : null))
         .filter((id): id is string => Boolean(id));
+
+      // Photos are decoration: a failure here must not hide the transactions.
+      fetchCoverPhotos(listingIds)
+        .then(setCoverPhotos)
+        .catch(() => {});
 
       const [listings, farmerNames, counterparts] = await Promise.all([
         fetchCropListingsByIds(listingIds),
@@ -151,6 +159,7 @@ export default function BuyerTransactionsScreen() {
   useFocusEffect(
     useCallback(() => {
       load(false);
+      loadUnread();
       let active = true;
       AsyncStorage.getItem(BUYER_TXN_TUTORIAL_KEY).then((seen) => {
         if (active) setShowTutorial(seen !== 'true');
@@ -158,19 +167,19 @@ export default function BuyerTransactionsScreen() {
       return () => {
         active = false;
       };
-    }, [load]),
+    }, [load, loadUnread]),
   );
 
   useEffect(() => {
     const next = parseBuyerTransactionListFilter(filterParam);
     if (!next) return;
     setAppliedFilter(next);
-    setDraftFilter(next);
     setCurrentPage(1);
     router.setParams({ filter: '' });
   }, [filterParam]);
 
   useAutoRefresh(useCallback(() => load(true), [load]));
+  useAutoRefresh(loadUnread);
 
   const items = useMemo(
     () =>
@@ -181,10 +190,16 @@ export default function BuyerTransactionsScreen() {
           (language === 'en' ? 'Farmer' : 'Magsasaka');
         return {
           outcome,
-          card: toCardItem(outcome, listingsById.get(outcome.request.listingId), farmerName, language),
+          card: toCardItem(
+            outcome,
+            listingsById.get(outcome.request.listingId),
+            farmerName,
+            language,
+            coverPhotos.get(outcome.request.listingId),
+          ),
         };
       }),
-    [outcomes, listingsById, counterpartNamesById, farmerNamesByListing, language],
+    [outcomes, listingsById, counterpartNamesById, farmerNamesByListing, coverPhotos, language],
   );
 
   const filteredData = useMemo(() => {
@@ -212,22 +227,9 @@ export default function BuyerTransactionsScreen() {
 
   const activeFilterCount = appliedFilter === 'Lahat' ? 0 : 1;
 
-  const openFilter = () => {
-    setDraftFilter(appliedFilter);
-    setModalOpen(true);
-  };
-
-  const applyFilters = () => {
-    setAppliedFilter(draftFilter);
-    setCurrentPage(1);
-    setModalOpen(false);
-  };
-
   const resetFilters = () => {
-    setDraftFilter('Lahat');
     setAppliedFilter('Lahat');
     setCurrentPage(1);
-    setModalOpen(false);
   };
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
@@ -243,15 +245,20 @@ export default function BuyerTransactionsScreen() {
     setCurrentPage(1);
   };
 
+  const handleTabChange = (next: FilterValue) => {
+    setAppliedFilter(next);
+    setCurrentPage(1);
+  };
+
   const buyerTxnTourSteps: SpotlightStep[] = [
     {
       id: 'buyer-txn-filter',
       title: t('spotlight.buyerTxn.step1Title'),
       description: t('spotlight.buyerTxn.step1Desc'),
       icon: Filter,
-      targetRef: searchBarRef,
+      targetRef: tabsRef,
       shape: 'rectangle',
-      borderRadius: 16,
+      borderRadius: AnimoV2Radius.md,
       padding: 6,
     },
     {
@@ -261,7 +268,7 @@ export default function BuyerTransactionsScreen() {
       icon: Search,
       targetRef: searchBarRef,
       shape: 'rectangle',
-      borderRadius: 16,
+      borderRadius: AnimoV2Radius.md,
       padding: 6,
     },
     {
@@ -276,81 +283,63 @@ export default function BuyerTransactionsScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <View style={styles.screen}>
       <StatusBar style="dark" />
-      <AppHeader
-        bellRef={bellRef}
-        onPressBell={() => router.push("/(buyer)/notipikasyon")}
-      />
 
-      <View ref={searchBarRef} collapsable={false}>
-        <SearchFilterBar
+      <View style={[styles.titleRow, { paddingTop: insets.top + AnimoV2Spacing.md }]}>
+        <View style={styles.flex}>
+          <AnimoText variant="title" accessibilityRole="header" style={styles.headerTitle}>
+            {t('buyTxV2.title')}
+          </AnimoText>
+          <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+            {t('buyTxV2.subtitle')}
+          </AnimoText>
+        </View>
+        <View ref={bellRef} collapsable={false}>
+          <IconButton
+            icon={<Bell size={26} color={AnimoV2Colors.textBrand} strokeWidth={2.5} />}
+            label={unread > 0 ? t('buyTxV2.bellUnread', { count: unread }) : t('buyTxV2.bell')}
+            onPress={() => router.push('/(buyer)/notipikasyon')}
+            backgroundColor={AnimoV2Colors.surfaceCard}
+          />
+          {unread > 0 ? <View style={styles.bellDot} /> : null}
+        </View>
+      </View>
+
+      <View ref={searchBarRef} collapsable={false} style={styles.block}>
+        <V2SearchBar
           value={searchQuery}
           onChangeText={handleSearchChange}
-          placeholder={
-            isTagalog
-              ? "Pangalan, presyo, katayuan..."
-              : "Name, price, status..."
-          }
-          activeFilterCount={activeFilterCount}
-          onFilterPress={openFilter}
+          placeholder={t('buyTxV2.searchPh')}
+          clearLabel={t('buyTxV2.clearSearch')}
         />
       </View>
 
-      <FilterModal
-        visible={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onReset={resetFilters}
-        onApply={applyFilters}
-        activeCount={draftFilter === "Lahat" ? 0 : 1}
-      >
-        <View style={styles.filterSection}>
-          <AnimoText
-            variant="bodyEmphasis"
-            color={AnimoColors.textHighEmphasis}
-          >
-            {isTagalog ? "Katayuan" : "Status"}
-          </AnimoText>
-          <View style={styles.chipsWrap}>
-            {FILTERS.map((filter) => {
-              const label =
-                filter === "Lahat"
-                  ? isTagalog
-                    ? "Lahat"
-                    : "All"
-                  : filter === "Kasalukuyan"
-                    ? isTagalog
-                      ? "Kasalukuyan"
-                      : "Active"
-                    : isTagalog
-                      ? "Tapos na"
-                      : "Completed";
-              return (
-                <FilterChoiceChip
-                  key={filter}
-                  label={label}
-                  active={draftFilter === filter}
-                  onPress={() => setDraftFilter(filter)}
-                />
-              );
-            })}
-          </View>
-        </View>
-      </FilterModal>
+      <View ref={tabsRef} collapsable={false} style={styles.block}>
+        <SegmentedTabs<FilterValue>
+          tabs={[
+            { key: 'Lahat', label: t('buyTxV2.tabAll') },
+            { key: 'Kasalukuyan', label: t('buyTxV2.tabActive') },
+            { key: 'Tapos na', label: t('buyTxV2.tabHistory') },
+          ]}
+          value={appliedFilter}
+          onChange={handleTabChange}
+        />
+      </View>
 
       {loading ? (
         <View style={styles.centerFill}>
-          <ActivityIndicator color={AnimoColors.accentPrimary} />
+          <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
         </View>
       ) : error ? (
         <View style={styles.centerFill}>
-          <AnimoText variant="body" color={AnimoColors.danger}>
+          <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg} style={styles.centerText}>
             {error}
           </AnimoText>
         </View>
       ) : (
         <FlatList
-          style={styles.scroll}
+          style={styles.flex}
           data={paginatedData}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <BuyerTransactionCard item={item} />}
@@ -360,6 +349,7 @@ export default function BuyerTransactionsScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => load(true)}
+              colors={[AnimoV2Colors.actionPrimary]}
             />
           }
           ListFooterComponent={
@@ -369,20 +359,34 @@ export default function BuyerTransactionsScreen() {
               totalItems={filteredData.length}
               pageSize={PAGE_SIZE}
               onPageChange={setCurrentPage}
-              isTagalog={isTagalog}
             />
           }
           ListEmptyComponent={
-            searchQuery.trim() !== "" ? (
-              <SearchEmptyState
-                query={searchQuery}
-                onClear={() => handleSearchChange("")}
-                isTagalog={isTagalog}
+            searchQuery.trim() !== '' ? (
+              <EmptyState
+                icon={<Search size={48} color={AnimoV2Colors.borderStrong} strokeWidth={2.25} />}
+                title={t('buyTxV2.noResults', { q: searchQuery })}
+                body={t('buyTxV2.noResultsHint')}
+                actionLabel={t('buyTxV2.clearBtn')}
+                onAction={() => handleSearchChange('')}
+                secondary
               />
             ) : activeFilterCount > 0 ? (
-              <FilterEmptyState isTagalog={isTagalog} onClear={resetFilters} />
+              <EmptyState
+                icon={<Filter size={48} color={AnimoV2Colors.borderStrong} strokeWidth={2.25} />}
+                title={t('buyTxV2.noTabItems')}
+                actionLabel={t('buyTxV2.showAll')}
+                onAction={resetFilters}
+                secondary
+              />
             ) : (
-              <EmptyState isTagalog={isTagalog} />
+              <EmptyState
+                icon={<Mascot size={112} />}
+                title={t('buyTxV2.emptyTitle')}
+                body={t('buyTxV2.emptyBody')}
+                actionLabel={t('buyTxV2.emptyCta')}
+                onAction={() => router.push('/(buyer)/palengke')}
+              />
             )
           }
         />
@@ -394,10 +398,10 @@ export default function BuyerTransactionsScreen() {
         storageKey={BUYER_TXN_TUTORIAL_KEY}
         onClose={() => {
           setShowTutorial(false);
-          AsyncStorage.setItem(BUYER_TXN_TUTORIAL_KEY, "true").catch(() => {});
+          AsyncStorage.setItem(BUYER_TXN_TUTORIAL_KEY, 'true').catch(() => {});
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -407,310 +411,175 @@ function PaginationControls({
   totalItems,
   pageSize,
   onPageChange,
-  isTagalog,
 }: {
   currentPage: number;
   totalPages: number;
   totalItems: number;
   pageSize: number;
   onPageChange: (page: number) => void;
-  isTagalog: boolean;
 }) {
+  const { t } = useLanguage();
   if (totalPages <= 1) return null;
 
   const startItem = (currentPage - 1) * pageSize + 1;
   const endItem = Math.min(currentPage * pageSize, totalItems);
+  const atStart = currentPage <= 1;
+  const atEnd = currentPage >= totalPages;
+  const navColor = (disabled: boolean) => (disabled ? AnimoV2Colors.textDisabled : AnimoV2Colors.textPrimary);
 
   return (
     <View style={styles.paginationWrap}>
-      <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis} style={styles.paginationSummary}>
-        {isTagalog
-          ? `Ipinapakita ang ${startItem}-${endItem} ng ${totalItems} na transaksyon`
-          : `Showing ${startItem}-${endItem} of ${totalItems} transactions`}
+      <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+        {t('buyTxV2.pageSummary', { from: startItem, to: endItem, total: totalItems })}
       </AnimoText>
 
       <View style={styles.paginationRow}>
-        <TouchableOpacity
+        <Pressable
           accessibilityRole="button"
-          accessibilityLabel={isTagalog ? 'Nakaraang pahina' : 'Previous page'}
-          disabled={currentPage <= 1}
+          accessibilityLabel={t('buyTxV2.prevLabel')}
+          accessibilityState={{ disabled: atStart }}
+          disabled={atStart}
           onPress={() => onPageChange(currentPage - 1)}
-          activeOpacity={0.8}
-          style={[styles.pageNavBtn, currentPage <= 1 && styles.pageNavBtnDisabled]}>
-          <ChevronLeft
-            size={16}
-            color={currentPage <= 1 ? AnimoColors.textDisabled : AnimoColors.textHighEmphasis}
-          />
-          <AnimoText
-            variant="bodyEmphasis"
-            color={currentPage <= 1 ? AnimoColors.textDisabled : AnimoColors.textHighEmphasis}>
-            {isTagalog ? 'Nakaraan' : 'Prev'}
-          </AnimoText>
-        </TouchableOpacity>
+          style={[styles.pageNav, atStart && styles.pageNavDisabled]}>
+          <ChevronLeft size={24} color={navColor(atStart)} strokeWidth={2.75} />
+        </Pressable>
 
-        <View style={styles.pageNumbersRow}>
+        <View style={styles.pageNumbers}>
           {visiblePages(currentPage, totalPages).map((pageNum) => {
             const isActive = pageNum === currentPage;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={pageNum}
                 accessibilityRole="button"
-                accessibilityLabel={isTagalog ? `Pahina ${pageNum}` : `Page ${pageNum}`}
+                accessibilityState={{ selected: isActive }}
+                accessibilityLabel={t('buyTxV2.pageN', { n: pageNum })}
                 onPress={() => onPageChange(pageNum)}
-                activeOpacity={0.8}
-                style={[styles.pageNumberBtn, isActive && styles.pageNumberBtnActive]}>
+                style={[styles.pageNumber, isActive && styles.pageNumberActive]}>
                 <AnimoText
-                  variant="bodyEmphasis"
-                  color={isActive ? AnimoColors.white : AnimoColors.textHighEmphasis}>
+                  variant="bodyStrong"
+                  color={isActive ? AnimoV2Colors.textOnBrand : AnimoV2Colors.textPrimary}>
                   {pageNum}
                 </AnimoText>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </View>
 
-        <TouchableOpacity
+        <Pressable
           accessibilityRole="button"
-          accessibilityLabel={isTagalog ? 'Susunod na pahina' : 'Next page'}
-          disabled={currentPage >= totalPages}
+          accessibilityLabel={t('buyTxV2.nextLabel')}
+          accessibilityState={{ disabled: atEnd }}
+          disabled={atEnd}
           onPress={() => onPageChange(currentPage + 1)}
-          activeOpacity={0.8}
-          style={[styles.pageNavBtn, currentPage >= totalPages && styles.pageNavBtnDisabled]}>
-          <AnimoText
-            variant="bodyEmphasis"
-            color={currentPage >= totalPages ? AnimoColors.textDisabled : AnimoColors.textHighEmphasis}>
-            {isTagalog ? 'Susunod' : 'Next'}
-          </AnimoText>
-          <ChevronRight
-            size={16}
-            color={currentPage >= totalPages ? AnimoColors.textDisabled : AnimoColors.textHighEmphasis}
-          />
-        </TouchableOpacity>
+          style={[styles.pageNav, atEnd && styles.pageNavDisabled]}>
+          <ChevronRight size={24} color={navColor(atEnd)} strokeWidth={2.75} />
+        </Pressable>
       </View>
     </View>
   );
 }
 
-function FilterChoiceChip({
-  label,
-  active,
-  onPress,
+function EmptyState({
+  icon,
+  title,
+  body,
+  actionLabel,
+  onAction,
+  secondary = false,
 }: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={[styles.chipItem, active && styles.chipItemActive]}>
-      <AnimoText
-        variant="body"
-        color={active ? AnimoColors.accentPrimary : AnimoColors.textMediumEmphasis}
-        style={active ? styles.chipTextActive : undefined}>
-        {label}
-      </AnimoText>
-    </Pressable>
-  );
-}
-
-function FilterEmptyState({ isTagalog, onClear }: { isTagalog: boolean; onClear: () => void }) {
-  return (
-    <View style={styles.empty}>
-      <Filter size={48} color={AnimoColors.accentPrimaryLight} />
-      <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
-        {isTagalog ? 'Walang transaksyon sa filter na ito.' : 'No transactions match this filter.'}
-      </AnimoText>
-      <TouchableOpacity
-        accessibilityRole="button"
-        activeOpacity={0.85}
-        onPress={onClear}
-        style={styles.searchEmptyCta}>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
-          {isTagalog ? 'I-clear ang filter' : 'Clear filters'}
-        </AnimoText>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-function SearchEmptyState({
-  query,
-  onClear,
-  isTagalog,
-}: {
-  query: string;
-  onClear: () => void;
-  isTagalog: boolean;
+  icon: ReactNode;
+  title: string;
+  body?: string;
+  actionLabel: string;
+  onAction: () => void;
+  secondary?: boolean;
 }) {
   return (
     <View style={styles.empty}>
-      <Search size={48} color={AnimoColors.accentPrimaryLight} />
-      <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
-        {isTagalog ? `Walang resulta para sa "${query}"` : `No results for "${query}"`}
+      {icon}
+      <AnimoText variant="heading" style={styles.centerText}>
+        {title}
       </AnimoText>
-      <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
-        {isTagalog
-          ? 'Subukan ang ibang keyword o i-clear ang search.'
-          : 'Try another keyword or clear your search.'}
-      </AnimoText>
-      <TouchableOpacity
-        accessibilityRole="button"
-        activeOpacity={0.85}
-        onPress={onClear}
-        style={styles.searchEmptyCta}>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.textMediumEmphasis}>
-          {isTagalog ? 'I-clear ang Search' : 'Clear Search'}
+      {body ? (
+        <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+          {body}
         </AnimoText>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-function EmptyState({ isTagalog }: { isTagalog: boolean }) {
-  return (
-    <View style={styles.empty}>
-      <ClipboardList size={64} color={AnimoColors.accentPrimaryLight} />
-      <AnimoText variant="h3" color={AnimoColors.textHighEmphasis} style={styles.emptyTitle}>
-        {isTagalog ? 'Wala pang transaksyon' : 'No transactions yet'}
-      </AnimoText>
-      <AnimoText variant="body" color={AnimoColors.textLowEmphasis} style={styles.emptyBody}>
-        {isTagalog
-          ? 'Mag-browse ng mga magsasaka at palay sa palengke upang makapag-order.'
-          : 'Browse farmers and palay in the marketplace to place an order.'}
-      </AnimoText>
-      <TouchableOpacity
-        accessibilityRole="button"
-        activeOpacity={0.85}
-        onPress={() => router.push('/(buyer)/palengke')}
-        style={styles.emptyCta}>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
-          {isTagalog ? 'Pumunta sa Palengke' : 'Go to Marketplace'}
-        </AnimoText>
-      </TouchableOpacity>
+      ) : null}
+      <ChunkyButton
+        label={actionLabel}
+        variant={secondary ? 'secondary' : 'primary'}
+        onPress={onAction}
+        style={styles.emptyBtn}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.appBackground,
-  },
-  scroll: {
-    flex: 1,
-    backgroundColor: AnimoColors.appBackground,
-  },
-  filterSection: {
-    gap: AnimoSpacing.sm,
-  },
-  chipsWrap: {
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  flex: { flex: 1, minWidth: 0 },
+  titleRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: AnimoSpacing.sm,
-    marginTop: 2,
-  },
-  chipItem: {
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: 10,
-    borderRadius: AnimoRadius.pill,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: AnimoColors.surfacePrimary,
-  },
-  chipItemActive: {
-    borderColor: AnimoColors.accentPrimary,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-  },
-  chipTextActive: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-    color: AnimoColors.accentPrimary,
-  },
-  centerFill: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  list: {
+    alignItems: 'flex-start',
+    gap: AnimoV2Spacing.md,
     paddingHorizontal: SCREEN_PADDING,
-    paddingBottom: AnimoSpacing.xxl,
+    paddingBottom: AnimoV2Spacing.sm,
   },
+  headerTitle: { fontSize: 24, lineHeight: 30 },
+  block: { paddingHorizontal: SCREEN_PADDING, paddingBottom: AnimoV2Spacing.md },
+  bellDot: {
+    position: 'absolute',
+    top: 8,
+    right: 10,
+    width: 14,
+    height: 14,
+    borderRadius: AnimoV2Radius.full,
+    backgroundColor: AnimoV2Colors.dangerSolid,
+    borderWidth: 2,
+    borderColor: AnimoV2Colors.surfaceCard,
+  },
+  centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SCREEN_PADDING },
+  centerText: { textAlign: 'center' },
+  list: { paddingHorizontal: SCREEN_PADDING, paddingTop: AnimoV2Spacing.xs, paddingBottom: AnimoV2Spacing.xxl },
   empty: {
     alignItems: 'center',
-    marginTop: AnimoSpacing.xxl,
+    gap: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.xl,
+    paddingHorizontal: AnimoV2Spacing.lg,
   },
-  emptyTitle: {
-    textAlign: 'center',
-    marginTop: AnimoSpacing.lg,
-  },
-  emptyBody: {
-    textAlign: 'center',
-    marginTop: AnimoSpacing.sm,
-    paddingHorizontal: AnimoSpacing.xxl,
-  },
-  emptyCta: {
-    backgroundColor: AnimoColors.accentPrimary,
-    borderRadius: AnimoRadius.lg,
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingVertical: AnimoSpacing.md,
-    marginTop: AnimoSpacing.xl,
-  },
-  searchEmptyCta: {
-    backgroundColor: AnimoColors.surfaceTertiary,
-    borderRadius: AnimoRadius.lg,
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingVertical: AnimoSpacing.md,
-    marginTop: AnimoSpacing.xl,
-  },
-  paginationWrap: {
-    marginTop: AnimoSpacing.md,
-    // marginBottom: AnimoSpacing.xl,
-    alignItems: 'center',
-    gap: AnimoSpacing.md,
-  },
-  paginationSummary: {
-    textAlign: 'center',
-  },
+  emptyBtn: { alignSelf: 'stretch' },
+  paginationWrap: { marginTop: AnimoV2Spacing.md, alignItems: 'center', gap: AnimoV2Spacing.md },
   paginationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: AnimoV2Spacing.sm,
     width: '100%',
   },
-  pageNavBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: AnimoSpacing.md,
-    paddingVertical: 8,
-    borderRadius: AnimoRadius.md,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: AnimoColors.surfacePrimary,
-  },
-  pageNavBtnDisabled: {
-    backgroundColor: AnimoColors.surfaceSecondary,
-    opacity: 0.5,
-  },
-  pageNumbersRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  pageNumberBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: AnimoRadius.md,
+  pageNav: {
+    width: AnimoV2Size.iconButton,
+    height: AnimoV2Size.iconButton,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    backgroundColor: AnimoColors.surfacePrimary,
+    borderRadius: AnimoV2Radius.full,
+    borderWidth: 2,
+    borderColor: AnimoV2Colors.borderStrong,
+    backgroundColor: AnimoV2Colors.surfaceCard,
   },
-  pageNumberBtnActive: {
-    backgroundColor: AnimoColors.accentPrimary,
-    borderColor: AnimoColors.accentPrimary,
+  pageNavDisabled: { borderColor: AnimoV2Colors.borderDefault, backgroundColor: AnimoV2Colors.surfaceMuted },
+  pageNumbers: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.sm },
+  pageNumber: {
+    width: AnimoV2Size.iconButton,
+    height: AnimoV2Size.iconButton,
+    borderRadius: AnimoV2Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: AnimoV2Colors.borderDefault,
+    backgroundColor: AnimoV2Colors.surfaceCard,
+  },
+  pageNumberActive: {
+    backgroundColor: AnimoV2Colors.actionPrimary,
+    borderColor: AnimoV2Colors.actionPrimary,
   },
 });

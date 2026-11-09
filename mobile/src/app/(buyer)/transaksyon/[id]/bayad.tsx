@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Banknote, Check, CheckCircle2, Trash2, Upload, X } from 'lucide-react-native';
+import { AlertTriangle, Banknote, Check, CheckCircle2, Smartphone, Trash2, Upload, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,18 +15,25 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimoButton } from '@/components/animo/animo-button';
 import { AnimoText } from '@/components/animo/animo-text';
-import { CancelRequestModal } from '@/components/animo/cancel-request-modal';
-import { FeedbackModal } from '@/components/animo/feedback-modal';
 import { useSession } from '@/hooks/use-session';
 import { isOnlineNow, isSignalError, newRequestId, saveBuyerPaymentOffline } from '@/lib/outbox/enqueue-actions';
-import { LabeledInput } from '@/components/animo/labeled-input';
 import { PhotoSourceSheet } from '@/components/animo/photo-source-sheet';
 import { TransactionSummaryCard } from '@/components/animo/transaction-cycle-cards';
 import { ProgressTracker } from '@/components/animo/progress-tracker';
-import { BackHeader } from '@/components/animo/back-header';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import {
+  BuyerCancelDialog,
+  BuyerFeedbackDialog,
+  InfoNote,
+  TxnHeader,
+} from '@/components/animo/buyer/txn-v2';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { OptionCard } from '@/components/animo/ui/option-card';
+import { StickyFooter } from '@/components/animo/ui/screen-bits';
+import { TextField } from '@/components/animo/ui/text-field';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { GCASH_REF_FORMAT_MESSAGE, GCASH_REF_LENGTH, isValidGcashReference } from '@/constants/payment';
 import { fetchCropListing } from '@/services/crop-listing-service';
@@ -101,10 +108,10 @@ export default function PaymentScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title={isTagalog ? 'Paraan ng Pagbabayad' : 'Payment Method'} />
+      <SafeAreaView style={styles.safeArea} edges={[]}>
+        <TxnHeader title={isTagalog ? 'Paraan ng Pagbabayad' : 'Payment Method'} />
         <View style={styles.missing}>
-          <ActivityIndicator color={AnimoColors.green} />
+          <ActivityIndicator color={AnimoV2Colors.actionPrimary} />
         </View>
       </SafeAreaView>
     );
@@ -112,10 +119,10 @@ export default function PaymentScreen() {
 
   if (!outcome || outcome.kind !== 'matched' || loadError) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <BackHeader title={isTagalog ? 'Paraan ng Pagbabayad' : 'Payment Method'} />
+      <SafeAreaView style={styles.safeArea} edges={[]}>
+        <TxnHeader title={isTagalog ? 'Paraan ng Pagbabayad' : 'Payment Method'} />
         <View style={styles.missing}>
-          <AnimoText variant="body" color={AnimoColors.blackSecondary}>
+          <AnimoText variant="body" color={AnimoV2Colors.textSecondary}>
             {loadError ?? (isTagalog ? 'Hindi nahanap ang transaksyon na ito.' : 'Transaction could not be found.')}
           </AnimoText>
         </View>
@@ -220,10 +227,12 @@ export default function PaymentScreen() {
     setShowCancelledSuccessModal(true);
   };
 
+  const amountDiffers = actualAmountNum !== agreedTotal;
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
-      <BackHeader title={isTagalog ? 'Paraan ng Pagbabayad' : 'Payment Method'} />
+      <TxnHeader title={isTagalog ? 'Paraan ng Pagbabayad' : 'Payment Method'} />
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -238,162 +247,136 @@ export default function PaymentScreen() {
             />
           ) : null}
 
-          <View style={styles.card}>
-            <View style={styles.inputSection}>
-              <LabeledInput
-                label={isTagalog ? 'Halagang Aktwal na Binayaran (₱)' : 'Actual Amount Paid (₱)'}
-                keyboardType="numeric"
-                value={actualAmountText}
-                onChangeText={(t) => setActualAmountText(t.replace(/[^0-9.]/g, ''))}
-                prefixText="₱"
-                hint={
-                  actualAmountNum !== agreedTotal
-                    ? actualAmountNum > agreedTotal
-                      ? isTagalog
-                        ? `Mas mataas ng ${formatPeso(actualAmountNum - agreedTotal)} kaysa sa presyo ng sistema.`
-                        : `${formatPeso(actualAmountNum - agreedTotal)} higher than system price.`
-                      : isTagalog
-                        ? `Mas mababa ng ${formatPeso(agreedTotal - actualAmountNum)} kaysa sa presyo ng sistema.`
-                        : `${formatPeso(agreedTotal - actualAmountNum)} lower than system price.`
-                    : isTagalog
-                      ? 'Tugma sa napagkasunduang presyo ng sistema.'
-                      : 'Matches agreed system price.'
-                }
-                hintTone={actualAmountNum !== agreedTotal ? 'warning' : 'muted'}
-              />
-            </View>
-          </View>
+          <DepthCard depth="flat" radius="xl" style={styles.card}>
+            <TextField
+              label={isTagalog ? 'Halagang Aktwal na Binayaran' : 'Actual Amount Paid'}
+              keyboardType="numeric"
+              value={actualAmountText}
+              onChangeText={(text) => setActualAmountText(text.replace(/[^0-9.]/g, ''))}
+              prefix="₱"
+              hint={amountDiffers ? undefined : isTagalog ? 'Tugma sa napagkasunduang presyo ng sistema.' : 'Matches agreed system price.'}
+            />
+            {amountDiffers ? (
+              <InfoNote tone="warning" icon={AlertTriangle}>
+                {actualAmountNum > agreedTotal
+                  ? isTagalog
+                    ? `Mas mataas ng ${formatPeso(actualAmountNum - agreedTotal)} kaysa sa presyo ng sistema.`
+                    : `${formatPeso(actualAmountNum - agreedTotal)} higher than system price.`
+                  : isTagalog
+                    ? `Mas mababa ng ${formatPeso(agreedTotal - actualAmountNum)} kaysa sa presyo ng sistema.`
+                    : `${formatPeso(agreedTotal - actualAmountNum)} lower than system price.`}
+              </InfoNote>
+            ) : null}
+          </DepthCard>
 
           {/* Payment Method Selector */}
-          <View style={styles.card}>
-            <AnimoText variant="h3" color={AnimoColors.black}>
+          <View style={styles.section}>
+            <AnimoText variant="subheading">
               {isTagalog ? 'Piliin ang Paraan ng Pagbabayad' : 'Select Payment Method'}
             </AnimoText>
-
-            <Pressable
-              style={[styles.methodCard, method === 'GCash' && styles.methodCardActive]}
+            <OptionCard
+              label="GCash"
+              description={isTagalog ? 'Bayad gamit ang GCash transfer' : 'Paid via GCash transfer'}
+              selected={method === 'GCash'}
               onPress={() => setMethod('GCash')}>
-              <View style={styles.methodLeft}>
-                <View style={styles.gcashLogo}>
-                  <AnimoText variant="tag" color={AnimoColors.white}>
-                    GCash
-                  </AnimoText>
-                </View>
-                <View style={styles.methodTexts}>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    GCash
-                  </AnimoText>
-                  <AnimoText variant="caption" color={AnimoColors.muted}>
-                    {isTagalog ? 'Bayad gamit ang GCash transfer' : 'Paid via GCash transfer'}
-                  </AnimoText>
-                </View>
-              </View>
-              <View style={[styles.radio, method === 'GCash' && styles.radioActive]}>
-                {method === 'GCash' && <View style={styles.radioCore} />}
-              </View>
-            </Pressable>
-
-            <Pressable
-              style={[styles.methodCard, method === 'Cash' && styles.methodCardActive]}
+              <IconTile icon={Smartphone} tone="success" size={40} />
+            </OptionCard>
+            <OptionCard
+              label="Cash"
+              description={isTagalog ? 'Bayad na cash sa oras ng pickup' : 'Paid in cash upon pickup'}
+              selected={method === 'Cash'}
               onPress={() => setMethod('Cash')}>
-              <View style={styles.methodLeft}>
-                <View style={styles.cashLogo}>
-                  <Banknote size={18} color={AnimoColors.green} />
-                </View>
-                <View style={styles.methodTexts}>
-                  <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-                    Cash
-                  </AnimoText>
-                  <AnimoText variant="caption" color={AnimoColors.muted}>
-                    {isTagalog ? 'Bayad na cash sa oras ng pickup' : 'Paid in cash upon pickup'}
-                  </AnimoText>
-                </View>
-              </View>
-              <View style={[styles.radio, method === 'Cash' && styles.radioActive]}>
-                {method === 'Cash' && <View style={styles.radioCore} />}
-              </View>
-            </Pressable>
+              <IconTile icon={Banknote} tone="success" size={40} />
+            </OptionCard>
           </View>
 
           {/* GCash Details Card (Reference No. & Receipt) */}
           {method === 'GCash' ? (
-            <View style={styles.card}>
-              <AnimoText variant="h3" color={AnimoColors.black}>
+            <DepthCard depth="flat" radius="xl" style={styles.card}>
+              <AnimoText variant="subheading">
                 {isTagalog ? 'Impormasyon ng GCash Transfer' : 'GCash Transfer Details'}
               </AnimoText>
 
-              <LabeledInput
+              <TextField
                 label="GCash Reference Number"
                 placeholder={isTagalog ? 'Hal. 1002938471829' : 'Ex. 1002938471829'}
                 keyboardType="number-pad"
                 maxLength={GCASH_REF_LENGTH}
                 value={gcashReference}
-                onChangeText={(t) => setGcashReference(t.replace(/[^0-9]/g, ''))}
-                suffixText={`${gcashReference.length}/${GCASH_REF_LENGTH}`}
-                error={showGcashError}
-                hintTone={showGcashError ? 'danger' : 'muted'}
+                onChangeText={(text) => setGcashReference(text.replace(/[^0-9]/g, ''))}
+                suffix={`${gcashReference.length}/${GCASH_REF_LENGTH}`}
+                error={showGcashError ? GCASH_REF_FORMAT_MESSAGE : undefined}
                 hint={
-                  showGcashError
-                    ? GCASH_REF_FORMAT_MESSAGE
-                    : isTagalog
-                      ? 'Ilagay ang reference number mula sa natanggap na resibo ng GCash.'
-                      : 'Enter the reference number from the GCash transaction receipt.'
+                  isTagalog
+                    ? 'Ilagay ang reference number mula sa natanggap na resibo ng GCash.'
+                    : 'Enter the reference number from the GCash transaction receipt.'
                 }
               />
 
               <View style={styles.uploadSection}>
-                <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+                <AnimoText variant="bodyStrong">
                   {isTagalog
                     ? 'Resibo ng GCash (Panatilihin bilang sanggunian — hindi ito ini-upload)'
                     : 'GCash Receipt (Kept locally for reference)'}
                 </AnimoText>
 
                 {receiptUri ? (
-                  <View style={styles.receiptPreviewCard}>
+                  <View style={styles.receiptPreview}>
                     <Image source={{ uri: receiptUri }} style={styles.receiptImage} contentFit="cover" />
                     <View style={styles.receiptInfo}>
                       <View style={styles.receiptAttachedRow}>
-                        <CheckCircle2 size={16} color={AnimoColors.accentPrimary} />
-                        <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
+                        <CheckCircle2 size={20} color={AnimoV2Colors.textBrand} strokeWidth={2.75} />
+                        <AnimoText variant="bodyStrong" color={AnimoV2Colors.textBrand}>
                           {isTagalog ? 'Naka-attach (lokal lang)' : 'Attached (local only)'}
                         </AnimoText>
                       </View>
                       <View style={styles.receiptActions}>
-                        <Pressable onPress={() => setPhotoSheetVisible(true)} style={styles.changeReceiptBtn}>
-                          <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
-                            {isTagalog ? 'Palitan' : 'Change'}
-                          </AnimoText>
-                        </Pressable>
-                        <Pressable onPress={() => setReceiptUri(null)} style={styles.removeReceiptBtn}>
-                          <Trash2 size={14} color={AnimoColors.danger} />
-                          <AnimoText variant="caption" color={AnimoColors.danger}>
-                            {isTagalog ? 'Alisin' : 'Remove'}
-                          </AnimoText>
-                        </Pressable>
+                        <ChunkyButton
+                          size="sm"
+                          flat
+                          variant="secondary"
+                          borderColor={AnimoV2Colors.actionPrimary}
+                          label={isTagalog ? 'Palitan' : 'Change'}
+                          onPress={() => setPhotoSheetVisible(true)}
+                          style={styles.receiptBtn}
+                        />
+                        <ChunkyButton
+                          size="sm"
+                          flat
+                          variant="secondary"
+                          borderColor={AnimoV2Colors.dangerSolid}
+                          textColor={AnimoV2Colors.dangerFg}
+                          icon={Trash2}
+                          label={isTagalog ? 'Alisin' : 'Remove'}
+                          onPress={() => setReceiptUri(null)}
+                          style={styles.receiptBtn}
+                        />
                       </View>
                     </View>
                   </View>
                 ) : (
-                  <Pressable accessibilityRole="button" onPress={() => setPhotoSheetVisible(true)} style={styles.uploadBox}>
-                    <View style={styles.uploadIconCircle}>
-                      <Upload size={22} color={AnimoColors.accentPrimary} />
-                    </View>
-                    <AnimoText variant="bodyEmphasis" color={AnimoColors.textHighEmphasis}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={isTagalog ? 'Mag-attach ng resibo' : 'Attach receipt'}
+                    onPress={() => setPhotoSheetVisible(true)}
+                    style={styles.uploadBox}>
+                    <IconTile icon={Upload} tone="success" size={48} />
+                    <AnimoText variant="bodyStrong" color={AnimoV2Colors.textBrand} style={styles.centerText}>
                       {isTagalog ? 'Pindutin para mag-attach ng resibo' : 'Tap to attach receipt'}
                     </AnimoText>
-                    <AnimoText variant="caption" color={AnimoColors.textLowEmphasis}>
+                    <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
                       {isTagalog ? 'Kunan ng litrato o pumili mula sa Gallery' : 'Take a photo or choose from Gallery'}
                     </AnimoText>
                   </Pressable>
                 )}
 
                 {uploadError ? (
-                  <AnimoText variant="caption" color={AnimoColors.danger}>
+                  <AnimoText variant="captionV2" color={AnimoV2Colors.dangerFg}>
                     {uploadError}
                   </AnimoText>
                 ) : null}
               </View>
-            </View>
+            </DepthCard>
           ) : null}
 
           <ProgressTracker
@@ -402,14 +385,14 @@ export default function PaymentScreen() {
           />
 
           {submitError ? (
-            <AnimoText variant="caption" color={AnimoColors.danger}>
+            <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg}>
               {submitError}
             </AnimoText>
           ) : null}
         </ScrollView>
 
-        <View style={styles.footerStack}>
-          <AnimoButton
+        <StickyFooter>
+          <ChunkyButton
             label={
               submitting
                 ? isTagalog
@@ -424,9 +407,16 @@ export default function PaymentScreen() {
             disabled={!canContinue}
           />
           {policy.triggerLabel ? (
-            <AnimoButton label={policy.triggerLabel} variant="dangerOutline" icon={X} onPress={() => setCancelling(true)} />
+            <ChunkyButton
+              label={policy.triggerLabel}
+              variant="secondary"
+              icon={X}
+              textColor={AnimoV2Colors.dangerFg}
+              borderColor={AnimoV2Colors.dangerSolid}
+              onPress={() => setCancelling(true)}
+            />
           ) : null}
-        </View>
+        </StickyFooter>
       </KeyboardAvoidingView>
 
       <PhotoSourceSheet
@@ -436,7 +426,7 @@ export default function PaymentScreen() {
         onClose={() => setPhotoSheetVisible(false)}
       />
 
-      <CancelRequestModal
+      <BuyerCancelDialog
         visible={cancelling}
         title={policy.title}
         body={policy.body}
@@ -446,7 +436,7 @@ export default function PaymentScreen() {
         onConfirm={handleConfirmCancel}
       />
 
-      <FeedbackModal
+      <BuyerFeedbackDialog
         visible={savedOffline}
         tone="info"
         title={isTagalog ? 'Na-save sa phone' : 'Saved on this phone'}
@@ -462,7 +452,7 @@ export default function PaymentScreen() {
         }}
       />
 
-      <FeedbackModal
+      <BuyerFeedbackDialog
         visible={showCancelledSuccessModal}
         tone="danger"
         title={isTagalog ? 'Matagumpay na Nakansela' : 'Successfully Cancelled'}
@@ -478,101 +468,43 @@ export default function PaymentScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: AnimoColors.background },
+  safeArea: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
   flex: { flex: 1 },
-  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: AnimoSpacing.xl },
-  content: { paddingHorizontal: AnimoSpacing.xl, paddingBottom: AnimoSpacing.xl, gap: AnimoSpacing.lg },
-  card: {
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.white,
+  centerText: { textAlign: 'center' },
+  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: AnimoV2Spacing.xl },
+  content: {
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.sm,
+    paddingBottom: AnimoV2Spacing.xl,
+    gap: AnimoV2Spacing.lg,
   },
-  productRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoSpacing.md },
-  thumb: { width: 64 },
-  productInfo: { flex: 1, gap: 2 },
-  divider: { height: 1, backgroundColor: AnimoColors.border, marginVertical: AnimoSpacing.xs },
-  rowBetween: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: AnimoSpacing.sm },
-  rowLabel: { flex: 1, flexShrink: 1 },
-  rowValue: { textAlign: 'right', flexShrink: 0 },
-  inputSection: { marginTop: AnimoSpacing.xs },
-  methodCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.md,
-    backgroundColor: AnimoColors.surface,
-  },
-  methodCardActive: { borderColor: AnimoColors.green, backgroundColor: AnimoColors.greenTint },
-  methodLeft: { flexDirection: 'row', alignItems: 'center', gap: AnimoSpacing.md, flex: 1 },
-  gcashLogo: { backgroundColor: '#0B76D1', borderRadius: AnimoRadius.sm, paddingHorizontal: 8, paddingVertical: 4 },
-  cashLogo: {
-    backgroundColor: AnimoColors.greenTint,
-    borderRadius: AnimoRadius.sm,
-    padding: 6,
-    borderWidth: 1,
-    borderColor: AnimoColors.green,
-  },
-  methodTexts: { flex: 1, gap: 1 },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: AnimoColors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: AnimoColors.white,
-  },
-  radioActive: { borderColor: AnimoColors.green },
-  radioCore: { width: 10, height: 10, borderRadius: 5, backgroundColor: AnimoColors.green },
-  footerStack: {
-    paddingHorizontal: AnimoSpacing.xl,
-    paddingTop: AnimoSpacing.md,
-    paddingBottom: AnimoSpacing.md,
-    gap: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.background,
-  },
-  uploadSection: { gap: AnimoSpacing.xs, marginTop: AnimoSpacing.xs },
+  card: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
+  section: { gap: AnimoV2Spacing.sm },
+  uploadSection: { gap: AnimoV2Spacing.sm },
   uploadBox: {
-    borderWidth: 1.5,
+    borderWidth: 3,
     borderStyle: 'dashed',
-    borderColor: AnimoColors.accentPrimary,
-    borderRadius: AnimoRadius.md,
-    backgroundColor: AnimoColors.surfaceSecondary,
-    padding: AnimoSpacing.lg,
+    borderColor: AnimoV2Colors.actionPrimary,
+    borderRadius: AnimoV2Radius.lg,
+    backgroundColor: AnimoV2Colors.surfaceBrandSubtle,
+    padding: AnimoV2Spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: AnimoSpacing.xs,
+    gap: AnimoV2Spacing.sm,
   },
-  uploadIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: AnimoColors.accentPrimaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  receiptPreviewCard: {
+  receiptPreview: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    borderRadius: AnimoRadius.md,
-    backgroundColor: AnimoColors.surfaceSecondary,
-    padding: AnimoSpacing.sm,
-    gap: AnimoSpacing.md,
+    borderWidth: 2,
+    borderColor: AnimoV2Colors.borderDefault,
+    borderRadius: AnimoV2Radius.lg,
+    backgroundColor: AnimoV2Colors.surfaceMuted,
+    padding: AnimoV2Spacing.sm,
+    gap: AnimoV2Spacing.md,
   },
-  receiptImage: { width: 60, height: 60, borderRadius: AnimoRadius.sm, backgroundColor: AnimoColors.surfaceTertiary },
-  receiptInfo: { flex: 1, gap: 4 },
-  receiptAttachedRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  receiptActions: { flexDirection: 'row', alignItems: 'center', gap: AnimoSpacing.md },
-  changeReceiptBtn: { paddingVertical: 2 },
-  removeReceiptBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 },
+  receiptImage: { width: 72, height: 72, borderRadius: AnimoV2Radius.sm, backgroundColor: AnimoV2Colors.borderDefault },
+  receiptInfo: { flex: 1, minWidth: 0, gap: AnimoV2Spacing.sm },
+  receiptAttachedRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.xs },
+  receiptActions: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.sm },
+  receiptBtn: { flex: 1 },
 });

@@ -1,22 +1,24 @@
 import { Image } from 'expo-image';
 import { ImageIcon } from 'lucide-react-native';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { StatusBadge, type BadgeTone } from '@/components/animo/status-badge';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { StatusPill } from '@/components/animo/ui/status-pill';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing, type StatusTone } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
 import { useLanguage } from '@/hooks/use-language';
 import {
-  listingTitle,
-  specificVarietyDisplay,
-  STATUS_LABELS,
   getStatusLabel,
+  listingTitle,
+  purityLabel,
+  specificVarietyDisplay,
+  varietyLabel,
   type CropListing,
   type ListingStatus,
 } from '@/types/crop-listing';
 
-const STATUS_TONES: Record<ListingStatus, BadgeTone> = {
+const STATUS_TONES: Record<ListingStatus, StatusTone> = {
   Draft: 'neutral',
   Available: 'success',
   Sold_Out: 'neutral',
@@ -24,155 +26,115 @@ const STATUS_TONES: Record<ListingStatus, BadgeTone> = {
   Archived: 'neutral',
 };
 
-const TITLE_LINE_HEIGHT = 20;
-const TITLE_MAX_LINES = 2;
-
 export type MarketplaceListingCardProps = {
   listing: CropListing;
   coverPhotoUrl?: string;
   onPress: () => void;
+  /** Alone on its row: full width with a wider (2:1) photo instead of a large square. */
+  wide?: boolean;
+  /** Adds a small bottom margin so stacked cards in a plain list keep a gap. Default true. */
+  spaced?: boolean;
 };
 
 /**
- * Buyer marketplace card for a real `croplisting` row — 2-column compact layout.
+ * Buyer marketplace card for a real `croplisting` row: photo with grade pill and moisture tag,
+ * name, specific variety, price and kg available. Height follows its content (stacked layout).
  */
 export function MarketplaceListingCard({
   listing,
   coverPhotoUrl,
   onPress,
+  wide = false,
+  spaced = true,
 }: MarketplaceListingCardProps) {
-  const { t, language } = useLanguage();
+  const { t, language, isTagalog } = useLanguage();
+  const name = listingTitle(listing);
   const specificVariety = specificVarietyDisplay(listing, language);
+  const displayVariety = specificVariety || varietyLabel(listing, language);
+  const available = listing.status === 'Available';
+  const gradeTone: StatusTone = listing.declaredPurityGrade === 'A' ? 'success' : 'neutral';
 
   return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      activeOpacity={0.85}
+    <DepthCard
       onPress={onPress}
-      style={[styles.card, styles.shadow]}>
-      <View style={styles.photoArea}>
+      accessibilityLabel={t('buyPalV2.openListing', { name })}
+      radius="lg"
+      wrapperStyle={[styles.wrapper, spaced && styles.spaced]}
+      style={styles.card}>
+      <View style={[styles.photoArea, wide && styles.photoAreaWide]}>
         {coverPhotoUrl ? (
           <Image source={{ uri: coverPhotoUrl }} style={styles.photoImage} contentFit="cover" />
         ) : (
-          <ImageIcon size={24} color={AnimoColors.objectLowEmphasis} />
+          <ImageIcon size={36} color={AnimoV2Colors.textTertiary} />
         )}
-        <View style={styles.statusBadgeWrap}>
-          <StatusBadge label={getStatusLabel(listing.status, language)} tone={STATUS_TONES[listing.status]} />
+
+        <View style={styles.pillStack} pointerEvents="none">
+          <StatusPill tone={gradeTone} label={purityLabel(listing.declaredPurityGrade, language)} />
+          {!available ? (
+            <StatusPill tone={STATUS_TONES[listing.status]} label={getStatusLabel(listing.status, language)} />
+          ) : null}
+        </View>
+
+        <View style={styles.moistureTag} pointerEvents="none">
+          <AnimoText variant="tagV2" color={AnimoV2Colors.textOnBrand}>
+            {listing.declaredMoisture === 'Dry' ? (isTagalog ? 'Tuyo' : 'Dry') : isTagalog ? 'Basa' : 'Wet'}
+          </AnimoText>
         </View>
       </View>
 
       <View style={styles.body}>
-        <AnimoText
-          variant="h3"
-          color={AnimoColors.textHighEmphasis}
-          numberOfLines={TITLE_MAX_LINES}
-          ellipsizeMode="tail"
-          style={styles.cardTitle}>
-          {listingTitle(listing)}
+        <AnimoText variant="bodyStrong" numberOfLines={2}>
+          {name}
         </AnimoText>
-
+        <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={1}>
+          {displayVariety}
+        </AnimoText>
         <View style={styles.priceRow}>
-          <AnimoText variant="h2" color={AnimoColors.accentPrimary} style={styles.priceText}>
+          <AnimoText variant="priceV2" color={AnimoV2Colors.textBrand} numberOfLines={1}>
             {listing.pricePerKg !== null ? formatPeso(listing.pricePerKg) : '—'}
           </AnimoText>
-          <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-            {' '}
+          <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
             {t('common.perKg')}
           </AnimoText>
         </View>
-
-        <View style={styles.footerRow}>
-          {specificVariety ? (
-            <AnimoText
-              variant="caption"
-              color={AnimoColors.textMediumEmphasis}
-              numberOfLines={1}
-              style={styles.variety}>
-              {specificVariety}
-            </AnimoText>
-          ) : (
-            <View style={styles.variety} />
-          )}
-          <AnimoText
-            variant="caption"
-            color={AnimoColors.textMediumEmphasis}
-            numberOfLines={1}
-            style={styles.quantity}>
-            {listing.remainingQuantityKg} {t('common.kg')}
-          </AnimoText>
-        </View>
+        <AnimoText variant="bodyStrong" numberOfLines={1}>
+          {listing.remainingQuantityKg.toLocaleString('en-PH')} {t('common.kg')}
+        </AnimoText>
       </View>
-    </TouchableOpacity>
+    </DepthCard>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    width: '100%',
-    backgroundColor: AnimoColors.surfacePrimary,
-    borderRadius: AnimoRadius.lg,
-    borderWidth: 1,
-    borderColor: AnimoColors.borderLowEmphasis,
-    marginBottom: AnimoSpacing.md,
-    overflow: 'hidden',
-  },
-  shadow: {
-    shadowColor: AnimoColors.darkBackground,
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
-  },
+  wrapper: { width: '100%' },
+  spaced: { marginBottom: AnimoV2Spacing.sm },
+  card: { padding: 0 },
   photoArea: {
     width: '100%',
-    aspectRatio: 1.35,
-    backgroundColor: AnimoColors.surfaceTertiary,
+    aspectRatio: 1,
+    backgroundColor: AnimoV2Colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
+    overflow: 'hidden',
   },
-  photoImage: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  statusBadgeWrap: {
+  photoAreaWide: { aspectRatio: 2 },
+  photoImage: { ...StyleSheet.absoluteFillObject },
+  pillStack: {
     position: 'absolute',
-    top: AnimoSpacing.xs,
-    right: AnimoSpacing.xs,
+    top: AnimoV2Spacing.sm,
+    left: AnimoV2Spacing.sm,
+    gap: AnimoV2Spacing.xs,
+    alignItems: 'flex-start',
   },
-  body: {
-    padding: AnimoSpacing.sm,
-    gap: 4,
+  moistureTag: {
+    position: 'absolute',
+    bottom: AnimoV2Spacing.sm,
+    left: AnimoV2Spacing.sm,
+    backgroundColor: AnimoV2Colors.brandDark,
+    paddingHorizontal: AnimoV2Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: AnimoV2Radius.sm,
   },
-  cardTitle: {
-    fontSize: 15,
-    lineHeight: TITLE_LINE_HEIGHT,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    minHeight: TITLE_LINE_HEIGHT * TITLE_MAX_LINES,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'baseline',
-  },
-  priceText: {
-    fontSize: 18,
-    lineHeight: 22,
-  },
-  footerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: AnimoSpacing.xs,
-  },
-  variety: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  quantity: {
-    flexShrink: 0,
-    fontSize: 12,
-    lineHeight: 16,
-    textAlign: 'right',
-  },
+  body: { padding: AnimoV2Spacing.md, gap: AnimoV2Spacing.xs },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: AnimoV2Spacing.xs },
 });

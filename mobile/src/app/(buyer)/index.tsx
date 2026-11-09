@@ -1,32 +1,38 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Image } from 'expo-image';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   Bell,
   ChartNoAxesCombined,
-  ChevronRight,
   Flame,
-  ReceiptText,
+  ImageIcon,
+  Scale,
+  Search,
   ShoppingBag,
   Sparkles,
-  Wheat,
 } from 'lucide-react-native';
-import { useCallback, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { AppHeader } from '@/components/animo/app-header';
 import { SuspensionNotice } from '@/components/animo/suspension-notice';
-import { MarketplaceListingCard } from '@/components/animo/buyer/marketplace-listing-card';
 import {
   SpotlightTour,
   type SpotlightStep,
   TUTORIAL_STORAGE_KEY,
 } from '@/components/animo/spotlight-tour';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { ChunkyButton } from '@/components/animo/ui/chunky-button';
+import { DepthCard } from '@/components/animo/ui/depth-card';
+import { IconTile } from '@/components/animo/ui/icon-tile';
+import { Mascot } from '@/components/animo/ui/mascot';
+import { StatusPill } from '@/components/animo/ui/status-pill';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Size, AnimoV2Spacing } from '@/constants/animo';
+import { formatPeso } from '@/constants/marketplace';
 import { useAutoRefresh } from '@/hooks/use-auto-refresh';
 import { useLanguage } from '@/hooks/use-language';
+import { useSession } from '@/hooks/use-session';
 import { fetchMyBuyerPreferences } from '@/services/buyer-preferences-service';
 import { fetchCoverPhotos } from '@/services/crop-listing-service';
 import {
@@ -34,28 +40,50 @@ import {
   type MarketPopularityInsight,
 } from '@/services/farmer-public-profile';
 import { fetchMarketplaceListings } from '@/services/marketplace-service';
-import { translateVarietyName } from '@/types/crop-listing';
+import { fetchUnreadNotificationCount } from '@/services/notification-service';
+import {
+  listingTitle,
+  moistureLabel,
+  specificVarietyDisplay,
+  translateVarietyName,
+  type CropListing,
+} from '@/types/crop-listing';
 import type { RankedListing } from '@/types/marketplace-filter';
 
-const TrendingOrange = '#F57C00';
+/** How many ranked listings go into the "Mga Rekomendasyon" row. */
+const RECOMMENDED_COUNT = 4;
+/** How many listings the "Mga Bagong Listing" grid shows. */
+const NEWEST_COUNT = 6;
+/** Sub-score at or above which a ranking criterion counts as a match (exact match scores 1). */
+const MATCH_THRESHOLD = 0.99;
+const MAX_REASONS = 3;
+const RECO_CARD_WIDTH = 232;
 
-/** Tahanan — buyer home: welcome, market analytics, trending varieties, and fresh harvest recommendations. */
+/** Tahanan: buyer home. Greeting hero, recommendations, newest listings and the fair-price promise. */
 export default function BuyerHomeScreen() {
   const { t, isTagalog } = useLanguage();
+  const { account } = useSession();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ startTour?: string }>();
-  const [featured, setFeatured] = useState<RankedListing[]>([]);
+  const [recommended, setRecommended] = useState<RankedListing[]>([]);
+  const [newest, setNewest] = useState<CropListing[]>([]);
+  const [hasPreferences, setHasPreferences] = useState(false);
   const [coverPhotos, setCoverPhotos] = useState<Map<string, string>>(new Map());
   const [insights, setInsights] = useState<MarketPopularityInsight | null>(null);
+  const [unread, setUnread] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
 
   // Spotlight target refs
   const marketTrendsRef = useRef<View>(null);
-  const quickActionsRef = useRef<View>(null);
-  const varietiesRef = useRef<View>(null);
+  const searchRef = useRef<View>(null);
   const bellRef = useRef<View>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const load = useCallback(() => {
+    fetchUnreadNotificationCount()
+      .then(setUnread)
+      .catch(() => {});
     fetchMarketPopularityInsights()
       .then((data) => {
         setInsights(data);
@@ -63,30 +91,44 @@ export default function BuyerHomeScreen() {
       .catch(() => {
         setInsights(null);
       });
-    fetchMyBuyerPreferences()
+    return fetchMyBuyerPreferences()
       .catch(() => null)
-      .then((preferences) =>
-        fetchMarketplaceListings({
+      .then(async (preferences) => {
+        setHasPreferences(Boolean(preferences?.preferredVariety || preferences?.preferredMoisture));
+        const ranked = await fetchMarketplaceListings({
           variety: preferences?.preferredVariety ?? undefined,
           moisture: preferences?.preferredMoisture ?? undefined,
-        }),
-      )
-      .then(async (ranked) => {
-        const topFeatured = ranked.slice(0, 3);
-        setFeatured(topFeatured);
+        });
+        const top = ranked.slice(0, RECOMMENDED_COUNT);
+        const fresh = ranked
+          .map((item) => item.listing)
+          .sort((a, b) => b.dateListed.localeCompare(a.dateListed))
+          .slice(0, NEWEST_COUNT);
+        setRecommended(top);
+        setNewest(fresh);
         try {
-          const photos = await fetchCoverPhotos(topFeatured.map((item) => item.listing.id));
+          const ids = Array.from(new Set([...top.map((item) => item.listing.id), ...fresh.map((l) => l.id)]));
+          const photos = await fetchCoverPhotos(ids);
           setCoverPhotos(photos);
         } catch {
-          // fallback
+          // fallback: cards render without photos
         }
       })
       .catch(() => {});
   }, []);
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load]);
+
   useFocusEffect(
     useCallback(() => {
-      load();
+      void load();
       let active = true;
       if (params.startTour === 'true') {
         setShowTutorial(true);
@@ -101,7 +143,16 @@ export default function BuyerHomeScreen() {
     }, [load, params.startTour]),
   );
 
-  useAutoRefresh(load);
+  useAutoRefresh(() => {
+    void load();
+  });
+
+  // Newest listings: stacked columns of natural height. With an odd count the last
+  // one is pulled out and shown full width below instead of leaving a gap.
+  const soloListing = newest.length % 2 === 1 ? newest[newest.length - 1] : null;
+  const stackedListings = soloListing ? newest.slice(0, -1) : newest;
+  const leftListings = useMemo(() => stackedListings.filter((_, idx) => idx % 2 === 0), [stackedListings]);
+  const rightListings = useMemo(() => stackedListings.filter((_, idx) => idx % 2 === 1), [stackedListings]);
 
   const buyerTourSteps: SpotlightStep[] = [
     {
@@ -111,7 +162,7 @@ export default function BuyerHomeScreen() {
       icon: Flame,
       targetRef: marketTrendsRef,
       shape: 'rectangle',
-      borderRadius: 20,
+      borderRadius: AnimoV2Radius.xl,
       padding: 6,
     },
     {
@@ -119,19 +170,9 @@ export default function BuyerHomeScreen() {
       title: t('spotlight.buyer.step2Title'),
       description: t('spotlight.buyer.step2Desc'),
       icon: ShoppingBag,
-      targetRef: quickActionsRef,
+      targetRef: searchRef,
       shape: 'rectangle',
-      borderRadius: 16,
-      padding: 6,
-    },
-    {
-      id: 'buyer-varieties',
-      title: t('spotlight.buyer.step3Title'),
-      description: t('spotlight.buyer.step3Desc'),
-      icon: Wheat,
-      targetRef: varietiesRef,
-      shape: 'rectangle',
-      borderRadius: 20,
+      borderRadius: AnimoV2Radius.md,
       padding: 6,
     },
     {
@@ -145,249 +186,194 @@ export default function BuyerHomeScreen() {
     },
   ];
 
+  const fullName = account?.fullName?.trim() || t('role.buyer');
+  const goPalengke = () => router.push('/(buyer)/palengke');
+  const openListing = (id: string) => router.push(`/(buyer)/palengke/${id}`);
+
+  /** Up to three reasons a listing ranked well, from the WPM sub-scores. Only meaningful once preferences are saved. */
+  const reasonsFor = (item: RankedListing): string[] => {
+    if (!hasPreferences) return [];
+    const reasons: string[] = [];
+    if (item.breakdown.variety >= MATCH_THRESHOLD) reasons.push(t('buyHomeV2.reasonVariety'));
+    if (item.breakdown.moisture >= MATCH_THRESHOLD) reasons.push(t('buyHomeV2.reasonMoisture'));
+    if (item.breakdown.price >= MATCH_THRESHOLD) reasons.push(t('buyHomeV2.reasonPrice'));
+    return reasons.slice(0, MAX_REASONS);
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar style="dark" />
-      <AppHeader
-        bellRef={bellRef}
-        onPressBell={() => router.push('/(buyer)/notipikasyon')}
-      />
+    <View style={styles.screen}>
+      <StatusBar style="light" />
 
       <ScrollView
         ref={scrollViewRef}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-        <SuspensionNotice />
-
-        {/* Welcome Greeting */}
-        <View style={styles.hero}>
-          <AnimoText variant="h1" color={AnimoColors.black}>
-            {t('buyer.greeting')}
-          </AnimoText>
-          <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-            {t('buyer.heroSubtitle')}
-          </AnimoText>
-        </View>
-
-        {/* Market Insights & Popularity Card */}
-        <View ref={marketTrendsRef} collapsable={false}>
-          {insights ? (
-            <View style={styles.marketInsightCard}>
-            <View style={styles.marketInsightTopRow}>
-              <View style={styles.marketInsightTopLeft}>
-                <Flame size={18} color={AnimoColors.white} />
-                <AnimoText variant="h3" color={AnimoColors.white}>
-                  {t('buyer.marketTrends')}
-                </AnimoText>
-              </View>
-              <View style={styles.trendingBadge}>
-                <AnimoText variant="tag" color={AnimoColors.white} style={styles.trendingBadgeText}>
-                  {t('buyer.trending')}
-                </AnimoText>
-              </View>
-            </View>
-
-            <View style={styles.marketInsightInner}>
-              <View style={styles.insightBox}>
-                <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                  {t('buyer.mostSold')}
-                </AnimoText>
-                <AnimoText
-                  variant="h2"
-                  color={AnimoColors.accentPrimary}
-                  style={styles.insightVarietyValueLarge}
-                  numberOfLines={2}>
-                  {translateVarietyName(insights.topVariety, isTagalog)}
-                </AnimoText>
-                {insights.topVariety.toLowerCase().includes('hybrid') ? (
-                  <View style={styles.hybridBadge}>
-                    <AnimoText variant="tag" color="#1E40AF">
-                      {isTagalog ? 'Mataas na Ani (High-Yield)' : 'High-Yield F1 Palay'}
-                    </AnimoText>
-                  </View>
-                ) : null}
-              </View>
-
-              <View style={styles.insightBox}>
-                <View style={styles.insightBoxHeader}>
-                  <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                    {t('buyer.averagePrice')}
-                  </AnimoText>
-                  <View style={styles.trendRow}>
-                    <ChartNoAxesCombined size={16} strokeWidth={2.5} color={AnimoColors.accentPrimary} />
-                    <AnimoText variant="caption" color={AnimoColors.accentPrimary}>
-                      {t('buyer.stablePrice')}
-                    </AnimoText>
-                  </View>
-                </View>
-
-                <View style={styles.priceRowHighlight}>
-                  <AnimoText
-                    variant="h1"
-                    color={AnimoColors.accentPrimary}
-                    style={styles.insightPriceValue}>
-                    ₱{insights.averagePricePerKg.toFixed(2)}
-                  </AnimoText>
-                  <AnimoText
-                    variant="body"
-                    color={AnimoColors.textMediumEmphasis}
-                    style={styles.perKgText}>
-                    {t('common.perKg')}
-                  </AnimoText>
-                </View>
-              </View>
-            </View>
-            </View>
-          ) : null}
-        </View>
-
-        {/* Colored Quick Actions */}
-        <View ref={quickActionsRef} collapsable={false} style={styles.actions}>
-          <QuickAction
-            icon={<ShoppingBag size={22} color={AnimoColors.accentPrimary} />}
-            label={t('buyer.quickMarket')}
-            hint={t('buyer.quickMarketHint')}
-            onPress={() => router.push('/(buyer)/palengke')}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[AnimoV2Colors.actionPrimary]}
           />
-          <QuickAction
-            icon={<ReceiptText size={22} color={AnimoColors.accentPrimary} />}
-            label={t('buyer.quickTxn')}
-            hint={t('buyer.quickTxnHint')}
-            onPress={() => router.push('/(buyer)/transaksyon')}
-          />
-        </View>
-
-        {/* Patok na Uri ng Palay — live avg of Available listings per variety */}
-        <View ref={varietiesRef} collapsable={false}>
-          {insights && insights.popularVarieties.length > 0 ? (
-            <View style={styles.varietiesSection}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleRow}>
-                <Sparkles size={18} color={AnimoColors.accentPrimary} />
-                <AnimoText variant="h3" color={AnimoColors.black}>
-                  {t('buyer.popularVarieties')}
-                </AnimoText>
-              </View>
+        }>
+        {/* Hero: extends under the status bar */}
+        <View style={[styles.hero, { paddingTop: insets.top + AnimoV2Spacing.lg }]}>
+          <View style={styles.greetingRow}>
+            <Mascot size={52} tile={false} />
+            <View style={styles.flex}>
+              <AnimoText variant="title" color={AnimoV2Colors.textOnBrand} numberOfLines={1} accessibilityRole="header">
+                {t('home.greeting', { name: fullName })}
+              </AnimoText>
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textOnBrand} numberOfLines={2}>
+                {t('buyHomeV2.subtitle')}
+              </AnimoText>
+            </View>
+            <View ref={bellRef} collapsable={false}>
               <Pressable
-                onPress={() => router.push('/(buyer)/palengke')}
-                hitSlop={10}
-                style={styles.seeAllButton}>
-                <AnimoText variant="caption" color={AnimoColors.green}>
-                  {t('common.seeAll')}
-                </AnimoText>
-                {/* <ChevronRight size={15} color={AnimoColors.green} /> */}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  unread > 0 ? t('home.bellLabel', { count: unread }) : t('home.bellLabelNone')
+                }
+                onPress={() => router.push('/(buyer)/notipikasyon')}
+                style={styles.bell}>
+                <Bell size={26} color={AnimoV2Colors.textBrand} strokeWidth={2.5} />
+                {unread > 0 ? <View style={styles.bellDot} /> : null}
               </Pressable>
             </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.varietiesCarousel}>
-              {insights.popularVarieties.map((item) => {
-                const displayName = translateVarietyName(item.name, isTagalog);
-                const isHybrid =
-                  item.name.toLowerCase().includes('hybrid') ||
-                  displayName.toLowerCase().includes('hybrid');
-                return (
-                  <Pressable
-                    key={item.name}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      isTagalog
-                        ? `Tingnan ang mga listing ng ${displayName}`
-                        : `View ${displayName} listings`
-                    }
-                    onPress={() => router.push('/(buyer)/palengke')}
-                    style={styles.varietyCard}>
-                    <View style={styles.varietyIconWrap}>
-                      <Wheat size={20} color={AnimoColors.accentPrimary} />
-                    </View>
-
-                    <AnimoText
-                      variant="bodyEmphasis"
-                      color={AnimoColors.textHighEmphasis}
-                      style={styles.varietyName}
-                      numberOfLines={2}>
-                      {displayName}
-                    </AnimoText>
-
-                    <View style={styles.varietyTagBadge}>
-                      <AnimoText
-                        variant="caption"
-                        color={AnimoColors.accentPrimary}
-                        style={styles.varietyTagText}>
-                        {isTagalog
-                          ? `${item.listingCount} ${item.listingCount === 1 ? 'listahan' : 'mga listahan'}`
-                          : `${item.listingCount} ${item.listingCount === 1 ? 'listing' : 'listings'}`}
-                      </AnimoText>
-                    </View>
-
-                    {isHybrid ? (
-                      <View style={styles.hybridPill}>
-                        <AnimoText variant="tag" color="#1E40AF" style={styles.hybridPillText}>
-                          {isTagalog ? 'Mataas na Ani (High-Yield)' : 'High-Yield'}
-                        </AnimoText>
-                      </View>
-                    ) : null}
-
-                    <View style={styles.varietyPriceBlock}>
-                      <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-                        {t('buyer.averagePrice')}
-                      </AnimoText>
-                      <View style={styles.varietyPriceRow}>
-                        <AnimoText
-                          variant="h2"
-                          color={AnimoColors.accentPrimary}
-                          style={styles.varietyPriceLarge}>
-                          ₱{item.avgPricePerKg.toFixed(2)}
-                        </AnimoText>
-                        <AnimoText
-                          variant="caption"
-                          color={AnimoColors.textMediumEmphasis}
-                          style={styles.varietyPerKgText}>
-                          {t('common.perKg')}
-                        </AnimoText>
-                      </View>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
           </View>
-        ) : null}
-      </View>
 
-        {/* Mga Rekomendasyon Section */}
-        <View style={styles.recommendationsSection}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <Wheat size={18} color={AnimoColors.accentPrimary} />
-              <AnimoText variant="h3" color={AnimoColors.black}>
-                {t('buyer.recommendations')}
-              </AnimoText>
-            </View>
+          <View ref={searchRef} collapsable={false}>
             <Pressable
-              onPress={() => router.push('/(buyer)/palengke')}
-              hitSlop={10}
-              style={styles.seeAllButton}>
-              <AnimoText variant="caption" color={AnimoColors.green}>
-                {t('common.seeAll')}
+              accessibilityRole="search"
+              accessibilityLabel={t('buyHomeV2.searchLabel')}
+              onPress={goPalengke}
+              style={styles.searchButton}>
+              <Search size={22} color={AnimoV2Colors.textTertiary} strokeWidth={2.5} />
+              <AnimoText variant="bodyV2" color={AnimoV2Colors.textTertiary} numberOfLines={1} style={styles.flex}>
+                {t('buyHomeV2.searchHint')}
               </AnimoText>
-              {/* <ChevronRight size={15} color={AnimoColors.green} /> */}
             </Pressable>
           </View>
+        </View>
 
-          <View style={styles.featured}>
-            {featured.map(({ listing }) => (
-              <View key={listing.id} style={styles.featuredItem}>
-                <MarketplaceListingCard
-                  listing={listing}
-                  coverPhotoUrl={coverPhotos.get(listing.id)}
-                  onPress={() => router.push(`/(buyer)/palengke/${listing.id}`)}
-                />
-              </View>
-            ))}
+        <View style={styles.body}>
+          <SuspensionNotice />
+
+          {/* Market highlights */}
+          <View ref={marketTrendsRef} collapsable={false}>
+            {insights ? (
+              <DepthCard style={styles.insightCard}>
+                <View style={styles.insightHeader}>
+                  <IconTile icon={Flame} tone="caution" size={44} solid />
+                  <AnimoText variant="heading" style={styles.flex}>
+                    {t('buyer.marketTrends')}
+                  </AnimoText>
+                </View>
+
+                <View style={styles.insightRow}>
+                  <View style={styles.insightCol}>
+                    <AnimoText variant="bodyStrong" color={AnimoV2Colors.successFg}>
+                      {t('buyer.mostSold')}
+                    </AnimoText>
+                    <AnimoText variant="heading" color={AnimoV2Colors.textBrand} numberOfLines={2}>
+                      {translateVarietyName(insights.topVariety, isTagalog)}
+                    </AnimoText>
+                  </View>
+                  <View style={styles.insightCol}>
+                    <AnimoText variant="bodyStrong" color={AnimoV2Colors.successFg}>
+                      {t('buyer.averagePrice')}
+                    </AnimoText>
+                    <AnimoText variant="heading" color={AnimoV2Colors.textBrand} numberOfLines={1}>
+                      {`₱${insights.averagePricePerKg.toFixed(2)}`}
+                      <AnimoText variant="bodyStrong" color={AnimoV2Colors.successFg}>{` ${t('common.perKg')}`}</AnimoText>
+                    </AnimoText>
+                  </View>
+                </View>
+
+                <View style={styles.insightFoot}>
+                  <ChartNoAxesCombined size={18} color={AnimoV2Colors.textBrand} strokeWidth={2.5} />
+                  <AnimoText variant="tagV2" color={AnimoV2Colors.textBrand}>
+                    {t('buyer.stablePrice')}
+                  </AnimoText>
+                </View>
+              </DepthCard>
+            ) : null}
           </View>
+
+          {/* Mga Rekomendasyon */}
+          {recommended.length > 0 ? (
+            <View style={styles.section}>
+              <SectionHeader title={t('buyer.recommendations')} actionLabel={t('farmer.activitiesView')} onAction={goPalengke} />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalList}
+                style={styles.bleed}>
+                {recommended.map((item) => (
+                  <HomeListingCard
+                    key={item.listing.id}
+                    listing={item.listing}
+                    coverPhotoUrl={coverPhotos.get(item.listing.id)}
+                    onPress={() => openListing(item.listing.id)}
+                    width={RECO_CARD_WIDTH}
+                    matchPct={hasPreferences ? Math.round(item.score * 100) : undefined}
+                    reasons={reasonsFor(item)}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
+
+          {/* Mga Bagong Listing */}
+          {newest.length > 0 ? (
+            <View style={styles.section}>
+              <SectionHeader title={t('buyHomeV2.newTitle')} actionLabel={t('farmer.activitiesView')} onAction={goPalengke} />
+              <View style={styles.masonryRow}>
+                <View style={styles.masonryColumn}>
+                  {leftListings.map((listing) => (
+                    <HomeListingCard
+                      key={listing.id}
+                      listing={listing}
+                      coverPhotoUrl={coverPhotos.get(listing.id)}
+                      onPress={() => openListing(listing.id)}
+                    />
+                  ))}
+                </View>
+                <View style={styles.masonryColumn}>
+                  {rightListings.map((listing) => (
+                    <HomeListingCard
+                      key={listing.id}
+                      listing={listing}
+                      coverPhotoUrl={coverPhotos.get(listing.id)}
+                      onPress={() => openListing(listing.id)}
+                    />
+                  ))}
+                </View>
+              </View>
+              {soloListing ? (
+                <HomeListingCard
+                  wide
+                  listing={soloListing}
+                  coverPhotoUrl={coverPhotos.get(soloListing.id)}
+                  onPress={() => openListing(soloListing.id)}
+                />
+              ) : null}
+            </View>
+          ) : null}
+
+          {/* Patas na Presyo reassurance (fixed prices, no bidding) */}
+          <DepthCard
+            depth="flat"
+            backgroundColor={AnimoV2Colors.surfaceBrandSubtle}
+            borderColor={AnimoV2Colors.actionPrimary}
+            style={styles.fairCard}>
+            <IconTile icon={Scale} tone="success" size={56} solid shape="rounded" />
+            <View style={styles.flex}>
+              <AnimoText variant="heading">{t('buyHomeV2.fairTitle')}</AnimoText>
+              <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
+                {t('buyHomeV2.fairBody')}
+              </AnimoText>
+            </View>
+          </DepthCard>
         </View>
       </ScrollView>
 
@@ -408,274 +394,223 @@ export default function BuyerHomeScreen() {
           }
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
-function QuickAction({
-  icon,
-  label,
-  hint,
-  onPress,
+function SectionHeader({
+  title,
+  actionLabel,
+  onAction,
 }: {
-  icon: React.ReactNode;
-  label: string;
-  hint: string;
-  onPress: () => void;
+  title: string;
+  actionLabel: string;
+  onAction: () => void;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
+    <View style={styles.sectionHeader}>
+      <AnimoText variant="heading" accessibilityRole="header" style={styles.flex}>
+        {title}
+      </AnimoText>
+      <ChunkyButton size="sm" label={actionLabel} onPress={onAction} style={styles.seeAll} />
+    </View>
+  );
+}
+
+/** Home listing card: photo with moisture tag (and match %), name, price and kg left. Natural height. */
+function HomeListingCard({
+  listing,
+  coverPhotoUrl,
+  onPress,
+  width,
+  wide = false,
+  matchPct,
+  reasons = [],
+}: {
+  listing: CropListing;
+  coverPhotoUrl: string | undefined;
+  onPress: () => void;
+  /** Fixed width for horizontal lists; omit to fill the column. */
+  width?: number;
+  /** Alone on its row: full width with a wider photo. */
+  wide?: boolean;
+  matchPct?: number;
+  reasons?: string[];
+}) {
+  const { t, language } = useLanguage();
+  const name = listingTitle(listing);
+  const variety = specificVarietyDisplay(listing, language);
+  const soldOut = listing.remainingQuantityKg <= 0;
+  const horizontal = width !== undefined;
+
+  return (
+    <DepthCard
+      radius="lg"
       onPress={onPress}
-      style={({ pressed }) => [styles.action, pressed && styles.pressed]}>
-      <View style={styles.actionIcon}>{icon}</View>
-      <View style={styles.flex}>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-          {label}
-        </AnimoText>
-        <AnimoText variant="caption" color={AnimoColors.textMediumEmphasis}>
-          {hint}
-        </AnimoText>
+      accessibilityLabel={t('buyHomeV2.openListing', { name })}
+      wrapperStyle={width !== undefined ? { width } : styles.cardWrapper}
+      style={styles.card}>
+      <View style={[styles.photoArea, horizontal ? styles.photoAreaHorizontal : wide ? styles.photoAreaWide : null]}>
+        {coverPhotoUrl ? (
+          <Image source={{ uri: coverPhotoUrl }} style={styles.photoImage} contentFit="cover" />
+        ) : (
+          <ImageIcon size={36} color={AnimoV2Colors.textTertiary} />
+        )}
+        <View style={styles.moistureTag}>
+          <AnimoText variant="tagV2">{moistureLabel(listing.declaredMoisture, language)}</AnimoText>
+        </View>
+        {matchPct !== undefined ? (
+          <View style={styles.matchTag}>
+            <Sparkles size={14} color={AnimoV2Colors.textOnBrand} strokeWidth={2.75} />
+            <AnimoText variant="tagV2" color={AnimoV2Colors.textOnBrand}>
+              {t('buyHomeV2.match', { pct: matchPct })}
+            </AnimoText>
+          </View>
+        ) : null}
       </View>
-      <ChevronRight size={18} color={AnimoColors.accentPrimary} />
-    </Pressable>
+
+      <View style={styles.cardBody}>
+        <AnimoText variant="bodyStrong" numberOfLines={2} style={styles.cardName}>
+          {name}
+        </AnimoText>
+        {variety ? (
+          <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={1}>
+            {variety}
+          </AnimoText>
+        ) : null}
+        <AnimoText variant="priceV2" color={soldOut ? AnimoV2Colors.textDisabled : AnimoV2Colors.textBrand} numberOfLines={1}>
+          {listing.pricePerKg !== null ? `${formatPeso(listing.pricePerKg)}${t('aniV2.perKg')}` : '—'}
+        </AnimoText>
+        <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={1}>
+          {t('aniV2.kgLeft', { n: listing.remainingQuantityKg.toLocaleString('en-PH') })}
+        </AnimoText>
+        {reasons.length > 0 ? (
+          <View style={styles.pillRow}>
+            {reasons.map((reason) => (
+              <StatusPill key={reason} tone="success" label={reason} />
+            ))}
+          </View>
+        ) : null}
+      </View>
+    </DepthCard>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: AnimoColors.background,
-  },
-  flex: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: AnimoSpacing.lg,
-    paddingBottom: AnimoSpacing.xxl,
-    gap: AnimoSpacing.xl,
-  },
+  screen: { flex: 1, backgroundColor: AnimoV2Colors.surfaceApp },
+  flex: { flex: 1 },
+  scrollContent: { paddingBottom: AnimoV2Spacing.xxl },
   hero: {
-    gap: AnimoSpacing.xs,
+    backgroundColor: AnimoV2Colors.surfaceBrand,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingBottom: AnimoV2Spacing.xl,
+    borderBottomLeftRadius: AnimoV2Radius.xl,
+    borderBottomRightRadius: AnimoV2Radius.xl,
+    gap: AnimoV2Spacing.lg,
+    overflow: 'hidden',
   },
-  marketInsightCard: {
-    backgroundColor: AnimoColors.green,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.md,
-    gap: AnimoSpacing.md,
-  },
-  marketInsightTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  marketInsightTopLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.sm,
-  },
-  trendingBadge: {
-    backgroundColor: TrendingOrange,
-    borderRadius: AnimoRadius.pill,
-    paddingHorizontal: AnimoSpacing.sm,
-    paddingVertical: AnimoSpacing.xs,
-  },
-  trendingBadgeText: {
-    letterSpacing: 0.5,
-    fontFamily: 'PlusJakartaSans_700Bold',
-  },
-  marketInsightInner: {
-    flexDirection: 'column',
-    gap: AnimoSpacing.sm,
-  },
-  insightBox: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    gap: 4,
-  },
-  insightBoxHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  priceRowHighlight: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-    marginTop: 2,
-  },
-  insightPriceValue: {
-    fontSize: 24,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    lineHeight: 28,
-  },
-  insightVarietyValueLarge: {
-    fontSize: 18,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    lineHeight: 24,
-    marginTop: 2,
-  },
-  hybridBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: AnimoRadius.pill,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    marginTop: 2,
-  },
-  perKgText: {
-    fontSize: 14,
-    color: AnimoColors.textMediumEmphasis,
-  },
-  trendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  actions: {
-    gap: AnimoSpacing.md,
-  },
-  action: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AnimoSpacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(46, 125, 50, 0.2)',
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.md,
-    backgroundColor: AnimoColors.greenTint,
-  },
-  pressed: {
-    opacity: 0.9,
-  },
-  actionIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: AnimoColors.white,
+  greetingRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  bell: {
+    width: AnimoV2Size.iconButton,
+    height: AnimoV2Size.iconButton,
+    borderRadius: AnimoV2Radius.full,
+    backgroundColor: AnimoV2Colors.surfaceCard,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
-  varietiesSection: {
-    gap: AnimoSpacing.md,
+  bellDot: {
+    position: 'absolute',
+    top: 8,
+    right: 10,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: AnimoV2Colors.dangerSolid,
+    borderWidth: 2,
+    borderColor: AnimoV2Colors.surfaceCard,
   },
-  recommendationsSection: {
-    gap: AnimoSpacing.md,
-  },
-  sectionHeader: {
+  searchButton: {
+    height: AnimoV2Size.controlHeight,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: AnimoV2Spacing.md,
+    paddingHorizontal: AnimoV2Spacing.lg,
+    borderRadius: AnimoV2Radius.md,
+    backgroundColor: AnimoV2Colors.surfaceCard,
   },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  body: {
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.xl,
+    gap: AnimoV2Spacing.xl,
   },
-  seeAllButton: {
-    // flexDirection: 'row',
-    // alignItems: 'center',
-    // gap: 2,
-    // paddingVertical: 4,
-    // paddingHorizontal: 8,
-    // borderRadius: AnimoRadius.sm,
-    // backgroundColor: AnimoColors.greenTint,
+  insightCard: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
+  insightHeader: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  insightRow: { flexDirection: 'row', gap: AnimoV2Spacing.md },
+  insightCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: AnimoV2Spacing.xs,
+    padding: AnimoV2Spacing.md,
+    borderRadius: AnimoV2Radius.lg,
+    borderWidth: 2,
+    borderColor: AnimoV2Colors.actionPrimary,
+    backgroundColor: AnimoV2Colors.surfaceBrandSubtle,
   },
-  varietiesCarousel: {
-    gap: AnimoSpacing.md,
-    paddingRight: AnimoSpacing.md,
+  insightFoot: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.sm },
+  section: { gap: AnimoV2Spacing.md },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AnimoV2Spacing.md },
+  seeAll: { width: 112 },
+  /** Lets a horizontal list scroll edge to edge while the page keeps its side padding. */
+  bleed: { marginHorizontal: -AnimoV2Spacing.lg },
+  horizontalList: {
+    paddingHorizontal: AnimoV2Spacing.lg,
+    paddingBottom: AnimoV2Spacing.xs,
+    gap: AnimoV2Spacing.md,
+    alignItems: 'flex-start',
   },
-  varietyCard: {
-    width: 190,
-    backgroundColor: AnimoColors.white,
-    borderRadius: AnimoRadius.lg,
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    padding: AnimoSpacing.md,
-    gap: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  varietyIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: AnimoColors.accentPrimaryLight,
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: AnimoV2Spacing.xs },
+  masonryRow: { flexDirection: 'row', gap: AnimoV2Spacing.sm, alignItems: 'flex-start' },
+  masonryColumn: { flex: 1, gap: AnimoV2Spacing.sm },
+  cardWrapper: { width: '100%' },
+  card: { padding: 0 },
+  photoArea: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: AnimoV2Colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
+    overflow: 'hidden',
   },
-  varietyName: {
-    fontSize: 15,
-    lineHeight: 20,
-    fontFamily: 'PlusJakartaSans_700Bold',
+  photoAreaHorizontal: { aspectRatio: 4 / 3 },
+  photoAreaWide: { aspectRatio: 2 },
+  photoImage: { ...StyleSheet.absoluteFillObject },
+  moistureTag: {
+    position: 'absolute',
+    left: AnimoV2Spacing.sm,
+    bottom: AnimoV2Spacing.sm,
+    backgroundColor: AnimoV2Colors.surfaceCard,
+    paddingHorizontal: AnimoV2Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: AnimoV2Radius.full,
   },
-  varietyTagBadge: {
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: AnimoRadius.pill,
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#DCFCE7',
-  },
-  varietyTagText: {
-    fontSize: 11,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-  },
-  hybridPill: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: AnimoRadius.pill,
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-  },
-  hybridPillText: {
-    fontSize: 10,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-  },
-  varietyPriceBlock: {
-    marginTop: 4,
-    paddingTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    gap: 2,
-  },
-  varietyPriceRow: {
+  matchTag: {
+    position: 'absolute',
+    top: AnimoV2Spacing.sm,
+    left: AnimoV2Spacing.sm,
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 3,
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: AnimoV2Colors.actionPrimary,
+    paddingHorizontal: AnimoV2Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: AnimoV2Radius.full,
   },
-  varietyPriceLarge: {
-    fontSize: 19,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    lineHeight: 22,
-  },
-  varietyPerKgText: {
-    fontSize: 12.5,
-    color: AnimoColors.textMediumEmphasis,
-  },
-  featured: {
+  cardBody: { padding: AnimoV2Spacing.md, gap: AnimoV2Spacing.xs },
+  cardName: { minHeight: 24 },
+  fairCard: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: AnimoSpacing.md,
-  },
-  featuredItem: {
-    width: '47%',
+    alignItems: 'center',
+    gap: AnimoV2Spacing.md,
+    padding: AnimoV2Spacing.lg,
   },
 });

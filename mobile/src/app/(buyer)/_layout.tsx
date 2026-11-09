@@ -1,6 +1,7 @@
 import { Redirect, Tabs, useFocusEffect } from 'expo-router';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
+import { Home, Receipt, ShoppingBasket, User } from 'lucide-react-native';
 import { View } from 'react-native';
 
 import { AnimoTabBar, type TabItem } from '@/components/animo/animo-tab-bar';
@@ -12,17 +13,18 @@ import { fetchBuyerPurchaseOutcomes } from '@/services/transaction-service';
 import { deriveDisplayStage, isBuyerNeedsActionStage } from '@/types/transaction';
 
 /** Bottom navigation for the buyer (Mamimili) module. */
-const BUYER_TAB_DEFS: Omit<TabItem, 'showBadge'>[] = [
-  { name: 'index', label: 'Tahanan', labelKey: 'tab.home', icon: { outline: 'home-outline', filled: 'home' } },
+const BUYER_TAB_DEFS: Omit<TabItem, 'showBadge' | 'badgeCount'>[] = [
+  { name: 'index', label: 'Tahanan', labelKey: 'tab.home', icon: { outline: 'home-outline', filled: 'home' }, lucide: Home },
   {
     name: 'palengke',
     label: 'Palengke',
     labelKey: 'tab.market',
     icon: { outline: 'bag-handle-outline', filled: 'bag-handle' },
+    lucide: ShoppingBasket,
     rootScreen: 'index',
   },
-  { name: 'transaksyon', label: 'Transaksyon', labelKey: 'tab.transactions', icon: { outline: 'receipt-outline', filled: 'receipt' } },
-  { name: 'profile', label: 'Profile', labelKey: 'tab.profile', icon: { outline: 'person-outline', filled: 'person' } },
+  { name: 'transaksyon', label: 'Transaksyon', labelKey: 'tab.transactions', icon: { outline: 'receipt-outline', filled: 'receipt' }, lucide: Receipt },
+  { name: 'profile', label: 'Profile', labelKey: 'tab.profile', icon: { outline: 'person-outline', filled: 'person' }, lucide: User },
 ];
 
 /**

@@ -3,9 +3,10 @@ import { type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AnimoText } from '@/components/animo/animo-text';
-import { StatusBadge, type BadgeTone } from '@/components/animo/status-badge';
-import { AnimoColors, AnimoRadius, AnimoSpacing } from '@/constants/animo';
+import { BuyerStagePill } from '@/components/animo/buyer/txn-v2';
+import { AnimoV2Colors, AnimoV2Radius, AnimoV2Spacing } from '@/constants/animo';
 import { formatPeso } from '@/constants/marketplace';
+import { useLanguage } from '@/hooks/use-language';
 import {
   moistureLabel,
   purityLabel,
@@ -13,23 +14,24 @@ import {
   varietyLabel,
   type CropListing,
 } from '@/types/crop-listing';
-import { PAYMENT_MODE_LABELS, type PaymentMode } from '@/types/transaction';
+import type { DisplayStage } from '@/types/transaction';
 
-const SUMMARY_GREEN = '#1B6B32';
-const SUMMARY_LIME = '#D6F07A';
-const SUMMARY_MUTED = 'rgba(255,255,255,0.82)';
+const ICON_SIZE = 20;
 
-export function TransactionStatusRow({ label, tone }: { label: string; tone: BadgeTone }) {
+/** "Status" label with the v2 stage pill (icon + label, never color only). */
+export function TransactionStatusRow({ stage, label }: { stage: DisplayStage; label: string }) {
+  const { t } = useLanguage();
   return (
     <View style={styles.statusRow}>
-      <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-        Status:
+      <AnimoText variant="bodyStrong" color={AnimoV2Colors.textSecondary}>
+        {t('buyTxV2.status')}
       </AnimoText>
-      <StatusBadge label={label} tone={tone} />
+      <BuyerStagePill stage={stage} label={label} />
     </View>
   );
 }
 
+/** Green price card: listing facts, locked Patas na Presyo and the total. */
 export function TransactionSummaryCard({
   listing,
   quantityKg,
@@ -47,10 +49,11 @@ export function TransactionSummaryCard({
 }) {
   const isTagalog = language === 'tl';
   const specificVariety = specificVarietyDisplay(listing, language);
+  const iconColor = AnimoV2Colors.brandLight;
   const rows: { key: string; icon: ReactNode; label: string; value: string }[] = [
     {
       key: 'variety',
-      icon: <Sprout size={16} color={SUMMARY_MUTED} />,
+      icon: <Sprout size={ICON_SIZE} color={iconColor} strokeWidth={2.5} />,
       label: isTagalog ? 'Uri ng palay' : 'Rice Variety',
       value: varietyLabel(listing, language),
     },
@@ -58,7 +61,7 @@ export function TransactionSummaryCard({
       ? [
           {
             key: 'specific',
-            icon: <Circle size={16} color={SUMMARY_MUTED} />,
+            icon: <Circle size={ICON_SIZE} color={iconColor} strokeWidth={2.5} />,
             label: isTagalog ? 'Tiyak na uri ng palay' : 'Specific Variety',
             value: specificVariety,
           },
@@ -66,219 +69,126 @@ export function TransactionSummaryCard({
       : []),
     {
       key: 'moisture',
-      icon: <Droplets size={16} color={SUMMARY_MUTED} />,
-      label: 'Moisture content',
+      icon: <Droplets size={ICON_SIZE} color={iconColor} strokeWidth={2.5} />,
+      label: 'Moisture',
       value: moistureLabel(listing.declaredMoisture, language),
     },
     {
       key: 'purity',
-      icon: <ShieldCheck size={16} color={SUMMARY_MUTED} />,
-      label: 'Purity grade',
+      icon: <ShieldCheck size={ICON_SIZE} color={iconColor} strokeWidth={2.5} />,
+      label: isTagalog ? 'Grado' : 'Grade',
       value: purityLabel(listing.declaredPurityGrade, language),
     },
     {
       key: 'weight',
-      icon: <Scale size={16} color={SUMMARY_MUTED} />,
-      label: 'Weight',
+      icon: <Scale size={ICON_SIZE} color={iconColor} strokeWidth={2.5} />,
+      label: isTagalog ? 'Timbang' : 'Weight',
       value: `${quantityKg} kg`,
     },
   ];
 
   return (
-    <View style={styles.summary}>
-      <View style={styles.summaryHeader}>
-        <AnimoText variant="h3" color={AnimoColors.white}>
-          {isTagalog ? 'Buod ng Bayad' : 'Payment Summary'}
-        </AnimoText>
-        {referenceId ? (
-          <AnimoText variant="caption" color={SUMMARY_MUTED}>
-            {referenceId}
+    <View style={styles.edge}>
+      <View style={styles.summary}>
+        <View style={styles.summaryHeader}>
+          <AnimoText variant="subheading" color={AnimoV2Colors.textOnBrand} style={styles.flex}>
+            {isTagalog ? 'Buod ng Bayad' : 'Payment Summary'}
           </AnimoText>
-        ) : null}
-      </View>
+          {referenceId ? (
+            <AnimoText variant="captionV2" color={AnimoV2Colors.brandLight}>
+              {referenceId}
+            </AnimoText>
+          ) : null}
+        </View>
 
-      {rows.map((row) => (
-        <View key={row.key} style={styles.summaryRow}>
-          <View style={styles.summaryLabel}>
-            {row.icon}
-            <AnimoText variant="body" color={AnimoColors.white} style={styles.summaryLabelText}>
-              {row.label}
+        {rows.map((row) => (
+          <View key={row.key} style={styles.summaryRow}>
+            <View style={styles.summaryLabel}>
+              {row.icon}
+              <AnimoText variant="bodyV2" color={AnimoV2Colors.textOnBrand} style={styles.flex}>
+                {row.label}
+              </AnimoText>
+            </View>
+            <AnimoText variant="bodyStrong" color={AnimoV2Colors.textOnBrand} style={styles.summaryValue}>
+              {row.value}
             </AnimoText>
           </View>
-          <AnimoText variant="bodyEmphasis" color={AnimoColors.white} style={styles.summaryValue}>
-            {row.value}
+        ))}
+
+        <View style={styles.summaryDivider} />
+
+        <View style={styles.summaryRow}>
+          <AnimoText variant="bodyV2" color={AnimoV2Colors.textOnBrand}>
+            {isTagalog ? 'Patas na Presyo' : 'Fair Price'}
+          </AnimoText>
+          <AnimoText variant="bodyStrong" color={AnimoV2Colors.textOnBrand}>
+            {formatPeso(pricePerKg)}/kg
           </AnimoText>
         </View>
-      ))}
-
-      <View style={styles.summaryDivider} />
-
-      <View style={styles.summaryRow}>
-        <AnimoText variant="body" color={AnimoColors.white}>
-          {isTagalog ? 'Patas na Presyo' : 'Fair Price'}
-        </AnimoText>
-        <AnimoText variant="bodyEmphasis" color={SUMMARY_LIME}>
-          {formatPeso(pricePerKg)}/kg
-        </AnimoText>
-      </View>
-      <View style={styles.summaryRow}>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.white}>
-          {isTagalog ? 'Kabuuang Halaga:' : 'Total Amount:'}
-        </AnimoText>
-        <AnimoText variant="price" color={SUMMARY_LIME}>
-          {formatPeso(totalAmount)}
-        </AnimoText>
-      </View>
-    </View>
-  );
-}
-
-/** Paid amount against the agreed total. A zero difference reads as a match. */
-export function AmountComparisonCard({
-  paidAmount,
-  agreedAmount,
-  isTagalog,
-}: {
-  paidAmount: number;
-  agreedAmount: number;
-  isTagalog: boolean;
-}) {
-  const difference = paidAmount - agreedAmount;
-  const isMatch = Math.abs(difference) < 0.01;
-
-  return (
-    <View style={styles.whiteCard}>
-      <AnimoText variant="caption" color={AnimoColors.muted}>
-        {isTagalog ? 'Halagang Binayaran' : 'Amount Paid'}
-      </AnimoText>
-      <AnimoText variant="h1" color={AnimoColors.green}>
-        {formatPeso(paidAmount)}
-      </AnimoText>
-      <View style={styles.whiteDivider} />
-      <View style={styles.summaryRow}>
-        <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-          {isTagalog ? 'Napagkasunduang Presyo' : 'Agreed Price'}
-        </AnimoText>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-          {formatPeso(agreedAmount)}
-        </AnimoText>
-      </View>
-      <View style={styles.summaryRow}>
-        <AnimoText variant="body" color={AnimoColors.blackSecondary}>
-          {isTagalog ? 'Pagkakaiba' : 'Difference'}
-        </AnimoText>
-        <AnimoText variant="bodyEmphasis" color={isMatch ? AnimoColors.green : AnimoColors.black}>
-          {isMatch
-            ? `₱0.00 (${isTagalog ? 'Tugma' : 'Match'})`
-            : formatPeso(Math.abs(difference))}
-        </AnimoText>
-      </View>
-    </View>
-  );
-}
-
-export function RecordedPaymentMethodCard({
-  mode,
-  reference,
-  isTagalog,
-}: {
-  mode: PaymentMode;
-  reference?: string | null;
-  isTagalog: boolean;
-}) {
-  return (
-    <View style={styles.whiteCard}>
-      <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-        {isTagalog ? 'Paraan ng pagbabayad' : 'Payment method'}
-      </AnimoText>
-      <View style={styles.methodBox}>
-        <AnimoText variant="bodyEmphasis" color={AnimoColors.black}>
-          {PAYMENT_MODE_LABELS[mode]}
-        </AnimoText>
-        {mode === 'GCash' && reference ? (
-          <AnimoText variant="caption" color={AnimoColors.muted}>
-            Ref: {reference}
+        <View style={styles.totalRow}>
+          <AnimoText variant="bodyStrong" color={AnimoV2Colors.textOnBrand}>
+            {isTagalog ? 'Kabuuang Halaga' : 'Total Amount'}
           </AnimoText>
-        ) : (
-          <AnimoText variant="caption" color={AnimoColors.muted}>
-            {mode === 'Cash'
-              ? isTagalog
-                ? 'Bayad na cash sa oras ng pickup'
-                : 'Paid in cash upon pickup'
-              : isTagalog
-                ? 'Bayad gamit ang GCash transfer'
-                : 'Paid via GCash transfer'}
+          <AnimoText variant="heading" color={AnimoV2Colors.textOnBrand}>
+            {formatPeso(totalAmount)}
           </AnimoText>
-        )}
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1, minWidth: 0 },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: AnimoSpacing.md,
+    gap: AnimoV2Spacing.md,
+  },
+  edge: {
+    borderRadius: AnimoV2Radius.xl,
+    backgroundColor: AnimoV2Colors.actionPrimaryDepth,
+    paddingBottom: 6,
   },
   summary: {
-    backgroundColor: SUMMARY_GREEN,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.sm,
+    backgroundColor: AnimoV2Colors.surfaceBrand,
+    borderRadius: AnimoV2Radius.xl,
+    padding: AnimoV2Spacing.lg,
+    gap: AnimoV2Spacing.md,
   },
   summaryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: AnimoSpacing.md,
-    marginBottom: AnimoSpacing.xs,
+    gap: AnimoV2Spacing.md,
   },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: AnimoSpacing.md,
+    gap: AnimoV2Spacing.md,
   },
   summaryLabel: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: AnimoSpacing.sm,
-  },
-  summaryLabelText: {
-    flex: 1,
+    gap: AnimoV2Spacing.sm,
   },
   summaryValue: {
     flexShrink: 1,
     textAlign: 'right',
-    maxWidth: '46%',
+    maxWidth: '50%',
   },
   summaryDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.28)',
-    marginVertical: AnimoSpacing.xs,
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: AnimoV2Colors.brandMid,
   },
-  whiteCard: {
-    borderWidth: 1,
-    borderColor: AnimoColors.border,
-    borderRadius: AnimoRadius.lg,
-    padding: AnimoSpacing.lg,
-    gap: AnimoSpacing.sm,
-    backgroundColor: AnimoColors.white,
-  },
-  whiteDivider: {
-    height: 1,
-    backgroundColor: AnimoColors.border,
-    marginVertical: AnimoSpacing.xs,
-  },
-  methodBox: {
-    borderWidth: 1,
-    borderColor: AnimoColors.green,
-    backgroundColor: AnimoColors.greenTint,
-    borderRadius: AnimoRadius.md,
-    padding: AnimoSpacing.md,
-    gap: 2,
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: AnimoV2Spacing.md,
   },
 });
