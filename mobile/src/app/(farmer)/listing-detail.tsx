@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, View, Pressable } from "react-native";
+import { ActivityIndicator, Keyboard, ScrollView, StyleSheet, View, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimoText } from "@/components/animo/animo-text";
@@ -38,6 +38,7 @@ import { AnimoV2Colors, AnimoV2Spacing } from "@/constants/animo";
 import { formatPeso } from "@/constants/marketplace";
 import { useLanguage } from "@/hooks/use-language";
 import type { TranslationKey } from "@/i18n/translations";
+import { sanitizeKg } from "@/lib/sanitize-kg";
 import {
   archiveCropListing,
   deleteCropListing,
@@ -209,6 +210,8 @@ export default function ListingDetailScreen() {
       request.requestedQuantityKg,
       listing?.remainingQuantityKg ?? request.requestedQuantityKg,
     );
+  /** Least that can be accepted: one step, or the whole cap when less than a step is left. */
+  const acceptMinFor = (cap: number) => Math.min(QUANTITY_STEP_KG, cap);
 
   const openAcceptModal = (request: PurchaseRequest) => {
     setStaleAcceptNotice(undefined);
@@ -224,6 +227,10 @@ export default function ListingDetailScreen() {
       setAcceptError(t("ordersV2.qtyInvalid"));
       return;
     }
+    // Out-of-range amounts are flagged under the stepper and keep the button off; this is a guard.
+    const cap = acceptCap(acceptingRequest);
+    if (quantity > cap || quantity < acceptMinFor(cap)) return;
+    Keyboard.dismiss();
     try {
       await acceptPurchaseRequest(acceptingRequest.id, quantity);
       const accepted = acceptingRequest;
@@ -340,7 +347,23 @@ export default function ListingDetailScreen() {
   const rejectCanSubmit = selectedReason !== null;
   const acceptValue = parseFloat(acceptQuantityText) || 0;
   const acceptMax = acceptingRequest ? acceptCap(acceptingRequest) : 0;
-  const acceptMin = Math.min(QUANTITY_STEP_KG, acceptMax);
+  const acceptMin = acceptMinFor(acceptMax);
+  // A typed amount can sit outside the allowed range (flagged below); a step always lands back inside.
+  const acceptOver = acceptValue > acceptMax;
+  const acceptUnder = acceptValue > 0 && acceptValue < acceptMin;
+  const acceptCanSubmit = acceptValue > 0 && !acceptOver && !acceptUnder;
+  const acceptRangeError = acceptOver
+    ? t("ordersV2.acceptOver", { kg: acceptMax })
+    : acceptUnder
+      ? t("ordersV2.acceptUnder", { kg: acceptMin })
+      : undefined;
+  const clampAccept = (kg: number) => Math.min(acceptMax, Math.max(acceptMin, kg));
+  // Only as many digits as the cap allows can be typed.
+  const acceptMaxDigits = String(Math.max(1, Math.floor(acceptMax))).length;
+  // Clearing the box and leaving it puts back what the dialog opened with: accept it all.
+  const finishAcceptTyping = () => {
+    if (!(acceptValue > 0)) setAcceptQuantityText(String(acceptMax));
+  };
 
   return (
     <View style={styles.screen}>
@@ -419,6 +442,7 @@ export default function ListingDetailScreen() {
       <V2Dialog
         visible={acceptingRequest !== null}
         onClose={() => setAcceptingRequest(null)}
+        avoidKeyboard
         icon={Check}
         iconTone="success"
         title={t("ordersV2.acceptTitle")}
@@ -429,7 +453,11 @@ export default function ListingDetailScreen() {
         }
         actions={
           <>
-            <ChunkyButton label={t("ordersV2.accept")} onPress={handleConfirmAccept} />
+            <ChunkyButton
+              label={t("ordersV2.accept")}
+              onPress={handleConfirmAccept}
+              disabled={!acceptCanSubmit}
+            />
             <ChunkyButton
               variant="secondary"
               label={t("detailV2.notNow")}
@@ -443,25 +471,29 @@ export default function ListingDetailScreen() {
           incrementLabel={t("ordersV2.increase")}
           decrementDisabled={acceptValue <= acceptMin}
           incrementDisabled={acceptValue >= acceptMax}
-          onDecrement={() =>
-            setAcceptQuantityText(
-              String(Math.max(acceptMin, acceptValue - QUANTITY_STEP_KG)),
-            )
-          }
-          onIncrement={() =>
-            setAcceptQuantityText(
-              String(Math.min(acceptMax, acceptValue + QUANTITY_STEP_KG)),
-            )
-          }
+          onDecrement={() => setAcceptQuantityText(String(clampAccept(acceptValue - QUANTITY_STEP_KG)))}
+          onIncrement={() => setAcceptQuantityText(String(clampAccept(acceptValue + QUANTITY_STEP_KG)))}
+          editable
+          inputValue={acceptQuantityText}
+          onChangeText={(text) => {
+            setAcceptQuantityText(sanitizeKg(text));
+            setAcceptError(undefined);
+          }}
+          onEndEditing={finishAcceptTyping}
+          inputLabel={t("ordersV2.quantityInput")}
+          maxLength={acceptMaxDigits}
         />
+        <AnimoText variant="captionV2" color={AnimoV2Colors.textTertiary} style={styles.centerText}>
+          {t("ordersV2.typeHint")}
+        </AnimoText>
         <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
           {t("ordersV2.acceptTotal", {
             amount: formatPeso(acceptValue * (listing.pricePerKg ?? 0)),
           })}
         </AnimoText>
-        {acceptError ? (
+        {acceptRangeError || acceptError ? (
           <AnimoText variant="bodyStrong" color={AnimoV2Colors.dangerFg} style={styles.centerText}>
-            {acceptError}
+            {acceptRangeError ?? acceptError}
           </AnimoText>
         ) : null}
       </V2Dialog>

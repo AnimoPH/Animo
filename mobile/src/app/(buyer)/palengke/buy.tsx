@@ -30,19 +30,12 @@ import { fetchMarketplaceListing } from '@/services/marketplace-service';
 import { useLanguage } from '@/hooks/use-language';
 import { useSession } from '@/hooks/use-session';
 import { isOnlineNow, isSignalError, newRequestId, savePurchaseRequestOffline } from '@/lib/outbox/enqueue-actions';
+import { sanitizeKg } from '@/lib/sanitize-kg';
 import { minimumPurchaseKg, varietyLabel, type CropListing } from '@/types/crop-listing';
 import type { PurchaseRequest } from '@/types/purchase-request';
 
 /** Size of one stepper tap, in kg (DESIGN_SPEC section 6b). */
 const STEP_KG = 50;
-
-/**
- * Typed quantities are whole kilograms: keep digits only and drop a fractional part. (The "Lahat"
- * chip can still fill in an exact fractional remainder; editing that value drops the fraction.)
- */
-function sanitizeKg(text: string): string {
-  return text.replace(/,/g, '').split('.')[0].replace(/\D/g, '').replace(/^0+(?=\d)/, '');
-}
 
 function NoteCard({
   icon,
