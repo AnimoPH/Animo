@@ -6,13 +6,13 @@ import {
   ChevronRight,
   Clock,
   CloudRain,
+  MapPin,
   Sprout,
   Sun,
   Wheat,
-  User,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -30,6 +30,7 @@ import { IconTile } from '@/components/animo/ui/icon-tile';
 import { Mascot } from '@/components/animo/ui/mascot';
 import { ProgressBar } from '@/components/animo/ui/progress-bar';
 import { SeeAllLink } from '@/components/animo/ui/see-all-link';
+import { StatusPill } from '@/components/animo/ui/status-pill';
 import {
   AnimoV2Colors,
   AnimoV2Radius,
@@ -55,6 +56,7 @@ import {
   type FarmerHomeStats,
 } from '@/services/farmer-home-service';
 import { fetchUnreadNotificationCount } from '@/services/notification-service';
+import { getDisplayStageLabel, isFarmerNeedsActionStage } from '@/types/transaction';
 import type { TranslationKey } from '@/i18n/translations';
 
 const EMPTY_STATS: FarmerHomeStats = {
@@ -93,7 +95,7 @@ const ADVISORY_STYLE: Record<
 
 /** Tahanan: farmer home with the greeting hero, Payo sa Bukid, sell CTA and recent activity. */
 export default function FarmerHomeScreen() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { account } = useSession();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ startTour?: string }>();
@@ -203,10 +205,19 @@ export default function FarmerHomeScreen() {
   ];
 
   const fullName = account?.fullName?.trim() || t('role.farmer');
+  /** Greet with the first name only — the full name overflowed the header and truncated. */
+  const firstName = fullName.split(/\s+/)[0] || fullName;
   const namedBarangay = barangayLabel(account?.barangay);
   const location = namedBarangay
     ? `${namedBarangay.startsWith('Brgy.') ? namedBarangay : `Brgy. ${namedBarangay}`}, Antipolo`
     : 'Antipolo, Rizal';
+  /**
+   * One alarm at a time: when the advisory itself is amber/orange, activity rows that need action
+   * drop their warm frame so two different warm signals aren't competing side by side.
+   */
+  const advisoryIsWarm =
+    currentAdvisory?.kind === 'active' &&
+    ADVISORY_STYLE[currentAdvisory.advisory.recommendedAction].tone !== 'success';
 
   return (
     <View style={styles.screen}>
@@ -223,11 +234,18 @@ export default function FarmerHomeScreen() {
             <Mascot size={52} tile={false} />
             <View style={styles.flex}>
               <AnimoText variant="title" color={AnimoV2Colors.textOnBrand} numberOfLines={1} accessibilityRole="header">
-                {t('home.greeting', { name: fullName })}
+                {t('home.greeting', { name: firstName })}
               </AnimoText>
-              <AnimoText variant="captionV2" color={AnimoV2Colors.textOnBrand} numberOfLines={1}>
-                {location}
-              </AnimoText>
+              <View style={styles.locationRow}>
+                <MapPin size={14} color={AnimoV2Colors.brandLight} strokeWidth={2.75} />
+                <AnimoText
+                  variant="captionV2"
+                  color={AnimoV2Colors.brandLight}
+                  numberOfLines={1}
+                  style={styles.flex}>
+                  {location}
+                </AnimoText>
+              </View>
             </View>
             <View ref={bellRef} collapsable={false}>
               <Pressable
@@ -247,62 +265,60 @@ export default function FarmerHomeScreen() {
         <View style={styles.body}>
           <SuspensionNotice />
 
-          <View ref={advisoryRef} collapsable={false}>
-            {currentAdvisory?.kind === 'active' ? (
-              <AdvisoryCard
-                advisory={currentAdvisory.advisory}
-                onPress={() => router.push('/(farmer)/advisory')}
-              />
-            ) : currentAdvisory?.kind === 'awaiting_advisory' ? (
-              <InfoAdvisoryCard
-                icon={Clock}
-                title={t('home.advisory.pendingTitle')}
-                body={t('home.advisory.pendingDesc')}
-                onPress={() => router.push('/(farmer)/advisory')}
-              />
-            ) : (
-              <InfoAdvisoryCard
-                icon={CloudRain}
-                title={t('home.advisory.emptyTitle')}
-                body={t('home.advisory.emptyDesc')}
-                actionLabel={t('home.advisory.emptyCta')}
-                onPress={() => router.push('/(farmer)/itala-taniman' as Href)}
-              />
-            )}
-          </View>
-
-          <View ref={ctaRef} collapsable={false}>
-            <DepthCard
-              depth="flat"
-              backgroundColor={AnimoV2Colors.surfaceBrandSubtle}
-              borderColor={AnimoV2Colors.actionPrimary}
-              style={styles.ctaCard}>
-              <View style={styles.ctaTop}>
-                <IconTile icon={Wheat} tone="success" size={72} solid shape="rounded" />
-                <View style={styles.flex}>
-                  <AnimoText variant="heading">{t('home.ctaHeading')}</AnimoText>
-                  <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
-                    {t('home.ctaBody')}
-                  </AnimoText>
-                </View>
-              </View>
-              <ChunkyButton
-                label={t('farmer.sellCtaTitle')}
-                onPress={() => router.push('/(farmer)/(tabs)/palengke')}
-              />
-            </DepthCard>
-          </View>
-
-          <View style={styles.activitySection}>
-            <View style={styles.activityHeader}>
-              <AnimoText variant="heading" accessibilityRole="header">
-                {t('farmer.activities')}
-              </AnimoText>
-              <SeeAllLink
-                label={t('farmer.activitiesView')}
-                onPress={() => router.push('/(farmer)/(tabs)/transaksyon')}
-              />
+          <View style={styles.section}>
+            <SectionHeading title={t('farmer.advisoryTitle')} />
+            <View ref={advisoryRef} collapsable={false}>
+              {currentAdvisory?.kind === 'active' ? (
+                <AdvisoryCard
+                  advisory={currentAdvisory.advisory}
+                  onPress={() => router.push('/(farmer)/advisory')}
+                />
+              ) : currentAdvisory?.kind === 'awaiting_advisory' ? (
+                <InfoAdvisoryCard
+                  icon={Clock}
+                  title={t('home.advisory.pendingTitle')}
+                  body={t('home.advisory.pendingDesc')}
+                  onPress={() => router.push('/(farmer)/advisory')}
+                />
+              ) : (
+                <InfoAdvisoryCard
+                  icon={CloudRain}
+                  title={t('home.advisory.emptyTitle')}
+                  body={t('home.advisory.emptyDesc')}
+                  actionLabel={t('home.advisory.emptyCta')}
+                  onPress={() => router.push('/(farmer)/itala-taniman' as Href)}
+                />
+              )}
             </View>
+          </View>
+
+          {/* Sell prompt: a line of copy and the one solid-green button, no card of its own. */}
+          <View ref={ctaRef} collapsable={false} style={styles.ctaSection}>
+            <View style={styles.ctaCopy}>
+              <AnimoText variant="bodyStrong">{t('home.ctaHeading')}</AnimoText>
+              <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary}>
+                {t('home.ctaBody')}
+              </AnimoText>
+            </View>
+            <ChunkyButton
+              label={t('farmer.sellCtaTitle')}
+              icon={Wheat}
+              onPress={() => router.push('/(farmer)/(tabs)/palengke')}
+            />
+          </View>
+
+          <View style={styles.section}>
+            <SectionHeading
+              title={t('farmer.activities')}
+              action={
+                activities.length > 0 ? (
+                  <SeeAllLink
+                    label={t('farmer.activitiesView')}
+                    onPress={() => router.push('/(farmer)/(tabs)/transaksyon')}
+                  />
+                ) : null
+              }
+            />
 
             {loading ? (
               <View style={styles.activityLoading}>
@@ -313,13 +329,20 @@ export default function FarmerHomeScreen() {
                 {error}
               </AnimoText>
             ) : activities.length === 0 ? (
-              <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
-                {t('farmer.noActivities')}
-              </AnimoText>
+              <View style={styles.emptyBlock}>
+                <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+                  {t('farmer.noActivities')}
+                </AnimoText>
+              </View>
             ) : (
               <View style={styles.activityList}>
                 {activities.slice(0, ACTIVITY_LIMIT).map((activity, index) => (
-                  <ActivityRow key={`${activity.id}-${index}`} activity={activity} />
+                  <ActivityRow
+                    key={`${activity.id}-${index}`}
+                    activity={activity}
+                    lang={language}
+                    softenAlert={advisoryIsWarm}
+                  />
                 ))}
               </View>
             )}
@@ -355,6 +378,26 @@ export default function FarmerHomeScreen() {
   );
 }
 
+/** Section label, and its optional trailing link. Shared by Payo sa Bukid and Mga Aktibidad. */
+function SectionHeading({ title, action }: { title: string; action?: ReactNode }) {
+  return (
+    <View style={styles.sectionHeading}>
+      <AnimoText variant="heading" accessibilityRole="header" style={styles.flex}>
+        {title}
+      </AnimoText>
+      {action}
+    </View>
+  );
+}
+
+/** First and last initial, for the activity avatar. */
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
+  return `${parts[0][0]}${last}`.toUpperCase();
+}
+
 /** Active Payo sa Bukid card: tinted bg, 2px colored border, 64px solid icon tile, ripeness bar. */
 function AdvisoryCard({ advisory, onPress }: { advisory: CurrentAdvisory; onPress: () => void }) {
   const { t } = useLanguage();
@@ -368,14 +411,13 @@ function AdvisoryCard({ advisory, onPress }: { advisory: CurrentAdvisory; onPres
       accessibilityLabel={`${t('home.advisory.open')} ${t(style.titleKey)}`}
       onPress={onPress}
       style={[styles.advisoryCard, { backgroundColor: tone.bg, borderColor: tone.solid }]}>
+      {/* The title carries the state's own text color (never the bright solid): that colored
+          title plus the tinted field is what makes an amber/orange advisory read at a glance. */}
       <View style={styles.advisoryTop}>
         <IconTile icon={style.icon} tone={style.tone} size={64} solid shape="rounded" />
-        <View style={styles.flex}>
-          <AnimoText variant="tagV2" color={tone.fg}>
-            {t('farmer.advisoryTitle')}
-          </AnimoText>
-          <AnimoText variant="heading">{t(style.titleKey)}</AnimoText>
-        </View>
+        <AnimoText variant="heading" color={tone.fg} style={styles.flex}>
+          {t(style.titleKey)}
+        </AnimoText>
         <ChevronRight size={24} color={tone.fg} strokeWidth={2.75} />
       </View>
       <EmphasisText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
@@ -410,21 +452,48 @@ function InfoAdvisoryCard({
   actionLabel?: string;
   onPress: () => void;
 }) {
+  // Same slot and same left-aligned structure as the active card, so the advisory never jumps
+  // between layouts. The dashed edge reads as "nothing here yet" without adding another color.
   return (
-    <DepthCard onPress={onPress} accessibilityLabel={title} style={styles.infoCard}>
-      <IconTile icon={icon} tone="success" size={64} shape="rounded" />
-      <AnimoText variant="subheading" style={styles.centerText}>
-        {title}
-      </AnimoText>
-      <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary} style={styles.centerText}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      onPress={onPress}
+      style={styles.advisoryEmptyCard}>
+      <View style={styles.advisoryTop}>
+        <IconTile icon={icon} tone="neutral" size={64} shape="rounded" />
+        <AnimoText variant="heading" style={styles.flex}>
+          {title}
+        </AnimoText>
+        {/* Chevron only when there is no button: one affordance per action. */}
+        {actionLabel ? null : (
+          <ChevronRight size={24} color={AnimoV2Colors.textTertiary} strokeWidth={2.75} />
+        )}
+      </View>
+      <AnimoText variant="bodyV2" color={AnimoV2Colors.textSecondary}>
         {body}
       </AnimoText>
-      {actionLabel ? <ChunkyButton label={actionLabel} onPress={onPress} style={styles.fullWidth} /> : null}
-    </DepthCard>
+      {actionLabel ? (
+        <ChunkyButton variant="secondary" label={actionLabel} onPress={onPress} style={styles.fullWidth} />
+      ) : null}
+    </Pressable>
   );
 }
 
-function ActivityRow({ activity }: { activity: FarmerHomeActivity }) {
+function ActivityRow({
+  activity,
+  lang,
+  softenAlert,
+}: {
+  activity: FarmerHomeActivity;
+  lang: 'tl' | 'en';
+  /** Drop the warm frame: the advisory above is already carrying a warm state. */
+  softenAlert: boolean;
+}) {
+  const stageLabel = getDisplayStageLabel(activity.stage, lang);
+  const needsAction = isFarmerNeedsActionStage(activity.stage);
+  const framed = needsAction && !softenAlert;
+
   const handlePress = () => {
     if (activity.stage === 'request_pending') {
       router.push({
@@ -441,20 +510,30 @@ function ActivityRow({ activity }: { activity: FarmerHomeActivity }) {
       depth="flat"
       radius="lg"
       onPress={handlePress}
-      accessibilityLabel={`${activity.buyer}, ${activity.variety}, ${activity.weight}, ${activity.amount}`}
+      borderColor={framed ? AnimoV2Colors.warningSolid : AnimoV2Colors.borderDefault}
+      accessibilityLabel={`${activity.buyer}, ${activity.variety}, ${activity.weight}, ${activity.amount}, ${stageLabel}`}
       style={styles.activityRow}>
-      <IconTile icon={User} tone="success" />
-      <View style={styles.flex}>
-        <AnimoText variant="bodyStrong" numberOfLines={1}>
-          {activity.buyer}
-        </AnimoText>
-        <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={1}>
-          {activity.variety} · {activity.weight}
+      <View style={styles.activityAvatar}>
+        <AnimoText variant="bodyStrong" color={AnimoV2Colors.textSecondary}>
+          {initials(activity.buyer)}
         </AnimoText>
       </View>
-      <AnimoText variant="priceV2" color={AnimoV2Colors.textBrand}>
-        {activity.amount}
-      </AnimoText>
+      <View style={styles.activityBody}>
+        <View style={styles.activityTopRow}>
+          <AnimoText variant="bodyStrong" numberOfLines={1} style={styles.flex}>
+            {activity.buyer}
+          </AnimoText>
+          <AnimoText variant="priceV2" color={AnimoV2Colors.textBrand}>
+            {activity.amount}
+          </AnimoText>
+        </View>
+        <AnimoText variant="captionV2" color={AnimoV2Colors.textSecondary} numberOfLines={1}>
+          {activity.variety} · {activity.weight}
+          {needsAction ? '' : ` · ${stageLabel}`}
+        </AnimoText>
+        {/* A row that needs the farmer grows a pill, so it is taller than a settled one. */}
+        {needsAction ? <StatusPill tone="warning" label={stageLabel} /> : null}
+      </View>
     </DepthCard>
   );
 }
@@ -468,13 +547,13 @@ const styles = StyleSheet.create({
   hero: {
     backgroundColor: AnimoV2Colors.surfaceBrand,
     paddingHorizontal: AnimoV2Spacing.lg,
-    paddingBottom: AnimoV2Spacing.xl,
+    paddingBottom: AnimoV2Spacing.lg,
     borderBottomLeftRadius: AnimoV2Radius.xl,
     borderBottomRightRadius: AnimoV2Radius.xl,
-    gap: AnimoV2Spacing.lg,
     overflow: 'hidden',
   },
   greetingRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.xs },
   bell: {
     width: AnimoV2Size.iconButton,
     height: AnimoV2Size.iconButton,
@@ -496,8 +575,15 @@ const styles = StyleSheet.create({
   },
   body: {
     paddingHorizontal: AnimoV2Spacing.lg,
-    paddingTop: AnimoV2Spacing.xl,
-    gap: AnimoV2Spacing.lg,
+    paddingTop: AnimoV2Spacing.lg,
+    gap: AnimoV2Spacing.xl,
+  },
+  section: { gap: AnimoV2Spacing.md },
+  sectionHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: AnimoV2Spacing.md,
   },
   advisoryCard: {
     borderRadius: AnimoV2Radius.xl,
@@ -508,15 +594,26 @@ const styles = StyleSheet.create({
   advisoryTop: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
   advisoryMeter: { gap: AnimoV2Spacing.xs },
   advisoryMeterLabels: { flexDirection: 'row', justifyContent: 'space-between', gap: AnimoV2Spacing.sm },
-  infoCard: {
-    padding: AnimoV2Spacing.xl,
-    alignItems: 'center',
+  /** Advisory placeholder: same shape as the active card, dashed so it reads as an unfilled slot. */
+  advisoryEmptyCard: {
+    borderRadius: AnimoV2Radius.xl,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: AnimoV2Colors.borderDefault,
+    backgroundColor: AnimoV2Colors.surfaceCard,
+    padding: AnimoV2Spacing.lg,
     gap: AnimoV2Spacing.md,
   },
-  ctaCard: { padding: AnimoV2Spacing.lg, gap: AnimoV2Spacing.md },
-  ctaTop: { flexDirection: 'row', alignItems: 'center', gap: AnimoV2Spacing.md },
-  activitySection: { gap: AnimoV2Spacing.md },
-  activityHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  emptyBlock: {
+    borderRadius: AnimoV2Radius.xl,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: AnimoV2Colors.borderDefault,
+    paddingVertical: AnimoV2Spacing.xl,
+    paddingHorizontal: AnimoV2Spacing.lg,
+  },
+  ctaSection: { gap: AnimoV2Spacing.md },
+  ctaCopy: { gap: 2 },
   activityLoading: { alignItems: 'center', paddingVertical: AnimoV2Spacing.lg },
   activityList: { gap: AnimoV2Spacing.md },
   activityRow: {
@@ -524,5 +621,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: AnimoV2Spacing.md,
     padding: AnimoV2Spacing.md,
+  },
+  activityAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: AnimoV2Radius.full,
+    backgroundColor: AnimoV2Colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityBody: { flex: 1, minWidth: 0, gap: AnimoV2Spacing.xs, alignItems: 'flex-start' },
+  activityTopRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: AnimoV2Spacing.sm,
+    alignSelf: 'stretch',
   },
 });
