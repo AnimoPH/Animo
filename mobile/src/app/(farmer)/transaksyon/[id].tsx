@@ -190,7 +190,10 @@ export default function FarmerTransactionDetailScreen() {
 
   const outcome: PurchaseOutcome = { kind: 'matched', request, transaction };
   const stage = deriveDisplayStage(outcome);
-  const canCancel = transaction.status === 'Pending_Payment';
+  // Cancelling stops the moment the buyer marks the payment as sent. 'Payment sent' is not a
+  // status of its own - the row stays Pending_Payment and only the payment's buyerConfirmedAt
+  // is set - so testing the status alone cannot tell 'not paid yet' from 'says they paid'.
+  const canCancel = stage === 'awaiting_payment';
   const steps: TimelineStep[] = buildProgressSteps(outcome, 'farmer', language).map((step) => ({
     key: step.key,
     label: t(STEP_LABEL_KEY[step.key]),
@@ -593,12 +596,7 @@ function FooterActions({
   ) : null;
 
   if (stage === 'payment_sent') {
-    return (
-      <>
-        <ChunkyButton label={t('ftx.confirmPaymentBtn')} icon={Check} onPress={onConfirmPayment} />
-        {cancelButton}
-      </>
-    );
+    return <ChunkyButton label={t('ftx.confirmPaymentBtn')} icon={Check} onPress={onConfirmPayment} />;
   }
 
   if (stage === 'awaiting_payment') {
